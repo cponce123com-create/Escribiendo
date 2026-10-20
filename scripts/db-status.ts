@@ -34,11 +34,97 @@ function warn(message: string): void {
   process.stdout.write(`! ${message}\n`);
 }
 
-function targetName(url: string): string {
+interface ConnectionTarget {
+  host: string;
+  database: string;
+  user: string;
+  search: URLSearchParams;
+}
+
+function parseTarget(url: string): ConnectionTarget | null {
   try {
-    return new URL(url).pathname.replace(/^\//u, "");
+    const parsed = new URL(url);
+
+    return {
+      // El host del pooler de Neon lleva el sufijo «-pooler». Se elimina
+      // para comparar el endpoint real, que es el mismo en ambas URLs.
+      host: parsed.hostname.replace(/-pooler(?=\.|$)/u, ""),
+      database: parsed.pathname.replace(/^\//u, ""),
+      user: parsed.username,
+      search: parsed.searchParams,
+    };
   } catch {
+    return null;
+  }
+}
+
+function targetName(url: string): string {
+  const target = parseTarget(url);
+
+  if (!target) {
     return "(desconocida)";
+  }
+
+  return `${target.host}/${target.database}`;
+}
+
+/**
+ * Comprueba que `DATABASE_URL` y `DIRECT_URL` apunten al mismo sitio.
+ *
+ * En Neon, el host incluye el identificador del endpoint, que codifica
+ * proyecto, rama y región. Si las dos URLs no coinciden, la migración se
+ * aplicaría a una base de datos distinta de la que usa la aplicación, y el
+ * síntoma sería exactamente «the table public.users does not exist».
+ */
+function checkUrlsAreConsistent(): void {
+  if (!DIRECT_URL) {
+    warn("DIRECT_URL no está definida: las migraciones usarán DATABASE_URL.");
+    return;
+  }
+
+  const app = parseTarget(DATABASE_URL);
+  const direct = parseTarget(DIRECT_URL);
+
+  if (!app || !direct) {
+    fail("DATABASE_URL o DIRECT_URL no son URLs de PostgreSQL válidas.");
+  }
+
+  if (app.host !== direct.host) {
+    fail(
+      "DATABASE_URL y DIRECT_URL apuntan a hosts distintos.\n" +
+        `  DATABASE_URL → ${app.host}\n` +
+        `  DIRECT_URL   → ${direct.host}\n` +
+        "  Deben ser el mismo proyecto, la misma rama y la misma región de Neon.",
+    );
+  }
+
+  if (app.database !== direct.database) {
+    fail(
+      "DATABASE_URL y DIRECT_URL apuntan a bases de datos distintas.\n" +
+        `  DATABASE_URL → ${app.database}\n` +
+        `  DIRECT_URL   → ${direct.database}`,
+    );
+  }
+
+  if (app.user !== direct.user) {
+    warn(
+      `DATABASE_URL y DIRECT_URL usan usuarios distintos (${app.user} y ${direct.user}). Comprueba que ambos son válidos.`,
+    );
+  }
+
+  ok("DATABASE_URL y DIRECT_URL apuntan al mismo endpoint de Neon.");
+
+  if (direct.search.get("pgbouncer") === "true") {
+    warn("DIRECT_URL incluye pgbouncer=true: la conexión directa no debe usar el pooler.");
+  }
+
+  for (const [name, target] of [
+    ["DATABASE_URL", app],
+    ["DIRECT_URL", direct],
+  ] as const) {
+    if (target.search.get("sslmode") !== "require") {
+      warn(`${name} no incluye sslmode=require. En Neon el TLS es obligatorio.`);
+    }
   }
 }
 
@@ -48,6 +134,8 @@ if (!DATABASE_URL) {
 
 ok(`Base de datos configurada: ${targetName(DATABASE_URL)}`);
 ok(`URL de migración: ${DIRECT_URL ? targetName(DIRECT_URL) : "(sin definir)"}`);
+
+checkUrlsAreConsistent();
 
 const { prisma } = await import("../packages/database/src/client");
 

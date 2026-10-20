@@ -25,6 +25,7 @@
     "db:format": "tsx scripts/prisma.ts format",
     "db:migrate": "tsx scripts/prisma.ts migrate deploy",
     "db:migrate:create": "tsx scripts/prisma.ts migrate dev",
+    "db:migrate:status": "tsx scripts/prisma.ts migrate status",
     "db:status": "tsx scripts/db-status.ts",
     "db:studio": "tsx scripts/prisma.ts studio",
     "admin:password-reset": "tsx scripts/admin-password-reset.ts"

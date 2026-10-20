@@ -27,7 +27,9 @@ Aplicar migraciones pendientes (producción, CI o local):
 
 ```bash
 pnpm db:validate
+pnpm db:migrate:status   # migraciones pendientes
 pnpm db:migrate
+pnpm db:status           # comprobación final
 ```
 
 `db:migrate` ejecuta `prisma migrate deploy`, que:
@@ -51,6 +53,15 @@ pnpm db:status
 Informa de si la base de datos responde, de cuántas tablas de la aplicación
 existen, de cuántas migraciones están aplicadas y de cuántas cuentas hay. Es el
 comando que hay que ejecutar **antes** de desplegar y **después** de migrar.
+
+Además, comprueba que `DATABASE_URL` y `DIRECT_URL` apuntan al mismo endpoint
+de Neon (proyecto, rama, región y base de datos). Si no coinciden, la
+migración se aplicaría a una base de datos distinta de la que usa la
+aplicación, y el síntoma sería exactamente «the table `public.users` does not
+exist». Es la causa más habitual de ese error.
+
+`pnpm db:migrate:status` es el comando oficial de Prisma para listar las
+migraciones pendientes y su estado respecto a la base de datos.
 
 Si la base responde pero no tiene las tablas, el motivo es que las migraciones
 no están aplicadas:

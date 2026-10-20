@@ -50,6 +50,7 @@ Desde tu equipo, con `.env` apuntando a Neon y `DIRECT_URL` correcta:
 pnpm install --frozen-lockfile
 pnpm db:status
 pnpm db:validate
+pnpm db:migrate:status
 pnpm db:migrate
 pnpm db:status
 ```
@@ -57,7 +58,11 @@ pnpm db:status
 `pnpm db:status` comprueba, sin modificar nada, si la base de datos responde y
 si tiene el esquema aplicado. **Ejecuta `pnpm db:migrate` antes de dar por
 bueno un despliegue**: sin migraciones aplicadas, la aplicación arranca pero
-todas las páginas que consultan la base de datos fallan.
+todas las páginas que consultan la base de datos fallan con `P2021`.
+
+`pnpm db:status` también comprueba que `DATABASE_URL` y `DIRECT_URL` apunten al
+mismo endpoint de Neon. Si no, la migración se aplicaría a una base de datos
+distinta de la que usa la aplicación.
 
 `pnpm db:migrate` ejecuta `prisma migrate deploy`. Aplica la migración inicial
 versionada, incluidas las constraints y el trigger de inmutabilidad.

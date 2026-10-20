@@ -171,6 +171,7 @@ ruta `/setup` deja de estar operativa en cuanto existe una cuenta.
 | `pnpm db:generate`                                | Genera Prisma Client                                 |
 | `pnpm db:migrate`                                 | Aplica migraciones (`migrate deploy`)                |
 | `pnpm db:migrate:create`                          | Crea una migración en desarrollo                     |
+| `pnpm db:migrate:status`                          | Muestra las migraciones pendientes                   |
 | `pnpm db:status`                                  | Comprueba conexión y migraciones (solo lectura)      |
 | `pnpm db:studio`                                  | Abre Prisma Studio                                   |
 | `pnpm admin:password-reset -- correo@ejemplo.com` | Emite un enlace de recuperación de un solo uso       |
