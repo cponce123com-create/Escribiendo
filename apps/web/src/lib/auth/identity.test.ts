@@ -11,6 +11,29 @@ describe("identity", () => {
     expect(passwordContainsIdentity("ana-2026-segura", "ana@ejemplo.com", "Ana")).toBe(false);
   });
 
+  it("detecta el nombre aunque la contraseña use otros separadores", () => {
+    expect(passwordContainsIdentity("Ana-Ruiz-Clave-2026", "correo@ejemplo.com", "Ana Ruiz")).toBe(
+      true,
+    );
+    expect(passwordContainsIdentity("ANARUIZclave2026", "correo@ejemplo.com", "Ana Ruiz")).toBe(
+      true,
+    );
+    expect(passwordContainsIdentity("ana ruiz clave 2026", "correo@ejemplo.com", "Ana Ruiz")).toBe(
+      true,
+    );
+  });
+
+  it("detecta el nombre con acentos en cualquiera de los dos lados", () => {
+    expect(passwordContainsIdentity("Jose-2026-segura", "correo@ejemplo.com", "José")).toBe(true);
+    expect(passwordContainsIdentity("jose-2026-segura", "correo@ejemplo.com", "José")).toBe(true);
+  });
+
+  it("sigue permitiendo contraseñas que no contienen la identidad", () => {
+    expect(passwordContainsIdentity("c Omnibus-2026-segura", "correo@ejemplo.com", "Ana")).toBe(
+      false,
+    );
+  });
+
   it("compara contraseñas sin normalizar", () => {
     expect(passwordsMatch("Clave Segura 2026", "Clave Segura 2026")).toBe(true);
     expect(passwordsMatch("Clave Segura 2026", "clave segura 2026")).toBe(false);

@@ -5,13 +5,28 @@ export function passwordsMatch(password: string, confirmation: string): boolean 
 }
 
 /**
+ * Normaliza un valor para compararlo sin separadores ni acentos.
+ *
+ * Sin esto, una contraseña como «Ana-Ruiz-Clave-2026» esquivaba el filtro
+ * de identidad, porque el nombre «Ana Ruiz» se comparaba con su espacio
+ * literal.
+ */
+function normalizeIdentity(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/gu, "")
+    .toLocaleLowerCase("es")
+    .replace(/[^a-z0-9]+/gu, "");
+}
+
+/**
  * Evita que la contraseña contenga el nombre o la parte local del correo.
- * Se comparan en minúsculas y con la configuración regional española.
+ * Se comparan en minúsculas, sin acentos y sin separadores.
  */
 export function passwordContainsIdentity(password: string, email: string, name: string): boolean {
-  const normalizedPassword = password.toLocaleLowerCase("es");
-  const emailLocalPart = email.split("@")[0] ?? "";
-  const normalizedName = name.trim().toLocaleLowerCase("es");
+  const normalizedPassword = normalizeIdentity(password);
+  const emailLocalPart = normalizeIdentity(email.split("@")[0] ?? "");
+  const normalizedName = normalizeIdentity(name);
 
   return (
     (emailLocalPart.length >= MIN_IDENTITY_LENGTH && normalizedPassword.includes(emailLocalPart)) ||
