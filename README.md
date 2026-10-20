@@ -120,6 +120,7 @@ migraciones.
 ### 4. Aplicar migraciones
 
 ```bash
+pnpm db:status      # Comprueba conexión y migraciones (solo lectura)
 pnpm db:validate
 pnpm db:migrate
 ```
@@ -130,6 +131,12 @@ Para crear una migración durante el desarrollo:
 ```bash
 pnpm db:migrate:create
 ```
+
+`pnpm db:status` informa de si la base de datos responde, de cuántas tablas
+existen, de cuántas migraciones están aplicadas y de cuántas cuentas hay. Es
+imprescindible ejecutarlo **antes** de desplegar: si las migraciones no están
+aplicadas, la aplicación arranca pero ninguna página que consulte la base de
+datos puede completarse.
 
 Los comandos `db:*` se ejecutan desde la raíz del repositorio: la CLI de
 Prisma busca el archivo `.env` en el directorio de trabajo actual y, sin el
@@ -164,6 +171,7 @@ ruta `/setup` deja de estar operativa en cuanto existe una cuenta.
 | `pnpm db:generate`                                | Genera Prisma Client                                 |
 | `pnpm db:migrate`                                 | Aplica migraciones (`migrate deploy`)                |
 | `pnpm db:migrate:create`                          | Crea una migración en desarrollo                     |
+| `pnpm db:status`                                  | Comprueba conexión y migraciones (solo lectura)      |
 | `pnpm db:studio`                                  | Abre Prisma Studio                                   |
 | `pnpm admin:password-reset -- correo@ejemplo.com` | Emite un enlace de recuperación de un solo uso       |
 

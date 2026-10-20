@@ -43,12 +43,14 @@ Cobertura actual de la Fase 1:
 | Archivo                                                   | Qué verifica                                                                                                                                                                                                |
 | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `apps/web/src/lib/env-schema.test.ts`                     | Validación del entorno: variables vacías tratadas como ausentes, `DATABASE_URL` obligatoria y de PostgreSQL, longitud mínima de `SETUP_TOKEN`, valores por defecto, y la regla «todo o nada» de Cloudinary. |
+| `apps/web/src/lib/auth/database-state.test.ts`            | Clasificación de los fallos de base de datos: `P2021`/`P2022` como «faltan migraciones», `P1000`/`P1001` y los errores de inicialización como «no hay conexión», y lectura del código de error.             |
 | `apps/web/src/lib/auth/password.test.ts`                  | Formato Argon2id, verificación correcta e incorrecta, necesidad de rehash y longitud máxima de la contraseña.                                                                                               |
 | `apps/web/src/lib/auth/tokens.test.ts`                    | Generación de tokens opacos, hash SHA-256 determinista y comparación en tiempo constante.                                                                                                                   |
 | `apps/web/src/lib/auth/identity.test.ts`                  | Detección de contraseñas que contienen la identidad y normalización de nombres para el espacio de trabajo.                                                                                                  |
 | `apps/web/src/lib/security/origin-policy.test.ts`         | Resolución del origen esperado y comparación de orígenes.                                                                                                                                                   |
 | `apps/web/src/lib/cloudinary/signature.test.ts`           | Serialización y firma SHA-1 con el orden y las exclusiones que exige Cloudinary.                                                                                                                            |
 | `packages/shared/src/validation.test.ts`                  | Esquemas compartidos: correo, nombre, política de contraseñas y token de instalación.                                                                                                                       |
+| `packages/shared/src/redaction.test.ts`                   | Limpieza de credenciales en los mensajes que van al log: URL con usuario y contraseña, tokens de GitHub y textos sin secretos.                                                                              |
 | `packages/book-schema/src/tiptap.test.ts`                 | Normalización y validación del documento Tiptap.                                                                                                                                                            |
 | `packages/editorial-engine/src/layout-validation.test.ts` | Validación de la geometría de página y de los formatos.                                                                                                                                                     |
 
@@ -67,6 +69,11 @@ pnpm db:migrate
 psql "$DIRECT_URL" -c "\d+ section_revisions"
 psql "$DIRECT_URL" -c "SELECT conname FROM pg_constraint WHERE connamespace = 'public'::regnamespace;"
 ```
+
+`pnpm db:status` es la comprobación de solo lectura que resume el estado de
+la base: conexión, tablas, migraciones aplicadas y cuentas. Es el comando que
+hay que ejecutar antes y después de migrar, y el que diagnostica un
+despliegue con la base sin esquema.
 
 Verificaciones realizadas en la Fase 1 contra PostgreSQL 17.7:
 

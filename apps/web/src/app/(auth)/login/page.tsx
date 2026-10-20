@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AuthHeading } from "@/components/auth/auth-heading";
+import { DatabaseProblem } from "@/components/auth/database-problem";
 import { LoginForm } from "@/components/auth/auth-forms";
 import { CheckIcon } from "@/components/icons";
-import { getSession, hasAnyUser } from "@/lib/auth/session";
+import { getDatabaseState } from "@/lib/auth/installation";
+import { getSession } from "@/lib/auth/session";
 import { isSetupTokenConfigured } from "@/lib/env";
 
 export const metadata: Metadata = {
@@ -16,13 +19,36 @@ interface LoginPageProps {
 }
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const [session, anyUser, params] = await Promise.all([getSession(), hasAnyUser(), searchParams]);
+  const params = await searchParams;
+
+  // El estado de la base de datos se comprueba antes que la sesión: si la
+  // base no responde, la consulta de sesión también fallaría y el error
+  // llegaría al límite genérico, sin diagnóstico.
+  const database = await getDatabaseState();
+
+  if (database.status !== "ready") {
+    const headerStore = await headers();
+
+    return (
+      <>
+        <AuthHeading
+          eyebrow="Acceso privado"
+          title="El acceso no está disponible"
+          description="La aplicación se ha desplegado correctamente, pero no puede completar las consultas que necesita para autenticar a una cuenta."
+        />
+
+        <DatabaseProblem state={database} requestId={headerStore.get("x-request-id")} />
+      </>
+    );
+  }
+
+  const session = await getSession();
 
   if (session) {
     redirect("/dashboard");
   }
 
-  const setupAvailable = !anyUser && isSetupTokenConfigured();
+  const setupAvailable = !database.hasUsers && isSetupTokenConfigured();
 
   return (
     <>
@@ -39,7 +65,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         </div>
       ) : null}
 
-      {!anyUser ? (
+      {!database.hasUsers ? (
         <div className="alert alert-info mb-6">
           <span>
             La instalación todavía no tiene ninguna cuenta.{" "}

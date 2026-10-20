@@ -209,12 +209,40 @@ cambios de contraseña, bloqueo de cuenta, perfil y revocación de sesiones.
 - La IP se guarda como hash SHA-256, no en claro.
 - El logger estructurado redacta claves que coincidan con contraseña, secreto,
   token, cookie, contenido, manuscrito, API key o URL de base de datos.
+- Los mensajes de error se limpian antes de escribirlos: una URL de conexión
+  con usuario y contraseña se registra como `usuario:[redacted]@host`. El
+  código de error de Prisma (`P2021`, `P1001`…) sí se registra, porque sin él
+  el diagnóstico de un fallo de despliegue es imposible.
 - En producción los errores no incluyen stack traces en las respuestas.
-- `onRequestError` registra nombre de error, ruta y método; no el cuerpo.
+- `onRequestError` registra nombre de error, código, mensaje, ruta y método; no
+  el cuerpo.
 
 La auditoría no es inmutable en esta fase: un administrador de base de datos
 podría modificarla. Si se requiere evidencia legal, deberá exportarse a un
 almacén append-only.
+
+## Fallos de base de datos en las páginas de acceso
+
+`/login` y `/setup` consultan la base de datos durante el renderizado. Si la
+base no responde, un fallo sin clasificar llega al límite de error y el
+operador ve «Error inesperado», sin saber si faltan migraciones o si la base
+está caída.
+
+Por eso esas páginas clasifican el fallo antes de continuar:
+
+- `not-migrated` (`P2021`, `P2022`): la base responde pero le falta el
+  esquema. La página indica que hay que aplicar `pnpm db:migrate`.
+- `unavailable` (`P1000`, `P1001`, `P1002` y errores de inicialización): la
+  página indica que hay que revisar `DATABASE_URL` y el estado del proyecto de
+  Neon.
+
+El error original se registra en el log del servidor con su código y su
+mensaje, y la página muestra el `requestId` para correlacionar ambos. La
+información no se oculta ni se sustituye: se hace explícita.
+
+`/api/health` (viva) sigue respondiendo `200` aunque la base de datos falle:
+el problema está en un componente externo y reiniciar el proceso no lo arregla.
+`/api/health/ready` (disponibilidad) devuelve `503` en ese caso.
 
 ## Secretos y configuración
 

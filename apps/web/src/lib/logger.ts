@@ -1,4 +1,5 @@
 import "server-only";
+import { scrubSecrets } from "@escribiendo/shared";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -34,9 +35,15 @@ function redact(value: unknown, depth = 0): unknown {
   if (value instanceof Error) {
     return {
       name: value.name,
-      message: value.message,
+      // El mensaje puede incluir la cadena de conexión con usuario y
+      // contraseña: se limpia antes de escribirlo.
+      message: scrubSecrets(value.message),
       ...(process.env.NODE_ENV !== "production" && value.stack ? { stack: value.stack } : {}),
     };
+  }
+
+  if (typeof value === "string") {
+    return scrubSecrets(value.length > 1_000 ? `${value.slice(0, 1_000)}…` : value);
   }
 
   if (Array.isArray(value)) {
@@ -50,10 +57,6 @@ function redact(value: unknown, depth = 0): unknown {
         SENSITIVE_KEY_PATTERN.test(key) ? "[redacted]" : redact(item, depth + 1),
       ]),
     );
-  }
-
-  if (typeof value === "string" && value.length > 1_000) {
-    return `${value.slice(0, 1_000)}…`;
   }
 
   return value;

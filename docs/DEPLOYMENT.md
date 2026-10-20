@@ -48,9 +48,16 @@ Desde tu equipo, con `.env` apuntando a Neon y `DIRECT_URL` correcta:
 
 ```bash
 pnpm install --frozen-lockfile
+pnpm db:status
 pnpm db:validate
 pnpm db:migrate
+pnpm db:status
 ```
+
+`pnpm db:status` comprueba, sin modificar nada, si la base de datos responde y
+si tiene el esquema aplicado. **Ejecuta `pnpm db:migrate` antes de dar por
+bueno un despliegue**: sin migraciones aplicadas, la aplicación arranca pero
+todas las páginas que consultan la base de datos fallan.
 
 `pnpm db:migrate` ejecuta `prisma migrate deploy`. Aplica la migración inicial
 versionada, incluidas las constraints y el trigger de inmutabilidad.
@@ -245,18 +252,22 @@ worker y ningún disco: el único recurso es el servicio web.
 
 ## 7. Diagnóstico rápido
 
-| Síntoma                                               | Comprobación                                                                                   |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| La página muestra error de configuración              | `DATABASE_URL`, `APP_URL` y longitud de `SETUP_TOKEN`                                          |
-| `/api/health/ready` devuelve 503                      | Neon suspendido, URL incorrecta o pool agotado                                                 |
-| Login responde «no se ha podido validar la solicitud» | `APP_URL` no coincide con el origen real                                                       |
-| `/setup` está deshabilitado                           | No existe usuario, pero falta `SETUP_TOKEN`; o ya existe un usuario                            |
-| Cloudinary responde 503                               | Faltan una o más variables del trío                                                            |
-| El build de Render falla por TypeScript               | Falta `--prod=false` en `pnpm install`                                                         |
-| Error `Cannot find native binding` de Argon2          | Se instaló con una plataforma distinta; revisa el lockfile y el runtime Linux de Render        |
-| La página se ve sin estilos tras un error global      | Verifica que `/global-error.css` sea accesible y que la CSP permita `style-src 'self'`         |
-| `Environment variable not found: DIRECT_URL`          | El `.env` de la raíz no se está cargando; usa los comandos `db:*` de la raíz, que lo resuelven |
-| La aplicación no arranca tras copiar `.env.example`   | Deja en blanco las variables opcionales; una cadena vacía equivale a «no configurada»          |
+| Síntoma                                                       | Comprobación                                                                                   |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| La página muestra error de configuración                      | `DATABASE_URL`, `APP_URL` y longitud de `SETUP_TOKEN`                                          |
+| `/api/health/ready` devuelve 503                              | Neon suspendido, URL incorrecta o pool agotado                                                 |
+| `/login` dice «La base de datos no tiene el esquema aplicado» | Faltan las migraciones: `pnpm db:status` y `pnpm db:migrate`                                   |
+| `/login` dice «No se puede conectar con la base de datos»     | `DATABASE_URL` incorrecta, credenciales no válidas o proyecto de Neon suspendido               |
+| Login responde «no se ha podido validar la solicitud»         | `APP_URL` no coincide con el origen real                                                       |
+| `/setup` está deshabilitado                                   | No existe usuario, pero falta `SETUP_TOKEN`; o ya existe un usuario                            |
+| Cloudinary responde 503                                       | Faltan una o más variables del trío                                                            |
+| El build de Render falla por TypeScript                       | Falta `--prod=false` en `pnpm install`                                                         |
+| El build de Render falla con «Environment variable not found» | Falta `DATABASE_URL` en el panel de Render; `prisma generate` la exige                         |
+| Error `Cannot find native binding` de Argon2                  | Se instaló con una plataforma distinta; revisa el lockfile y el runtime Linux de Render        |
+| La página se ve sin estilos tras un error global              | Verifica que `/global-error.css` sea accesible y que la CSP permita `style-src 'self'`         |
+| `Environment variable not found: DIRECT_URL`                  | El `.env` de la raíz no se está cargando; usa los comandos `db:*` de la raíz, que lo resuelven |
+| La aplicación no arranca tras copiar `.env.example`           | Deja en blanco las variables opcionales; una cadena vacía equivale a «no configurada»          |
+| El servicio responde `404` con `x-render-routing: no-server`  | No hay instancia: despliegue en curso, fallido o servicio eliminado. Revisa el panel de Render |
 
 Los logs estructurados incluyen `requestId`. Úsalo para correlacionar una
 petición con los errores de Render.

@@ -40,6 +40,44 @@ pnpm db:migrate
 **No uses `prisma db push` en producción.** No registra historial y puede
 provocar pérdida de datos o deriva del esquema.
 
+### Comprobar el estado antes y después de migrar
+
+`pnpm db:status` es una comprobación de solo lectura que no modifica nada:
+
+```bash
+pnpm db:status
+```
+
+Informa de si la base de datos responde, de cuántas tablas de la aplicación
+existen, de cuántas migraciones están aplicadas y de cuántas cuentas hay. Es el
+comando que hay que ejecutar **antes** de desplegar y **después** de migrar.
+
+Si la base responde pero no tiene las tablas, el motivo es que las migraciones
+no están aplicadas:
+
+```text
+✗ La base de datos está vacía: no hay ninguna tabla de la aplicación.
+  Aplica las migraciones con `pnpm db:migrate`.
+```
+
+Ese es el fallo que provoca el error `P2021` («the table `public.users` does
+not exist») y que hace que `/login` no pueda completarse.
+
+### Cuando la aplicación no puede completar una consulta
+
+Las páginas de acceso (`/login` y `/setup`) comprueban el estado de la base de
+datos antes de consultar la sesión. Si la base de datos no está disponible, la
+página **no** muestra un error genérico, sino la causa concreta:
+
+| Estado         | Causa                                       | Qué hacer                                                                                   |
+| -------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `not-migrated` | Faltan las tablas (`P2021`, `P2022`)        | `pnpm db:validate` y `pnpm db:migrate` contra la misma base                                 |
+| `unavailable`  | No hay conexión (`P1000`, `P1001`, `P1002`) | Revisar `DATABASE_URL`, que el proyecto de Neon esté activo y las credenciales sean válidas |
+
+En ambos casos el error original se registra en el log del servidor con su
+código y su mensaje, y la página muestra un identificador de petición
+(`requestId`) para correlacionar ambos.
+
 ### Crear una migración
 
 En desarrollo, con una base local desechable:
@@ -184,6 +222,23 @@ verificada y una ventana de mantenimiento.
   antiguas.
 - `/api/health/ready` comprueba la base con un `SELECT 1` y devuelve `503` si no
   responde.
+
+### Sondas de salud: viva y disponibilidad
+
+Hay dos endpoints con propósitos distintos:
+
+- `/api/health` — **viva**. Responde `200` mientras el proceso sea capaz de
+  atender peticiones. Es el `healthCheckPath` de Render: si la base de datos
+  falla, la aplicación sigue viva, porque el fallo está en un componente
+  externo y reiniciar el proceso no lo arregla.
+- `/api/health/ready` — **disponibilidad**. Devuelve `503` con
+  `database: "unavailable"` si la base de datos no responde.
+
+El health check de Render apunta a `/api/health` a propósito. Apuntarlo a
+`/api/health/ready` haría que una caída temporal de Neon marcara el servicio
+como no disponible y bloqueara un despliegue posterior.
+
+Para vigilar la base de datos desde fuera, consulta `/api/health/ready`.
 
 ## Datos de demostración
 

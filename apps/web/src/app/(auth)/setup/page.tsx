@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AuthHeading } from "@/components/auth/auth-heading";
+import { DatabaseProblem } from "@/components/auth/database-problem";
 import { SetupForm } from "@/components/auth/auth-forms";
 import { LockIcon } from "@/components/icons";
-import { getSession, hasAnyUser } from "@/lib/auth/session";
+import { getDatabaseState } from "@/lib/auth/installation";
+import { getSession } from "@/lib/auth/session";
 import { isSetupTokenConfigured } from "@/lib/env";
 
 export const metadata: Metadata = {
@@ -12,13 +15,34 @@ export const metadata: Metadata = {
 };
 
 export default async function SetupPage() {
+  // Igual que en el acceso: primero se comprueba que la base de datos
+  // responde y tiene el esquema, para no convertir un fallo de despliegue en
+  // un error genérico.
+  const database = await getDatabaseState();
+
+  if (database.status !== "ready") {
+    const headerStore = await headers();
+
+    return (
+      <>
+        <AuthHeading
+          eyebrow="Instalación · Una sola vez"
+          title="La instalación no está disponible"
+          description="La base de datos no permite completar la instalación. Revisa el estado del servicio antes de continuar."
+        />
+
+        <DatabaseProblem state={database} requestId={headerStore.get("x-request-id")} />
+      </>
+    );
+  }
+
   const session = await getSession();
 
   if (session) {
     redirect("/dashboard");
   }
 
-  if (await hasAnyUser()) {
+  if (database.hasUsers) {
     redirect("/login");
   }
 

@@ -199,11 +199,6 @@ export function requireWorkspaceAdmin(session: SessionContext): void {
   }
 }
 
-export async function hasAnyUser(): Promise<boolean> {
-  const count = await prisma.user.count({ where: { deletedAt: null } });
-  return count > 0;
-}
-
 export function getConfiguredSessionTtlDays(): number {
   return getServerEnv().SESSION_TTL_DAYS;
 }

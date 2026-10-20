@@ -1,3 +1,4 @@
+export { scrubSecrets } from "./redaction";
 export {
   emailSchema,
   emptyToUndefined,
