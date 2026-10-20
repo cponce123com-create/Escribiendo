@@ -157,19 +157,6 @@ Verificación registrada:
 
 ## Fase 4 — Maquetación
 
-Verificación registrada:
-
-| Punto del criterio                                  | Estado                                                                                                                                   |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Build, lint, typecheck y pruebas unitarias en verde | Cumplido: 155 pruebas unitarias en 19 archivos, `lint` y `typecheck` limpios                                                             |
-| Geometría validada por el motor                     | Cumplido: un perfil con márgenes que consumen todo el ancho se rechaza con un motivo explícito, comprobado en el navegador               |
-| Vista previa paginada a escala real                 | Cumplido: la prueba mide la geometría en el navegador y comprueba que un milímetro del perfil es un milímetro en pantalla                |
-| Diagnóstico de composición                          | Cumplido: viudas, huérfanas, desbordes y palabras más anchas que la caja se detectan y se explican con su página                         |
-| Sin migración de datos                              | Cumplido: el modelo de datos se preparó en la Fase 1; las plantillas de sistema se instalan de forma idempotente al abrir la maquetación |
-| Maquetación en el navegador                         | Cumplido: 46 pruebas E2E en Chromium contra la compilación de producción                                                                 |
-
-## Fase 4 — Maquetación
-
 Objetivo: convertir el manuscrito en una maqueta interior coherente.
 
 Alcance previsto:
@@ -218,6 +205,17 @@ Fuera del alcance y pendiente para fases posteriores: paginación con métricas
 reales de la fuente, que corresponde a la exportación, generación de PDF,
 cubiertas y contraportadas, y ajustes de línea por sección.
 
+Verificación registrada:
+
+| Punto del criterio                                  | Estado                                                                                                                                   |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Build, lint, typecheck y pruebas unitarias en verde | Cumplido: 155 pruebas unitarias en 19 archivos, `lint` y `typecheck` limpios                                                             |
+| Geometría validada por el motor                     | Cumplido: un perfil con márgenes que consumen todo el ancho se rechaza con un motivo explícito, comprobado en el navegador               |
+| Vista previa paginada a escala real                 | Cumplido: la prueba mide la geometría en el navegador y comprueba que un milímetro del perfil es un milímetro en pantalla                |
+| Diagnóstico de composición                          | Cumplido: viudas, huérfanas, desbordes y palabras más anchas que la caja se detectan y se explican con su página                         |
+| Sin migración de datos                              | Cumplido: el modelo de datos se preparó en la Fase 1; las plantillas de sistema se instalan de forma idempotente al abrir la maquetación |
+| Maquetación en el navegador                         | Cumplido: 46 pruebas E2E en Chromium contra la compilación de producción                                                                 |
+
 ## Fase 5 — Exportación
 
 Objetivo: generar archivos utilizables por imprenta y distribución digital.
@@ -230,8 +228,62 @@ Alcance previsto:
 - Cola de trabajos idempotente, sin workers permanentes en Render Free.
 - Metadatos de resultado y descarga firmada.
 
-`workers/export-worker` queda reservado para este límite. No debe convertirse en
-un proceso permanente que consuma el plan Free sin control.
+**Estado: implementada y verificada.** La exportación genera archivos reales
+—PDF, EPUB y DOCX— que se descargan desde el propio navegador, con 56 pruebas
+de extremo a extremo. No ha hecho falta migración: el modelo `ExportJob` se
+preparó en la Fase 1.
+
+Implementado:
+
+- **PDF digital y PDF de imprenta** escritos sin dependencias externas, con las
+  fuentes estándar (Times-Roman, Times-Bold y Times-Italic), que no hay que
+  incrustar. El PDF de imprenta lleva la caja acabada (`TrimBox`), la caja de
+  sangre (`BleedBox`), la caja de recorte (`CropBox`) y las marcas de corte y
+  de registro fuera de la hoja acabada. El texto se compone con el mismo motor
+  de paginación que la vista previa, de modo que el archivo y la pantalla
+  cuentan las mismas páginas.
+- **EPUB 3**: paquete completo con `mimetype` sin comprimir y en primer lugar,
+  `META-INF/container.xml`, el paquete OPF con sus metadatos, la navegación
+  (`nav.xhtml`) y un capítulo XHTML por sección.
+- **DOCX**: paquete de Word con tipos de contenido, relaciones, estilos,
+  propiedades y el documento con los saltos de página respetados.
+- **Cola idempotente y sin worker**: la clave de un trabajo es el formato más
+  la huella del manuscrito, así que pedir dos veces la misma exportación
+  devuelve el mismo trabajo en lugar de generar dos archivos. El trabajo se
+  genera en el momento en que se pide o en el de la descarga: **no hay ningún
+  proceso permanente** que consuma el plan de Render.
+- **Exportaciones reproducibles**: el trabajo guarda las versiones de las
+  secciones que exportó. Como las revisiones son inmutables, el archivo se
+  regenera byte a byte aunque el manuscrito haya cambiado después.
+- **Metadatos de resultado**: tamaño, huella SHA-256, número de páginas,
+  palabras y secciones del archivo generado.
+- **Descarga firmada**: exige sesión y una firma HMAC de diez minutos, de modo
+  que la dirección caduca y no sirve para siempre. La clave es
+  `EXPORT_SIGNING_SECRET`; si no se define, se deriva de las credenciales de
+  la base de datos, que ya son un secreto.
+
+Fuera del alcance y pendiente para fases posteriores: incrustación de fuentes
+reales en el PDF, que daría una paginación exacta y un justificado fiel;
+PDF/X con salida preflight; control de color y perfil de imprenta; y
+exportaciones por lotes de varios libros.
+
+Verificación registrada:
+
+| Punto del criterio                                  | Estado                                                                                                                   |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Build, lint, typecheck y pruebas unitarias en verde | Cumplido: 187 pruebas unitarias en 22 archivos, `lint` y `typecheck` limpios                                             |
+| PDF digital y de imprenta                           | Cumplido: los dos se generan y se descargan; el de imprenta lleva `TrimBox`, `BleedBox`, `CropBox` y las marcas de corte |
+| EPUB 3 válido                                       | Cumplido: `mimetype` sin comprimir y en primer lugar, contenedor, OPF, navegación y un XHTML por sección                 |
+| DOCX                                                | Cumplido: paquete de Word con tipos de contenido, relaciones, estilos y documento                                        |
+| Cola idempotente y sin worker                       | Cumplido: pedir dos veces la misma exportación reutiliza el trabajo; no hay ningún proceso permanente                    |
+| Descarga firmada                                    | Cumplido: sin sesión o con una firma caducada la descarga se rechaza con `401` o `403`                                   |
+| Metadatos de resultado                              | Cumplido: tamaño, huella SHA-256, páginas, palabras y secciones del archivo generado                                     |
+
+`workers/export-worker` **sigue sin ser necesario**: la exportación bajo
+demanda no requiere ningún proceso permanente. El directorio queda reservado
+para el caso en que una fase posterior necesite un trabajo largo en segundo
+plano, y no debe convertirse en un proceso que consuma el plan Free sin
+control.
 
 ## Fase 6 — Equipo y gobernanza
 

@@ -1,13 +1,17 @@
 # ESCRIBIENDO
 
+packages/templates contiene las plantillas editoriales y
+posterior: la exportación de la Fase 5 es bajo demanda y no necesita ningún
+proceso permanente. Ninguno de los dos contiene funciones simuladas.
+
 Plataforma editorial privada de **EDITORIAL NO PARA TODOS**.
 
 ESCRIBIENDO reúne escritura, edición, maquetación y preparación de archivos de
 imprenta en un único espacio de trabajo. Este repositorio contiene las
-**Fases 1 a 4**: cimientos técnicos, acceso privado, modelo de datos editorial,
+**Fases 1 a 5**: cimientos técnicos, acceso privado, modelo de datos editorial,
 integración firmada con Cloudinary, preparación de despliegue en Render,
-biblioteca y manuscrito, herramientas de escritura asistida y maquetación con
-vista previa paginada.
+biblioteca y manuscrito, herramientas de escritura asistida, maquetación con
+vista previa paginada y exportación a PDF, EPUB y DOCX.
 
 > No hay registro público. El acceso se crea una sola vez mediante `/setup` y
 > un token de instalación de alta entropía. Después, solo un administrador
@@ -31,11 +35,11 @@ vista previa paginada.
 | Comentarios editoriales y flujo de revisión          | Implementado (Fase 3)                 |
 | Comparador de revisiones y preferencias de escritura | Implementado (Fase 3)                 |
 | Maquetación: perfiles, plantillas y vista previa     | Implementado (Fase 4)                 |
+| Exportación: PDF, EPUB y DOCX con descarga firmada   | Implementado (Fase 5)                 |
 | Cloudinary: firma de subida directa                  | Implementado                          |
 | Cabeceras de seguridad y CSP con nonce               | Implementado                          |
 | Health checks y blueprint de Render                  | Implementado                          |
 | Pruebas unitarias, de esquema y de extremo a extremo | Implementado                          |
-| Maquetación y exportaciones                          | Fuera del alcance de las fases 1 a 4  |
 
 La aplicación **no incluye datos de demostración, botones simulados ni
 credenciales de ejemplo**. Si una integración no está configurada, la interfaz
@@ -73,6 +77,7 @@ escribiendo/
 │     │  ├─ writing/            # Notas, objetivos y estadísticas
 │     │  ├─ review/             # Comentarios editoriales y flujo de revisión
 │     │  ├─ layout/             # Perfiles de página, plantillas y maqueta
+│     │  ├─ export/             # Cola de trabajos, generación y descarga
 │     │  ├─ cloudinary/         # Firma de subidas
 │     │  ├─ security/           # Origen, CSRF, rate limit, contexto
 │     │  └─ env.ts              # Validación del entorno
@@ -81,9 +86,10 @@ escribiendo/
 │  ├─ database/                 # Prisma Client, esquema y migraciones
 │  ├─ book-schema/              # Documento Tiptap, metadatos y diff
 │  ├─ editorial-engine/         # Geometría, tipografía y paginación
+│  ├─ export-engine/            # Escritores de PDF, EPUB y DOCX
 │  ├─ shared/                   # Validaciones y utilidades compartidas
 │  └─ templates/                # Plantillas editoriales
-├─ workers/export-worker/       # Reservado para exportación (fase posterior)
+├─ workers/export-worker/       # Reservado: la exportación es bajo demanda
 ├─ scripts/                     # Administración por CLI
 ├─ tests/e2e/                   # Pruebas de extremo a extremo
 └─ docs/                        # Arquitectura, seguridad, despliegue, etc.
@@ -91,7 +97,8 @@ escribiendo/
 
 `packages/templates` contiene las plantillas editoriales y
 `workers/export-worker` se documenta como límite explícito de una fase
-posterior; no contiene funciones simuladas.
+posterior: la exportación de la Fase 5 es bajo demanda y no necesita ningún
+proceso permanente. Ninguno de los dos contiene funciones simuladas.
 
 ---
 
@@ -231,4 +238,4 @@ Los detalles y las limitaciones conocidas están en
 ## Licencia
 
 Código privado y no licenciado. © EDITORIAL NO PARA TODOS. Todos los derechos
-reservados.
+packages/templates contiene las plantillas editoriales y

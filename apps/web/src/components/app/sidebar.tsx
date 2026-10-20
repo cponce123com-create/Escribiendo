@@ -1,17 +1,18 @@
 import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
 import { NavLinks } from "@/components/app/nav-links";
-import { DownloadIcon, LayoutIcon, LogOutIcon, PenIcon, UsersIcon } from "@/components/icons";
+import { DownloadIcon, LayoutIcon, LogOutIcon, UsersIcon } from "@/components/icons";
 import { logoutAction } from "@/lib/auth/actions";
 import type { SessionContext } from "@/lib/auth/session";
 import { getInitials, WORKSPACE_ROLE_LABELS } from "@/lib/ui/format";
+import { UPCOMING_PHASES } from "@/lib/ui/phases";
 
-const FUTURE_SECTIONS = [
-  { label: "Editor", phase: "Fase 3", icon: PenIcon },
-  { label: "Maquetación", phase: "Fase 4", icon: LayoutIcon },
-  { label: "Exportaciones", phase: "Fase 5", icon: DownloadIcon },
-  { label: "Equipo", phase: "Fase 6", icon: UsersIcon },
-] as const;
+/** Icono de cada fase pendiente. */
+const PHASE_ICONS: Record<string, typeof DownloadIcon> = {
+  exportacion: DownloadIcon,
+  equipo: UsersIcon,
+  operacion: LayoutIcon,
+};
 
 interface SidebarProps {
   session: SessionContext;
@@ -40,14 +41,14 @@ export function Sidebar({ session }: SidebarProps) {
       <div className="px-3">
         <p className="meta-label px-2 pb-2">Próximas fases</p>
         <div aria-label="Secciones todavía no disponibles">
-          {FUTURE_SECTIONS.map((section) => {
-            const Icon = section.icon;
+          {UPCOMING_PHASES.map((phase) => {
+            const Icon = PHASE_ICONS[phase.slug] ?? LayoutIcon;
 
             return (
-              <div className="nav-item-future" key={section.label}>
+              <div className="nav-item-future" key={phase.slug}>
                 <Icon />
-                <span>{section.label}</span>
-                <span className="phase-chip">{section.phase}</span>
+                <span>{phase.label}</span>
+                <span className="phase-chip">Fase {phase.id}</span>
               </div>
             );
           })}

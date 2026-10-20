@@ -102,7 +102,12 @@ test.describe("Maquetación", () => {
       .getByRole("link", { name: "Maquetación" })
       .click();
 
-    await page.getByRole("link", { name: "Editar" }).first().click();
+    // La lista puede contener más de un perfil: se busca el propio.
+    await page
+      .getByRole("listitem")
+      .filter({ hasText: "A5 de trabajo" })
+      .getByRole("link", { name: "Editar" })
+      .click();
 
     await expect(page.getByRole("heading", { name: "A5 de trabajo" })).toBeVisible();
 

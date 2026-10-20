@@ -119,13 +119,15 @@ export function validateLayoutGeometry(input: LayoutGeometryInput): LayoutValida
   if (input.headerDistanceMm !== undefined) {
     if (
       !isFiniteNonNegative(input.headerDistanceMm) ||
+      input.headerDistanceMm <= 0 ||
       input.headerDistanceMm >= input.marginTopMm
     ) {
       issues.push({
         code: "HEADER_DISTANCE_INVALID",
         severity: "error",
         field: "headerDistanceMm",
-        message: "La distancia del encabezado debe ser menor que el margen superior.",
+        message:
+          "La distancia del encabezado debe ser mayor que cero y menor que el margen superior.",
       });
     }
   }
@@ -133,13 +135,15 @@ export function validateLayoutGeometry(input: LayoutGeometryInput): LayoutValida
   if (input.footerDistanceMm !== undefined) {
     if (
       !isFiniteNonNegative(input.footerDistanceMm) ||
+      input.footerDistanceMm <= 0 ||
       input.footerDistanceMm >= input.marginBottomMm
     ) {
       issues.push({
         code: "FOOTER_DISTANCE_INVALID",
         severity: "error",
         field: "footerDistanceMm",
-        message: "La distancia del pie de página debe ser menor que el margen inferior.",
+        message:
+          "La distancia del pie de página debe ser mayor que cero y menor que el margen inferior.",
       });
     }
   }

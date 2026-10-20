@@ -50,8 +50,10 @@ apps/web
 │  ├─ (app)/books/[bookId]/review      # Comentarios y flujo de revisión
 │  ├─ (app)/books/[bookId]/layout      # Perfiles de página y maqueta
 │  ├─ (app)/books/[bookId]/preview     # Vista previa paginada
+│  ├─ (app)/books/[bookId]/export      # Exportación a PDF, EPUB y DOCX
 │  ├─ (app)/books/[bookId]/sections/[sectionId]/history  # Historial y comparador
 │  ├─ api/health, /api/health/ready, /api/cloudinary/signature
+│  ├─ api/exports/[jobId]/download  # Descarga firmada del archivo
 │  ├─ error.tsx, global-error.tsx, not-found.tsx, loading.tsx
 │  └─ layout.tsx, page.tsx, robots.ts, manifest.ts
 ├─ src/components
@@ -62,6 +64,7 @@ apps/web
 │  ├─ writing/      # Notas, objetivos, preferencias de escritura
 │  ├─ review/       # Comentarios editoriales y flujo de revisión
 │  ├─ layout/       # Perfiles de página, maqueta y vista previa
+│  ├─ export/       # Cola de trabajos, generación y descarga firmada
 │  ├─ forms/        # Campos y botones reutilizables
 │  ├─ brand/        # Marca
 │  └─ theme/        # Conmutador claro/oscuro
@@ -81,6 +84,7 @@ packages/shared          Validaciones comunes y errores de formulario
 packages/book-schema     Documento Tiptap, metadatos, extracción de texto, diff
 packages/editorial-engine Formatos de página, tipografía y motor de paginación
 packages/templates       Plantillas editoriales de sistema y propias
+packages/export-engine   Escritores de PDF, EPUB y DOCX
 workers/export-worker    Límite reservado para exportación
 ```
 
@@ -150,7 +154,7 @@ El esquema completo vive en `packages/database/prisma/schema.prisma`.
 | Biblioteca  | `books`, `book_sections`, `section_revisions`             | Estructura jerárquica; revisiones inmutables              |
 | Ediciones   | `book_editions`, `layout_profiles`, `editorial_templates` | Geometría, formato y configuración de maqueta             |
 | Recursos    | `assets`, `book_assets`                                   | Cloudinary como único proveedor en Fase 1                 |
-| Exportación | `export_jobs`                                             | Estados e idempotencia preparados para fases posteriores  |
+| Exportación | `export_jobs`                                             | Cola idempotente; el archivo se genera al descargar       |
 | Escritura   | `writing_notes`                                           | Notas privadas por usuario/libro/sección                  |
 | Auditoría   | `audit_logs`                                              | Sin contenido de manuscritos ni secretos                  |
 
@@ -185,9 +189,19 @@ La migración inicial documenta todo esto en
 - Conversión mm/puntos.
 - Validación geométrica: márgenes que caben en la caja de página, gutter,
   sangrado y distancias de encabezado/pie.
+- Configuración tipográfica por clase de bloque, con valores por defecto.
+- Medición del texto y motor de paginación: reparte el manuscrito en páginas y
+  avisa de viudas, huérfanas y desbordes.
 
-No genera PDFs todavía. La exportación es una fase posterior y no debe
-confundirse con la validación de maqueta ya implementada.
+### `@escribiendo/export-engine`
+
+- Escritor de PDF sin dependencias, con las fuentes estándar y las cajas de
+  recorte, sangre yTrimBox.
+- Escritor de ZIP, que sirve para el EPUB y para el DOCX.
+- Escritor de EPUB 3 y de DOCX.
+
+La paginación del PDF usa el motor de `@escribiendo/editorial-engine`, de modo
+que el archivo y la vista previa cuentan las mismas páginas.
 
 ## Cloudinary
 
@@ -218,6 +232,9 @@ subida simulada.
 | Sin correo en Fase 1                          | Evita prometer entregas que no existen; el CLI es explícito                                                                         |
 | Subida directa a Cloudinary                   | No consume memoria ni ancho de banda del servidor Render Free                                                                       |
 | Migraciones manuales                          | Render Free no debe reiniciar la app esperando una migración; se ejecuta `migrate deploy` de forma controlada                       |
+| Exportación bajo demanda, sin worker          | Un proceso permanente consumiría el plan Free; el archivo se genera al pedirlo o al descargarlo                                     |
+| Escritores de PDF, EPUB y DOCX propios        | Sin dependencias pesadas ni procesos externos; el formato se puede verificar byte a byte en las pruebas                             |
+| Descarga firmada de corta duración            | La dirección se puede compartir unos minutos y luego deja de servir; el archivo nunca se guarda en un sitio accesible               |
 
 ## Límites de la Fase 1
 

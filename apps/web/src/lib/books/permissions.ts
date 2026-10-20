@@ -21,7 +21,8 @@ export type LibraryAction =
   | "revision:restore"
   | "comment:create"
   | "comment:resolve"
-  | "layout:manage";
+  | "layout:manage"
+  | "export:create";
 
 /** Quien puede crear y editar libros y su estructura. */
 const WRITE_ROLES: ReadonlySet<WorkspaceRole> = new Set(["OWNER", "ADMIN", "EDITOR", "AUTHOR"]);
@@ -47,6 +48,7 @@ export function canPerform(role: WorkspaceRole, action: LibraryAction): boolean 
     case "comment:create":
     case "comment:resolve":
     case "layout:manage":
+    case "export:create":
       return WRITE_ROLES.has(role);
 
     case "book:approve":

@@ -51,3 +51,5 @@ services:
         sync: false
       - key: CLOUDINARY_UPLOAD_FOLDER
         value: escribiendo
+      - key: EXPORT_SIGNING_SECRET
+        sync: false

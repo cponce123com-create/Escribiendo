@@ -54,6 +54,7 @@ export const envSchema = z.object({
       .regex(/^[a-z0-9][a-z0-9/_-]{2,120}$/u, "La carpeta de Cloudinary no es válida.")
       .default("escribiendo"),
   ),
+  EXPORT_SIGNING_SECRET: optionalEnv(z.string().min(32).max(256).optional()),
 });
 
 export type ServerEnv = z.infer<typeof envSchema>;

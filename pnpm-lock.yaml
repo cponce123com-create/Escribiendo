@@ -211,6 +211,9 @@ importers:
       '@escribiendo/editorial-engine':
         specifier: workspace:*
         version: link:../../packages/editorial-engine
+      '@escribiendo/export-engine':
+        specifier: workspace:*
+        version: link:../../packages/export-engine
       '@escribiendo/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -300,6 +303,8 @@ importers:
       zod:
         specifier: 4.6.7
         version: 4.6.7
+
+  packages/export-engine: {}
 
   packages/shared:
     dependencies:

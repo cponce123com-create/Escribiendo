@@ -40,6 +40,15 @@ const profileSchema = z.object({
   chapterStartsRecto: z.coerce.boolean(),
 });
 
+/**
+ * Distancias de encabezado y pie por defecto.
+ *
+ * Un campo vacío no puede convertirse en cero: el folio quedaría encima del
+ * borde de la hoja y se cortaría al imprimir.
+ */
+const DEFAULT_HEADER_DISTANCE_MM = 8;
+const DEFAULT_FOOTER_DISTANCE_MM = 8;
+
 /** Los campos de un `FormData` que representan una casilla marcada. */
 function checkbox(formData: FormData, key: string): boolean {
   return formValue(formData, key) === "on" || formValue(formData, key) === "true";
@@ -97,8 +106,14 @@ function parseProfile(formData: FormData): ReturnType<typeof profileSchema.safeP
     marginOuterMm: formValue(formData, "marginOuterMm"),
     gutterMm: formValue(formData, "gutterMm"),
     bleedMm: formValue(formData, "bleedMm"),
-    headerDistanceMm: formValue(formData, "headerDistanceMm"),
-    footerDistanceMm: formValue(formData, "footerDistanceMm"),
+    headerDistanceMm:
+      formValue(formData, "headerDistanceMm") === ""
+        ? DEFAULT_HEADER_DISTANCE_MM
+        : formValue(formData, "headerDistanceMm"),
+    footerDistanceMm:
+      formValue(formData, "footerDistanceMm") === ""
+        ? DEFAULT_FOOTER_DISTANCE_MM
+        : formValue(formData, "footerDistanceMm"),
     mirrorMargins: checkbox(formData, "mirrorMargins"),
     showPageNumbers: checkbox(formData, "showPageNumbers"),
     chapterStartsRecto: checkbox(formData, "chapterStartsRecto"),

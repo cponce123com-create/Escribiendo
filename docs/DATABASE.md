@@ -219,6 +219,27 @@ Las plantillas de sistema se instalan en la base de datos de forma idempotente
 la primera vez que se abre la maquetación de un estudio, no con una migración:
 son un catálogo cerrado que acompaña al código y cambia con él.
 
+## Trabajos de exportación
+
+La Fase 5 **no ha añadido ninguna migración**: la tabla `export_jobs` se
+preparó en la Fase 1 con lo que la exportación necesita.
+
+- `idempotency_key`: el formato más la huella del manuscrito. Es lo que hace
+  la cola idempotente: pedir dos veces la misma exportación devuelve el mismo
+  trabajo en lugar de generar dos archivos.
+- `manuscript_hash`: la huella del contenido de las secciones. Si el
+  manuscrito cambia, la huella cambia y el trabajo es otro.
+- `section_versions`: las versiones de las secciones que se exportaron. Como
+  las revisiones son inmutables, el archivo se puede regenerar byte a byte
+  aunque el manuscrito haya cambiado después.
+- `result_metadata`: tamaño, huella SHA-256, número de páginas, palabras y
+  secciones del archivo generado.
+- `options`: el nombre del archivo y su tipo de medio.
+
+El archivo **no se guarda en la base de datos**: se genera en el momento de la
+descarga. Es lo que evita tener que almacenar binarios y lo que permite
+exportar sin un proceso permanente.
+
 ## Modelo y convenciones
 
 - UUID en todas las claves primarias (`@db.Uuid`).

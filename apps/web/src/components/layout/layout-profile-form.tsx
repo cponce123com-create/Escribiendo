@@ -119,7 +119,9 @@ export function LayoutProfileForm({ mode, profile, bookId }: LayoutProfileFormPr
               key={campo.name}
               name={campo.name}
               label={campo.label}
-              defaultValue={String(profile?.[campo.name] ?? "")}
+              defaultValue={String(
+                profile?.[campo.name] ?? (campo.name.includes("Distance") ? 8 : ""),
+              )}
               error={state.fieldErrors?.[campo.name]}
             />
           ))}

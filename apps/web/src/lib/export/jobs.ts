@@ -1,0 +1,258 @@
+import "server-only";
+import { prisma } from "@/lib/db";
+import type { SessionContext } from "@/lib/auth/session";
+import type { ExportFormat, ExportStatus } from "@escribiendo/database";
+import { exportContext, generateFile, type ExportMetadata } from "./generate";
+import {
+  currentSectionVersions,
+  loadManuscript,
+  manuscriptHash,
+  type SectionVersion,
+} from "./manuscript";
+
+/**
+ * Cola de trabajos de exportación.
+ *
+ * La cola vive en la base de datos y **no hay ningún proceso permanente** que
+ * la vacíe: el trabajo se genera en el momento en que se pide o en el de la
+ * descarga. Es lo que permite exportar en Render Free sin un worker que
+ * consuma el plan.
+ *
+ * La cola es idempotente: la clave de un trabajo es el formato más la huella
+ * del manuscrito, así que pedir dos veces la misma exportación devuelve el
+ * mismo trabajo en lugar de generar dos archivos.
+ */
+
+export interface ExportJobSummary {
+  id: string;
+  bookId: string;
+  format: ExportFormat;
+  status: ExportStatus;
+  manuscriptHash: string;
+  progress: number;
+  errorMessage: string | null;
+  metadata: ExportMetadata | null;
+  createdAt: Date;
+  completedAt: Date | null;
+  /** Nombre del archivo que se descargará. */
+  fileName: string | null;
+}
+
+interface JobRow {
+  id: string;
+  bookId: string;
+  format: ExportFormat;
+  status: ExportStatus;
+  manuscriptHash: string;
+  progress: number;
+  errorMessage: string | null;
+  resultMetadata: unknown;
+  createdAt: Date;
+  completedAt: Date | null;
+  options: unknown;
+}
+
+function toSummary(row: JobRow): ExportJobSummary {
+  const options = (row.options ?? {}) as { fileName?: string };
+  const metadata = row.resultMetadata as ExportMetadata | null;
+
+  return {
+    id: row.id,
+    bookId: row.bookId,
+    format: row.format,
+    status: row.status,
+    manuscriptHash: row.manuscriptHash,
+    progress: row.progress,
+    errorMessage: row.errorMessage,
+    metadata: metadata && typeof metadata === "object" ? metadata : null,
+    createdAt: row.createdAt,
+    completedAt: row.completedAt,
+    fileName: options.fileName ?? null,
+  };
+}
+
+const JOB_SELECT = {
+  id: true,
+  bookId: true,
+  format: true,
+  status: true,
+  manuscriptHash: true,
+  progress: true,
+  errorMessage: true,
+  resultMetadata: true,
+  createdAt: true,
+  completedAt: true,
+  options: true,
+} as const;
+
+/** Trabajos de exportación de un libro, del más reciente al más antiguo. */
+export async function listExportJobs(
+  session: SessionContext,
+  bookId: string,
+): Promise<ExportJobSummary[]> {
+  const jobs = await prisma.exportJob.findMany({
+    where: { bookId, book: { workspaceId: session.workspace.id, deletedAt: null } },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+    select: JOB_SELECT,
+  });
+
+  return jobs.map(toSummary);
+}
+
+/** Un trabajo de exportación del espacio de trabajo. */
+export async function getExportJob(
+  session: SessionContext,
+  jobId: string,
+): Promise<ExportJobSummary | null> {
+  const job = await prisma.exportJob.findFirst({
+    where: { id: jobId, book: { workspaceId: session.workspace.id, deletedAt: null } },
+    select: JOB_SELECT,
+  });
+
+  return job ? toSummary(job) : null;
+}
+
+/**
+ * Pide una exportación.
+ *
+ * Devuelve el trabajo existente si ya se pidió lo mismo con el mismo
+ * manuscrito; en caso contrario, lo crea y lo genera.
+ */
+export async function requestExport(
+  session: SessionContext,
+  bookId: string,
+  format: ExportFormat,
+): Promise<ExportJobSummary> {
+  const book = await prisma.book.findFirst({
+    where: { id: bookId, workspaceId: session.workspace.id, deletedAt: null },
+    select: { id: true, title: true, authorName: true },
+  });
+
+  if (!book) {
+    throw new Error("El libro no existe en este espacio de trabajo.");
+  }
+
+  const versions = await currentSectionVersions(session, bookId);
+  const manuscript = await loadManuscript(session, bookId, versions);
+  const context = await exportContext(session, bookId);
+
+  // La huella incluye el formato y la maqueta: cambian el archivo, de modo
+  // que tienen que dar lugar a trabajos distintos.
+  const hash = manuscriptHash(manuscript, `${format}:${JSON.stringify(context.profile ?? {})}`);
+  const idempotencyKey = `${format}:${hash}`.slice(0, 120);
+
+  const existing = await prisma.exportJob.findFirst({
+    where: { idempotencyKey, bookId },
+    select: JOB_SELECT,
+  });
+
+  if (existing && existing.status === "COMPLETED") {
+    return toSummary(existing);
+  }
+
+  const job =
+    existing ??
+    (await prisma.exportJob.create({
+      data: {
+        bookId,
+        requestedById: session.user.id,
+        format,
+        status: "PENDING",
+        idempotencyKey,
+        manuscriptHash: hash,
+        sectionVersions: versions as unknown as object,
+        options: {},
+      },
+      select: JOB_SELECT,
+    }));
+
+  return processExportJob(session, job.id);
+}
+
+/**
+ * Genera el archivo del trabajo y guarda sus metadatos.
+ *
+ * La generación es reproducible: usa las versiones de las secciones que
+ * guardó el trabajo, de modo que el archivo es el mismo aunque el manuscrito
+ * haya cambiado después.
+ */
+export async function processExportJob(
+  session: SessionContext,
+  jobId: string,
+): Promise<ExportJobSummary> {
+  const job = await prisma.exportJob.findFirst({
+    where: { id: jobId, book: { workspaceId: session.workspace.id, deletedAt: null } },
+    select: {
+      ...JOB_SELECT,
+      sectionVersions: true,
+      editionId: true,
+    },
+  });
+
+  if (!job) {
+    throw new Error("El trabajo de exportación no existe.");
+  }
+
+  await prisma.exportJob.update({
+    where: { id: job.id },
+    data: { status: "PROCESSING", startedAt: new Date(), progress: 10, errorMessage: null },
+  });
+
+  try {
+    const book = await prisma.book.findFirst({
+      where: { id: job.bookId, workspaceId: session.workspace.id, deletedAt: null },
+      select: { id: true, title: true, authorName: true },
+    });
+
+    if (!book) {
+      throw new Error("El libro no existe en este espacio de trabajo.");
+    }
+
+    const versions = (job.sectionVersions ?? []) as unknown as SectionVersion[];
+    const sections = await loadManuscript(session, job.bookId, versions);
+    const context = await exportContext(session, job.bookId);
+
+    const file = generateFile({
+      format: job.format,
+      title: book.title,
+      author: book.authorName,
+      sections,
+      profile: context.profile,
+      typography: context.typography,
+      createdAt: job.createdAt,
+    });
+
+    const updated = await prisma.exportJob.update({
+      where: { id: job.id },
+      data: {
+        status: "COMPLETED",
+        progress: 100,
+        completedAt: new Date(),
+        resultMetadata: file.metadata as unknown as object,
+        options: { fileName: file.fileName, mimeType: file.mimeType },
+        errorCode: null,
+        errorMessage: null,
+      },
+      select: JOB_SELECT,
+    });
+
+    return toSummary(updated);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "No se ha podido generar el archivo.";
+
+    await prisma.exportJob.update({
+      where: { id: job.id },
+      data: {
+        status: "FAILED",
+        progress: 0,
+        errorCode: "EXPORT_FAILED",
+        errorMessage: message.slice(0, 2_000),
+        completedAt: new Date(),
+      },
+      select: JOB_SELECT,
+    });
+
+    throw error;
+  }
+}

@@ -61,6 +61,9 @@ Cobertura actual (Fases 1 a 3):
 | `packages/editorial-engine/src/measure.test.ts`           | Medición del texto: anchos por tipo de carácter, reparto en líneas, palabras que desbordan la caja y guionado por guion.                                                                                    |
 | `packages/editorial-engine/src/pagination.test.ts`        | Composición en páginas: reparto del texto, párrafos que ocupan más de una página, aperturas de capítulo en página par, viudas, huérfanas, folios y encabezados.                                             |
 | `packages/editorial-engine/src/layout-validation.test.ts` | Validación de la geometría de página y de los formatos.                                                                                                                                                     |
+| `packages/export-engine/src/pdf.test.ts`                  | Escritura de PDF: cabecera, objetos, fuentes estándar, escapado del texto, metadatos, cajas de recorte y sangre, marcas de corte y reproducibilidad.                                                        |
+| `packages/export-engine/src/zip.test.ts`                  | ZIP: firma, entradas sin comprimir, nombres, CRC-32 de referencia y la entrada `mimetype` colocada en primer lugar.                                                                                         |
+| `packages/export-engine/src/epub.test.ts`                 | EPUB 3 y DOCX: entradas del paquete, `mimetype` en primer lugar, manifiesto, spine, navegación, estilos, XML escapado y reproducibilidad.                                                                   |
 
 ---
 
@@ -181,7 +184,7 @@ ruta de instalación y guarda la sesión compartida.
 - Con sesión, la firma de Cloudinary responde `503` porque no está
   configurada, y la respuesta no contiene el secreto.
 
-`tests/e2e/library.spec.ts` (biblioteca y manuscritos):
+`tests/e2e/biblioteca.spec.ts` (biblioteca y manuscritos):
 
 - La biblioteca vacía ofrece crear el primer libro.
 - Un libro se crea con sus metadatos y aparece en la biblioteca.
@@ -237,14 +240,28 @@ solitario:
 - La vista previa muestra el folio y el encabezado de página.
 - La página se dibuja a escala real y respeta los márgenes.
 
+`tests/e2e/exportacion.spec.ts` (exportación). El archivo es autocontenido:
+crea su propio libro, su sección y su perfil de página:
+
+- Se crea un libro con una sección para exportar.
+- Sin maquetación, el PDF no se puede generar y se explica.
+- Se crea un perfil de página para poder componer el PDF.
+- El PDF digital se genera y se descarga.
+- El PDF de imprenta lleva sangrado y marcas de corte.
+- El EPUB se genera y se descarga.
+- El archivo descargado es un EPUB válido.
+- Pedir dos veces la misma exportación reutiliza el trabajo.
+- El DOCX generado es un paquete de Word.
+- Una descarga sin firma se rechaza.
+
 ### 4.5 Resultados obtenidos
 
 ```text
-Running 46 tests using 1 worker
-46 passed (1.7m)
+Running 56 tests using 1 worker
+56 passed (2.2m)
 ```
 
-Las 46 pruebas incluyen la preparación de la cuenta de pruebas. La suite se ha
+Las 56 pruebas incluyen la preparación de la cuenta de pruebas. La suite se ha
 ejecutado de forma repetida con resultado completo en todas las ejecuciones,
 contra PostgreSQL 17.7 local y contra la **compilación de producción** (no el
 servidor de desarrollo). En producción, el mismo flujo de instalación, acceso y
@@ -252,8 +269,9 @@ panel se verificó además en el despliegue real de Neon.
 
 Los archivos se ejecutan por orden alfabético sobre la misma base de datos,
 que se vacía una sola vez al principio de la ejecución. Por eso el archivo de
-la biblioteca se llama `library.spec.ts` y va antes que `maquetacion.spec.ts`:
-la biblioteca necesita empezar vacía.
+la biblioteca se llama `biblioteca.spec.ts` y va antes que los demás: la
+biblioteca necesita empezar vacía. Los nombres siguen el orden de las fases,
+para que añadir una fase nueva no rompa el orden por sorpresa.
 
 ### 4.6 Recuperación de contraseña por CLI
 
