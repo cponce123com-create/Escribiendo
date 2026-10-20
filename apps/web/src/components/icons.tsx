@@ -30,6 +30,17 @@ export function DashboardIcon(props: IconProps) {
   );
 }
 
+export function LibraryIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <rect x="3.5" y="4.5" width="4" height="11" rx="0.8" />
+      <rect x="9" y="7" width="4" height="8.5" rx="0.8" />
+      <rect x="14.5" y="4.5" width="4" height="11" rx="0.8" />
+      <path d="M2.5 19h19" />
+    </IconBase>
+  );
+}
+
 export function BookIcon(props: IconProps) {
   return (
     <IconBase {...props}>

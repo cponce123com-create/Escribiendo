@@ -1,20 +1,12 @@
 import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
 import { NavLinks } from "@/components/app/nav-links";
-import {
-  BookIcon,
-  DownloadIcon,
-  LayoutIcon,
-  LogOutIcon,
-  PenIcon,
-  UsersIcon,
-} from "@/components/icons";
+import { DownloadIcon, LayoutIcon, LogOutIcon, PenIcon, UsersIcon } from "@/components/icons";
 import { logoutAction } from "@/lib/auth/actions";
 import type { SessionContext } from "@/lib/auth/session";
 import { getInitials, WORKSPACE_ROLE_LABELS } from "@/lib/ui/format";
 
 const FUTURE_SECTIONS = [
-  { label: "Biblioteca", phase: "Fase 2", icon: BookIcon },
   { label: "Editor", phase: "Fase 3", icon: PenIcon },
   { label: "Maquetación", phase: "Fase 4", icon: LayoutIcon },
   { label: "Exportaciones", phase: "Fase 5", icon: DownloadIcon },

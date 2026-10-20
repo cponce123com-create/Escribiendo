@@ -1,12 +1,17 @@
 interface TextFieldProps {
   name: string;
   label: string;
-  type?: "text" | "email" | "password";
+  type?: "text" | "email" | "password" | "number" | "search";
   autoComplete?: string;
   error?: string;
   hint?: string;
   defaultValue?: string;
   placeholder?: string;
+  /**
+   * El campo es obligatorio por defecto. Un campo opcional en el esquema
+   * debe declarar `required={false}`: de lo contrario el navegador impide
+   * enviar el formulario sin rellenarlo.
+   */
   required?: boolean;
 }
 

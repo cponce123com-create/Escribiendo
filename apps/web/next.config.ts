@@ -17,6 +17,10 @@ const nextConfig: NextConfig = {
   // La aplicación se prueba en 127.0.0.1, por lo que se autoriza ese host
   // en desarrollo. No afecta a la compilación de producción.
   allowedDevOrigins: ["127.0.0.1", "localhost"],
+  // Los indicadores de desarrollo de Next.js 16 aplican estilos en línea, que
+  // la CSP estricta bloquea, y el bloqueo provoca una recarga continua del
+  // navegador. En desarrollo no aportan nada al producto.
+  devIndicators: false,
   transpilePackages: [
     "@escribiendo/book-schema",
     "@escribiendo/database",

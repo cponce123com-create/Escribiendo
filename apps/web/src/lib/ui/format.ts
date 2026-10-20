@@ -51,6 +51,38 @@ export const BOOK_STATUS_LABELS: Record<string, string> = {
   ARCHIVED: "Archivado",
 };
 
+export const SECTION_TYPE_LABELS: Record<string, string> = {
+  HALF_TITLE: "Medio título",
+  TITLE_PAGE: "Portadilla",
+  COPYRIGHT: "Créditos",
+  DEDICATION: "Dedicatoria",
+  EPIGRAPH: "Epígrafe",
+  TABLE_OF_CONTENTS: "Índice",
+  FOREWORD: "Prólogo del autor",
+  PROLOGUE: "Prólogo",
+  INTRODUCTION: "Introducción",
+  PART: "Parte",
+  CHAPTER: "Capítulo",
+  SUBCHAPTER: "Subcapítulo",
+  INTERLUDE: "Intermedio",
+  EPILOGUE: "Epílogo",
+  ACKNOWLEDGMENTS: "Agradecimientos",
+  AUTHOR_NOTES: "Notas del autor",
+  ABOUT_AUTHOR: "Sobre el autor",
+  BIBLIOGRAPHY: "Bibliografía",
+  GLOSSARY: "Glosario",
+  APPENDIX: "Apéndice",
+  OTHER_BOOKS: "Otros libros",
+  CUSTOM: "Sección propia",
+};
+
+export const REVISION_REASON_LABELS: Record<string, string> = {
+  AUTO: "Guardado automático",
+  MANUAL: "Guardado manual",
+  RESTORE: "Restauración",
+  IMPORT: "Importación",
+};
+
 export const AUDIT_ACTION_LABELS: Record<string, string> = {
   AUTH_SETUP_COMPLETED: "Instalación completada",
   AUTH_LOGIN_SUCCEEDED: "Inicio de sesión",

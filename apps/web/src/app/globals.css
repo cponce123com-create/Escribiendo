@@ -811,3 +811,118 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Editor de manuscrito
+   ---------------------------------------------------------------------------
+   Estilos del contenido editable (ProseMirror). El editor es el único punto
+   de la aplicación donde el usuario escribe texto largo, así que necesita
+   un ritmo de lectura propio: interlínea amplia, medida limitada y jerarquía
+   de títulos claramente diferenciada.
+   --------------------------------------------------------------------------- */
+
+.manuscript-editor {
+  padding: 1.75rem 1.5rem;
+  min-height: 24rem;
+  background: var(--surface-raised);
+}
+
+.manuscript-editor:focus-within {
+  border-color: var(--line-strong);
+}
+
+.manuscript-editor--readonly {
+  background: transparent;
+  border-style: dashed;
+}
+
+.manuscript-editor .ProseMirror {
+  outline: none;
+  max-width: 42rem;
+  margin: 0 auto;
+  color: var(--ink);
+  font-family: var(--font-serif);
+  font-size: 1.0625rem;
+  line-height: 1.85;
+}
+
+.manuscript-editor .ProseMirror p {
+  margin: 0 0 1.1em;
+}
+
+.manuscript-editor .ProseMirror h1,
+.manuscript-editor .ProseMirror h2,
+.manuscript-editor .ProseMirror h3 {
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--ink);
+  margin: 1.6em 0 0.6em;
+}
+
+.manuscript-editor .ProseMirror h1 {
+  font-size: 1.6rem;
+}
+
+.manuscript-editor .ProseMirror h2 {
+  font-size: 1.35rem;
+}
+
+.manuscript-editor .ProseMirror h3 {
+  font-size: 1.15rem;
+}
+
+.manuscript-editor .ProseMirror ul,
+.manuscript-editor .ProseMirror ol {
+  margin: 0 0 1.1em;
+  padding-left: 1.4em;
+}
+
+.manuscript-editor .ProseMirror li {
+  margin-bottom: 0.35em;
+}
+
+.manuscript-editor .ProseMirror blockquote {
+  margin: 1.4em 0;
+  padding-left: 1.1em;
+  border-left: 2px solid var(--gold);
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
+.manuscript-editor .ProseMirror code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  padding: 0.1em 0.32em;
+  border-radius: 0.2rem;
+}
+
+.manuscript-editor .ProseMirror pre {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  padding: 0.9rem 1rem;
+  overflow-x: auto;
+}
+
+.manuscript-editor .ProseMirror pre code {
+  background: none;
+  padding: 0;
+}
+
+.manuscript-editor .ProseMirror hr {
+  border: none;
+  border-top: 1px solid var(--line-strong);
+  margin: 2em auto;
+  width: 45%;
+}
+
+.manuscript-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--ink-muted);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

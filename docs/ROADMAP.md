@@ -60,6 +60,37 @@ Alcance previsto:
 
 No incluye exportación ni maquetación.
 
+**Estado: implementada y verificada.** La biblioteca, la estructura de
+secciones, el editor, las revisiones y el progreso funcionan contra la
+compilación de producción, con 27 pruebas de extremo a extremo.
+
+Implementado:
+
+- Biblioteca con búsqueda por título, autoría o género, filtro por estado y
+  orden por modificación, título o extensión. Los filtros son un formulario
+  `GET`: funcionan sin JavaScript y la URL es compartible.
+- Alta y edición de metadatos con el esquema `bookMetadataSchema` existente.
+- Ficha del libro con árbol de secciones, totales, progreso y cambio de
+  estado limitado a las transiciones permitidas.
+- Editor de manuscrito con Tiptap y extensiones controladas. El guardado es
+  explícito; además hay un autoguardado acotado a una vez por minuto, y el
+  servidor lo vuelve a limitar.
+- Control de concurrencia por versión: si la sección cambió desde que el
+  editor cargó el contenido, se pide recargar en lugar de pisar el trabajo de
+  otra persona.
+- Historial de revisiones inmutables. Restaurar una versión anterior la
+  copia como una versión nueva; el trigger de la base de datos rechaza
+  cualquier `UPDATE` sobre una revisión.
+- Recuento de palabras y progreso derivados del contenido, nunca escritos a
+  mano.
+- Autorización por rol del espacio de trabajo en cada consulta y en cada
+  mutación: `OWNER`/`ADMIN` escriben y eliminan, `EDITOR`/`AUTHOR` escriben,
+  `REVIEWER` solo lee.
+
+Fuera de alcance y pendiente para fases posteriores: búsqueda a texto completo
+dentro del manuscrito, arrastrar y soltar para reordenar, subida de imágenes
+dentro del texto, notas, comentarios editoriales, maqueta y exportación.
+
 ## Fase 3 — Escritura asistida y notas
 
 Objetivo: herramientas de trabajo diario para autoría y edición.

@@ -1,0 +1,1008 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { z } from "zod";
+import {
+  BOOK_SECTION_TYPES,
+  CHAPTER_LIKE_SECTION_TYPES,
+  bookMetadataSchema,
+  countWordsInDocument,
+  parseTiptapDocument,
+  type TiptapDocument,
+} from "@escribiendo/book-schema";
+import type { Prisma, RevisionReason } from "@escribiendo/database";
+import { firstZodError, zodFieldErrors } from "@escribiendo/shared";
+import { prisma } from "@/lib/db";
+import { getSession, type SessionContext } from "@/lib/auth/session";
+import { writeAuditLog } from "@/lib/auth/audit";
+import { assertServerActionOrigin, type RequestContext } from "@/lib/security/request-context";
+import { logger } from "@/lib/logger";
+import { assertCanPerform } from "./permissions";
+import { canTransitionTo } from "./status";
+import { computeWritingProgress } from "./progress";
+import type { LibraryActionState } from "./action-state";
+
+/**
+ * Intervalo mínimo entre dos guardados automáticos de la misma sección.
+ *
+ * El autoguardado existe para no perder trabajo ante un cierre accidental
+ * del navegador, no para sustituir al guardado explícito. Acotarlo evita
+ * llenar el historial de revisiones de ruido.
+ */
+const AUTOSAVE_MIN_INTERVAL_MS = 45_000;
+
+const uuidSchema = z.string().uuid("El identificador no es válido.");
+const sectionTypeSchema = z.enum(BOOK_SECTION_TYPES);
+
+const bookMetadataFormSchema = bookMetadataSchema.extend({
+  targetWordCount: z.preprocess(
+    (value) => (value === "" || value === undefined ? undefined : Number(value)),
+    z.number().int().positive().max(10_000_000).optional(),
+  ),
+});
+
+function formValue(formData: FormData, key: string): string {
+  const value = formData.get(key);
+  return typeof value === "string" ? value : "";
+}
+
+function errorState(message: string, fieldErrors?: Record<string, string>): LibraryActionState {
+  return { status: "error", message, ...(fieldErrors ? { fieldErrors } : {}) };
+}
+
+function successState(message: string): LibraryActionState {
+  return { status: "success", message };
+}
+
+function logActionError(event: string, context: RequestContext | undefined, error: unknown): void {
+  logger.error(event, {
+    requestId: context?.requestId,
+    errorName: error instanceof Error ? error.name : "UnknownError",
+  });
+}
+
+/**
+ * Recalcula los totales del libro a partir de sus secciones.
+ *
+ * El recuento de palabras, el número de capítulos y el progreso se derivan
+ * del contenido, nunca se escriben a mano: así no pueden divergir.
+ */
+async function recomputeBookTotals(
+  transaction: Prisma.TransactionClient,
+  bookId: string,
+): Promise<void> {
+  const [aggregate, chapters, book] = await Promise.all([
+    transaction.bookSection.aggregate({
+      where: { bookId, deletedAt: null },
+      _sum: { wordCount: true },
+    }),
+    transaction.bookSection.count({
+      where: { bookId, deletedAt: null, type: { in: [...CHAPTER_LIKE_SECTION_TYPES] } },
+    }),
+    transaction.book.findUniqueOrThrow({
+      where: { id: bookId },
+      select: { targetWordCount: true },
+    }),
+  ]);
+
+  const wordCount = aggregate._sum.wordCount ?? 0;
+
+  await transaction.book.update({
+    where: { id: bookId },
+    data: {
+      wordCount,
+      chapterCount: chapters,
+      writingProgress: computeWritingProgress(wordCount, book.targetWordCount),
+    },
+  });
+}
+
+/** Carga una sección del espacio de trabajo de la sesión. */
+async function loadSectionForSession(
+  session: SessionContext,
+  sectionId: string,
+): Promise<{ id: string; bookId: string; title: string; version: number } | null> {
+  const section = await prisma.bookSection.findFirst({
+    where: {
+      id: sectionId,
+      deletedAt: null,
+      book: { workspaceId: session.workspace.id, deletedAt: null },
+    },
+    select: { id: true, bookId: true, title: true, version: true },
+  });
+
+  return section;
+}
+
+/**
+ * Guarda el contenido de una sección creando una revisión nueva.
+ *
+ * Las revisiones son inmutables: restaurar una versión anterior no la
+ * modifica, sino que guarda su contenido como una revisión nueva. La base de
+ * datos lo garantiza con un trigger que rechaza cualquier `UPDATE`.
+ */
+async function persistSectionContent(
+  session: SessionContext,
+  section: { id: string; bookId: string; title: string; version: number },
+  document: TiptapDocument,
+  reason: RevisionReason,
+): Promise<{ version: number; wordCount: number }> {
+  const wordCount = countWordsInDocument(document);
+  const nextVersion = section.version + 1;
+
+  await prisma.$transaction(async (transaction) => {
+    await transaction.sectionRevision.create({
+      data: {
+        sectionId: section.id,
+        createdById: session.user.id,
+        version: nextVersion,
+        content: document as unknown as Prisma.InputJsonValue,
+        wordCount,
+        reason,
+        title: section.title,
+      },
+    });
+
+    await transaction.bookSection.update({
+      where: { id: section.id },
+      data: {
+        content: document as unknown as Prisma.InputJsonValue,
+        wordCount,
+        version: nextVersion,
+      },
+    });
+
+    await recomputeBookTotals(transaction, section.bookId);
+  });
+
+  return { version: nextVersion, wordCount };
+}
+
+export async function createBookAction(
+  _previousState: LibraryActionState,
+  formData: FormData,
+): Promise<LibraryActionState> {
+  let context: RequestContext | undefined;
+
+  try {
+    context = await assertServerActionOrigin();
+  } catch {
+    return errorState("No se ha podido validar la solicitud.");
+  }
+
+  const session = await getSession();
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  try {
+    assertCanPerform(session.workspace.role, "book:create");
+  } catch {
+    return errorState("No tienes permisos para crear libros en este espacio de trabajo.");
+  }
+
+  const parsed = bookMetadataFormSchema.safeParse({
+    title: formValue(formData, "title"),
+    subtitle: formValue(formData, "subtitle"),
+    authorName: formValue(formData, "authorName"),
+    penName: formValue(formData, "penName"),
+    description: formValue(formData, "description"),
+    genre: formValue(formData, "genre"),
+    language: formValue(formData, "language"),
+    targetWordCount: formValue(formData, "targetWordCount"),
+  });
+
+  if (!parsed.success) {
+    return errorState(firstZodError(parsed.error), zodFieldErrors(parsed.error));
+  }
+
+  let bookId: string;
+
+  try {
+    const book = await prisma.book.create({
+      data: {
+        workspaceId: session.workspace.id,
+        createdById: session.user.id,
+        title: parsed.data.title,
+        subtitle: parsed.data.subtitle ?? null,
+        authorName: parsed.data.authorName,
+        penName: parsed.data.penName ?? null,
+        description: parsed.data.description ?? null,
+        genre: parsed.data.genre ?? null,
+        language: parsed.data.language,
+        targetWordCount: parsed.data.targetWordCount ?? null,
+      },
+      select: { id: true },
+    });
+
+    bookId = book.id;
+  } catch (error) {
+    logActionError("books.create_error", context, error);
+    return errorState("No se ha podido crear el libro. Inténtalo de nuevo.");
+  }
+
+  await writeAuditLog(
+    {
+      action: "BOOK_CREATED",
+      entityType: "Book",
+      entityId: bookId,
+      workspaceId: session.workspace.id,
+      actorId: session.user.id,
+    },
+    context,
+  );
+
+  revalidatePath("/books");
+
+  redirect(`/books/${bookId}`);
+}
+
+export async function updateBookAction(
+  _previousState: LibraryActionState,
+  formData: FormData,
+): Promise<LibraryActionState> {
+  let context: RequestContext | undefined;
+
+  try {
+    context = await assertServerActionOrigin();
+  } catch {
+    return errorState("No se ha podido validar la solicitud.");
+  }
+
+  const session = await getSession();
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  try {
+    assertCanPerform(session.workspace.role, "book:update");
+  } catch {
+    return errorState("No tienes permisos para editar este libro.");
+  }
+
+  const bookId = uuidSchema.safeParse(formValue(formData, "bookId"));
+
+  if (!bookId.success) {
+    return errorState("El libro no es válido.");
+  }
+
+  const parsed = bookMetadataFormSchema.safeParse({
+    title: formValue(formData, "title"),
+    subtitle: formValue(formData, "subtitle"),
+    authorName: formValue(formData, "authorName"),
+    penName: formValue(formData, "penName"),
+    description: formValue(formData, "description"),
+    genre: formValue(formData, "genre"),
+    language: formValue(formData, "language"),
+    targetWordCount: formValue(formData, "targetWordCount"),
+  });
+
+  if (!parsed.success) {
+    return errorState(firstZodError(parsed.error), zodFieldErrors(parsed.error));
+  }
+
+  try {
+    const result = await prisma.book.updateMany({
+      where: {
+        id: bookId.data,
+        workspaceId: session.workspace.id,
+        deletedAt: null,
+      },
+      data: {
+        title: parsed.data.title,
+        subtitle: parsed.data.subtitle ?? null,
+        authorName: parsed.data.authorName,
+        penName: parsed.data.penName ?? null,
+        description: parsed.data.description ?? null,
+        genre: parsed.data.genre ?? null,
+        language: parsed.data.language,
+        targetWordCount: parsed.data.targetWordCount ?? null,
+      },
+    });
+
+    if (result.count === 0) {
+      return errorState("El libro no existe en este espacio de trabajo.");
+    }
+  } catch (error) {
+    logActionError("books.update_error", context, error);
+    return errorState("No se ha podido guardar el libro. Inténtalo de nuevo.");
+  }
+
+  await writeAuditLog(
+    {
+      action: "BOOK_UPDATED",
+      entityType: "Book",
+      entityId: bookId.data,
+      workspaceId: session.workspace.id,
+      actorId: session.user.id,
+    },
+    context,
+  );
+
+  revalidatePath("/books");
+  revalidatePath(`/books/${bookId.data}`);
+
+  return successState("Libro guardado.");
+}
+
+export async function deleteBookAction(
+  _previousState: LibraryActionState,
+  formData: FormData,
+): Promise<LibraryActionState> {
+  let context: RequestContext | undefined;
+
+  try {
+    context = await assertServerActionOrigin();
+  } catch {
+    return errorState("No se ha podido validar la solicitud.");
+  }
+
+  const session = await getSession();
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  try {
+    assertCanPerform(session.workspace.role, "book:delete");
+  } catch {
+    return errorState("No tienes permisos para eliminar libros.");
+  }
+
+  const bookId = uuidSchema.safeParse(formValue(formData, "bookId"));
+
+  if (!bookId.success) {
+    return errorState("El libro no es válido.");
+  }
+
+  try {
+    const result = await prisma.book.updateMany({
+      where: { id: bookId.data, workspaceId: session.workspace.id, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
+
+    if (result.count === 0) {
+      return errorState("El libro no existe en este espacio de trabajo.");
+    }
+  } catch (error) {
+    logActionError("books.delete_error", context, error);
+    return errorState("No se ha podido eliminar el libro. Inténtalo de nuevo.");
+  }
+
+  await writeAuditLog(
+    {
+      action: "BOOK_DELETED",
+      entityType: "Book",
+      entityId: bookId.data,
+      workspaceId: session.workspace.id,
+      actorId: session.user.id,
+    },
+    context,
+  );
+
+  revalidatePath("/books");
+
+  redirect("/books");
+}
+
+export async function createSectionAction(
+  _previousState: LibraryActionState,
+  formData: FormData,
+): Promise<LibraryActionState> {
+  let context: RequestContext | undefined;
+
+  try {
+    context = await assertServerActionOrigin();
+  } catch {
+    return errorState("No se ha podido validar la solicitud.");
+  }
+
+  const session = await getSession();
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  try {
+    assertCanPerform(session.workspace.role, "section:create");
+  } catch {
+    return errorState("No tienes permisos para crear secciones.");
+  }
+
+  const bookId = uuidSchema.safeParse(formValue(formData, "bookId"));
+  const title = z.string().trim().min(1, "El título es obligatorio.").max(300);
+  const type = sectionTypeSchema.safeParse(formValue(formData, "type"));
+  const parentId = uuidSchema.safeParse(formValue(formData, "parentId"));
+
+  if (!bookId.success) {
+    return errorState("El libro no es válido.");
+  }
+
+  const parsedTitle = title.safeParse(formValue(formData, "title"));
+
+  if (!parsedTitle.success) {
+    return errorState(firstZodError(parsedTitle.error), zodFieldErrors(parsedTitle.error));
+  }
+
+  if (!type.success) {
+    return errorState("El tipo de sección no es válido.");
+  }
+
+  const book = await prisma.book.findFirst({
+    where: { id: bookId.data, workspaceId: session.workspace.id, deletedAt: null },
+    select: { id: true },
+  });
+
+  if (!book) {
+    return errorState("El libro no existe en este espacio de trabajo.");
+  }
+
+  const resolvedParentId = parentId.success ? parentId.data : null;
+
+  if (resolvedParentId) {
+    const parent = await prisma.bookSection.findFirst({
+      where: {
+        id: resolvedParentId,
+        deletedAt: null,
+        book: { workspaceId: session.workspace.id, deletedAt: null },
+      },
+      select: { id: true },
+    });
+
+    if (!parent) {
+      return errorState("La sección padre no existe en este espacio de trabajo.");
+    }
+  }
+
+  const last = await prisma.bookSection.findFirst({
+    where: { bookId: book.id, parentId: resolvedParentId, deletedAt: null },
+    orderBy: { sortOrder: "desc" },
+    select: { sortOrder: true },
+  });
+
+  let sectionId: string;
+
+  try {
+    const section = await prisma.bookSection.create({
+      data: {
+        bookId: book.id,
+        parentId: resolvedParentId,
+        type: type.data,
+        title: parsedTitle.data,
+        sortOrder: (last?.sortOrder ?? -1) + 1,
+      },
+      select: { id: true },
+    });
+
+    sectionId = section.id;
+  } catch (error) {
+    logActionError("books.section_create_error", context, error);
+    return errorState("No se ha podido crear la sección. Inténtalo de nuevo.");
+  }
+
+  await writeAuditLog(
+    {
+      action: "BOOK_SECTION_CREATED",
+      entityType: "BookSection",
+      entityId: sectionId,
+      workspaceId: session.workspace.id,
+      actorId: session.user.id,
+      metadata: { type: type.data },
+    },
+    context,
+  );
+
+  revalidatePath(`/books/${book.id}`);
+
+  redirect(`/books/${book.id}/sections/${sectionId}`);
+}
+
+export async function saveSectionAction(
+  _previousState: LibraryActionState,
+  formData: FormData,
+): Promise<LibraryActionState> {
+  let context: RequestContext | undefined;
+
+  try {
+    context = await assertServerActionOrigin();
+  } catch {
+    return errorState("No se ha podido validar la solicitud.");
+  }
+
+  const session = await getSession();
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  try {
+    assertCanPerform(session.workspace.role, "section:update");
+  } catch {
+    return errorState("No tienes permisos para editar este manuscrito.");
+  }
+
+  const sectionId = uuidSchema.safeParse(formValue(formData, "sectionId"));
+  const expectedVersion = z.coerce
+    .number()
+    .int()
+    .positive()
+    .safeParse(formValue(formData, "version"));
+  const intent = z
+    .enum(["manual", "autosave"])
+    .safeParse(formValue(formData, "intent") || "manual");
+
+  if (!sectionId.success || !expectedVersion.success || !intent.success) {
+    return errorState("Los datos del formulario no son válidos.");
+  }
+
+  const section = await loadSectionForSession(session, sectionId.data);
+
+  if (!section) {
+    return errorState("La sección no existe en este espacio de trabajo.");
+  }
+
+  // Control de concurrencia: si la sección cambió desde que el editor cargó
+  // el contenido, guardar la pisaría. Se pide recargar en lugar de perder
+  // el trabajo de otra persona.
+  if (section.version !== expectedVersion.data) {
+    return errorState(
+      "Esta sección se ha modificado en otra pestaña. Recarga la página para no perder ese trabajo.",
+    );
+  }
+
+  if (intent.data === "autosave") {
+    const last = await prisma.sectionRevision.findFirst({
+      where: { sectionId: section.id },
+      orderBy: { version: "desc" },
+      select: { createdAt: true },
+    });
+
+    if (last && Date.now() - last.createdAt.getTime() < AUTOSAVE_MIN_INTERVAL_MS) {
+      return successState("Guardado automático pospuesto: hay un cambio muy reciente.");
+    }
+  }
+
+  let document: TiptapDocument;
+
+  try {
+    document = parseTiptapDocument(JSON.parse(formValue(formData, "content")));
+  } catch (error) {
+    return errorState(
+      error instanceof Error ? error.message : "El contenido del manuscrito no es válido.",
+    );
+  }
+
+  try {
+    await persistSectionContent(
+      session,
+      section,
+      document,
+      intent.data === "autosave" ? "AUTO" : "MANUAL",
+    );
+  } catch (error) {
+    logActionError("books.section_save_error", context, error);
+    return errorState("No se ha podido guardar el manuscrito. Inténtalo de nuevo.");
+  }
+
+  await writeAuditLog(
+    {
+      action: "BOOK_SECTION_SAVED",
+      entityType: "BookSection",
+      entityId: section.id,
+      workspaceId: session.workspace.id,
+      actorId: session.user.id,
+      metadata: { intent: intent.data, version: section.version + 1 },
+    },
+    context,
+  );
+
+  revalidatePath(`/books/${section.bookId}`);
+  revalidatePath(`/books/${section.bookId}/sections/${section.id}`);
+
+  return successState(intent.data === "autosave" ? "Guardado automático." : "Manuscrito guardado.");
+}
+
+export async function restoreRevisionAction(
+  _previousState: LibraryActionState,
+  formData: FormData,
+): Promise<LibraryActionState> {
+  let context: RequestContext | undefined;
+
+  try {
+    context = await assertServerActionOrigin();
+  } catch {
+    return errorState("No se ha podido validar la solicitud.");
+  }
+
+  const session = await getSession();
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  try {
+    assertCanPerform(session.workspace.role, "revision:restore");
+  } catch {
+    return errorState("No tienes permisos para restaurar revisiones.");
+  }
+
+  const sectionId = uuidSchema.safeParse(formValue(formData, "sectionId"));
+  const revisionId = uuidSchema.safeParse(formValue(formData, "revisionId"));
+
+  if (!sectionId.success || !revisionId.success) {
+    return errorState("La revisión no es válida.");
+  }
+
+  const section = await loadSectionForSession(session, sectionId.data);
+
+  if (!section) {
+    return errorState("La sección no existe en este espacio de trabajo.");
+  }
+
+  const revision = await prisma.sectionRevision.findFirst({
+    where: {
+      id: revisionId.data,
+      sectionId: section.id,
+      section: { book: { workspaceId: session.workspace.id, deletedAt: null } },
+    },
+    select: { id: true, version: true, content: true },
+  });
+
+  if (!revision) {
+    return errorState("La revisión no existe.");
+  }
+
+  let document: TiptapDocument;
+
+  try {
+    document = parseTiptapDocument(revision.content);
+  } catch (error) {
+    logActionError("books.revision_restore_error", context, error);
+    return errorState("La revisión guardada no se puede leer.");
+  }
+
+  try {
+    await persistSectionContent(session, section, document, "RESTORE");
+  } catch (error) {
+    logActionError("books.revision_restore_error", context, error);
+    return errorState("No se ha podido restaurar la revisión. Inténtalo de nuevo.");
+  }
+
+  await writeAuditLog(
+    {
+      action: "BOOK_REVISION_RESTORED",
+      entityType: "BookSection",
+      entityId: section.id,
+      workspaceId: session.workspace.id,
+      actorId: session.user.id,
+      metadata: { restoredFromVersion: revision.version },
+    },
+    context,
+  );
+
+  revalidatePath(`/books/${section.bookId}`);
+  revalidatePath(`/books/${section.bookId}/sections/${section.id}`);
+
+  return successState(`Revisión ${revision.version} restaurada como una versión nueva.`);
+}
+
+export async function moveSectionAction(
+  _previousState: LibraryActionState,
+  formData: FormData,
+): Promise<LibraryActionState> {
+  let context: RequestContext | undefined;
+
+  try {
+    context = await assertServerActionOrigin();
+  } catch {
+    return errorState("No se ha podido validar la solicitud.");
+  }
+
+  const session = await getSession();
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  try {
+    assertCanPerform(session.workspace.role, "section:move");
+  } catch {
+    return errorState("No tienes permisos para reordenar las secciones.");
+  }
+
+  const sectionId = uuidSchema.safeParse(formValue(formData, "sectionId"));
+  const parentId = uuidSchema.safeParse(formValue(formData, "parentId"));
+  const position = z.coerce.number().int().min(0).safeParse(formValue(formData, "position"));
+
+  if (!sectionId.success || !position.success) {
+    return errorState("Los datos del formulario no son válidos.");
+  }
+
+  const section = await loadSectionForSession(session, sectionId.data);
+
+  if (!section) {
+    return errorState("La sección no existe en este espacio de trabajo.");
+  }
+
+  const resolvedParentId = parentId.success ? parentId.data : null;
+
+  if (resolvedParentId) {
+    const parent = await prisma.bookSection.findFirst({
+      where: {
+        id: resolvedParentId,
+        deletedAt: null,
+        book: { workspaceId: session.workspace.id, deletedAt: null },
+      },
+      select: { id: true, parentId: true },
+    });
+
+    if (!parent) {
+      return errorState("La sección padre no existe en este espacio de trabajo.");
+    }
+
+    if (
+      parent.id === section.id ||
+      (await isDescendant(parent.parentId, section.id, session.workspace.id))
+    ) {
+      return errorState("Una sección no puede colgar de sí misma ni de una de sus descendientes.");
+    }
+  }
+
+  const siblings = await prisma.bookSection.findMany({
+    where: {
+      bookId: section.bookId,
+      parentId: resolvedParentId,
+      deletedAt: null,
+      id: { not: section.id },
+    },
+    orderBy: { sortOrder: "asc" },
+    select: { id: true },
+  });
+
+  const ordered = siblings.map((sibling) => sibling.id);
+  const index = Math.min(position.data, ordered.length);
+  ordered.splice(index, 0, section.id);
+
+  try {
+    await prisma.$transaction(async (transaction) => {
+      for (const [order, id] of ordered.entries()) {
+        await transaction.bookSection.update({
+          where: { id },
+          data: { sortOrder: order, ...(id === section.id ? { parentId: resolvedParentId } : {}) },
+        });
+      }
+    });
+  } catch (error) {
+    logActionError("books.section_move_error", context, error);
+    return errorState("No se ha podido reordenar la sección. Inténtalo de nuevo.");
+  }
+
+  await writeAuditLog(
+    {
+      action: "BOOK_SECTION_MOVED",
+      entityType: "BookSection",
+      entityId: section.id,
+      workspaceId: session.workspace.id,
+      actorId: session.user.id,
+    },
+    context,
+  );
+
+  revalidatePath(`/books/${section.bookId}`);
+
+  return successState("Sección reordenada.");
+}
+
+export async function deleteSectionAction(
+  _previousState: LibraryActionState,
+  formData: FormData,
+): Promise<LibraryActionState> {
+  let context: RequestContext | undefined;
+
+  try {
+    context = await assertServerActionOrigin();
+  } catch {
+    return errorState("No se ha podido validar la solicitud.");
+  }
+
+  const session = await getSession();
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  try {
+    assertCanPerform(session.workspace.role, "section:delete");
+  } catch {
+    return errorState("No tienes permisos para eliminar secciones.");
+  }
+
+  const sectionId = uuidSchema.safeParse(formValue(formData, "sectionId"));
+
+  if (!sectionId.success) {
+    return errorState("La sección no es válida.");
+  }
+
+  const section = await loadSectionForSession(session, sectionId.data);
+
+  if (!section) {
+    return errorState("La sección no existe en este espacio de trabajo.");
+  }
+
+  const descendants = await collectDescendants(section.id, session.workspace.id);
+  const now = new Date();
+
+  try {
+    await prisma.$transaction(async (transaction) => {
+      await transaction.bookSection.updateMany({
+        where: { id: { in: descendants }, deletedAt: null },
+        data: { deletedAt: now },
+      });
+
+      await recomputeBookTotals(transaction, section.bookId);
+    });
+  } catch (error) {
+    logActionError("books.section_delete_error", context, error);
+    return errorState("No se ha podido eliminar la sección. Inténtalo de nuevo.");
+  }
+
+  await writeAuditLog(
+    {
+      action: "BOOK_SECTION_DELETED",
+      entityType: "BookSection",
+      entityId: section.id,
+      workspaceId: session.workspace.id,
+      actorId: session.user.id,
+      metadata: { affectedSections: descendants.length },
+    },
+    context,
+  );
+
+  revalidatePath(`/books/${section.bookId}`);
+
+  redirect(`/books/${section.bookId}`);
+}
+
+export async function changeBookStatusAction(
+  _previousState: LibraryActionState,
+  formData: FormData,
+): Promise<LibraryActionState> {
+  let context: RequestContext | undefined;
+
+  try {
+    context = await assertServerActionOrigin();
+  } catch {
+    return errorState("No se ha podido validar la solicitud.");
+  }
+
+  const session = await getSession();
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  try {
+    assertCanPerform(session.workspace.role, "book:changeStatus");
+  } catch {
+    return errorState("No tienes permisos para cambiar el estado de este libro.");
+  }
+
+  const bookId = uuidSchema.safeParse(formValue(formData, "bookId"));
+  const status = z
+    .enum(["DRAFT", "IN_PROGRESS", "REVIEW", "COMPLETE", "ARCHIVED"])
+    .safeParse(formValue(formData, "status"));
+
+  if (!bookId.success || !status.success) {
+    return errorState("Los datos del formulario no son válidos.");
+  }
+
+  const book = await prisma.book.findFirst({
+    where: { id: bookId.data, workspaceId: session.workspace.id, deletedAt: null },
+    select: { id: true, status: true },
+  });
+
+  if (!book) {
+    return errorState("El libro no existe en este espacio de trabajo.");
+  }
+
+  if (!canTransitionTo(book.status, status.data)) {
+    return errorState("Ese cambio de estado no está permitido.");
+  }
+
+  try {
+    await prisma.book.update({
+      where: { id: book.id },
+      data: { status: status.data },
+    });
+  } catch (error) {
+    logActionError("books.status_error", context, error);
+    return errorState("No se ha podido cambiar el estado. Inténtalo de nuevo.");
+  }
+
+  await writeAuditLog(
+    {
+      action: "BOOK_STATUS_CHANGED",
+      entityType: "Book",
+      entityId: book.id,
+      workspaceId: session.workspace.id,
+      actorId: session.user.id,
+      metadata: { from: book.status, to: status.data },
+    },
+    context,
+  );
+
+  revalidatePath("/books");
+  revalidatePath(`/books/${book.id}`);
+
+  return successState("Estado actualizado.");
+}
+
+/** Indica si `candidate` está dentro de la rama de `ancestorId`. */
+async function isDescendant(
+  candidate: string | null,
+  ancestorId: string,
+  workspaceId: string,
+): Promise<boolean> {
+  const visited = new Set<string>();
+  let current = candidate;
+
+  while (current) {
+    if (current === ancestorId) {
+      return true;
+    }
+
+    if (visited.has(current)) {
+      return false;
+    }
+
+    visited.add(current);
+
+    const parent = await prisma.bookSection.findFirst({
+      where: {
+        id: current,
+        deletedAt: null,
+        book: { workspaceId, deletedAt: null },
+      },
+      select: { parentId: true },
+    });
+
+    current = parent?.parentId ?? null;
+  }
+
+  return false;
+}
+
+/** Identificadores de la sección y de todas sus descendientes. */
+async function collectDescendants(sectionId: string, workspaceId: string): Promise<string[]> {
+  const collected = [sectionId];
+  const pending = [sectionId];
+
+  while (pending.length > 0) {
+    const current = pending.pop();
+
+    if (!current) {
+      continue;
+    }
+
+    const children = await prisma.bookSection.findMany({
+      where: {
+        parentId: current,
+        deletedAt: null,
+        book: { workspaceId, deletedAt: null },
+      },
+      select: { id: true },
+    });
+
+    for (const child of children) {
+      if (!collected.includes(child.id)) {
+        collected.push(child.id);
+        pending.push(child.id);
+      }
+    }
+  }
+
+  return collected;
+}

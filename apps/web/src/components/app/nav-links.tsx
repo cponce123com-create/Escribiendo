@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { DashboardIcon, UserIcon } from "@/components/icons";
+import { DashboardIcon, LibraryIcon, UserIcon } from "@/components/icons";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Panel", icon: DashboardIcon },
+  { href: "/books", label: "Biblioteca", icon: LibraryIcon },
   { href: "/account", label: "Mi cuenta", icon: UserIcon },
 ] as const;
 

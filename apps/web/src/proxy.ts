@@ -14,7 +14,10 @@ export function proxy(request: NextRequest): NextResponse {
   const contentSecurityPolicy = [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDevelopment ? " 'unsafe-eval'" : ""}`,
-    `style-src 'self' 'nonce-${nonce}'`,
+    // En desarrollo, las herramientas de Next.js 16 aplican estilos en línea y
+    // la CSP los bloquea, lo que provoca recargas continuas del navegador.
+    // La política de producción no los permite.
+    `style-src 'self' 'nonce-${nonce}'${isDevelopment ? " 'unsafe-inline'" : ""}`,
     "img-src 'self' data: blob: https://res.cloudinary.com",
     "font-src 'self' data:",
     `connect-src ${connectSources.join(" ")}`,

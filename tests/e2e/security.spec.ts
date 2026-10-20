@@ -3,7 +3,11 @@ import { expect, test } from "@playwright/test";
 /**
  * Comprobaciones de la capa de seguridad: cabeceras, CSP, desindexación,
  * protección de rutas privadas y rechazo de orígenes ajenos.
+ *
+ * Estas pruebas se ejecutan **sin sesión**: es justo lo que hay que
+ * comprobar. La sesión compartida del proyecto se anula de forma explícita.
  */
+test.use({ storageState: { cookies: [], origins: [] } });
 test.describe("Capa de seguridad", () => {
   test("los endpoints de salud responden con el estado real", async ({ request }) => {
     const health = await request.get("/api/health");
@@ -67,9 +71,9 @@ test.describe("Capa de seguridad", () => {
     await expect(page).toHaveURL(/\/login$/u);
   });
 
-  test("la firma de Cloudinary exige sesión", async ({ request }) => {
+  test("la firma de Cloudinary exige sesión", async ({ request, baseURL }) => {
     const response = await request.post("/api/cloudinary/signature", {
-      headers: { origin: "http://127.0.0.1:3000" },
+      headers: { origin: baseURL ?? "http://127.0.0.1:3100" },
     });
 
     expect(response.status()).toBe(401);

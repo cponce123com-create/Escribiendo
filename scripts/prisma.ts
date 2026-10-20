@@ -28,7 +28,7 @@ if (args.length === 0) {
   process.exit(1);
 }
 
-runPrisma({ args })
+runPrisma({ args, retries: 3 })
   .then((code) => {
     process.exit(code);
   })

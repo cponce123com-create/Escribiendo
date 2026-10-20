@@ -99,13 +99,28 @@ pnpm test:e2e
 
 ### 4.1 Cómo funciona
 
-1. Playwright arranca el servidor de desarrollo (`pnpm --filter
-@escribiendo/web dev`) y espera a que `/api/health` responda.
+1. `pnpm test:e2e` compila la aplicación y arranca el servidor de producción
+   (`scripts/e2e-server.ts`) en un puerto propio, el 3100, para no interferir
+   con un servidor de desarrollo en marcha.
 2. La preparación global (`tests/e2e/global-setup.ts`) **vacía todas las
    tablas** de la base configurada en `DATABASE_URL`, de modo que la
    instalación inicial vuelva a estar disponible y el flujo sea reproducible.
-3. Se ejecutan las pruebas en serie y con un único worker: comparten una sola
+3. El proyecto de preparación (`tests/e2e/auth.setup.ts`) crea la cuenta de
+   pruebas y guarda la sesión en disco; el resto de pruebas la reutiliza.
+4. Se ejecutan las pruebas en serie y con un único worker: comparten una sola
    base de datos desechable.
+
+**Por qué la compilación de producción y no el servidor de desarrollo**: en
+desarrollo, las herramientas de Next.js 16 aplican estilos en línea que la CSP
+estricta bloquea, y el bloqueo provoca recargas continuas del navegador que
+hacen fallar las pruebas de forma intermitente. Además, el «fast refresh»
+vuelve a renderizar los componentes mientras una prueba los está usando. Con
+la compilación de producción se comprueba además la política de seguridad
+real.
+
+Por la misma razón, la CSP permite `style-src 'unsafe-inline'` **solo en
+desarrollo**; en producción se mantiene la política estricta, que es la que
+verifican las pruebas.
 
 ### 4.2 Salvaguarda de la base de datos
 
@@ -134,6 +149,9 @@ recomienda.
 
 ### 4.4 Qué cubren
 
+`tests/e2e/auth.setup.ts` (preparación): crea la cuenta de pruebas mediante la
+ruta de instalación y guarda la sesión compartida.
+
 `tests/e2e/auth.spec.ts` (flujo de acceso):
 
 - La instalación inicial muestra el formulario y crea la primera cuenta.
@@ -149,6 +167,19 @@ recomienda.
 - `/setup` queda deshabilitada cuando ya existe una cuenta.
 - Con sesión, la firma de Cloudinary responde `503` porque no está
   configurada, y la respuesta no contiene el secreto.
+
+`tests/e2e/library.spec.ts` (biblioteca y manuscritos):
+
+- La biblioteca vacía ofrece crear el primer libro.
+- Un libro se crea con sus metadatos y aparece en la biblioteca.
+- El buscador filtra la biblioteca.
+- Se añade una sección y se abre su editor.
+- El manuscrito se guarda y crea una revisión.
+- El libro refleja las palabras y el progreso.
+- Una segunda versión se añade al historial.
+- Restaurar una revisión crea una versión nueva sin alterar la anterior.
+- El estado del libro cambia según las transiciones permitidas.
+- El estado no puede saltar de borrador a completo.
 
 `tests/e2e/security.spec.ts` (capa de seguridad):
 
@@ -167,8 +198,8 @@ recomienda.
 ### 4.5 Resultados obtenidos en la Fase 1
 
 ```text
-Running 17 tests using 1 worker
-17 passed (1.5m)
+Running 27 tests using 1 worker
+27 passed (53.7s)
 ```
 
 La suite se ha ejecutado de forma repetida con resultado completo en todas las

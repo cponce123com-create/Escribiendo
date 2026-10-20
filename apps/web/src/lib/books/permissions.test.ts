@@ -1,0 +1,86 @@
+import { describe, expect, it } from "vitest";
+import type { WorkspaceRole } from "@escribiendo/database";
+import { assertCanPerform, canPerform, type LibraryAction } from "./permissions";
+
+const ROLES: WorkspaceRole[] = ["OWNER", "ADMIN", "EDITOR", "AUTHOR", "REVIEWER"];
+
+describe("canPerform", () => {
+  it("permite crear y editar a quienes escriben", () => {
+    const writeActions: LibraryAction[] = [
+      "book:create",
+      "book:update",
+      "book:changeStatus",
+      "section:create",
+      "section:update",
+      "section:move",
+    ];
+
+    for (const role of ["OWNER", "ADMIN", "EDITOR", "AUTHOR"] as WorkspaceRole[]) {
+      for (const action of writeActions) {
+        expect(canPerform(role, action)).toBe(true);
+      }
+    }
+  });
+
+  it("no permite escribir a quien solo lee", () => {
+    for (const action of [
+      "book:create",
+      "book:update",
+      "book:changeStatus",
+      "section:create",
+      "section:update",
+      "section:move",
+    ] as LibraryAction[]) {
+      expect(canPerform("REVIEWER", action)).toBe(false);
+    }
+  });
+
+  it("reserva el borrado a la administración del estudio", () => {
+    expect(canPerform("OWNER", "book:delete")).toBe(true);
+    expect(canPerform("ADMIN", "book:delete")).toBe(true);
+    expect(canPerform("EDITOR", "book:delete")).toBe(false);
+    expect(canPerform("AUTHOR", "book:delete")).toBe(false);
+    expect(canPerform("REVIEWER", "book:delete")).toBe(false);
+
+    expect(canPerform("OWNER", "section:delete")).toBe(true);
+    expect(canPerform("EDITOR", "section:delete")).toBe(false);
+  });
+
+  it("permite restaurar revisiones a la edición pero no a la autoría", () => {
+    expect(canPerform("OWNER", "revision:restore")).toBe(true);
+    expect(canPerform("ADMIN", "revision:restore")).toBe(true);
+    expect(canPerform("EDITOR", "revision:restore")).toBe(true);
+    expect(canPerform("AUTHOR", "revision:restore")).toBe(false);
+    expect(canPerform("REVIEWER", "revision:restore")).toBe(false);
+  });
+
+  it("es exhaustivo: ningún rol queda sin decidir", () => {
+    const actions: LibraryAction[] = [
+      "book:create",
+      "book:update",
+      "book:delete",
+      "book:changeStatus",
+      "section:create",
+      "section:update",
+      "section:move",
+      "section:delete",
+      "revision:restore",
+    ];
+
+    for (const role of ROLES) {
+      for (const action of actions) {
+        expect(typeof canPerform(role, action)).toBe("boolean");
+      }
+    }
+  });
+});
+
+describe("assertCanPerform", () => {
+  it("no lanza cuando la acción está permitida", () => {
+    expect(() => assertCanPerform("OWNER", "book:delete")).not.toThrow();
+  });
+
+  it("lanza un errorForbidden cuando no está permitida", () => {
+    expect(() => assertCanPerform("REVIEWER", "book:delete")).toThrow(/permisos/u);
+  });
+});

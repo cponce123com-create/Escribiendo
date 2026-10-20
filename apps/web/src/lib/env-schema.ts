@@ -42,6 +42,8 @@ export const envSchema = z.object({
   SETUP_TOKEN: optionalEnv(z.string().min(32).max(256).optional()),
   SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(14),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).optional(),
+  RATE_LIMIT_LOGIN_ATTEMPTS: z.coerce.number().int().min(1).max(1000).optional(),
+  RATE_LIMIT_LOGIN_WINDOW_MINUTES: z.coerce.number().int().min(1).max(1440).optional(),
   CLOUDINARY_CLOUD_NAME: optionalNonEmpty,
   CLOUDINARY_API_KEY: optionalNonEmpty,
   CLOUDINARY_API_SECRET: optionalNonEmpty,

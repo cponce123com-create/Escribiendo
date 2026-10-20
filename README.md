@@ -13,7 +13,7 @@ firmada con Cloudinary y preparación de despliegue en Render.
 
 ---
 
-## Estado de la Fase 1
+## Estado
 
 | Área                                                 | Estado                                     |
 | ---------------------------------------------------- | ------------------------------------------ |
@@ -23,11 +23,13 @@ firmada con Cloudinary y preparación de despliegue en Render.
 | Instalación inicial protegida por token              | Implementado                               |
 | Recuperación de contraseña sin proveedor de correo   | Implementado mediante CLI                  |
 | Panel privado y gestión de cuenta                    | Implementado                               |
+| Biblioteca de libros con búsqueda y filtros          | Implementado (Fase 2)                      |
+| Manuscrito con Tiptap, revisiones y progreso         | Implementado (Fase 2)                      |
 | Cloudinary: firma de subida directa                  | Implementado                               |
 | Cabeceras de seguridad y CSP con nonce               | Implementado                               |
 | Health checks y blueprint de Render                  | Implementado                               |
 | Pruebas unitarias, de esquema y de extremo a extremo | Implementado                               |
-| Biblioteca, editor Tiptap y exportaciones            | Fuera del alcance de la Fase 1             |
+| Notas, comentarios, maqueta y exportaciones          | Fuera del alcance de las fases 1 y 2       |
 
 La aplicación **no incluye datos de demostración, botones simulados ni
 credenciales de ejemplo**. Si una integración no está configurada, la interfaz
@@ -61,6 +63,7 @@ escribiendo/
 │     ├─ components/            # Componentes de interfaz
 │     ├─ lib/
 │     │  ├─ auth/               # Sesiones, contraseñas, acciones
+│     │  ├─ books/              # Biblioteca, secciones, revisiones
 │     │  ├─ cloudinary/         # Firma de subidas
 │     │  ├─ security/           # Origen, CSRF, rate limit, contexto
 │     │  └─ env.ts              # Validación del entorno

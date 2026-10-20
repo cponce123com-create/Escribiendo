@@ -17,7 +17,7 @@
     "typecheck": "pnpm --recursive --if-present typecheck && tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
+    "test:e2e": "pnpm build && playwright test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:generate": "tsx scripts/prisma.ts generate",

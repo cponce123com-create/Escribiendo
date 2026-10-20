@@ -138,9 +138,8 @@ export default async function DashboardPage() {
             El estudio está listo para empezar.
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-relaxed text-ink-soft">
-            Bienvenido/a, {session.user.name}. La base técnica, el acceso privado y el modelo
-            editorial están operativos. La biblioteca y el editor de manuscritos se incorporan en la
-            Fase 2.
+            Bienvenido/a, {session.user.name}. La base técnica, el acceso privado, la biblioteca y
+            el modelo editorial están operativos.
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-ink-muted">
             <span className="inline-flex items-center gap-2">
@@ -190,7 +189,9 @@ export default async function DashboardPage() {
                 Manuscritos recientes
               </h2>
             </div>
-            <span className="phase-chip">Fase 2</span>
+            <Link className="btn btn-ghost btn-sm" href="/books">
+              Ver la biblioteca
+            </Link>
           </div>
 
           {recentBooks.length === 0 ? (
@@ -198,10 +199,12 @@ export default async function DashboardPage() {
               <BookIcon className="mx-auto size-7 text-ink-muted" />
               <p className="mt-3 font-serif text-xl text-ink">La biblioteca aún está vacía.</p>
               <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-ink-muted">
-                La creación y edición de libros se habilitará en la siguiente fase, junto con el
-                editor Tiptap, las versiones y la estructura de capítulos. No hay acciones simuladas
-                en esta pantalla.
+                Crea el primer libro y añade sus capítulos. Cada sección guarda su historial de
+                revisiones.
               </p>
+              <Link className="btn btn-secondary btn-sm mt-5" href="/books/new">
+                Crear libro
+              </Link>
             </div>
           ) : (
             <div className="mt-5">
@@ -299,9 +302,9 @@ export default async function DashboardPage() {
           <StatusRow
             icon={BookIcon}
             label="Biblioteca y editor"
-            value="Planificados para la Fase 2 y la Fase 3"
-            status="Pendiente"
-            tone="neutral"
+            value="Libros, secciones y revisiones operativas"
+            status="Operativo"
+            tone="ok"
           />
         </div>
       </section>

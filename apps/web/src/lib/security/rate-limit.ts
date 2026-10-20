@@ -26,6 +26,37 @@ export interface RateLimitResult {
   retryAfterSeconds: number;
 }
 
+/**
+ * Límite de intentos de acceso.
+ *
+ * Los valores por defecto son los de producción. Se pueden ajustar con
+ * variables de entorno porque el presupuesto de intentos depende del
+ * entorno: una suite automatizada que abre muchas sesiones desde la misma
+ * dirección necesita más margen, y eso no debe exigir desactivar el control.
+ */
+export interface RateLimitPolicy {
+  limit: number;
+  windowMs: number;
+}
+
+function readPositiveInt(value: string | undefined, fallback: number): number {
+  if (!value) {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+/** Política de intentos de acceso por dirección IP. */
+export function loginRateLimitPolicy(): RateLimitPolicy {
+  return {
+    limit: readPositiveInt(process.env.RATE_LIMIT_LOGIN_ATTEMPTS, 10),
+    windowMs: readPositiveInt(process.env.RATE_LIMIT_LOGIN_WINDOW_MINUTES, 15) * 60_000,
+  };
+}
+
 function keyHash(scope: string, identifier: string): string {
   return createHash("sha256").update(`${scope}:${identifier}`, "utf8").digest("hex");
 }

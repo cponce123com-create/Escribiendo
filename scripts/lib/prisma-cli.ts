@@ -49,13 +49,30 @@ export interface RunPrismaOptions {
   cwd?: string;
   /** Si es falso, la salida se hereda de la consola en lugar de capturarse. */
   capture?: boolean;
+  /**
+   * Intentos cuando el fallo parece un bloqueo de archivo de Windows
+   * (EPERM/EBUSY). La CLI de Prisma renombra el motor de base de datos sobre
+   * el anterior, y un antivirus o un proceso que lo mantiene cargado
+   * provoca un fallo temporal.
+   */
+  retries?: number;
+}
+
+function isFileLockError(output: string): boolean {
+  return /EPERM|EBUSY|resource busy or locked|being used by another process/iu.test(output);
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 /**
  * Ejecuta la CLI de Prisma con el directorio de trabajo en la raíz del
  * repositorio, de modo que la CLI encuentre el archivo `.env` raíz.
  */
-export function runPrisma(options: RunPrismaOptions): Promise<number> {
+export async function runPrisma(options: RunPrismaOptions): Promise<number> {
   const cli = resolvePrismaCli();
   const args = [...options.args];
 
@@ -63,7 +80,40 @@ export function runPrisma(options: RunPrismaOptions): Promise<number> {
     args.push("--schema", schemaPath);
   }
 
-  return new Promise((resolve, reject) => {
+  const attempts = Math.max(1, (options.retries ?? 0) + 1);
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const result = await execute(cli, args, options);
+
+    if (result.code === 0) {
+      return 0;
+    }
+
+    if (attempt < attempts && isFileLockError(result.output)) {
+      process.stderr.write(
+        `[prisma] El archivo del motor está bloqueado (intento ${attempt} de ${attempts}). Se reintenta…\n`,
+      );
+      await wait(1_500);
+      continue;
+    }
+
+    if (options.capture && result.code !== 0) {
+      throw new Error(`La CLI de Prisma falló (código ${result.code}):\n${result.output}`);
+    }
+
+    return result.code;
+  }
+
+  return 1;
+}
+
+interface ExecutionResult {
+  code: number;
+  output: string;
+}
+
+function execute(cli: string, args: string[], options: RunPrismaOptions): Promise<ExecutionResult> {
+  return new Promise((resolve) => {
     const child = spawn(process.execPath, [cli, ...args], {
       cwd: options.cwd ?? repoRoot,
       stdio: options.capture ? ["ignore", "pipe", "pipe"] : "inherit",
@@ -79,20 +129,17 @@ export function runPrisma(options: RunPrismaOptions): Promise<number> {
       output += chunk.toString("utf8");
     });
 
-    child.on("error", reject);
+    child.on("error", () => {
+      resolve({ code: 1, output: `${output}\nNo se ha podido ejecutar la CLI de Prisma.` });
+    });
 
     child.on("exit", (code, signal) => {
       if (signal) {
-        reject(new Error(`La CLI de Prisma terminó con la señal ${signal}.`));
+        resolve({ code: 1, output: `${output}\nLa CLI de Prisma terminó con la señal ${signal}.` });
         return;
       }
 
-      if (code !== 0 && options.capture) {
-        reject(new Error(`La CLI de Prisma falló (código ${code}):\n${output}`));
-        return;
-      }
-
-      resolve(code ?? 1);
+      resolve({ code: code ?? 1, output });
     });
   });
 }

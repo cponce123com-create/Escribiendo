@@ -15,7 +15,7 @@ import {
 import { prisma } from "@/lib/db";
 import { getServerEnv } from "@/lib/env";
 import { logger } from "@/lib/logger";
-import { consumeRateLimit } from "@/lib/security/rate-limit";
+import { consumeRateLimit, loginRateLimitPolicy } from "@/lib/security/rate-limit";
 import { assertServerActionOrigin, type RequestContext } from "@/lib/security/request-context";
 import { writeAuditLog } from "./audit";
 import type { AuthActionState } from "./action-state";
@@ -114,11 +114,12 @@ export async function loginAction(
 
   try {
     context = await assertServerActionOrigin();
+    const loginPolicy = loginRateLimitPolicy();
     const rateLimit = consumeRateLimit({
       scope: "login",
       identifier: context.ip ?? "unknown",
-      limit: 10,
-      windowMs: 15 * 60 * 1_000,
+      limit: loginPolicy.limit,
+      windowMs: loginPolicy.windowMs,
     });
 
     if (!rateLimit.allowed) {
