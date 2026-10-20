@@ -12,6 +12,8 @@ import {
   type TiptapDocument,
 } from "@escribiendo/book-schema";
 import { SECTION_TYPE_LABELS, formatNumber } from "@/lib/ui/format";
+import { AssignSelect } from "@/components/team/assign-select";
+import { listMembers } from "@/lib/team/members";
 
 export const metadata: Metadata = {
   title: "Manuscrito",
@@ -40,9 +42,10 @@ export default async function SectionPage({ params }: SectionPageProps) {
     notFound();
   }
 
-  const [book, revisions] = await Promise.all([
+  const [book, revisions, miembros] = await Promise.all([
     getBook(session, bookId),
     listRevisions(session, bookId, sectionId),
+    listMembers(session),
   ]);
 
   const canEdit = canPerform(session.workspace.role, "section:update");
@@ -62,6 +65,7 @@ export default async function SectionPage({ params }: SectionPageProps) {
         <p className="text-xs text-ink-muted">
           {SECTION_TYPE_LABELS[section.type] ?? section.type} · {formatNumber(section.wordCount)}{" "}
           palabras · versión {section.version}
+          {section.assignee ? ` · asignada a ${section.assignee.name}` : ""}
         </p>
 
         <nav className="flex flex-wrap gap-2" aria-label="Acciones de la sección">
@@ -104,6 +108,21 @@ export default async function SectionPage({ params }: SectionPageProps) {
             currentVersion={section.version}
             canRestore={canRestore}
           />
+
+          {canEdit ? (
+            <div className="mt-6 border-t border-line pt-5">
+              <p className="meta-label">Asignación</p>
+              <div className="mt-3">
+                <AssignSelect
+                  kind="section"
+                  targetId={section.id}
+                  assigneeId={section.assigneeId}
+                  members={miembros}
+                  label="Responsable"
+                />
+              </div>
+            </div>
+          ) : null}
         </aside>
       </div>
     </div>

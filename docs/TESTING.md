@@ -64,6 +64,8 @@ Cobertura actual (Fases 1 a 3):
 | `packages/export-engine/src/pdf.test.ts`                  | Escritura de PDF: cabecera, objetos, fuentes estándar, escapado del texto, metadatos, cajas de recorte y sangre, marcas de corte y reproducibilidad.                                                        |
 | `packages/export-engine/src/zip.test.ts`                  | ZIP: firma, entradas sin comprimir, nombres, CRC-32 de referencia y la entrada `mimetype` colocada en primer lugar.                                                                                         |
 | `packages/export-engine/src/epub.test.ts`                 | EPUB 3 y DOCX: entradas del paquete, `mimetype` en primer lugar, manifiesto, spine, navegación, estilos, XML escapado y reproducibilidad.                                                                   |
+| `apps/web/src/lib/editor/sync.test.ts`                    | Máquina de estados de la sincronización: transiciones, espera de reintento creciente, cuándo toca sincronizar y la invariante «no se dice «guardado» mientras no lo está».                                  |
+| `apps/web/src/lib/editor/drafts.test.ts`                  | Almacén de borradores locales: guardar, recuperar, borrar, listar, aislar por cuenta y funcionar sin IndexedDB.                                                                                             |
 
 ---
 
@@ -254,14 +256,16 @@ crea su propio libro, su sección y su perfil de página:
 - El DOCX generado es un paquete de Word.
 - Una descarga sin firma se rechaza.
 
+`tests/e2e/manuscrito.spec.ts` (resiliencia del manuscrito) y `tests/e2e/equipo.spec.ts` (equipo y gobernanza) cubren los escenarios descritos en [RECOVERY_TESTS.md](RECOVERY_TESTS.md) y en el ROADMAP.
+
 ### 4.5 Resultados obtenidos
 
 ```text
-Running 56 tests using 1 worker
-56 passed (2.2m)
+Running 69 tests using 1 worker
+69 passed (2.6m)
 ```
 
-Las 56 pruebas incluyen la preparación de la cuenta de pruebas. La suite se ha
+Las 69 pruebas incluyen la preparación de la cuenta de pruebas. La suite se ha
 ejecutado de forma repetida con resultado completo en todas las ejecuciones,
 contra PostgreSQL 17.7 local y contra la **compilación de producción** (no el
 servidor de desarrollo). En producción, el mismo flujo de instalación, acceso y

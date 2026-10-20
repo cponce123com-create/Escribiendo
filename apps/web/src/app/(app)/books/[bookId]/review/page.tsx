@@ -8,6 +8,7 @@ import { canPerform } from "@/lib/books/permissions";
 import { getBook, getSectionTree } from "@/lib/books/queries";
 import { flattenSectionTree } from "@/lib/books/section-tree";
 import { countOpenComments, listComments } from "@/lib/review/comments";
+import { listMembers } from "@/lib/team/members";
 import { BOOK_STATUS_LABELS } from "@/lib/ui/format";
 
 export const metadata: Metadata = {
@@ -28,10 +29,11 @@ export default async function BookReviewPage({ params }: BookReviewPageProps) {
     notFound();
   }
 
-  const [comments, tree, openComments] = await Promise.all([
+  const [comments, tree, openComments, miembros] = await Promise.all([
     listComments(session, { bookId: book.id }),
     getSectionTree(session, book.id),
     countOpenComments(session, book.id),
+    listMembers(session),
   ]);
 
   const sections = flattenSectionTree(tree).map((section) => ({
@@ -81,6 +83,8 @@ export default async function BookReviewPage({ params }: BookReviewPageProps) {
         sections={sections}
         comments={comments}
         canComment={canPerform(session.workspace.role, "comment:create")}
+        members={miembros}
+        canAssign={canPerform(session.workspace.role, "comment:create")}
       />
     </div>
   );

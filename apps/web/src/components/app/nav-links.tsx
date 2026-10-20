@@ -2,13 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChartIcon, DashboardIcon, LibraryIcon, NoteIcon, UserIcon } from "@/components/icons";
+import {
+  ChartIcon,
+  DashboardIcon,
+  LibraryIcon,
+  NoteIcon,
+  UserIcon,
+  UsersIcon,
+} from "@/components/icons";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Panel", icon: DashboardIcon },
   { href: "/books", label: "Biblioteca", icon: LibraryIcon },
   { href: "/notes", label: "Notas", icon: NoteIcon },
   { href: "/stats", label: "Estadísticas", icon: ChartIcon },
+  { href: "/team", label: "Equipo", icon: UsersIcon },
   { href: "/account", label: "Mi cuenta", icon: UserIcon },
 ] as const;
 

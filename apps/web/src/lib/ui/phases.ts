@@ -22,7 +22,7 @@ export const PHASES: readonly PhaseDefinition[] = [
   { id: 3, label: "Escritura asistida", slug: "escritura", status: "completed" },
   { id: 4, label: "Maquetación", slug: "maquetacion", status: "completed" },
   { id: 5, label: "Exportación", slug: "exportacion", status: "completed" },
-  { id: 6, label: "Equipo y gobernanza", slug: "equipo", status: "pending" },
+  { id: 6, label: "Equipo y gobernanza", slug: "equipo", status: "completed" },
   { id: 7, label: "Operación editorial", slug: "operacion", status: "pending" },
 ];
 

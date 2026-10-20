@@ -29,6 +29,14 @@ export default defineConfig([
       "no-console": "off",
     },
   },
+  {
+    // Los scripts de administración se ejecutan en una terminal y su salida
+    // es el resultado de la operación.
+    files: ["scripts/**/*.ts"],
+    rules: {
+      "no-console": "off",
+    },
+  },
   globalIgnores([
     "**/node_modules/**",
     "**/.next/**",

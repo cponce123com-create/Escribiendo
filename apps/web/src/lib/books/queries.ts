@@ -207,6 +207,9 @@ export interface SectionDetail {
   includeInExport: boolean;
   pageBreakBefore: boolean;
   startOnOddPage: boolean;
+  /** Persona a la que se ha asignado el trabajo de la secci\u00f3n. */
+  assigneeId: string | null;
+  assignee: { name: string } | null;
   updatedAt: Date;
 }
 
@@ -241,6 +244,8 @@ export async function getSection(
       includeInExport: true,
       pageBreakBefore: true,
       startOnOddPage: true,
+      assigneeId: true,
+      assignee: { select: { name: true } },
       updatedAt: true,
     },
   });

@@ -18,6 +18,9 @@ export interface EditorialCommentSummary {
   sectionTitle: string | null;
   author: { id: string; name: string };
   resolvedBy: { id: string; name: string } | null;
+  /** Persona a la que se ha asignado el comentario. */
+  assigneeId: string | null;
+  assignee: { id: string; name: string } | null;
   createdAt: Date;
   resolvedAt: Date | null;
 }
@@ -51,6 +54,8 @@ export async function listComments(
       resolvedAt: true,
       author: { select: { id: true, name: true } },
       resolvedBy: { select: { id: true, name: true } },
+      assigneeId: true,
+      assignee: { select: { id: true, name: true } },
       section: { select: { title: true } },
     },
   });
@@ -63,6 +68,8 @@ export async function listComments(
     sectionTitle: comment.section?.title ?? null,
     author: comment.author,
     resolvedBy: comment.resolvedBy,
+    assigneeId: comment.assigneeId,
+    assignee: comment.assignee,
     createdAt: comment.createdAt,
     resolvedAt: comment.resolvedAt,
   }));

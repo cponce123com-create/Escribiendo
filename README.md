@@ -8,10 +8,10 @@ Plataforma editorial privada de **EDITORIAL NO PARA TODOS**.
 
 ESCRIBIENDO reúne escritura, edición, maquetación y preparación de archivos de
 imprenta en un único espacio de trabajo. Este repositorio contiene las
-**Fases 1 a 5**: cimientos técnicos, acceso privado, modelo de datos editorial,
+**Fases 1 a 6**: cimientos técnicos, acceso privado, modelo de datos editorial,
 integración firmada con Cloudinary, preparación de despliegue en Render,
 biblioteca y manuscrito, herramientas de escritura asistida, maquetación con
-vista previa paginada y exportación a PDF, EPUB y DOCX.
+vista previa paginada, exportación a PDF, EPUB y DOCX y gobierno del`n equipo.
 
 > No hay registro público. El acceso se crea una sola vez mediante `/setup` y
 > un token de instalación de alta entropía. Después, solo un administrador
@@ -21,25 +21,26 @@ vista previa paginada y exportación a PDF, EPUB y DOCX.
 
 ## Estado
 
-| Área                                                 | Estado                                |
-| ---------------------------------------------------- | ------------------------------------- |
-| Monorepo pnpm y TypeScript estricto                  | Implementado                          |
-| Esquema PostgreSQL/Prisma completo                   | Implementado; migraciones versionadas |
-| Autenticación Argon2id + sesiones opacas             | Implementado                          |
-| Instalación inicial protegida por token              | Implementado                          |
-| Recuperación de contraseña sin proveedor de correo   | Implementado mediante CLI             |
-| Panel privado y gestión de cuenta                    | Implementado                          |
-| Biblioteca de libros con búsqueda y filtros          | Implementado (Fase 2)                 |
-| Manuscrito con Tiptap, revisiones y progreso         | Implementado (Fase 2)                 |
-| Notas privadas, objetivos y estadísticas             | Implementado (Fase 3)                 |
-| Comentarios editoriales y flujo de revisión          | Implementado (Fase 3)                 |
-| Comparador de revisiones y preferencias de escritura | Implementado (Fase 3)                 |
-| Maquetación: perfiles, plantillas y vista previa     | Implementado (Fase 4)                 |
-| Exportación: PDF, EPUB y DOCX con descarga firmada   | Implementado (Fase 5)                 |
-| Cloudinary: firma de subida directa                  | Implementado                          |
-| Cabeceras de seguridad y CSP con nonce               | Implementado                          |
-| Health checks y blueprint de Render                  | Implementado                          |
-| Pruebas unitarias, de esquema y de extremo a extremo | Implementado                          |
+| Área                                                  | Estado                                |
+| ----------------------------------------------------- | ------------------------------------- |
+| Monorepo pnpm y TypeScript estricto                   | Implementado                          |
+| Esquema PostgreSQL/Prisma completo                    | Implementado; migraciones versionadas |
+| Autenticación Argon2id + sesiones opacas              | Implementado                          |
+| Instalación inicial protegida por token               | Implementado                          |
+| Recuperación de contraseña sin proveedor de correo    | Implementado mediante CLI             |
+| Panel privado y gestión de cuenta                     | Implementado                          |
+| Biblioteca de libros con búsqueda y filtros           | Implementado (Fase 2)                 |
+| Manuscrito con Tiptap, revisiones y progreso          | Implementado (Fase 2)                 |
+| Notas privadas, objetivos y estadísticas              | Implementado (Fase 3)                 |
+| Comentarios editoriales y flujo de revisión           | Implementado (Fase 3)                 |
+| Comparador de revisiones y preferencias de escritura  | Implementado (Fase 3)                 |
+| Maquetación: perfiles, plantillas y vista previa      | Implementado (Fase 4)                 |
+| Exportación: PDF, EPUB y DOCX con descarga firmada    | Implementado (Fase 5)                 |
+| Equipo: invitaciones, roles, asignaciones y auditoría | Implementado (Fase 6)                 |
+| Cloudinary: firma de subida directa                   | Implementado                          |
+| Cabeceras de seguridad y CSP con nonce                | Implementado                          |
+| Health checks y blueprint de Render                   | Implementado                          |
+| Pruebas unitarias, de esquema y de extremo a extremo  | Implementado                          |
 
 La aplicación **no incluye datos de demostración, botones simulados ni
 credenciales de ejemplo**. Si una integración no está configurada, la interfaz
@@ -77,6 +78,7 @@ escribiendo/
 │     │  ├─ writing/            # Notas, objetivos y estadísticas
 │     │  ├─ review/             # Comentarios editoriales y flujo de revisión
 │     │  ├─ layout/             # Perfiles de página, plantillas y maqueta
+│     │  ├─ team/               # Miembros, invitaciones, asignaciones y auditoría
 │     │  ├─ export/             # Cola de trabajos, generación y descarga
 │     │  ├─ cloudinary/         # Firma de subidas
 │     │  ├─ security/           # Origen, CSRF, rate limit, contexto
@@ -196,6 +198,7 @@ ruta `/setup` deja de estar operativa en cuanto existe una cuenta.
 | `pnpm db:status`                                  | Comprueba conexión y migraciones (solo lectura)      |
 | `pnpm db:studio`                                  | Abre Prisma Studio                                   |
 | `pnpm admin:password-reset -- correo@ejemplo.com` | Emite un enlace de recuperación de un solo uso       |
+| `pnpm retention:clean`                            | Aplica la política de retención de datos             |
 
 Las pruebas de extremo a extremo vacían la base de datos configurada en
 `DATABASE_URL`. El script se niega a ejecutarse si el nombre de la base no

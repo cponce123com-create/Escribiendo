@@ -124,7 +124,7 @@ test.describe("Resiliencia del manuscrito", () => {
     await expect(page.getByText("Guardado en el servidor.")).not.toBeVisible();
   });
 
-  test("dos pestañas sobre la misma sección muestran el conflicto", async ({ page, context }) => {
+  test("dos pestañas sobre la misma sección muestran el conflicto", async ({ context }) => {
     const primera = await context.newPage();
     await abrirSeccion(primera, SECTION_TITLE);
 
@@ -154,7 +154,7 @@ test.describe("Resiliencia del manuscrito", () => {
     await segunda.close();
   });
 
-  test("el conflicto se puede resolver conservando la versión local", async ({ page, context }) => {
+  test("el conflicto se puede resolver conservando la versión local", async ({ context }) => {
     const primera = await context.newPage();
     await abrirSeccion(primera, SECTION_TITLE);
 

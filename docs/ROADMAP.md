@@ -297,6 +297,54 @@ Alcance previsto:
 - Registro de auditoría ampliado y exportación.
 - Política de retención y borrado.
 
+**Estado: implementada y verificada.** El equipo se gestiona desde
+`/team`, con seis pruebas de extremo a extremo.
+
+Implementado:
+
+- **Invitaciones por administración**: quien administra el estudio invita por
+  correo y rol. La aplicación no envía correo —no hay proveedor—, así que el
+  enlace se genera y **se muestra una sola vez** para compartirlo por el medio
+  que se prefiera. Solo se guarda la huella del token, como las sesiones; la
+  invitación caduca a los catorce días y se puede revocar.
+- **Alta de cuentas**: la persona invitada abre el enlace y, si no tiene
+  cuenta, se le crea una con la misma política de contraseñas que el
+  resto de la aplicación y entra directamente al estudio. Si ya tiene cuenta,
+  se le añade al estudio con el rol que le corresponde.
+- **Roles comprobados en el servidor**: `OWNER` y `ADMIN` gestionan el equipo;
+  `EDITOR`, `AUTHOR` y `REVIEWER` no. La comprobación ocurre en cada
+  operación, no en la interfaz. El rol del propietario no se puede cambiar ni
+  transferir por esta vía, y nadie puede expulsarse a sí mismo.
+- **Asignación de trabajo**: una sección y un comentario se pueden asignar a
+  una persona del estudio, con un selector en la propia página. El servidor
+  comprueba que la persona asignada pertenece al estudio: no se puede asignar
+  trabajo a alguien de fuera.
+- **Auditoría ampliada y exportable**: las acciones de equipo quedan
+  registradas (invitación creada, revocada y aceptada, cambio de rol, baja,
+  asignaciones) y el registro se puede exportar en CSV o JSON. La exportación
+  exige el permiso `audit:export` y no contiene contenido de manuscritos,
+  contraseñas ni tokens: los valores pasan por el limpiador de secretos.
+- **Política de retención y borrado**: `pnpm retention:clean` borra lo que ya
+  no puede usarse (sesiones caducadas, tokens de recuperación consumidos,
+  invitaciones caducadas, revocadas o aceptadas) y **no toca** manuscritos,
+  revisiones, notas, comentarios ni auditoría, que son datos del estudio.
+  Admite `--dry-run` para ver lo que se borraría sin borrar nada.
+
+Fuera del alcance y pendiente para fases posteriores: notificaciones por
+correo de las invitaciones, Organizationally Distinct Identifier, y borrado
+automático de un espacio de trabajo completo.
+
+Verificación registrada:
+
+| Punto del criterio                                  | Estado                                                                                                                                               |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Build, lint, typecheck y pruebas unitarias en verde | Cumplido                                                                                                                                             |
+| Invitación y alta de cuentas                        | Cumplido: seis pruebas E2E cubren la creación, la aceptación con cuenta nueva, el rechazo de reutilizar una invitación y la exportación de auditoría |
+| Roles comprobados en servidor                       | Cumplido: `OWNER` y `ADMIN` gestionan; el resto no. La comprobación está en la acción, no en la interfaz                                             |
+| Asignación de trabajo                               | Cumplido: secciones y comentarios se asignan a personas del estudio                                                                                  |
+| Migración                                           | Cumplido: `20261020190000_add_team_governance`, aditiva, aplicada en local y en Neon con sus dos restricciones                                       |
+| Retención                                           | Cumplido: `pnpm retention:clean --dry-run` informa sin borrar; la rutina de borrado está en una transacción                                          |
+
 ## Fase 7 — Operación editorial
 
 Objetivo: cubrir el ciclo completo de un libro.

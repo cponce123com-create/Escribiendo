@@ -34,16 +34,16 @@ resultaron ciertos:
 
 ### Soluciones implementadas
 
-| Archivo                                        | Qué hace                                                                                                                                 |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `apps/web/src/lib/editor/drafts.ts`            | Almacén de borradores en **IndexedDB** (no `localStorage`), con respaldo en memoria cuando el navegador no lo ofrece. Clave por cuenta, libro y sección. |
-| `apps/web/src/lib/editor/sync.ts`              | Máquina de estados pura: `idle`, `local`, `syncing`, `synced`, `offline`, `error`, `conflict`. Espera de reintento exponencial con dispersión. |
-| `apps/web/src/lib/editor/sync.test.ts`         | 20 pruebas unitarias de las transiciones, del reintento y de las invariantes.                                                              |
-| `apps/web/src/lib/editor/drafts.test.ts`       | 7 pruebas unitarias del almacén, incluida la caída a memoria sin IndexedDB.                                                               |
-| `apps/web/src/components/books/section-editor.tsx` | Reescrito: rebote de 700 ms al equipo, envío al servidor a los 3 s, detección de conexión, reintentos, control de orden de respuestas y recuperación al abrir. |
-| `apps/web/src/components/books/section-conflict.tsx` | Panel de conflicto con **comparación por palabras** (reutiliza el diff de la Fase 3) y dos salidas: conservar la versión local o adoptar la del servidor. |
-| `apps/web/src/lib/books/actions.ts`            | `saveSectionAction` devuelve la versión del servidor en caso de conflicto, distingue un guardado pospuesto (`throttled`) y acepta un guardado forzado y explícito (`force`). |
-| `apps/web/src/app/(app)/books/[bookId]/sections/[sectionId]/page.tsx` | Pasa el libro y la cuenta al editor, que los necesita para identificar el borrador.                            |
+| Archivo                                                               | Qué hace                                                                                                                                                                     |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web/src/lib/editor/drafts.ts`                                   | Almacén de borradores en **IndexedDB** (no `localStorage`), con respaldo en memoria cuando el navegador no lo ofrece. Clave por cuenta, libro y sección.                     |
+| `apps/web/src/lib/editor/sync.ts`                                     | Máquina de estados pura: `idle`, `local`, `syncing`, `synced`, `offline`, `error`, `conflict`. Espera de reintento exponencial con dispersión.                               |
+| `apps/web/src/lib/editor/sync.test.ts`                                | 20 pruebas unitarias de las transiciones, del reintento y de las invariantes.                                                                                                |
+| `apps/web/src/lib/editor/drafts.test.ts`                              | 7 pruebas unitarias del almacén, incluida la caída a memoria sin IndexedDB.                                                                                                  |
+| `apps/web/src/components/books/section-editor.tsx`                    | Reescrito: rebote de 700 ms al equipo, envío al servidor a los 3 s, detección de conexión, reintentos, control de orden de respuestas y recuperación al abrir.               |
+| `apps/web/src/components/books/section-conflict.tsx`                  | Panel de conflicto con **comparación por palabras** (reutiliza el diff de la Fase 3) y dos salidas: conservar la versión local o adoptar la del servidor.                    |
+| `apps/web/src/lib/books/actions.ts`                                   | `saveSectionAction` devuelve la versión del servidor en caso de conflicto, distingue un guardado pospuesto (`throttled`) y acepta un guardado forzado y explícito (`force`). |
+| `apps/web/src/app/(app)/books/[bookId]/sections/[sectionId]/page.tsx` | Pasa el libro y la cuenta al editor, que los necesita para identificar el borrador.                                                                                          |
 
 ### Comportamiento nuevo, verificable
 
@@ -61,13 +61,13 @@ resultaron ciertos:
 
 ### Pruebas ejecutadas
 
-| Suite                              | Resultado                                                     |
-| ---------------------------------- | ------------------------------------------------------------- |
-| `pnpm test` (unitarias)           | 216 en verde (24 archivos), 29 nuevas de este lote            |
+| Suite                               | Resultado                                                              |
+| ----------------------------------- | ---------------------------------------------------------------------- |
+| `pnpm test` (unitarias)             | 216 en verde (24 archivos), 29 nuevas de este lote                     |
 | `pnpm test:e2e` (extremo a extremo) | 64 en verde contra la compilación de producción, 9 nuevas de este lote |
-| `pnpm typecheck`                   | Sin errores                                                    |
-| `pnpm lint`                        | Sin errores                                                    |
-| `pnpm build`                       | Correcto                                                       |
+| `pnpm typecheck`                    | Sin errores                                                            |
+| `pnpm lint`                         | Sin errores                                                            |
+| `pnpm build`                        | Correcto                                                               |
 
 Las nueve pruebas nuevas están en `tests/e2e/manuscrito.spec.ts` y cubren:
 guardado local inmediato, escritura sin conexión, servidor caído con

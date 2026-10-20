@@ -10,6 +10,7 @@ import {
 } from "@/lib/review/actions";
 import { initialActionState } from "@/lib/action-state";
 import type { EditorialCommentSummary } from "@/lib/review/comments";
+import { AssignSelect } from "@/components/team/assign-select";
 import { formatDateTime } from "@/lib/ui/format";
 
 interface CommentPanelProps {
@@ -17,6 +18,10 @@ interface CommentPanelProps {
   sections: Array<{ id: string; title: string }>;
   comments: EditorialCommentSummary[];
   canComment: boolean;
+  /** Miembros que pueden recibir un comentario. */
+  members: Array<{ userId: string; name: string }>;
+  /** Si se puede asignar trabajo a alguien. */
+  canAssign: boolean;
 }
 
 /**
@@ -25,7 +30,14 @@ interface CommentPanelProps {
  * Son visibles para todo el espacio de trabajo: sirven para que la edición
  * se comunique con la autoría.
  */
-export function CommentPanel({ bookId, sections, comments, canComment }: CommentPanelProps) {
+export function CommentPanel({
+  bookId,
+  sections,
+  comments,
+  canComment,
+  members,
+  canAssign,
+}: CommentPanelProps) {
   const [state, formAction] = useActionState(createCommentAction, initialActionState);
   const [resolveState, resolveAction] = useActionState(resolveCommentAction, initialActionState);
   const [reopenState, reopenAction] = useActionState(reopenCommentAction, initialActionState);
@@ -55,6 +67,17 @@ export function CommentPanel({ bookId, sections, comments, canComment }: Comment
             {open.map((comment) => (
               <li key={comment.id} className="panel p-5">
                 <CommentBody comment={comment} />
+                {canAssign ? (
+                  <div className="mt-3">
+                    <AssignSelect
+                      kind="comment"
+                      targetId={comment.id}
+                      assigneeId={comment.assigneeId}
+                      members={members}
+                      label="Responsable"
+                    />
+                  </div>
+                ) : null}
                 <ResolveButton comment={comment} label="Resolver" action={resolveAction} />
               </li>
             ))}
@@ -71,6 +94,17 @@ export function CommentPanel({ bookId, sections, comments, canComment }: Comment
             {resolved.map((comment) => (
               <li key={comment.id} className="panel p-5 opacity-80">
                 <CommentBody comment={comment} />
+                {canAssign ? (
+                  <div className="mt-3">
+                    <AssignSelect
+                      kind="comment"
+                      targetId={comment.id}
+                      assigneeId={comment.assigneeId}
+                      members={members}
+                      label="Responsable"
+                    />
+                  </div>
+                ) : null}
                 <ResolveButton comment={comment} label="Reabrir" action={reopenAction} />
               </li>
             ))}

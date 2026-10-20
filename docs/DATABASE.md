@@ -36,12 +36,18 @@ Estado actual de las migraciones:
 | ----------------------------------------------- | ----- | ---- |
 | `20261020120000_init`                           | Sí    | Sí   |
 | `20261020180000_add_writing_goals_and_comments` | Sí    | Sí   |
+| `20261020190000_add_team_governance`            | Sí    | Sí   |
 
 La migración de la Fase 3 se aplicó en Neon con la API SQL por HTTPS, dentro
 de un bloque `DO` transaccional y registrando la fila en `_prisma_migrations`
 con el checksum SHA-256 del archivo, que es el mismo valor que calcula
 `prisma migrate deploy`. Comprobado además que las definiciones de las cuatro
 restricciones en Neon son idénticas a las de la base local.
+
+La migración de la Fase 6 se aplicó en Neon con el mismo procedimiento, y sus
+dos restricciones se comprobaron con consultas de comportamiento: una
+invitación que caduca antes de crearse y una que está aceptada y revocada a la
+vez son rechazadas.
 
 Aplicar migraciones pendientes (producción, CI o local):
 
@@ -239,6 +245,25 @@ preparó en la Fase 1 con lo que la exportación necesita.
 El archivo **no se guarda en la base de datos**: se genera en el momento de la
 descarga. Es lo que evita tener que almacenar binarios y lo que permite
 exportar sin un proceso permanente.
+
+## Equipo y gobernanza
+
+La migración `20261020190000_add_team_governance` es **aditiva** y añade:
+
+- La tabla `workspace_invitations`: invitaciones de acceso, con el rol
+  propuesto, la huella del token (`tokenHash`, nunca el token en claro), la
+  fecha de caducidad y las marcas de aceptación y revocación.
+  - `CHECK workspace_invitations_expires_after_creation`: una invitación no
+    puede caducar antes de crearse.
+  - `CHECK workspace_invitations_not_accepted_and_revoked`: no puede estar
+    aceptada y revocada a la vez.
+- `book_sections.assigneeId`: la persona responsable del trabajo de la
+  sección. Al borrarse la persona, la asignación se anula (`ON DELETE SET
+NULL`): el trabajo no se pierde.
+- `editorial_comments.assigneeId`: lo mismo para los comentarios.
+
+Los índices que acompañan a las columnas nuevas evitan el recorrido completo
+de la tabla al listar por responsable.
 
 ## Modelo y convenciones
 

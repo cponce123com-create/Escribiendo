@@ -22,7 +22,9 @@ export type LibraryAction =
   | "comment:create"
   | "comment:resolve"
   | "layout:manage"
-  | "export:create";
+  | "export:create"
+  | "team:manage"
+  | "audit:export";
 
 /** Quien puede crear y editar libros y su estructura. */
 const WRITE_ROLES: ReadonlySet<WorkspaceRole> = new Set(["OWNER", "ADMIN", "EDITOR", "AUTHOR"]);
@@ -35,6 +37,9 @@ const RESTORE_ROLES: ReadonlySet<WorkspaceRole> = new Set(["OWNER", "ADMIN", "ED
 
 /** Quien puede aprobar un libro y darlo por terminado. */
 const APPROVE_ROLES: ReadonlySet<WorkspaceRole> = new Set(["OWNER", "ADMIN", "EDITOR"]);
+
+/** Quien puede invitar a personas, cambiar roles y expulsar del estudio. */
+const TEAM_ROLES: ReadonlySet<WorkspaceRole> = new Set(["OWNER", "ADMIN"]);
 
 export function canPerform(role: WorkspaceRole, action: LibraryAction): boolean {
   switch (action) {
@@ -57,6 +62,10 @@ export function canPerform(role: WorkspaceRole, action: LibraryAction): boolean 
     case "book:delete":
     case "section:delete":
       return ADMIN_ROLES.has(role);
+
+    case "team:manage":
+    case "audit:export":
+      return TEAM_ROLES.has(role);
 
     case "revision:restore":
       return RESTORE_ROLES.has(role);

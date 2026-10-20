@@ -28,7 +28,8 @@
     "db:migrate:status": "tsx scripts/prisma.ts migrate status",
     "db:status": "tsx scripts/db-status.ts",
     "db:studio": "tsx scripts/prisma.ts studio",
-    "admin:password-reset": "tsx scripts/admin-password-reset.ts"
+    "admin:password-reset": "tsx scripts/admin-password-reset.ts",
+    "retention:clean": "tsx scripts/retention.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",
