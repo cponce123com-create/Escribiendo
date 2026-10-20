@@ -429,6 +429,12 @@ export async function changePasswordAction(
       });
     }
 
+    if (passwordContainsIdentity(parsed.data.newPassword, session.user.email, session.user.name)) {
+      return errorState("La contraseña no debe contener tu nombre ni tu correo electrónico.", {
+        newPassword: "La contraseña no debe contener tu nombre ni tu correo electrónico.",
+      });
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: { passwordHash: true },
@@ -628,7 +634,7 @@ export async function resetPasswordAction(
         userId: true,
         expiresAt: true,
         usedAt: true,
-        user: { select: { id: true, isActive: true, deletedAt: true } },
+        user: { select: { id: true, email: true, name: true, isActive: true, deletedAt: true } },
       },
     });
 
@@ -641,6 +647,14 @@ export async function resetPasswordAction(
     ) {
       logger.warn("auth.reset_token_rejected", { requestId: context.requestId });
       return errorState("El enlace de recuperación no es válido o ha caducado.");
+    }
+
+    if (
+      passwordContainsIdentity(parsed.data.password, tokenRecord.user.email, tokenRecord.user.name)
+    ) {
+      return errorState("La contraseña no debe contener tu nombre ni tu correo electrónico.", {
+        password: "La contraseña no debe contener tu nombre ni tu correo electrónico.",
+      });
     }
 
     const passwordHash = await hashPassword(parsed.data.password);

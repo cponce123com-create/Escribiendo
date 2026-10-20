@@ -141,6 +141,8 @@ recomienda.
   instalación no aparece en el HTML.
 - El perfil se actualiza y el cambio persiste.
 - La contraseña se cambia y la sesión sigue activa.
+- El cambio de contraseña rechaza una contraseña que contiene la identidad de
+  la cuenta.
 - Cerrar sesión invalida el acceso al panel.
 - El acceso con credenciales incorrectas no revela si la cuenta existe.
 - El acceso con la contraseña nueva funciona.
@@ -165,12 +167,35 @@ recomienda.
 ### 4.5 Resultados obtenidos en la Fase 1
 
 ```text
-Running 16 tests using 1 worker
-16 passed (51.6s)
+Running 17 tests using 1 worker
+17 passed (1.5m)
 ```
 
-La suite se ejecutó **7 veces consecutivas** con 16/16 pruebas correctas en
-todas ellas, contra PostgreSQL 17.7 local.
+La suite se ha ejecutado de forma repetida con resultado completo en todas las
+ejecuciones, contra PostgreSQL 17.7 local. En producción, el mismo flujo
+(instalación, acceso y panel) se verificó además en el despliegue real de
+Neon.
+
+### 4.6 Recuperación de contraseña por CLI
+
+`pnpm admin:password-reset` escribe en la base de datos, así que se verifica
+por separado contra una base de pruebas:
+
+```bash
+pnpm admin:password-reset -- e2e@ejemplo.local --ttl-minutes=30 --revoke-sessions
+```
+
+Comprobaciones realizadas:
+
+| Comprobación                                           | Resultado                          |
+| ------------------------------------------------------ | ---------------------------------- |
+| Enlace emitido con el token en claro, una sola vez     | Correcto                           |
+| El token en claro **no** aparece en la base de datos   | 0 coincidencias                    |
+| Lo que se almacena es el SHA-256 del token             | 64 caracteres hexadecimales        |
+| Token vigente y sin usar                               | Correcto                           |
+| Registro en `audit_logs` con la acción y los metadatos | `AUTH_PASSWORD_RESET_ISSUED_CLI`   |
+| `--revoke-sessions` cierra las sesiones del usuario    | 8 de 8 revocadas                   |
+| Cuenta inexistente                                     | Error explícito, sin escribir nada |
 
 ---
 

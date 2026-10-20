@@ -6,8 +6,10 @@ simuladas para fases futuras.
 
 ## Fase 1 — Fundaciones y acceso privado
 
-**Estado:** implementada; verificación de base de datos y extremo a extremo
-pendiente de un entorno con PostgreSQL.
+**Estado:** implementada y verificada. La migración inicial está aplicada en
+PostgreSQL local y en Neon, y el flujo de instalación, acceso y panel se ha
+verificado en navegador, tanto en las pruebas de extremo a extremo como en el
+despliegue real.
 
 Incluye:
 
@@ -24,6 +26,21 @@ Incluye:
 Criterio de cierre: build, lint, typecheck y pruebas unitarias en verde; una
 migración real aplicada en una base de pruebas; flujo de instalación y login
 verificado en navegador; `SETUP_TOKEN` eliminado tras la instalación.
+
+Verificación registrada:
+
+| Punto del criterio                                  | Estado                                                                                                                                                   |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Build, lint, typecheck y pruebas unitarias en verde | Cumplido                                                                                                                                                 |
+| Migración real aplicada en base de pruebas          | Cumplido: 16 tablas, 10 `CHECK`, 3 índices únicos parciales y trigger, comprobados con consultas de comportamiento                                       |
+| Instalación y login verificados en navegador        | Cumplido: 16 pruebas E2E en Chromium y, además, en el despliegue real de Neon                                                                            |
+| `SETUP_TOKEN` eliminado tras la instalación         | Corresponde a la operación: la ruta `/setup` queda cerrada por código en cuanto existe una cuenta, pero la variable debe retirarse del entorno de Render |
+
+Fuera del alcance de la Fase 1 y sin bloquear su cierre: la subida real a
+Cloudinary (la firma está implementada y verificada contra el vector publicado
+por el proveedor, pero no se ha ejecutado una subida con credenciales
+reales) y el envío de correo, que no existe en ninguna fase hasta que se
+contrate un proveedor.
 
 ## Fase 2 — Biblioteca y manuscritos
 

@@ -103,7 +103,7 @@ test.describe("Acceso privado", () => {
   });
 
   test("la contraseña puede cambiarse y la sesión sigue activa", async ({ page }) => {
-    const newPassword = "Estudio-E2E-2026-rotada";
+    const newPassword = "R0taci0n-Cont3nido-S3guro-2026";
 
     await login(page);
     await page.goto("/account");
@@ -121,6 +121,27 @@ test.describe("Acceso privado", () => {
     await expect(page).toHaveURL(/\/dashboard$/u);
 
     currentPassword = newPassword;
+  });
+
+  test("el cambio de contraseña rechaza una contraseña con la identidad de la cuenta", async ({
+    page,
+  }) => {
+    await login(page);
+    await page.goto("/account");
+
+    // El nombre de la cuenta es «Estudio E2E Editado» en este punto.
+    await page.getByLabel("Contraseña actual").fill(currentPassword);
+    await page.getByLabel("Contraseña nueva", { exact: true }).fill("Estudio-E2E-Editado-2026");
+    await page.getByLabel("Repite la contraseña nueva").fill("Estudio-E2E-Editado-2026");
+    await page.getByRole("button", { name: "Cambiar contraseña" }).click();
+
+    await expect(
+      page.getByText("La contraseña no debe contener tu nombre ni tu correo electrónico.").first(),
+    ).toBeVisible();
+
+    // La contraseña anterior sigue siendo la válida: el cambio se rechazó.
+    await page.goto("/dashboard");
+    await expect(page).toHaveURL(/\/dashboard$/u);
   });
 
   test("cerrar sesión invalida el acceso al panel", async ({ page }) => {

@@ -24,7 +24,10 @@ export interface E2EConfig {
 }
 
 const DEFAULT_USER_EMAIL = "e2e@ejemplo.local";
-const DEFAULT_USER_PASSWORD = "Estudio-E2E-2026-segura";
+// La contraseña no debe contener el nombre ni la parte local del correo: la
+// aplicación rechaza esa combinación, así que la fixture tampoco debe
+// contenerla.
+const DEFAULT_USER_PASSWORD = "V3rdura-Cont3nido-S3guro-2026";
 
 /** Nombre de la base de datos configurada, sin el prefijo de esquema. */
 export function databaseName(databaseUrl: string): string {

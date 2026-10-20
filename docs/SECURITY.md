@@ -35,7 +35,9 @@ hardware, cumplimiento normativo formal y cifrado de extremo a extremo.
   32 bytes.
 - Longitud de 12 a 128 caracteres.
 - Rechazo de contraseñas comunes y de un único carácter repetido.
-- Rechazo si contienen el nombre o la parte local del correo.
+- Rechazo si contienen el nombre o la parte local del correo, comparando sin
+  acentos ni separadores. Se aplica en la instalación inicial, en el cambio de
+  contraseña y en el restablecimiento, no solo en la primera.
 - Comparación mediante la implementación nativa/WASI de Argon2; nunca se
   comparan hashes con `===`.
 - Rehash automático al iniciar sesión si los parámetros del hash son inferiores
