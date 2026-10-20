@@ -35,6 +35,18 @@ export function databaseName(databaseUrl: string): string {
   }
 }
 
+/** Host de la base de datos configurada. */
+export function databaseHost(databaseUrl: string): string {
+  try {
+    return new URL(databaseUrl).hostname;
+  } catch {
+    return "";
+  }
+}
+
+/** Hosts locales en los que sí es seguro vaciar las tablas. */
+const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]", "0.0.0.0"]);
+
 /**
  * Las pruebas nunca deben ejecutarse contra una base que no sea desechable.
  * Se acepta un nombre que contenga «test» o la anulación explícita.
@@ -53,6 +65,19 @@ export function assertDisposableDatabase(databaseUrl: string): void {
       `Se aborta: la base de datos «${name}» no parece de pruebas. ` +
         "Las pruebas de extremo a extremo borran todas las tablas. " +
         "Configura E2E_ALLOW_NON_TEST_DATABASE=1 solo si es realmente desechable.",
+    );
+  }
+
+  // Segunda barrera: aunque el nombre parezca de pruebas, el host debe ser
+  // local. Un `.env` que apunte a Neon, RDS o cualquier otra base remota
+  // provocaría el borrado de datos reales.
+  const host = databaseHost(databaseUrl);
+
+  if (!LOCAL_HOSTS.has(host) && process.env.E2E_ALLOW_NON_TEST_DATABASE !== "1") {
+    throw new Error(
+      `Se aborta: la base de datos «${host}» no es local. ` +
+        "Las pruebas de extremo a extremo borran todas las tablas y solo " +
+        "deben ejecutarse contra un PostgreSQL de la máquina.",
     );
   }
 }
