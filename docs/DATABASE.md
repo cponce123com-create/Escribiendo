@@ -14,14 +14,34 @@ Ambas deben usar TLS (`sslmode=require`). No se versiona ninguna credencial.
 
 ## Migraciones
 
-La migración inicial está versionada en:
+Las migraciones están versionadas en:
 
 ```text
 packages/database/prisma/migrations/
 ├─ migration_lock.toml
-└─ 20261020120000_init/
+├─ 20261020120000_init/                            # Fase 1: esquema completo
+│  └─ migration.sql
+└─ 20261020180000_add_writing_goals_and_comments/  # Fase 3: escritura asistida
    └─ migration.sql
 ```
+
+La segunda migración es **aditiva**: crea el enum `CommentStatus` y las tablas
+`writing_goals` y `editorial_comments`, con sus índices y claves foráneas. No
+modifica ni elimina ningún objeto de la migración inicial, de modo que puede
+aplicarse sobre una base ya productive sin riesgo.
+
+Estado actual de las migraciones:
+
+| Migración                                       | Local | Neon |
+| ----------------------------------------------- | ----- | ---- |
+| `20261020120000_init`                           | Sí    | Sí   |
+| `20261020180000_add_writing_goals_and_comments` | Sí    | Sí   |
+
+La migración de la Fase 3 se aplicó en Neon con la API SQL por HTTPS, dentro
+de un bloque `DO` transaccional y registrando la fila en `_prisma_migrations`
+con el checksum SHA-256 del archivo, que es el mismo valor que calcula
+`prisma migrate deploy`. Comprobado además que las definiciones de las cuatro
+restricciones en Neon son idénticas a las de la base local.
 
 Aplicar migraciones pendientes (producción, CI o local):
 
@@ -153,6 +173,31 @@ Consecuencias prácticas:
 - Los borrados lógicos de secciones conservan las revisiones; no se debe
   ejecutar `DELETE` físico de secciones si se quiere preservar el historial.
 
+## Objetos adicionales de la migración de escritura asistida
+
+La migración de la Fase 3 añade, además de las tablas y sus índices:
+
+- `CHECK writing_goals_target_words_positive`: un objetivo de palabras debe ser
+  mayor que cero.
+- `CHECK writing_goals_period_valid`: el periodo debe terminar después de
+  empezar.
+- `CHECK editorial_comments_body_not_empty`: un comentario sin texto no es un
+  comentario.
+- `CHECK editorial_comments_resolution_consistent`: el estado y la marca de
+  resolución no pueden contradecirse: `OPEN` sin fecha y `RESOLVED` con fecha.
+
+Estas restricciones defienden la integridad aunque alguien escriba en la base
+de datos por fuera de la aplicación.
+
+Dos decisiones de modelado que conviene no confundir:
+
+- `books.targetWordCount` es el objetivo **por libro**. `writing_goals` es el
+  objetivo **por periodo** de una persona, y puede anclarse a un libro
+  (`bookId`) o ser general del estudio (`bookId` nulo).
+- No hay tabla de actividad. Las palabras escritas en un periodo se derivan
+  del historial de revisiones, comparando cada revisión con la anterior de su
+  sección. Así las estadísticas no pueden desviarse del manuscrito real.
+
 ## Modelo y convenciones
 
 - UUID en todas las claves primarias (`@db.Uuid`).
@@ -160,11 +205,14 @@ Consecuencias prácticas:
   es sensible a mayúsculas, pero la aplicación evita la ambigüedad.
 - Fechas en `timestamptz` (Prisma `DateTime`).
 - Borrado lógico mediante `deletedAt` en usuarios, espacios, libros, secciones,
-  perfiles, plantillas, assets y notas.
+  perfiles, plantillas, assets, notas y comentarios editoriales.
 - Los libros y secciones usan `onDelete: Cascade` solo para limpiezas
   administrativas; la aplicación prevé borrado lógico.
 - Las revisiones y la auditoría restringen el borrado del usuario creador
   (`onDelete: Restrict` / `SetNull`).
+- Las notas son privadas de su autora: toda consulta y mutación filtra por
+  `userId`. Los comentarios editoriales, en cambio, son visibles para todo el
+  espacio de trabajo.
 
 ## Sesiones y limpieza
 

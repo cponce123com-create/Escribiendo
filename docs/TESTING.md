@@ -38,7 +38,7 @@ pnpm test
 Vitest recorre `apps/**/*.test.ts`, `packages/**/*.test.ts` y
 `scripts/**/*.test.ts`. No necesita base de datos ni navegador.
 
-Cobertura actual de la Fase 1:
+Cobertura actual (Fases 1 a 3):
 
 | Archivo                                                   | Qué verifica                                                                                                                                                                                                |
 | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -49,9 +49,15 @@ Cobertura actual de la Fase 1:
 | `apps/web/src/lib/auth/identity.test.ts`                  | Detección de contraseñas que contienen la identidad y normalización de nombres para el espacio de trabajo.                                                                                                  |
 | `apps/web/src/lib/security/origin-policy.test.ts`         | Resolución del origen esperado y comparación de orígenes.                                                                                                                                                   |
 | `apps/web/src/lib/cloudinary/signature.test.ts`           | Serialización y firma SHA-1 con el orden y las exclusiones que exige Cloudinary.                                                                                                                            |
+| `apps/web/src/lib/books/permissions.test.ts`              | Quién puede crear, editar, eliminar, aprobar y comentar según el rol del espacio de trabajo.                                                                                                                |
+| `apps/web/src/lib/books/status.test.ts`                   | Transiciones de estado permitidas del libro y rechazo de los saltos no contemplados.                                                                                                                        |
+| `apps/web/src/lib/books/progress.test.ts`                 | Recuento de palabras y progreso derivados del contenido.                                                                                                                                                    |
+| `apps/web/src/lib/books/section-tree.test.ts`             | Aplanado del árbol de secciones para la navegación y las exportaciones.                                                                                                                                     |
+| `apps/web/src/lib/writing/stats.test.ts`                  | Palabras escritas por día a partir del historial de revisiones, resumen del periodo y progreso de un objetivo.                                                                                              |
 | `packages/shared/src/validation.test.ts`                  | Esquemas compartidos: correo, nombre, política de contraseñas y token de instalación.                                                                                                                       |
 | `packages/shared/src/redaction.test.ts`                   | Limpieza de credenciales en los mensajes que van al log: URL con usuario y contraseña, tokens de GitHub y textos sin secretos.                                                                              |
 | `packages/book-schema/src/tiptap.test.ts`                 | Normalización y validación del documento Tiptap.                                                                                                                                                            |
+| `packages/book-schema/src/diff.test.ts`                   | Comparación de revisiones por palabras: texto idéntico, palabras añadidas y eliminadas, reconstrucción del original y del nuevo, y sustitución completa por encima del límite.                              |
 | `packages/editorial-engine/src/layout-validation.test.ts` | Validación de la geometría de página y de los formatos.                                                                                                                                                     |
 
 ---
@@ -75,19 +81,24 @@ la base: conexión, tablas, migraciones aplicadas y cuentas. Es el comando que
 hay que ejecutar antes y después de migrar, y el que diagnostica un
 despliegue con la base sin esquema.
 
-Verificaciones realizadas en la Fase 1 contra PostgreSQL 17.7:
+Verificaciones realizadas en las Fases 1 a 3 contra PostgreSQL 17.7:
 
-| Comprobación                                                                                                                                                                | Resultado                       |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| 16 tablas de la aplicación + `_prisma_migrations`                                                                                                                           | Correcto                        |
-| 10 restricciones `CHECK` (recuentos no negativos, progreso 0–100, geometría positiva, versión ≥ 1)                                                                          | Correcto                        |
-| 15 índices únicos, incluidos 3 parciales (`book_editions_one_default_per_book_key`, `layout_profiles_one_default_per_workspace_key`, `editorial_templates_system_slug_key`) | Correcto                        |
-| Trigger `section_revisions_immutable` que rechaza `UPDATE`                                                                                                                  | Correcto                        |
-| `UPDATE` sobre una revisión de sección                                                                                                                                      | Rechazado por el trigger        |
-| `wordCount` negativo, `writingProgress` 150, versión 0, dimensiones 0                                                                                                       | Rechazado por `CHECK`           |
-| Dos ediciones por defecto en el mismo libro                                                                                                                                 | Rechazado por el índice parcial |
-| Correo duplicado                                                                                                                                                            | Rechazado por `UNIQUE`          |
-| Una sola edición por defecto                                                                                                                                                | Aceptado                        |
+| Comprobación                                                                                                                                                                                                 | Resultado                       |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
+| 18 tablas de la aplicación + `_prisma_migrations`                                                                                                                                                            | Correcto                        |
+| 14 restricciones `CHECK` (recuentos no negativos, progreso 0–100, geometría positiva, versión ≥ 1, objetivo de palabras positivo, periodo con sentido, comentario con texto, estado y resolución coherentes) | Correcto                        |
+| 15 índices únicos, incluidos 3 parciales (`book_editions_one_default_per_book_key`, `layout_profiles_one_default_per_workspace_key`, `editorial_templates_system_slug_key`)                                  | Correcto                        |
+| Trigger `section_revisions_immutable` que rechaza `UPDATE`                                                                                                                                                   | Correcto                        |
+| `UPDATE` sobre una revisión de sección                                                                                                                                                                       | Rechazado por el trigger        |
+| `wordCount` negativo, `writingProgress` 150, versión 0, dimensiones 0                                                                                                                                        | Rechazado por `CHECK`           |
+| Objetivo de palabras negativo o cero                                                                                                                                                                         | Rechazado por `CHECK`           |
+| Periodo de objetivo invertido (`periodEnd` anterior a `periodStart`)                                                                                                                                         | Rechazado por `CHECK`           |
+| Comentario editorial con el cuerpo vacío                                                                                                                                                                     | Rechazado por `CHECK`           |
+| Comentario marcado como resuelto sin fecha de resolución                                                                                                                                                     | Rechazado por `CHECK`           |
+| Dos ediciones por defecto en el mismo libro                                                                                                                                                                  | Rechazado por el índice parcial |
+| Correo duplicado                                                                                                                                                                                             | Rechazado por `UNIQUE`          |
+| Una sola edición por defecto                                                                                                                                                                                 | Aceptado                        |
+| Objetivo de palabras válido y comentario resuelto con fecha                                                                                                                                                  | Aceptado                        |
 
 ---
 
@@ -195,17 +206,33 @@ ruta de instalación y guarda la sesión compartida.
 - La firma de Cloudinary exige sesión (`401`) y rechaza un origen ajeno
   (`403`).
 
-### 4.5 Resultados obtenidos en la Fase 1
+`tests/e2e/writing.spec.ts` (escritura asistida). El archivo es autocontenido:
+crea su propio libro y su propia sección, de modo que puede ejecutarse en
+solitario:
+
+- Se crea un libro y una sección para trabajar sobre ellos.
+- Una nota se crea, aparece en el libro y se puede eliminar.
+- Las notas se listan en la página propia.
+- Se define un objetivo y aparece con su progreso.
+- Las estadísticas muestran las palabras escritas.
+- Las preferencias de escritura se ajustan y se recuerdan tras recargar.
+- Un comentario se publica y aparece sin resolver.
+- Un comentario se resuelve y pasa al historial.
+- El libro se envía a revisión y se aprueba sin comentarios abiertos.
+- El historial muestra dos revisiones y permite compararlas.
+
+### 4.5 Resultados obtenidos
 
 ```text
-Running 27 tests using 1 worker
-27 passed (53.7s)
+Running 37 tests using 1 worker
+37 passed (1.1m)
 ```
 
-La suite se ha ejecutado de forma repetida con resultado completo en todas las
-ejecuciones, contra PostgreSQL 17.7 local. En producción, el mismo flujo
-(instalación, acceso y panel) se verificó además en el despliegue real de
-Neon.
+Las 37 pruebas incluyen la preparación de la cuenta de pruebas. La suite se ha
+ejecutado de forma repetida con resultado completo en todas las ejecuciones,
+contra PostgreSQL 17.7 local y contra la **compilación de producción** (no el
+servidor de desarrollo). En producción, el mismo flujo de instalación, acceso y
+panel se verificó además en el despliegue real de Neon.
 
 ### 4.6 Recuperación de contraseña por CLI
 
@@ -267,7 +294,7 @@ pnpm build          # Compilación de producción
 
 ## 7. Limitaciones de la cobertura
 
-Lo que **no** está verificado automáticamente en la Fase 1:
+Lo que **no** está verificado automáticamente en las Fases 1 a 3:
 
 1. **Proveedores externos.** Neon, Cloudinary y Render no se prueban de forma
    automatizada: no hay credenciales en el repositorio ni en los sistemas de
@@ -277,9 +304,11 @@ Lo que **no** está verificado automáticamente en la Fase 1:
 2. **Correo electrónico.** No hay proveedor de correo. La recuperación se
    emite con `pnpm admin:password-reset`, que no se prueba de forma
    automatizada por escribir en la base de datos real.
-3. **Comportamiento en producción.** Las pruebas E2E se ejecutan contra el
-   servidor de desarrollo. En producción la cookie de sesión es
-   `__Host-escribiendo_session` y lleva `Secure`, por lo que requiere HTTPS.
+3. **Comportamiento en producción.** Las pruebas E2E se ejecutan contra la
+   **compilación de producción** en un puerto local, no contra el despliegue.
+   En producción la cookie de sesión es `__Host-escribiendo_session` y lleva
+   `Secure`, por lo que requiere HTTPS. El flujo de instalación, acceso y
+   panel sí se verificó en el despliegue real de Neon.
 4. **Pruebas de carga y de concurrencia.** No hay pruebas de rendimiento. El
    límite en memoria y el bloqueo por cuenta están pensados para una única
    instancia.
@@ -290,6 +319,10 @@ Lo que **no** está verificado automáticamente en la Fase 1:
    una prueba automatizada que lo acredite.
 7. **Cobertura de líneas.** No se mide el porcentaje de código ejecutado. Las
    pruebas cubren los flujos críticos, no cada rama.
+8. **Preferencias de escritura.** Se guardan en el `localStorage` del
+   navegador, así que la prueba automatizada solo las exercise en Chromium. No
+   se ha comprobado el comportamiento en modo privado, con el almacenamiento
+   bloqueado ni entre navegadores distintos.
 
 ---
 

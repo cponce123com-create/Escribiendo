@@ -103,6 +103,58 @@ Alcance previsto:
 - Historial de cambios con comparación de revisiones.
 - Atajos de teclado y preferencias de escritura.
 
+**Estado: implementada y verificada.** Las notas, los objetivos, las
+estadísticas, los comentarios editoriales, el flujo de revisión y el
+comparador de revisiones funcionan contra la compilación de producción, con
+37 pruebas de extremo a extremo.
+
+Implementado:
+
+- Notas privadas por libro, anclables a una sección y fijables. Cada consulta
+  y cada mutación filtran por `userId`: nadie puede leer ni borrar la nota de
+  otra persona aunque conozca su identificador. Se borran en cascada lógica
+  (`deletedAt`), sin perder el histórico.
+- Objetivos de palabras por periodo, propios de cada persona y opcionalmente
+  anclados a un libro. El objetivo por libro sigue viviendo en
+  `books.targetWordCount`.
+- Estadísticas por periodo **derivadas del historial de revisiones**: las
+  palabras escritas son la diferencia entre cada revisión y la anterior de su
+  sección. No hay tabla de actividad, de modo que las cifras no pueden
+  desviarse del manuscrito real. Editar no cuenta como escribir: solo se
+  suman las diferencias positivas.
+- Comentarios editoriales visibles para todo el espacio de trabajo, a
+  diferencia de las notas, que son privadas. Se anclan a un libro y,
+  opcionalmente, a una sección, y se resuelven o reabren.
+- Flujo de revisión: enviar a revisión, pedir cambios y aprobar. **Aprobar
+  exige que no queden comentarios abiertos**, que es la garantía de que la
+  edición ha sido tenida en cuenta. Aprobar queda reservado a `OWNER`, `ADMIN`
+  y `EDITOR`; publicar y resolver comentarios, a los roles de escritura.
+- Comparador de revisiones por palabras (subsecuencia común más larga) con
+  el texto añadido resaltado y el eliminado tachado. El diff se calcula en el
+  servidor: el cliente no carga dos versiones completas del manuscrito. Por
+  encima de 4 000 palabras por versión se devuelve una sustitución completa,
+  porque el coste cuadrático deja de ser aceptable.
+- Preferencias de escritura (tamaño de letra, interlineado y modo
+  concentración) guardadas en el navegador, no en el servidor: son ajustes de
+  quien escribe y no viajan a ningún sitio. Se leen con `useSyncExternalStore`
+  para no desajustar la hidratación.
+- Atajo `Ctrl`/`Cmd`+`S` en el editor para guardar el manuscrito, que evita el
+  diálogo de «guardar página» del navegador.
+
+Fuera de alcance y pendiente para fases posteriores: notas compartidas entre
+personas, menciones y notificaciones de comentarios, objetivos por proyecto
+(no por periodo), plantillas de objetivos y comparador entre libros.
+
+Verificación registrada:
+
+| Punto del criterio                                                  | Estado                                                                                                                                                                                         |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Build, lint, typecheck y pruebas unitarias en verde                 | Cumplido: 117 pruebas unitarias en 17 archivos, `lint` y `typecheck` limpios                                                                                                                   |
+| Migración real aplicada en base de pruebas                          | Cumplido: 18 tablas, 14 `CHECK` y el enum `CommentStatus`, comprobados con consultas de comportamiento (los 4 casos inválidos fallan y los 2 válidos pasan)                                    |
+| Migración aplicada en Neon                                          | Cumplido: `20261020180000_add_writing_goals_and_comments` aplicada y registrada en `_prisma_migrations` con el checksum del archivo; definiciones de las restricciones idénticas a las locales |
+| Notas, objetivos, estadísticas, comentarios y revisión en navegador | Cumplido: 37 pruebas E2E en Chromium contra la compilación de producción                                                                                                                       |
+| Comparación de revisiones                                           | Cumplido: diff por palabras con subsecuencia común más larga, verificado en unitarias y en E2E                                                                                                 |
+
 ## Fase 4 — Maquetación
 
 Objetivo: convertir el manuscrito en una maqueta interior coherente.

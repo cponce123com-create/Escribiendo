@@ -59,6 +59,9 @@ model User {
   assetsCreated   Asset[]            @relation("AssetCreatedBy")
   exportJobs      ExportJob[]        @relation("ExportRequestedBy")
   writingNotes    WritingNote[]
+  writingGoals    WritingGoal[]
+  commentsAuthored  EditorialComment[] @relation("CommentAuthor")
+  commentsResolved EditorialComment[] @relation("CommentResolver")
   auditLogs       AuditLog[]         @relation("AuditActor")
 
   @@index([isActive])
@@ -210,6 +213,8 @@ model Book {
   assets    BookAsset[]
   exportJobs ExportJob[]
   notes     WritingNote[]
+  goals     WritingGoal[]
+  comments  EditorialComment[]
 
   @@index([workspaceId, deletedAt])
   @@index([workspaceId, status])
@@ -242,6 +247,7 @@ model BookSection {
   children  BookSection[]   @relation("SectionHierarchy")
   revisions SectionRevision[]
   notes     WritingNote[]
+  comments  EditorialComment[]
 
   @@index([bookId, parentId, sortOrder])
   @@index([bookId, type])
@@ -513,6 +519,63 @@ model WritingNote {
   @@index([bookId])
   @@index([sectionId])
   @@map("writing_notes")
+}
+
+/// Objetivo de escritura de un usuario para un periodo concreto.
+///
+/// El objetivo por libro vive en `books.targetWordCount`. Este modelo cubre
+/// el objetivo diario o semanal, que es la unidad con la que se trabaja a
+/// diario.
+model WritingGoal {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  bookId      String?  @db.Uuid
+  periodStart DateTime
+  periodEnd   DateTime
+  targetWords Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book Book? @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@index([userId, periodStart])
+  @@index([bookId])
+  @@map("writing_goals")
+}
+
+/// Comentario editorial sobre un libro o una sección concreta.
+///
+/// Es visible para todo el espacio de trabajo, a diferencia de las notas, que
+/// son privadas de su autor.
+model EditorialComment {
+  id           String        @id @default(uuid()) @db.Uuid
+  bookId       String        @db.Uuid
+  sectionId    String?       @db.Uuid
+  authorId     String        @db.Uuid
+  body         String        @db.Text
+  status       CommentStatus @default(OPEN)
+  resolvedAt   DateTime?
+  resolvedById String?       @db.Uuid
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+
+  book       Book         @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  section    BookSection? @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  author     User         @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  resolvedBy User?        @relation("CommentResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([bookId, status])
+  @@index([sectionId])
+  @@index([authorId, createdAt])
+  @@index([createdAt])
+  @@map("editorial_comments")
+}
+
+enum CommentStatus {
+  OPEN
+  RESOLVED
 }
 
 model AuditLog {

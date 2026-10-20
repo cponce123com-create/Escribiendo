@@ -63,6 +63,15 @@ export default async function SectionPage({ params }: SectionPageProps) {
           {SECTION_TYPE_LABELS[section.type] ?? section.type} · {formatNumber(section.wordCount)}{" "}
           palabras · versión {section.version}
         </p>
+
+        <nav className="flex flex-wrap gap-2" aria-label="Acciones de la sección">
+          <Link
+            className="btn btn-ghost btn-sm"
+            href={`/books/${bookId}/sections/${section.id}/history`}
+          >
+            Historial y comparador
+          </Link>
+        </nav>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">

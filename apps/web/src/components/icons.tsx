@@ -41,6 +41,25 @@ export function LibraryIcon(props: IconProps) {
   );
 }
 
+export function NoteIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M5 4.5h14v15H5z" />
+      <path d="M8.5 9h7M8.5 12.5h7M8.5 16h4" />
+    </IconBase>
+  );
+}
+
+export function ChartIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M4 20V4" />
+      <path d="M4 20h16" />
+      <path d="M8 16v-4M12.5 16V8M17 16v-6" />
+    </IconBase>
+  );
+}
+
 export function BookIcon(props: IconProps) {
   return (
     <IconBase {...props}>

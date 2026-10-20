@@ -8,6 +8,10 @@ import { countWordsInDocument } from "@escribiendo/book-schema";
 import { saveSectionAction } from "@/lib/books/actions";
 import { initialLibraryActionState } from "@/lib/books/action-state";
 import { formatNumber } from "@/lib/ui/format";
+import {
+  applyWritingPreferences,
+  readWritingPreferences,
+} from "@/components/writing/writing-preferences";
 
 interface SectionEditorProps {
   sectionId: string;
@@ -110,6 +114,22 @@ export function SectionEditor({
     return () => window.clearInterval(timer);
   }, [canEdit, dirty, persist]);
 
+  // Las preferencias de escritura se aplican al documento para que el CSS
+  // las use, y se vuelven a aplicar si cambian en otra pestaña.
+  useEffect(() => {
+    applyWritingPreferences(readWritingPreferences());
+
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === "escribiendo-writing-preferences") {
+        applyWritingPreferences(readWritingPreferences());
+      }
+    };
+
+    window.addEventListener("storage", onStorage);
+
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
   // Aviso al cerrar la pestaña con cambios sin guardar.
   useEffect(() => {
     if (!dirty) {
@@ -124,6 +144,26 @@ export function SectionEditor({
 
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
+
+  // Atajos de teclado: guardar con Ctrl/Cmd+S, sin que el navegador abra
+  // el diálogo de «guardar página».
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "s") {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (dirty && !saving) {
+        void persist("manual");
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [dirty, persist, saving]);
 
   const currentWords = editor
     ? countWordsInDocument(editor.getJSON() as TiptapDocument)

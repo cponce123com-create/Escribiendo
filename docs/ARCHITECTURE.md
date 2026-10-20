@@ -44,7 +44,11 @@ servicio externo, respetando las limitaciones de Render Free.
 apps/web
 ├─ src/app
 │  ├─ (auth)/login, /setup, /reset-password
-│  ├─ (app)/dashboard, /account
+│  ├─ (app)/dashboard, /account, /notes, /stats
+│  ├─ (app)/books            # Biblioteca, alta, ficha, edición
+│  ├─ (app)/books/[bookId]/notes       # Notas privadas del libro
+│  ├─ (app)/books/[bookId]/review      # Comentarios y flujo de revisión
+│  ├─ (app)/books/[bookId]/sections/[sectionId]/history  # Historial y comparador
 │  ├─ api/health, /api/health/ready, /api/cloudinary/signature
 │  ├─ error.tsx, global-error.tsx, not-found.tsx, loading.tsx
 │  └─ layout.tsx, page.tsx, robots.ts, manifest.ts
@@ -52,11 +56,17 @@ apps/web
 │  ├─ app/          # Shell privado
 │  ├─ auth/         # Formularios de acceso
 │  ├─ account/      # Formularios de cuenta
+│  ├─ books/        # Biblioteca, editor, revisiones
+│  ├─ writing/      # Notas, objetivos, preferencias de escritura
+│  ├─ review/       # Comentarios editoriales y flujo de revisión
 │  ├─ forms/        # Campos y botones reutilizables
 │  ├─ brand/        # Marca
 │  └─ theme/        # Conmutador claro/oscuro
 ├─ src/lib
 │  ├─ auth/         # Sesiones, contraseñas, tokens, acciones
+│  ├─ books/        # Biblioteca, secciones, revisiones, permisos
+│  ├─ writing/      # Notas, objetivos y estadísticas
+│  ├─ review/       # Comentarios editoriales y comparación de revisiones
 │  ├─ cloudinary/   # Firma de subidas
 │  ├─ security/     # Origen, CSRF, rate limit, contexto
 │  └─ ui/           # Formato de fechas, roles y agentes
@@ -64,7 +74,7 @@ apps/web
 
 packages/database        Prisma Client + esquema + migraciones
 packages/shared          Validaciones comunes y errores de formulario
-packages/book-schema     Documento Tiptap, metadatos, extracción de texto
+packages/book-schema     Documento Tiptap, metadatos, extracción de texto, diff
 packages/editorial-engine Formatos de página y validación geométrica
 packages/templates       Límite reservado para plantillas editoriales
 workers/export-worker    Límite reservado para exportación

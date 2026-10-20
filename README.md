@@ -3,9 +3,10 @@
 Plataforma editorial privada de **EDITORIAL NO PARA TODOS**.
 
 ESCRIBIENDO reúne escritura, edición, maquetación y preparación de archivos de
-imprenta en un único espacio de trabajo. Este repositorio contiene la **Fase 1**:
-cimientos técnicos, acceso privado, modelo de datos editorial, integración
-firmada con Cloudinary y preparación de despliegue en Render.
+imprenta en un único espacio de trabajo. Este repositorio contiene las
+**Fases 1 a 3**: cimientos técnicos, acceso privado, modelo de datos editorial,
+integración firmada con Cloudinary, preparación de despliegue en Render,
+biblioteca y manuscrito, y herramientas de escritura asistida.
 
 > No hay registro público. El acceso se crea una sola vez mediante `/setup` y
 > un token de instalación de alta entropía. Después, solo un administrador
@@ -15,21 +16,24 @@ firmada con Cloudinary y preparación de despliegue en Render.
 
 ## Estado
 
-| Área                                                 | Estado                                     |
-| ---------------------------------------------------- | ------------------------------------------ |
-| Monorepo pnpm y TypeScript estricto                  | Implementado                               |
-| Esquema PostgreSQL/Prisma completo                   | Implementado; migración inicial versionada |
-| Autenticación Argon2id + sesiones opacas             | Implementado                               |
-| Instalación inicial protegida por token              | Implementado                               |
-| Recuperación de contraseña sin proveedor de correo   | Implementado mediante CLI                  |
-| Panel privado y gestión de cuenta                    | Implementado                               |
-| Biblioteca de libros con búsqueda y filtros          | Implementado (Fase 2)                      |
-| Manuscrito con Tiptap, revisiones y progreso         | Implementado (Fase 2)                      |
-| Cloudinary: firma de subida directa                  | Implementado                               |
-| Cabeceras de seguridad y CSP con nonce               | Implementado                               |
-| Health checks y blueprint de Render                  | Implementado                               |
-| Pruebas unitarias, de esquema y de extremo a extremo | Implementado                               |
-| Notas, comentarios, maqueta y exportaciones          | Fuera del alcance de las fases 1 y 2       |
+| Área                                                 | Estado                                |
+| ---------------------------------------------------- | ------------------------------------- |
+| Monorepo pnpm y TypeScript estricto                  | Implementado                          |
+| Esquema PostgreSQL/Prisma completo                   | Implementado; migraciones versionadas |
+| Autenticación Argon2id + sesiones opacas             | Implementado                          |
+| Instalación inicial protegida por token              | Implementado                          |
+| Recuperación de contraseña sin proveedor de correo   | Implementado mediante CLI             |
+| Panel privado y gestión de cuenta                    | Implementado                          |
+| Biblioteca de libros con búsqueda y filtros          | Implementado (Fase 2)                 |
+| Manuscrito con Tiptap, revisiones y progreso         | Implementado (Fase 2)                 |
+| Notas privadas, objetivos y estadísticas             | Implementado (Fase 3)                 |
+| Comentarios editoriales y flujo de revisión          | Implementado (Fase 3)                 |
+| Comparador de revisiones y preferencias de escritura | Implementado (Fase 3)                 |
+| Cloudinary: firma de subida directa                  | Implementado                          |
+| Cabeceras de seguridad y CSP con nonce               | Implementado                          |
+| Health checks y blueprint de Render                  | Implementado                          |
+| Pruebas unitarias, de esquema y de extremo a extremo | Implementado                          |
+| Maquetación y exportaciones                          | Fuera del alcance de las fases 1 a 3  |
 
 La aplicación **no incluye datos de demostración, botones simulados ni
 credenciales de ejemplo**. Si una integración no está configurada, la interfaz
@@ -64,6 +68,8 @@ escribiendo/
 │     ├─ lib/
 │     │  ├─ auth/               # Sesiones, contraseñas, acciones
 │     │  ├─ books/              # Biblioteca, secciones, revisiones
+│     │  ├─ writing/            # Notas, objetivos y estadísticas
+│     │  ├─ review/             # Comentarios editoriales y flujo de revisión
 │     │  ├─ cloudinary/         # Firma de subidas
 │     │  ├─ security/           # Origen, CSRF, rate limit, contexto
 │     │  └─ env.ts              # Validación del entorno

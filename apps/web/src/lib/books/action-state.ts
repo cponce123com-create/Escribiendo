@@ -1,7 +1,10 @@
-export interface LibraryActionState {
-  status: "idle" | "error" | "success";
-  message?: string;
-  fieldErrors?: Record<string, string>;
-}
+import type { ActionState } from "@/lib/action-state";
 
-export const initialLibraryActionState: LibraryActionState = { status: "idle" };
+/**
+ * Estado de las acciones de la biblioteca.
+ *
+ * Reexporta el estado genérico de la aplicación para no duplicar el tipo.
+ */
+export type LibraryActionState = ActionState;
+
+export const initialLibraryActionState: ActionState = { status: "idle" };

@@ -70,6 +70,18 @@ export default async function BookPage({ params }: BookPageProps) {
         {book.description ? (
           <p className="max-w-3xl text-sm leading-relaxed text-ink-soft">{book.description}</p>
         ) : null}
+
+        <nav className="flex flex-wrap gap-2" aria-label="Acciones del libro">
+          <Link className="btn btn-ghost btn-sm" href={`/books/${book.id}/notes`}>
+            Notas
+          </Link>
+          <Link className="btn btn-ghost btn-sm" href={`/books/${book.id}/review`}>
+            Revisión
+          </Link>
+          <Link className="btn btn-ghost btn-sm" href={`/books/${book.id}/edit`}>
+            Editar metadatos
+          </Link>
+        </nav>
       </header>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Resumen del libro">
