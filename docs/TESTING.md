@@ -58,6 +58,8 @@ Cobertura actual (Fases 1 a 3):
 | `packages/shared/src/redaction.test.ts`                   | Limpieza de credenciales en los mensajes que van al log: URL con usuario y contraseña, tokens de GitHub y textos sin secretos.                                                                              |
 | `packages/book-schema/src/tiptap.test.ts`                 | Normalización y validación del documento Tiptap.                                                                                                                                                            |
 | `packages/book-schema/src/diff.test.ts`                   | Comparación de revisiones por palabras: texto idéntico, palabras añadidas y eliminadas, reconstrucción del original y del nuevo, y sustitución completa por encima del límite.                              |
+| `packages/editorial-engine/src/measure.test.ts`           | Medición del texto: anchos por tipo de carácter, reparto en líneas, palabras que desbordan la caja y guionado por guion.                                                                                    |
+| `packages/editorial-engine/src/pagination.test.ts`        | Composición en páginas: reparto del texto, párrafos que ocupan más de una página, aperturas de capítulo en página par, viudas, huérfanas, folios y encabezados.                                             |
 | `packages/editorial-engine/src/layout-validation.test.ts` | Validación de la geometría de página y de los formatos.                                                                                                                                                     |
 
 ---
@@ -221,18 +223,37 @@ solitario:
 - El libro se envía a revisión y se aprueba sin comentarios abiertos.
 - El historial muestra dos revisiones y permite compararlas.
 
+`tests/e2e/maquetacion.spec.ts` (maquetación). El archivo es autocontenido:
+crea su propio libro y su propia sección, de modo que puede ejecutarse en
+solitario:
+
+- Se crea un libro y una sección para maquetar.
+- La maquetación ofrece crear un perfil de página.
+- Un perfil de página se crea con su geometría.
+- Una geometría imposible se rechaza con un motivo claro.
+- El perfil creado se puede editar.
+- Se aplica la maqueta al libro.
+- La vista previa paginada compone las páginas del manuscrito.
+- La vista previa muestra el folio y el encabezado de página.
+- La página se dibuja a escala real y respeta los márgenes.
+
 ### 4.5 Resultados obtenidos
 
 ```text
-Running 37 tests using 1 worker
-37 passed (1.1m)
+Running 46 tests using 1 worker
+46 passed (1.7m)
 ```
 
-Las 37 pruebas incluyen la preparación de la cuenta de pruebas. La suite se ha
+Las 46 pruebas incluyen la preparación de la cuenta de pruebas. La suite se ha
 ejecutado de forma repetida con resultado completo en todas las ejecuciones,
 contra PostgreSQL 17.7 local y contra la **compilación de producción** (no el
 servidor de desarrollo). En producción, el mismo flujo de instalación, acceso y
 panel se verificó además en el despliegue real de Neon.
+
+Los archivos se ejecutan por orden alfabético sobre la misma base de datos,
+que se vacía una sola vez al principio de la ejecución. Por eso el archivo de
+la biblioteca se llama `library.spec.ts` y va antes que `maquetacion.spec.ts`:
+la biblioteca necesita empezar vacía.
 
 ### 4.6 Recuperación de contraseña por CLI
 

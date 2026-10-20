@@ -1,39 +1,36 @@
 # @escribiendo/templates
 
-Espacio reservado para las **plantillas editoriales** que se incorporan en una
-fase posterior.
+Plantillas **editoriales**: la representación declarativa de cómo se compone un
+libro (tipografía, estilos de bloque, viudas y huérfanas, encabezados de página
+y posición del folio).
 
-## Estado en la Fase 1
+## Estado
 
-Este directorio **no contiene código**. La Fase 1 entrega los cimientos: modelo
-de datos, acceso privado, integridad referencial y despliegue. Las plantillas
-editoriales necesitan el motor de maquetación y el documento Tiptap, que aún
-no existen.
+Este paquete ya contiene código. Lo que vive aquí:
 
-## Qué habrá aquí
+- `editorialTemplateConfigSchema`: la forma de una plantilla, validada con Zod.
+- `SYSTEM_TEMPLATES`: el catálogo de plantillas de sistema (Novela, Ensayo,
+  Poesía y Manual). Es un catálogo cerrado que acompaña al código.
+- `withTemplateDefaults`: completa una configuración guardada con los valores
+  por defecto, de modo que una plantilla escrita antes de una versión nueva
+  siga funcionando.
 
-- Representación declarativa de una plantilla (tipografía, estilos de
-  bloque, Widow/orphan,NOTES de página y elementos gráficos de la cubierta).
-- Plantillas de sistema (compartidas por todos los espacios de trabajo) y
-  plantillas propias de cada espacio, según el modelo de datos ya preparado:
-  `EditorialTemplate` distingue `workspaceId` nulo (plantilla de sistema) de
-  una plantilla propia, y el índice único parcial garantiza un único `slug`
-  por espacio de trabajo.
-- Validación de la plantilla contra la geometría de la página, apoyándose en
-  `@escribiendo/editorial-engine`.
+## Plantillas de sistema y propias
 
-## Por qué no hay código todavía
+El modelo de datos ya distingue las dos: `EditorialTemplate` usa `workspaceId`
+nulo para las plantillas de sistema, que son las mismas para todos los
+espacios de trabajo, y el índice único parcial garantiza un único `slug` por
+espacio de trabajo para las propias.
 
-El repositorio no incluye funciones simuladas ni datos de demostración. Un
-módulo de plantillas vacío o con stubs obligaría a mantener una API que
-todavía no tiene consumidor real, y su modificación posterior rompería las
-fases venideras.
+La instalación de las plantillas de sistema es idempotente y se hace al abrir
+la maquetación de un estudio (`ensureSystemTemplates`, en la aplicación). No
+hace falta migración de datos: la base de datos ya tenía la tabla y el índice.
 
-## Estado del modelo de datos
+## Validación contra la geometría
 
-El soporte ya está en la base de datos (`EditorialTemplate`, `config` en JSON)
-y en el motor de maquetación (`@escribiendo/editorial-engine`). Lo que falta
-es la capa que traduce una plantilla a un documento maquetado, que depende del
-editor y de la biblioteca, es decir, de las fases 2 y 3.
+La validación de la plantilla se apoya en `@escribiendo/editorial-engine`: la
+geometría de la página se valida con `validateLayoutGeometry` y la
+tipografía, con los esquemas de `typography.ts`.
 
-Consulta [docs/ROADMAP.md](../../docs/ROADMAP.md) para el orden previsto.
+Consulta [docs/ROADMAP.md](../../docs/ROADMAP.md) para el orden previsto de las
+fases y qué queda para las siguientes.

@@ -78,6 +78,9 @@ export default async function BookPage({ params }: BookPageProps) {
           <Link className="btn btn-ghost btn-sm" href={`/books/${book.id}/review`}>
             Revisión
           </Link>
+          <Link className="btn btn-ghost btn-sm" href={`/books/${book.id}/layout`}>
+            Maquetación
+          </Link>
           <Link className="btn btn-ghost btn-sm" href={`/books/${book.id}/edit`}>
             Editar metadatos
           </Link>

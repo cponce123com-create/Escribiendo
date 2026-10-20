@@ -198,6 +198,27 @@ Dos decisiones de modelado que conviene no confundir:
   del historial de revisiones, comparando cada revisión con la anterior de su
   sección. Así las estadísticas no pueden desviarse del manuscrito real.
 
+## Objetos de la maquetación
+
+La Fase 4 **no ha añadido ninguna migración**: el modelo de datos se preparó en
+la Fase 1 y esta fase lo pone en uso.
+
+- `layout_profiles`: la geometría de la página (tamaño, márgenes, medianil,
+  sangrado, distancias de encabezado y pie) y la tipografía en
+  `typographyConfig`. El índice único parcial
+  `layout_profiles_one_default_per_workspace_key` garantiza un solo perfil
+  predeterminado por espacio de trabajo.
+- `editorial_templates`: el estilo editorial. `workspaceId` nulo identifica
+  las plantillas de sistema, que son las mismas para todos los estudios; el
+  índice `editorial_templates_system_slug_key` evita que dos plantillas de
+  sistema compartan `slug`.
+- `book_editions`: la unión de un perfil y una plantilla para un libro. Es lo
+  que hace la vista previa paginada.
+
+Las plantillas de sistema se instalan en la base de datos de forma idempotente
+la primera vez que se abre la maquetación de un estudio, no con una migración:
+son un catálogo cerrado que acompaña al código y cambia con él.
+
 ## Modelo y convenciones
 
 - UUID en todas las claves primarias (`@db.Uuid`).

@@ -157,6 +157,19 @@ Verificación registrada:
 
 ## Fase 4 — Maquetación
 
+Verificación registrada:
+
+| Punto del criterio                                  | Estado                                                                                                                                   |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Build, lint, typecheck y pruebas unitarias en verde | Cumplido: 155 pruebas unitarias en 19 archivos, `lint` y `typecheck` limpios                                                             |
+| Geometría validada por el motor                     | Cumplido: un perfil con márgenes que consumen todo el ancho se rechaza con un motivo explícito, comprobado en el navegador               |
+| Vista previa paginada a escala real                 | Cumplido: la prueba mide la geometría en el navegador y comprueba que un milímetro del perfil es un milímetro en pantalla                |
+| Diagnóstico de composición                          | Cumplido: viudas, huérfanas, desbordes y palabras más anchas que la caja se detectan y se explican con su página                         |
+| Sin migración de datos                              | Cumplido: el modelo de datos se preparó en la Fase 1; las plantillas de sistema se instalan de forma idempotente al abrir la maquetación |
+| Maquetación en el navegador                         | Cumplido: 46 pruebas E2E en Chromium contra la compilación de producción                                                                 |
+
+## Fase 4 — Maquetación
+
 Objetivo: convertir el manuscrito en una maqueta interior coherente.
 
 Alcance previsto:
@@ -166,6 +179,44 @@ Alcance previsto:
 - Numeración, encabezados, folios, aperturas de capítulo y páginas pares.
 - Vista previa paginada en el navegador.
 - Diagnóstico de desbordes, viudas, huérfanas y líneas demasiado largas.
+
+**Estado: implementada y verificada.** La maquetación se compone contra la
+compilación de producción, con 46 pruebas de extremo a extremo. No ha hecho
+falta migración: el modelo de datos (`LayoutProfile`, `EditorialTemplate` y
+`BookEdition`) se preparó en la Fase 1 y esta fase lo pone en uso.
+
+Implementado:
+
+- **Perfiles de página** por espacio de trabajo: tamaño, márgenes interior y
+  exterior, medianil, sangrado y distancias de encabezado y pie. La geometría
+  se valida con `validateLayoutGeometry` **antes** de escribir: un perfil con
+  márgenes que se comen el área de texto no llega a guardarse, y el motivo se
+  explica en la interfaz.
+- **Plantillas editoriales** de sistema (Novela, Ensayo, Poesía y Manual) y
+  propias de cada estudio. Una plantilla define el estilo: cuerpo, títulos,
+  cita, sangría de primera línea y control de viudas y huérfanas. Se instalan
+  de forma idempotente la primera vez que se abre la maquetación.
+- **Motor de paginación** en `editorial-engine`: mide el texto con un modelo
+  de anchos medios por tipo de carácter, parte los párrafos en líneas y
+  compone las páginas **por altura**, de modo que conviven en la misma página
+  un cuerpo de 11 pt y un título de 20 pt.
+- **Aperturas de capítulo en página par**: si el capítulo caería en una página
+  impar, se inserta una página en blanco y se avisa en el diagnóstico.
+- **Folios y encabezados de página**: el folio numerado correlativamente (con
+  número inicial configurable) y el encabezado con el título de la sección o
+  con el texto que fije la plantilla, que admite los marcadores `{libro}` y
+  `{capitulo}`. Los márgenes se reflejan en páginas pares e impares.
+- **Vista previa paginada a escala real**: un milímetro del perfil es un
+  milímetro en pantalla (96 dpi), comprobado con una prueba que mide la
+  geometría en el navegador. Las líneas se dibujan tal como las decidió el
+  motor, con el texto justificado y la última línea suelta.
+- **Diagnóstico de composición**: viudas, huérfanas, desbordes, palabras más
+  anchas que la caja de texto y páginas en blanco insertadas, cada uno con su
+  página y su explicación.
+
+Fuera del alcance y pendiente para fases posteriores: paginación con métricas
+reales de la fuente, que corresponde a la exportación, generación de PDF,
+cubiertas y contraportadas, y ajustes de línea por sección.
 
 ## Fase 5 — Exportación
 

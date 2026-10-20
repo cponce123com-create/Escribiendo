@@ -48,6 +48,8 @@ apps/web
 │  ├─ (app)/books            # Biblioteca, alta, ficha, edición
 │  ├─ (app)/books/[bookId]/notes       # Notas privadas del libro
 │  ├─ (app)/books/[bookId]/review      # Comentarios y flujo de revisión
+│  ├─ (app)/books/[bookId]/layout      # Perfiles de página y maqueta
+│  ├─ (app)/books/[bookId]/preview     # Vista previa paginada
 │  ├─ (app)/books/[bookId]/sections/[sectionId]/history  # Historial y comparador
 │  ├─ api/health, /api/health/ready, /api/cloudinary/signature
 │  ├─ error.tsx, global-error.tsx, not-found.tsx, loading.tsx
@@ -59,6 +61,7 @@ apps/web
 │  ├─ books/        # Biblioteca, editor, revisiones
 │  ├─ writing/      # Notas, objetivos, preferencias de escritura
 │  ├─ review/       # Comentarios editoriales y flujo de revisión
+│  ├─ layout/       # Perfiles de página, maqueta y vista previa
 │  ├─ forms/        # Campos y botones reutilizables
 │  ├─ brand/        # Marca
 │  └─ theme/        # Conmutador claro/oscuro
@@ -67,6 +70,7 @@ apps/web
 │  ├─ books/        # Biblioteca, secciones, revisiones, permisos
 │  ├─ writing/      # Notas, objetivos y estadísticas
 │  ├─ review/       # Comentarios editoriales y comparación de revisiones
+│  ├─ layout/       # Perfiles, plantillas, edición y vista previa
 │  ├─ cloudinary/   # Firma de subidas
 │  ├─ security/     # Origen, CSRF, rate limit, contexto
 │  └─ ui/           # Formato de fechas, roles y agentes
@@ -75,8 +79,8 @@ apps/web
 packages/database        Prisma Client + esquema + migraciones
 packages/shared          Validaciones comunes y errores de formulario
 packages/book-schema     Documento Tiptap, metadatos, extracción de texto, diff
-packages/editorial-engine Formatos de página y validación geométrica
-packages/templates       Límite reservado para plantillas editoriales
+packages/editorial-engine Formatos de página, tipografía y motor de paginación
+packages/templates       Plantillas editoriales de sistema y propias
 workers/export-worker    Límite reservado para exportación
 ```
 

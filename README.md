@@ -4,9 +4,10 @@ Plataforma editorial privada de **EDITORIAL NO PARA TODOS**.
 
 ESCRIBIENDO reúne escritura, edición, maquetación y preparación de archivos de
 imprenta en un único espacio de trabajo. Este repositorio contiene las
-**Fases 1 a 3**: cimientos técnicos, acceso privado, modelo de datos editorial,
+**Fases 1 a 4**: cimientos técnicos, acceso privado, modelo de datos editorial,
 integración firmada con Cloudinary, preparación de despliegue en Render,
-biblioteca y manuscrito, y herramientas de escritura asistida.
+biblioteca y manuscrito, herramientas de escritura asistida y maquetación con
+vista previa paginada.
 
 > No hay registro público. El acceso se crea una sola vez mediante `/setup` y
 > un token de instalación de alta entropía. Después, solo un administrador
@@ -29,11 +30,12 @@ biblioteca y manuscrito, y herramientas de escritura asistida.
 | Notas privadas, objetivos y estadísticas             | Implementado (Fase 3)                 |
 | Comentarios editoriales y flujo de revisión          | Implementado (Fase 3)                 |
 | Comparador de revisiones y preferencias de escritura | Implementado (Fase 3)                 |
+| Maquetación: perfiles, plantillas y vista previa     | Implementado (Fase 4)                 |
 | Cloudinary: firma de subida directa                  | Implementado                          |
 | Cabeceras de seguridad y CSP con nonce               | Implementado                          |
 | Health checks y blueprint de Render                  | Implementado                          |
 | Pruebas unitarias, de esquema y de extremo a extremo | Implementado                          |
-| Maquetación y exportaciones                          | Fuera del alcance de las fases 1 a 3  |
+| Maquetación y exportaciones                          | Fuera del alcance de las fases 1 a 4  |
 
 La aplicación **no incluye datos de demostración, botones simulados ni
 credenciales de ejemplo**. Si una integración no está configurada, la interfaz
@@ -70,24 +72,27 @@ escribiendo/
 │     │  ├─ books/              # Biblioteca, secciones, revisiones
 │     │  ├─ writing/            # Notas, objetivos y estadísticas
 │     │  ├─ review/             # Comentarios editoriales y flujo de revisión
+│     │  ├─ layout/             # Perfiles de página, plantillas y maqueta
 │     │  ├─ cloudinary/         # Firma de subidas
 │     │  ├─ security/           # Origen, CSRF, rate limit, contexto
 │     │  └─ env.ts              # Validación del entorno
 │     └─ proxy.ts               # CSP con nonce y request ID
 ├─ packages/
 │  ├─ database/                 # Prisma Client, esquema y migraciones
-│  ├─ book-schema/              # Documento Tiptap y metadatos editoriales
-│  ├─ editorial-engine/         # Geometría de página y validación de maqueta
+│  ├─ book-schema/              # Documento Tiptap, metadatos y diff
+│  ├─ editorial-engine/         # Geometría, tipografía y paginación
 │  ├─ shared/                   # Validaciones y utilidades compartidas
-│  └─ templates/                # Reservado para plantillas editoriales
+│  └─ templates/                # Plantillas editoriales
 ├─ workers/export-worker/       # Reservado para exportación (fase posterior)
 ├─ scripts/                     # Administración por CLI
 ├─ tests/e2e/                   # Pruebas de extremo a extremo
 └─ docs/                        # Arquitectura, seguridad, despliegue, etc.
 ```
 
-`packages/templates` y `workers/export-worker` se documentan como límites
-explícitos de fases posteriores; no contienen funciones simuladas.
+`packages/templates` contiene las plantillas editoriales y
+`workers/export-worker` se documenta como límite explícito de una fase
+posterior; no contiene funciones simuladas.
+
 ---
 
 ## Puesta en marcha

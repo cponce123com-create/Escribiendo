@@ -20,7 +20,8 @@ export type LibraryAction =
   | "section:delete"
   | "revision:restore"
   | "comment:create"
-  | "comment:resolve";
+  | "comment:resolve"
+  | "layout:manage";
 
 /** Quien puede crear y editar libros y su estructura. */
 const WRITE_ROLES: ReadonlySet<WorkspaceRole> = new Set(["OWNER", "ADMIN", "EDITOR", "AUTHOR"]);
@@ -31,7 +32,7 @@ const ADMIN_ROLES: ReadonlySet<WorkspaceRole> = new Set(["OWNER", "ADMIN"]);
 /** Quien puede restaurar una revisión anterior. */
 const RESTORE_ROLES: ReadonlySet<WorkspaceRole> = new Set(["OWNER", "ADMIN", "EDITOR"]);
 
-/** Quien puede aprobar un libro y darlo por заверado. */
+/** Quien puede aprobar un libro y darlo por terminado. */
 const APPROVE_ROLES: ReadonlySet<WorkspaceRole> = new Set(["OWNER", "ADMIN", "EDITOR"]);
 
 export function canPerform(role: WorkspaceRole, action: LibraryAction): boolean {
@@ -45,6 +46,7 @@ export function canPerform(role: WorkspaceRole, action: LibraryAction): boolean 
     case "section:move":
     case "comment:create":
     case "comment:resolve":
+    case "layout:manage":
       return WRITE_ROLES.has(role);
 
     case "book:approve":
