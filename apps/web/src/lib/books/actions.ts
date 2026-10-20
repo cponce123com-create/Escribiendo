@@ -22,6 +22,7 @@ import { assertCanPerform } from "./permissions";
 import { canTransitionTo } from "./status";
 import { computeWritingProgress } from "./progress";
 import type { LibraryActionState } from "./action-state";
+import type { SectionSaveState } from "@/lib/editor/sync";
 
 /**
  * Intervalo mínimo entre dos guardados automáticos de la misma sección.
@@ -102,14 +103,20 @@ async function recomputeBookTotals(
 async function loadSectionForSession(
   session: SessionContext,
   sectionId: string,
-): Promise<{ id: string; bookId: string; title: string; version: number } | null> {
+): Promise<{
+  id: string;
+  bookId: string;
+  title: string;
+  version: number;
+  content: unknown;
+} | null> {
   const section = await prisma.bookSection.findFirst({
     where: {
       id: sectionId,
       deletedAt: null,
       book: { workspaceId: session.workspace.id, deletedAt: null },
     },
-    select: { id: true, bookId: true, title: true, version: true },
+    select: { id: true, bookId: true, title: true, version: true, content: true },
   });
 
   return section;
@@ -501,9 +508,9 @@ export async function createSectionAction(
 }
 
 export async function saveSectionAction(
-  _previousState: LibraryActionState,
+  _previousState: SectionSaveState,
   formData: FormData,
-): Promise<LibraryActionState> {
+): Promise<SectionSaveState> {
   let context: RequestContext | undefined;
 
   try {
@@ -533,6 +540,7 @@ export async function saveSectionAction(
   const intent = z
     .enum(["manual", "autosave"])
     .safeParse(formValue(formData, "intent") || "manual");
+  const force = formValue(formData, "force") === "on";
 
   if (!sectionId.success || !expectedVersion.success || !intent.success) {
     return errorState("Los datos del formulario no son válidos.");
@@ -545,15 +553,29 @@ export async function saveSectionAction(
   }
 
   // Control de concurrencia: si la sección cambió desde que el editor cargó
-  // el contenido, guardar la pisaría. Se pide recargar en lugar de perder
-  // el trabajo de otra persona.
-  if (section.version !== expectedVersion.data) {
-    return errorState(
-      "Esta sección se ha modificado en otra pestaña. Recarga la página para no perder ese trabajo.",
-    );
+  // el contenido, guardar la pisaría. En lugar de eso se devuelven las dos
+  // versiones para que la persona elija cuál conservar. La única forma de
+  // seguir adelante sin comparar es pedirlo expresamente.
+  if (section.version !== expectedVersion.data && !force) {
+    const revision = await prisma.sectionRevision.findFirst({
+      where: { sectionId: section.id },
+      orderBy: { version: "desc" },
+      select: { content: true, title: true, createdBy: { select: { name: true } } },
+    });
+
+    return {
+      status: "error",
+      message: "El servidor tiene una versión más reciente de esta sección. Elige cuál conservar.",
+      conflict: {
+        serverVersion: section.version,
+        serverContent: JSON.stringify(revision?.content ?? section.content),
+        serverTitle: revision?.title ?? section.title,
+        serverAuthor: revision?.createdBy.name ?? null,
+      },
+    };
   }
 
-  if (intent.data === "autosave") {
+  if (intent.data === "autosave" && !force) {
     const last = await prisma.sectionRevision.findFirst({
       where: { sectionId: section.id },
       orderBy: { version: "desc" },
@@ -561,7 +583,15 @@ export async function saveSectionAction(
     });
 
     if (last && Date.now() - last.createdAt.getTime() < AUTOSAVE_MIN_INTERVAL_MS) {
-      return successState("Guardado automático pospuesto: hay un cambio muy reciente.");
+      // El texto **no** está guardado en el servidor: sigue pendiente. La
+      // respuesta lo dice con claridad para que el editor no lo dé por
+      // confirmado.
+      return {
+        status: "success",
+        message: "Guardado automático pospuesto: hay un cambio muy reciente.",
+        throttled: true,
+        savedVersion: null,
+      };
     }
   }
 
@@ -575,8 +605,10 @@ export async function saveSectionAction(
     );
   }
 
+  let guardada: { version: number; wordCount: number };
+
   try {
-    await persistSectionContent(
+    guardada = await persistSectionContent(
       session,
       section,
       document,
@@ -594,7 +626,7 @@ export async function saveSectionAction(
       entityId: section.id,
       workspaceId: session.workspace.id,
       actorId: session.user.id,
-      metadata: { intent: intent.data, version: section.version + 1 },
+      metadata: { intent: intent.data, version: guardada.version },
     },
     context,
   );
@@ -602,7 +634,13 @@ export async function saveSectionAction(
   revalidatePath(`/books/${section.bookId}`);
   revalidatePath(`/books/${section.bookId}/sections/${section.id}`);
 
-  return successState(intent.data === "autosave" ? "Guardado automático." : "Manuscrito guardado.");
+  return {
+    status: "success",
+    message: intent.data === "autosave" ? "Guardado automático." : "Manuscrito guardado.",
+    savedVersion: guardada.version,
+    throttled: false,
+    conflict: null,
+  };
 }
 
 export async function restoreRevisionAction(

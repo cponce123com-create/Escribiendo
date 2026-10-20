@@ -164,13 +164,13 @@ test.describe("Escritura asistida", () => {
     await editor.click();
     await page.keyboard.type("La primera versión del texto.");
     await page.getByRole("button", { name: "Guardar manuscrito" }).click();
-    await expect(page.getByText("Manuscrito guardado.")).toBeVisible();
+    await expect(page.getByText("Guardado en el servidor.")).toBeVisible();
 
     await editor.click();
     await page.keyboard.press("End");
     await page.keyboard.type(" Y una frase añadida en la segunda versión.");
     await page.getByRole("button", { name: "Guardar manuscrito" }).click();
-    await expect(page.getByText("Manuscrito guardado.")).toBeVisible();
+    await expect(page.getByText("Guardado en el servidor.")).toBeVisible();
 
     await page.getByRole("link", { name: "Historial y comparador" }).click();
 

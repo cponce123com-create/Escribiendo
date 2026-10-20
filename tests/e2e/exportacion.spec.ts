@@ -36,7 +36,7 @@ test.describe("Exportación", () => {
       "Caía la tarde sobre la plaza cuando Marta cerró la puerta de la librería.",
     );
     await page.getByRole("button", { name: "Guardar manuscrito" }).click();
-    await expect(page.getByText("Manuscrito guardado.")).toBeVisible();
+    await expect(page.getByText("Guardado en el servidor.")).toBeVisible();
   });
 
   test("sin maquetación, el PDF no se puede generar y se explica", async ({ page }) => {

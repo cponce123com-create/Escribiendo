@@ -1,0 +1,197 @@
+import { expect, test, type Page } from "@playwright/test";
+
+/**
+ * Resiliencia del manuscrito.
+ *
+ * Comprueba que el texto no se pierde: sin conexión, con el servidor
+ * caído, al recargar, al cerrar y volver a abrir, con dos pestañas a la vez
+ * o escribiendo mientras hay una petición en curso.
+ */
+test.describe.configure({ mode: "serial" });
+
+const BOOK_TITLE = "Manuscrito resiliente";
+const SECTION_TITLE = "Capítulo de pruebas";
+
+/** Espera a que el editor esté listo. */
+async function abrirSeccion(page: Page, titulo: string): Promise<void> {
+  await page.goto("/books");
+  await page.getByRole("link", { name: BOOK_TITLE }).click();
+  await page.getByRole("link", { name: titulo }).click();
+  await expect(page.locator(".ProseMirror")).toBeVisible();
+}
+
+/** Texto que hay ahora mismo en el editor. */
+async function textoDelEditor(page: Page): Promise<string> {
+  return (await page.locator(".ProseMirror").innerText()).trim();
+}
+
+test.describe("Resiliencia del manuscrito", () => {
+  test("se crea un libro y una sección", async ({ page }) => {
+    await page.goto("/books/new");
+
+    await page.getByLabel("Título", { exact: true }).fill(BOOK_TITLE);
+    await page.getByLabel("Autoría").fill("Ana Torres");
+    await page.getByRole("button", { name: "Crear libro" }).click();
+
+    await expect(page.getByRole("heading", { name: BOOK_TITLE })).toBeVisible();
+
+    await page.getByLabel("Título de la sección").fill(SECTION_TITLE);
+    await page.getByLabel("Tipo").selectOption("CHAPTER");
+    await page.getByRole("button", { name: "Añadir sección" }).click();
+
+    await expect(page.getByRole("heading", { name: SECTION_TITLE })).toBeVisible();
+  });
+
+  test("el texto se guarda en el equipo al momento de escribir", async ({ page }) => {
+    await abrirSeccion(page, SECTION_TITLE);
+
+    await page.locator(".ProseMirror").click();
+    await page.keyboard.type("Primera frase del manuscrito.");
+
+    // El estado muestra que el texto está a salvo en el equipo, no que esté
+    // en el servidor.
+    await expect(page.getByText(/Guardado en este equipo|Sincronizando/)).toBeVisible();
+  });
+
+  test("sin conexión se puede seguir escribiendo y no se pierde el texto", async ({
+    page,
+    context,
+  }) => {
+    await abrirSeccion(page, SECTION_TITLE);
+
+    await context.setOffline(true);
+
+    await page.locator(".ProseMirror").click();
+    await page.keyboard.type("Frase escrita sin conexión.");
+
+    await expect(page.getByText(/Sin conexión/)).toBeVisible();
+    await expect(page.getByText(/guardado en este equipo/)).toBeVisible();
+
+    await context.setOffline(false);
+  });
+
+  test("con el servidor caído, el texto queda a salvo y se recupera al recargar", async ({
+    page,
+  }) => {
+    await abrirSeccion(page, SECTION_TITLE);
+
+    // El servidor no responde: se abortan las peticiones de guardado.
+    await page.route("**/books/**/sections/**", async (ruta) => {
+      if (ruta.request().method() === "POST") {
+        await ruta.abort();
+        return;
+      }
+
+      await ruta.fallback();
+    });
+
+    await page.locator(".ProseMirror").click();
+    await page.keyboard.type("Frase que el servidor no va a recibir.");
+
+    await expect(page.getByText(/No se ha podido guardar|Sin conexión/)).toBeVisible();
+
+    // Al recargar, el borrador del equipo se recupera: el texto sigue ahí.
+    await page.unroute("**/books/**/sections/**");
+    await page.reload();
+
+    await expect(page.locator(".ProseMirror")).toBeVisible();
+    await expect(page.getByText("Frase que el servidor no va a recibir.")).toBeVisible();
+  });
+
+  test("escribir mientras se guarda no marca el texto como guardado", async ({ page }) => {
+    await abrirSeccion(page, SECTION_TITLE);
+
+    // La petición tarda: durante ese tiempo se escribe algo más.
+    await page.route("**/books/**/sections/**", async (ruta) => {
+      if (ruta.request().method() === "POST") {
+        await new Promise((resolver) => setTimeout(resolver, 2_500));
+      }
+
+      await ruta.fallback();
+    });
+
+    await page.locator(".ProseMirror").click();
+    await page.keyboard.type("Frase enviada.");
+
+    await page.getByRole("button", { name: "Guardar manuscrito" }).click();
+
+    // Mientras la petición está en curso se escribe otra frase.
+    await page.keyboard.type(" Y una frase escrita durante el envío.");
+
+    // La respuesta del servidor confirma la primera frase, pero la segunda
+    // sigue sin guardar: el estado no puede decir que todo está guardado.
+    await expect(page.getByText(/Guardado en este equipo|Sincronizando/)).toBeVisible();
+    await expect(page.getByText("Guardado en el servidor.")).not.toBeVisible();
+  });
+
+  test("dos pestañas sobre la misma sección muestran el conflicto", async ({ page, context }) => {
+    const primera = await context.newPage();
+    await abrirSeccion(primera, SECTION_TITLE);
+
+    const segunda = await context.newPage();
+    await abrirSeccion(segunda, SECTION_TITLE);
+
+    // La primera pestaña guarda y sube la versión del servidor.
+    await primera.locator(".ProseMirror").click();
+    await primera.keyboard.type("Texto de la primera pestaña.");
+    await primera.getByRole("button", { name: "Guardar manuscrito" }).click();
+    await expect(primera.getByText("Guardado en el servidor.")).toBeVisible();
+
+    // La segunda sigue con la versión anterior: al guardar, el servidor
+    // detecta el conflicto y devuelve su versión.
+    await segunda.locator(".ProseMirror").click();
+    await segunda.keyboard.type("Texto de la segunda pestaña.");
+    await segunda.getByRole("button", { name: "Guardar manuscrito" }).click();
+
+    await expect(segunda.getByRole("heading", { name: /dos versiones distintas/ })).toBeVisible();
+    await expect(segunda.getByRole("button", { name: "Conservar mi versión" })).toBeVisible();
+    await expect(segunda.getByRole("button", { name: "Usar la del servidor" })).toBeVisible();
+
+    // Ninguna de las dos versiones se ha perdido.
+    await expect(segunda.getByText(/Texto de la segunda pestaña/)).toBeVisible();
+
+    await primera.close();
+    await segunda.close();
+  });
+
+  test("el conflicto se puede resolver conservando la versión local", async ({ page, context }) => {
+    const primera = await context.newPage();
+    await abrirSeccion(primera, SECTION_TITLE);
+
+    const segunda = await context.newPage();
+    await abrirSeccion(segunda, SECTION_TITLE);
+
+    await primera.locator(".ProseMirror").click();
+    await primera.keyboard.type("Texto de la primera pestaña.");
+    await primera.getByRole("button", { name: "Guardar manuscrito" }).click();
+    await expect(primera.getByText("Guardado en el servidor.")).toBeVisible();
+
+    await segunda.locator(".ProseMirror").click();
+    await segunda.keyboard.type("Texto de la segunda pestaña.");
+    await segunda.getByRole("button", { name: "Guardar manuscrito" }).click();
+
+    await expect(segunda.getByRole("heading", { name: /dos versiones distintas/ })).toBeVisible();
+
+    await segunda.getByRole("button", { name: "Conservar mi versión" }).click();
+
+    await expect(segunda.getByText("Guardado en el servidor.")).toBeVisible();
+
+    await primera.close();
+    await segunda.close();
+  });
+
+  test("el texto guardado en el servidor se conserva tras recargar", async ({ page }) => {
+    await abrirSeccion(page, SECTION_TITLE);
+
+    await page.locator(".ProseMirror").click();
+    await page.keyboard.type("Frase que llega al servidor.");
+    await page.getByRole("button", { name: "Guardar manuscrito" }).click();
+
+    await expect(page.getByText("Guardado en el servidor.")).toBeVisible();
+
+    await page.reload();
+
+    await expect(page.locator(".ProseMirror")).toBeVisible();
+    expect((await textoDelEditor(page)).includes("Frase que llega al servidor.")).toBe(true);
+  });
+});

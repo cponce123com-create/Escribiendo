@@ -143,7 +143,7 @@ test.describe("Maquetación", () => {
       "El velo de la tarde caía sobre la plaza mientras el reloj de la iglesia marcaba las siete y media de la tarde.",
     );
     await page.getByRole("button", { name: "Guardar manuscrito" }).click();
-    await expect(page.getByText("Manuscrito guardado.")).toBeVisible();
+    await expect(page.getByText("Guardado en el servidor.")).toBeVisible();
 
     await page.goto("/books");
     await page.getByRole("link", { name: BOOK_TITLE }).click();

@@ -91,7 +91,7 @@ test.describe("Biblioteca", () => {
 
     await page.getByRole("button", { name: "Guardar manuscrito" }).click();
 
-    await expect(page.getByText("Manuscrito guardado.")).toBeVisible();
+    await expect(page.getByText("Guardado en el servidor.")).toBeVisible();
     await expect(page.getByText(/5 palabras/).first()).toBeVisible();
 
     // La revisión aparece en el historial.
@@ -121,7 +121,7 @@ test.describe("Biblioteca", () => {
     await page.keyboard.type(" Y una segunda frase añadida después.");
 
     await page.getByRole("button", { name: "Guardar manuscrito" }).click();
-    await expect(page.getByText("Manuscrito guardado.")).toBeVisible();
+    await expect(page.getByText("Guardado en el servidor.")).toBeVisible();
 
     await expect(page.getByText("Guardado manual").first()).toBeVisible();
     // Dos revisiones guardadas: la segunda junto a la primera.

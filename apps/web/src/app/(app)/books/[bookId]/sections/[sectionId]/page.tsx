@@ -79,6 +79,8 @@ export default async function SectionPage({ params }: SectionPageProps) {
           <SectionEditor
             sectionId={section.id}
             sectionTitle={section.title}
+            bookId={section.bookId}
+            userId={session.user.id}
             content={safeContent(section.content)}
             version={section.version}
             wordCount={section.wordCount}
