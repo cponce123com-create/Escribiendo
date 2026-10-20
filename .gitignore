@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Tests
+coverage/
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+
+# Prisma
+packages/database/prisma/dev.db
+packages/database/prisma/*.db
+packages/database/prisma/*.db-journal
+
+# Local databases and temporary files
+.tmp/
+tmp/
+*.log
+logs/
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Render
+.render/

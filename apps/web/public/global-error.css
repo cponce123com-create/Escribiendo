@@ -1,0 +1,57 @@
+html,
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+body {
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  background: #f5f0e7;
+  color: #1c1915;
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+.global-error {
+  max-width: 34rem;
+}
+
+.global-error__eyebrow {
+  margin: 0 0 1rem;
+  color: #942f25;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.global-error__title {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 2rem;
+  font-weight: 500;
+  line-height: 1.1;
+}
+
+.global-error__text {
+  margin: 1rem 0 0;
+  line-height: 1.65;
+}
+
+.global-error__button {
+  margin-top: 1.5rem;
+  padding: 0.7rem 1rem;
+  border: 0;
+  border-radius: 0.3rem;
+  background: #942f25;
+  color: #fff8f0;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+
+.global-error__button:focus-visible {
+  outline: 2px solid #a43d2d;
+  outline-offset: 3px;
+}

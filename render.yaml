@@ -1,0 +1,53 @@
+# ---------------------------------------------------------------------------
+# Render Blueprint — ESCRIBIENDO (Fase 1)
+#
+# Este servicio utiliza Render Free, una única instancia y sin disco
+# persistente. Las migraciones NO se ejecutan en el arranque: se aplican de
+# forma controlada con `pnpm db:migrate` (ver docs/DEPLOYMENT.md).
+#
+# Las variables con `sync: false` se introducen en el panel de Render y no se
+# guardan en el repositorio.
+# ---------------------------------------------------------------------------
+
+services:
+  - type: web
+    name: escribiendo
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: main
+    autoDeploy: true
+    buildCommand: >-
+      npm install --global pnpm@12.14.0 --no-fund --no-audit &&
+      pnpm install --frozen-lockfile --prod=false &&
+      pnpm db:generate &&
+      pnpm --filter @escribiendo/web build
+    startCommand: pnpm --filter @escribiendo/web start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 24.20.0
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+      - key: APP_URL
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: SETUP_TOKEN
+        sync: false
+      - key: SESSION_TTL_DAYS
+        value: "14"
+      - key: LOG_LEVEL
+        value: info
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: CLOUDINARY_UPLOAD_FOLDER
+        value: escribiendo

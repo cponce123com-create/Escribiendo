@@ -1,0 +1,538 @@
+// ESCRIBIENDO — esquema de datos
+// Todas las tablas usan UUID. La aplicación normaliza los correos a minúsculas
+// antes de escribir para que la restricción UNIQUE sea efectivamente
+// insensible a mayúsculas sin depender de la extensión citext.
+//
+// Las revisiones de sección son inmutables a nivel de aplicación. La migración
+// inicial añade además una protección a nivel de PostgreSQL contra UPDATE.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Identidad y espacio de trabajo
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  SUPERADMIN
+  ADMIN
+  AUTHOR
+  EDITOR
+  REVIEWER
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  EDITOR
+  AUTHOR
+  REVIEWER
+}
+
+model User {
+  id                  String    @id @default(uuid()) @db.Uuid
+  email               String    @unique @db.VarChar(320)
+  name                String    @db.VarChar(120)
+  passwordHash        String    @db.Text
+  role                UserRole  @default(AUTHOR)
+  isActive            Boolean   @default(true)
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  lastLoginAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+
+  ownedWorkspaces Workspace[]        @relation("WorkspaceOwner")
+  memberships     WorkspaceMember[]
+  sessions        Session[]
+  resetTokens     PasswordResetToken[]
+  booksCreated    Book[]             @relation("BookCreatedBy")
+  revisions       SectionRevision[]  @relation("RevisionCreatedBy")
+  assetsCreated   Asset[]            @relation("AssetCreatedBy")
+  exportJobs      ExportJob[]        @relation("ExportRequestedBy")
+  writingNotes    WritingNote[]
+  auditLogs       AuditLog[]         @relation("AuditActor")
+
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model Workspace {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String    @db.VarChar(160)
+  slug      String    @unique @db.VarChar(80)
+  ownerId   String    @db.Uuid
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  owner               User                @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  members             WorkspaceMember[]
+  books               Book[]
+  layoutProfiles      LayoutProfile[]
+  editorialTemplates  EditorialTemplate[]
+  assets              Asset[]
+  auditLogs           AuditLog[]
+
+  @@index([ownerId])
+  @@index([deletedAt])
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id          String        @id @default(uuid()) @db.Uuid
+  workspaceId String        @db.Uuid
+  userId      String        @db.Uuid
+  role        WorkspaceRole @default(AUTHOR)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+  @@index([workspaceId, role])
+  @@map("workspace_members")
+}
+
+model Session {
+  id        String    @id @default(uuid()) @db.Uuid
+  tokenHash String    @unique @db.VarChar(64)
+  userId    String    @db.Uuid
+  expiresAt DateTime
+  lastUsedAt DateTime @default(now())
+  revokedAt DateTime?
+  ipHash    String?   @db.VarChar(64)
+  userAgent String?   @db.VarChar(512)
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique @db.VarChar(64)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// Biblioteca y estructura editorial
+// ---------------------------------------------------------------------------
+
+enum BookStatus {
+  DRAFT
+  IN_PROGRESS
+  REVIEW
+  COMPLETE
+  ARCHIVED
+}
+
+enum SectionType {
+  HALF_TITLE
+  TITLE_PAGE
+  COPYRIGHT
+  DEDICATION
+  EPIGRAPH
+  TABLE_OF_CONTENTS
+  FOREWORD
+  PROLOGUE
+  INTRODUCTION
+  PART
+  CHAPTER
+  SUBCHAPTER
+  INTERLUDE
+  EPILOGUE
+  ACKNOWLEDGMENTS
+  AUTHOR_NOTES
+  ABOUT_AUTHOR
+  BIBLIOGRAPHY
+  GLOSSARY
+  APPENDIX
+  OTHER_BOOKS
+  CUSTOM
+}
+
+enum RevisionReason {
+  AUTO
+  MANUAL
+  RESTORE
+  IMPORT
+}
+
+model Book {
+  id              String    @id @default(uuid()) @db.Uuid
+  workspaceId     String    @db.Uuid
+  createdById     String    @db.Uuid
+  title           String    @db.VarChar(300)
+  subtitle        String?   @db.VarChar(300)
+  authorName      String    @db.VarChar(200)
+  penName         String?   @db.VarChar(200)
+  description     String?   @db.Text
+  genre           String?   @db.VarChar(100)
+  language        String    @default("es") @db.VarChar(10)
+  status          BookStatus @default(DRAFT)
+  targetWordCount Int?
+  wordCount       Int       @default(0)
+  chapterCount    Int       @default(0)
+  writingProgress Decimal   @default(0) @db.Decimal(5, 2)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  archivedAt      DateTime?
+  deletedAt       DateTime?
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  createdBy User            @relation("BookCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  sections  BookSection[]
+  editions  BookEdition[]
+  assets    BookAsset[]
+  exportJobs ExportJob[]
+  notes     WritingNote[]
+
+  @@index([workspaceId, deletedAt])
+  @@index([workspaceId, status])
+  @@index([workspaceId, updatedAt])
+  @@index([archivedAt])
+  @@map("books")
+}
+
+model BookSection {
+  id               String    @id @default(uuid()) @db.Uuid
+  bookId           String    @db.Uuid
+  parentId         String?   @db.Uuid
+  type             SectionType
+  title            String    @db.VarChar(300)
+  content          Json      @default("{}")
+  wordCount        Int       @default(0)
+  version          Int       @default(1)
+  sortOrder        Int       @default(0)
+  showInToc        Boolean   @default(true)
+  includeInExport  Boolean   @default(true)
+  pageBreakBefore  Boolean   @default(false)
+  startOnOddPage   Boolean   @default(false)
+  isHidden         Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  book      Book            @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  parent    BookSection?    @relation("SectionHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children  BookSection[]   @relation("SectionHierarchy")
+  revisions SectionRevision[]
+  notes     WritingNote[]
+
+  @@index([bookId, parentId, sortOrder])
+  @@index([bookId, type])
+  @@index([bookId, deletedAt])
+  @@map("book_sections")
+}
+
+model SectionRevision {
+  id          String         @id @default(uuid()) @db.Uuid
+  sectionId   String         @db.Uuid
+  createdById String         @db.Uuid
+  version     Int
+  content     Json
+  wordCount   Int            @default(0)
+  reason      RevisionReason @default(AUTO)
+  title       String         @db.VarChar(300)
+  createdAt   DateTime       @default(now())
+
+  section   BookSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  createdBy User        @relation("RevisionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([sectionId, version])
+  @@index([sectionId, createdAt])
+  @@index([createdById])
+  @@map("section_revisions")
+}
+
+// ---------------------------------------------------------------------------
+// Ediciones, maquetación y plantillas
+// ---------------------------------------------------------------------------
+
+enum BookFormat {
+  A4
+  A5
+  B5
+  INCH_5X8
+  INCH_5_5X8_5
+  INCH_6X9
+  POCKET
+  CUSTOM
+}
+
+enum EditionStatus {
+  DRAFT
+  READY
+  ARCHIVED
+}
+
+model BookEdition {
+  id                 String        @id @default(uuid()) @db.Uuid
+  bookId             String        @db.Uuid
+  layoutProfileId    String?       @db.Uuid
+  editorialTemplateId String?      @db.Uuid
+  name               String        @db.VarChar(160)
+  format             BookFormat    @default(A5)
+  status             EditionStatus @default(DRAFT)
+  isDefault          Boolean       @default(false)
+  pageCount          Int?
+  paperStock         String?       @db.VarChar(120)
+  spineWidthMm       Decimal?      @db.Decimal(6, 2)
+  settings           Json          @default("{}")
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  book              Book               @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  layoutProfile     LayoutProfile?     @relation(fields: [layoutProfileId], references: [id], onDelete: SetNull)
+  editorialTemplate EditorialTemplate? @relation(fields: [editorialTemplateId], references: [id], onDelete: SetNull)
+  exportJobs        ExportJob[]
+
+  @@unique([bookId, name])
+  @@index([bookId, isDefault])
+  @@index([layoutProfileId])
+  @@index([editorialTemplateId])
+  @@map("book_editions")
+}
+
+model LayoutProfile {
+  id                 String     @id @default(uuid()) @db.Uuid
+  workspaceId        String     @db.Uuid
+  name               String     @db.VarChar(160)
+  format             BookFormat @default(A5)
+  pageWidthMm        Decimal    @db.Decimal(6, 2)
+  pageHeightMm       Decimal    @db.Decimal(6, 2)
+  marginTopMm        Decimal    @db.Decimal(6, 2)
+  marginBottomMm     Decimal    @db.Decimal(6, 2)
+  marginInnerMm      Decimal    @db.Decimal(6, 2)
+  marginOuterMm      Decimal    @db.Decimal(6, 2)
+  gutterMm           Decimal    @default(0) @db.Decimal(6, 2)
+  bleedMm            Decimal    @default(0) @db.Decimal(6, 2)
+  headerDistanceMm   Decimal    @default(8) @db.Decimal(6, 2)
+  footerDistanceMm   Decimal    @default(8) @db.Decimal(6, 2)
+  mirrorMargins      Boolean    @default(true)
+  showPageNumbers    Boolean    @default(true)
+  chapterStartsRecto Boolean    @default(true)
+  typographyConfig   Json       @default("{}")
+  advancedConfig     Json       @default("{}")
+  isDefault          Boolean    @default(false)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  deletedAt          DateTime?
+
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  editions  BookEdition[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId, isDefault])
+  @@index([workspaceId, deletedAt])
+  @@map("layout_profiles")
+}
+
+model EditorialTemplate {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String?   @db.Uuid
+  name        String    @db.VarChar(160)
+  slug        String    @db.VarChar(80)
+  description String?   @db.Text
+  config      Json      @default("{}")
+  isSystem    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  workspace Workspace?    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  editions  BookEdition[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId])
+  @@index([isSystem])
+  @@index([deletedAt])
+  @@map("editorial_templates")
+}
+
+// ---------------------------------------------------------------------------
+// Recursos gráficos
+// ---------------------------------------------------------------------------
+
+enum StorageProvider {
+  CLOUDINARY
+}
+
+enum AssetResourceType {
+  IMAGE
+}
+
+enum AssetKind {
+  COVER_FRONT
+  COVER_BACK
+  SPINE
+  FULL_COVER
+  INTERIOR_IMAGE
+  OTHER
+}
+
+model Asset {
+  id               String            @id @default(uuid()) @db.Uuid
+  workspaceId      String            @db.Uuid
+  createdById      String?           @db.Uuid
+  provider         StorageProvider   @default(CLOUDINARY)
+  resourceType     AssetResourceType @default(IMAGE)
+  publicId         String            @unique @db.VarChar(512)
+  secureUrl        String            @db.Text
+  format           String            @db.VarChar(20)
+  width            Int?
+  height           Int?
+  bytes            Int?
+  originalFilename String?           @db.VarChar(255)
+  version          String?           @db.VarChar(40)
+  metadata         Json              @default("{}")
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  deletedAt        DateTime?
+
+  workspace Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User?       @relation("AssetCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  bookLinks BookAsset[]
+
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, deletedAt])
+  @@index([createdById])
+  @@map("assets")
+}
+
+model BookAsset {
+  id        String    @id @default(uuid()) @db.Uuid
+  bookId    String    @db.Uuid
+  assetId   String    @db.Uuid
+  kind      AssetKind
+  caption   String?   @db.VarChar(300)
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  book  Book  @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([bookId, assetId, kind])
+  @@index([bookId, kind, sortOrder])
+  @@index([assetId])
+  @@map("book_assets")
+}
+
+// ---------------------------------------------------------------------------
+// Exportaciones, notas y auditoría
+// ---------------------------------------------------------------------------
+
+enum ExportFormat {
+  PDF_DIGITAL
+  PDF_PRINT
+  EPUB3
+  DOCX
+}
+
+enum ExportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model ExportJob {
+  id              String       @id @default(uuid()) @db.Uuid
+  bookId          String       @db.Uuid
+  editionId       String?      @db.Uuid
+  requestedById   String?      @db.Uuid
+  format          ExportFormat
+  status          ExportStatus @default(PENDING)
+  idempotencyKey  String       @db.VarChar(120)
+  manuscriptHash  String       @db.VarChar(64)
+  sectionVersions Json         @default("[]")
+  options         Json         @default("{}")
+  progress        Int          @default(0)
+  errorCode       String?      @db.VarChar(80)
+  errorMessage    String?      @db.Text
+  resultMetadata  Json?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  book        Book         @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  edition     BookEdition? @relation(fields: [editionId], references: [id], onDelete: SetNull)
+  requestedBy User?        @relation("ExportRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+
+  @@unique([bookId, idempotencyKey])
+  @@index([bookId, createdAt])
+  @@index([status, createdAt])
+  @@index([editionId])
+  @@index([requestedById])
+  @@map("export_jobs")
+}
+
+model WritingNote {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  bookId    String    @db.Uuid
+  sectionId String?   @db.Uuid
+  title     String    @db.VarChar(200)
+  content   String    @db.Text
+  isPinned  Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book    Book         @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  section BookSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+
+  @@index([userId, isPinned, updatedAt])
+  @@index([bookId])
+  @@index([sectionId])
+  @@map("writing_notes")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  workspaceId String?  @db.Uuid
+  actorId     String?  @db.Uuid
+  action      String   @db.VarChar(80)
+  entityType  String   @db.VarChar(60)
+  entityId    String?  @db.VarChar(64)
+  requestId   String?  @db.VarChar(64)
+  ipHash      String?  @db.VarChar(64)
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  actor     User?      @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
