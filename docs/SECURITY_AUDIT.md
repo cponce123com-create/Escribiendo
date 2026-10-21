@@ -231,7 +231,7 @@ permanentes ni trabajadores en segundo plano.
 | S-02 | Media       | `SETUP_TOKEN` sigue configurado en Render después de crear la cuenta                                                 | **Abierto**: retirarlo del entorno                                                                                    |
 | S-03 | Media       | El límite de intentos vive en la memoria de una instancia; con varias instancias se puede eludir por instancia       | **Abierto**: el bloqueo persistente de cuenta mitiga el caso por cuenta; si Render escala, usar un almacén compartido |
 | S-04 | Media       | No hay MFA para cuentas con `team:manage` o `audit:export`                                                           | **Abierto**: planificado en la Fase 7                                                                                 |
-| S-05 | Media       | No se ha ejecutado un escaneo automatizado de dependencias ni una prueba de penetración                              | **Abierto**: no se afirma lo contrario                                                                                |
+| S-05 | Media       | No se ha ejecutado una prueba de penetración externa                                                                 | **Parcial**: el escaneo de dependencias ya se ejecuta (ver 4.1); el pentest sigue **abierto**                         |
 | S-06 | Baja        | La subida real a Cloudinary no se ha probado con credenciales; solo la firma, la autorización y el rechazo de origen | **Abierto**: depende de configuración local                                                                           |
 | S-07 | Baja        | La verificación de cabeceras y CSP se hizo en local; el despliegue de Render no es alcanzable desde esta red         | **Abierto**: repetir contra el despliegue                                                                             |
 | S-08 | Informativo | El PDF incrusta TTF completas y no genera subconjuntos; no se afirma PDF/X                                           | **Conocido y documentado** en `EXPORT_VALIDATION.md`                                                                  |
@@ -239,7 +239,29 @@ permanentes ni trabajadores en segundo plano.
 
 No consta ninguna vulnerabilidad crítica abierta en el código revisado. La
 ausencia de un hallazgo no equivale a la ausencia de vulnerabilidades: sin
-pentest ni escaneo de dependencias, el alcance es el que se ha descrito.
+pentest, el alcance es el que se ha descrito.
+
+### 4.1 Escaneo de dependencias
+
+Ejecutado el 21 de octubre de 2026 con el auditor de pnpm sobre el registro
+público:
+
+| Ámbito                         | Resultado                          |
+| ------------------------------ | ---------------------------------- |
+| `pnpm audit --prod`            | **Sin vulnerabilidades conocidas** |
+| `pnpm audit --audit-level=low` | 1 aviso alto, solo de desarrollo   |
+
+El aviso que queda es `braces` (GHSA-vfj7-8cjw-p6xm), que llega por
+`eslint-config-next → fast-glob → micromatch → braces` y **no tiene versión
+corregida publicada**. Solo se usa en el lint, nunca en el código que se
+despliega, y el problema solo aparece si se compilan patrones glob con
+entradas no confiables, que aquí no ocurre. Se documenta en vez de ocultarse:
+`pnpm audit` sigue informando de él.
+
+Durante la revisión se corrigió otro aviso que sí tenía parche:
+`deepmerge-ts` (GHSA-ggr8-5vv4-36mx), que llegaba por el CLI de Prisma. Se
+fijo la versión corregida con un `override` en `pnpm-workspace.yaml` y se
+comprobó que `pnpm db:generate` y `pnpm db:validate` siguen funcionando.
 
 ## 5. Evidencia ejecutada
 
@@ -254,6 +276,9 @@ pentest ni escaneo de dependencias, el alcance es el que se ha descrito.
 | `equipo.spec.ts` (E2E)     | Roles, invitaciones de un solo uso y auditoría                                                                                                 | Verde     |
 | `images.test.ts`           | Allowlist de Cloudinary, rechazo de otros hosts y reutilización de imágenes ya resueltas                                                       | Verde     |
 | `manuscrito.spec.ts` (E2E) | Controles de imagen y biblioteca del libro                                                                                                     | Verde     |
+| `pnpm audit --prod`        | Escaneo de dependencias de producción                                                                                                          | Verde     |
+| `pnpm validate:epub`       | EPUB validado con EPUBCheck 5.1.0                                                                                                              | Verde     |
+| `pnpm validate:docx`       | DOCX leído con Mammoth 1.11.0                                                                                                                  | Verde     |
 | Suite completa             | 289 unitarias y 72 E2E                                                                                                                         | Verde     |
 
 Los comandos son los del protocolo de `IMPLEMENTATION_PLAN.md`. Las pruebas
@@ -263,12 +288,13 @@ base de datos desechable cuyo nombre contiene `test`.
 ## 6. Lo que no se ha verificado
 
 - Prueba de penetración externa.
-- Escaneo de dependencias con una herramienta dedicada.
 - MFA, que no existe todavía.
 - Subida real de archivos a Cloudinary.
 - Comportamiento con más de una instancia de Render.
 - Copia de seguridad restaurada y ensayo de recuperación.
 - Despliegue real desde esta red.
+- Apertura del DOCX en Word o LibreOffice: no están instalados en esta
+  máquina. El paquete sí lo entiende un lector OOXML independiente (Mammoth).
 
 Estas ausencias están en el plan y no se compensan con afirmaciones.
 

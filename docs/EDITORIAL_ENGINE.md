@@ -209,9 +209,11 @@ modelo aproximado.
 - **Imágenes.** Las tres formatos dibujan las imágenes cuando la capa web ha
   resuelto sus bytes. La subida real a Cloudinary no se ha probado con
   credenciales, así que ese camino sigue sin verificarse de extremo a extremo.
-- **Validación externa.** No se ha ejecutado EPUBCheck ni se ha abierto el DOCX
-  en Word o LibreOffice. No se afirma que sean válidos más allá de la
-  comprobación estructural que hacen las pruebas.
+- **Validación externa.** El EPUB se ha validado con EPUBCheck 5.1.0 (0 errores,
+  0 advertencias) y el DOCX lo lee un lector OOXML independiente. No se ha
+  abierto el DOCX en Word o LibreOffice, porque no están instalados en esta
+  máquina, ni se ha probado la lectura en un lector de EPUB comercial. No se
+  afirma nada que no se haya ejecutado.
 - **Navegadores.** Las pruebas E2E solo se ejecutan en Chromium.
 
 ## 9. Invariantes que no se deben romper

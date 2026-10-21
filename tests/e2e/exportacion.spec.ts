@@ -1,5 +1,9 @@
-import { expect, test } from "@playwright/test";
-import { readFileSync } from "node:fs";
+import { expect, test, type Download } from "@playwright/test";
+import { spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 /**
  * Exportación: generación de archivos, idempotencia de la cola y descarga
@@ -97,6 +101,54 @@ function extractPdfText(pdf: string): string {
   }
 
   return text;
+}
+
+/**
+ * Valida el EPUB con EPUBCheck, la herramienta oficial del W3C.
+ *
+ * Necesita Java, así que solo se usa cuando se indica dónde está
+ * `epubcheck.jar`. Si no está configurado, se devuelve `null` y la prueba
+ * sigue con la comprobación estructural; si está configurado y falla, la
+ * prueba falla. Nunca se declara una validación que no se ha hecho.
+ */
+function validarConEpubCheck(ruta: string): { codigo: number; salida: string } | null {
+  const jar = process.env.EPUBCHECK_JAR;
+
+  if (!jar) {
+    return null;
+  }
+
+  const java = process.env.JAVA ?? "java";
+  // EPUBCheck decide el modo de validación por la extensión, así que el
+  // archivo descargado (que Playwright guarda con un nombre temporal) se
+  // copia con extensión `.epub` antes de validarlo.
+  const copia = path.join(tmpdir(), `escribiendo-${randomUUID()}.epub`);
+
+  copyFileSync(ruta, copia);
+
+  const resultado = spawnSync(java, ["-jar", jar, copia], { encoding: "utf8" });
+
+  if (resultado.error) {
+    throw new Error(`No se ha podido ejecutar EPUBCheck: ${resultado.error.message}`);
+  }
+
+  return {
+    codigo: resultado.status ?? 1,
+    salida: `${resultado.stdout ?? ""}${resultado.stderr ?? ""}`,
+  };
+}
+
+/**
+ * Guarda el archivo descargado en `test-results` para poder validarlo con
+ * herramientas externas fuera del proceso de pruebas.
+ */
+async function guardarParaValidacion(descarga: Download, nombre: string): Promise<string> {
+  const destino = path.join(process.cwd(), "test-results", nombre);
+
+  mkdirSync(path.dirname(destino), { recursive: true });
+  await descarga.saveAs(destino);
+
+  return destino;
 }
 
 test.describe("Exportación", () => {
@@ -303,6 +355,27 @@ test.describe("Exportación", () => {
     expect(bytes[1]).toBe(0x4b);
     expect(bytes.subarray(30, 38).toString("utf8")).toBe("mimetype");
     expect(bytes.subarray(38, 58).toString("utf8")).toBe("application/epub+zip");
+
+    // Validación externa con EPUBCheck, si la herramienta está configurada.
+    const epubcheck = validarConEpubCheck(ruta);
+
+    if (epubcheck) {
+      await test.info().attach("epubcheck.txt", {
+        body: epubcheck.salida,
+        contentType: "text/plain",
+      });
+      process.stdout.write(
+        `[epubcheck] ${epubcheck.salida.replace(/\s+/gu, " ").trim().slice(0, 1500)}\n`,
+      );
+
+      expect(epubcheck.codigo).toBe(0);
+      expect(epubcheck.salida).toContain("0 errores");
+    } else {
+      test.info().annotations.push({
+        type: "note",
+        description: "EPUBCheck no configurado: la validación externa se ha omitido.",
+      });
+    }
   });
 
   test("pedir dos veces la misma exportación reutiliza el trabajo", async ({ page }) => {
@@ -364,6 +437,10 @@ test.describe("Exportación", () => {
     expect(bytes[0]).toBe(0x50);
     expect(bytes[1]).toBe(0x4b);
     expect(bytes.subarray(30, 49).toString("utf8")).toBe("[Content_Types].xml");
+
+    // El archivo se guarda para poder abrirlo con un lector externo
+    // (por ejemplo, `pnpm dlx mammoth@1.11.0`) fuera del proceso de pruebas.
+    await guardarParaValidacion(download, "docx-generado.docx");
   });
 
   test("el PDF conserva la tipografía española", async ({ page }) => {

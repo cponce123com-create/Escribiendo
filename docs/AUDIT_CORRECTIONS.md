@@ -378,3 +378,52 @@ Pruebas nuevas o ampliadas:
 - EPUBCheck, Word/LibreOffice, Cloudinary real, Render y Neon por 5432 siguen
   bloqueados.
 - La puntuación no se declara en 95.
+
+---
+
+## Lote L: validacion externa de las exportaciones y escaneo de dependencias
+
+Fecha: 21 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+Base del lote: `86610b6`.
+
+### Que estaba mal
+
+1. El EPUB se daba por bueno solo por su estructura interna. La herramienta
+   oficial del W3C, EPUBCheck, no se habia ejecutado: el documento de
+   auditoria lo declaraba como bloqueo sin resolver.
+2. El DOCX solo se comprobaba byte a byte. No lo habia leido ninguna
+   herramienta independiente del motor que lo escribe.
+3. No se habia ejecutado nunca un escaneo de dependencias, y el aviso
+   `deepmerge-ts` (GHSA-ggr8-5vv4-36mx) seguia presente sin evaluar.
+
+### Que se ha cambiado
+
+| Area            | Archivo                                                      | Cambio                                                                                                                                  |
+| --------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Validacion EPUB | `scripts/validate-epub.ts`, `scripts/lib/export-fixtures.ts` | Genera un EPUB de prueba con el motor y lo valida con EPUBCheck cuando se indica `EPUBCHECK_JAR`.                                       |
+| Validacion DOCX | `scripts/validate-docx.ts`                                   | Genera un DOCX de prueba y lo abre con el lector indicado en `DOCX_VALIDATOR` (por ejemplo, Mammoth), comprobando el texto esperado.    |
+| E2E exportacion | `tests/e2e/exportacion.spec.ts`                              | El EPUB que descarga la aplicacion se valida con EPUBCheck; el DOCX se guarda en `test-results/docx-generado.docx` para abrirlo aparte. |
+| Dependencias    | `pnpm-workspace.yaml`                                        | `override` de `deepmerge-ts` a la version 8.0.0, que corrige el aviso de agotamiento de pila.                                           |
+
+### Pruebas ejecutadas
+
+| Comprobacion         | Resultado                                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------------------- |
+| `pnpm validate:epub` | 0 errores fatales, 0 errores, 0 advertencias, 0 indicaciones (EPUB 3.3)                           |
+| E2E con EPUBCheck    | El EPUB descargado por la aplicacion: 0 errores y 0 advertencias                                  |
+| `pnpm validate:docx` | Mammoth 1.11.0 lee el documento: texto, negrita, cursiva, enlace, nota al pie e imagen incrustada |
+| `pnpm audit --prod`  | Sin vulnerabilidades conocidas                                                                    |
+| `pnpm audit`         | 1 aviso alto de desarrollo (`braces`), sin version corregida publicada                            |
+| `pnpm test`          | 289 pruebas en 32 archivos                                                                        |
+| `pnpm test:e2e`      | 72 pruebas en Chromium                                                                            |
+
+### Limites que permanecen
+
+- EPUBCheck valida el EPUB, no la lectura en un lector comercial. Word y
+  LibreOffice no estan instalados en esta maquina: la compatibilidad con esas
+  aplicaciones no esta comprobada.
+- El aviso de `braces` no tiene parche upstream y solo afecta al lint. Se
+  documenta en vez de ocultarse: `pnpm audit` sigue informandolo.
+- Cloudinary real, Render y Neon por 5432 siguen bloqueados.
+- La puntuacion no se declara en 95.

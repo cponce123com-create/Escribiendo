@@ -120,10 +120,25 @@ prueba de extremo a extremo «el archivo descargado es un EPUB válido»:
 - Dos exportaciones del mismo manuscrito producen los mismos nombres de
   archivo y el mismo ZIP.
 
-**Lo que no se ha hecho**: no se ha validado con EPUBCheck (no está disponible
-y exigiría Java), no hay portada y no se ha probado la lectura en un lector
-comercial. «EPUB válido» aquí significa «con la estructura que exige la
-especificación y verificada byte a byte», no «aprobado por EPUBCheck».
+**Validación externa (Lote L).** El EPUB se ha validado con **EPUBCheck 5.1.0**,
+la herramienta oficial del W3C, ejecutada con Java 17:
+
+- `pnpm validate:epub` genera un EPUB de prueba con el mismo motor y lo valida.
+  Resultado: **0 errores fatales, 0 errores, 0 advertencias, 0 indicaciones**
+  (reglas de EPUB 3.3).
+- La prueba de extremo a extremo «el archivo descargado es un EPUB válido»
+  valida **el archivo que descarga la aplicación** cuando está configurado
+  `EPUBCHECK_JAR`; si la herramienta encuentra un error, la prueba falla.
+
+```bash
+EPUBCHECK_JAR=ruta\epubcheck.jar pnpm validate:epub
+EPUBCHECK_JAR=ruta\epubcheck.jar JAVA=ruta\java.exe pnpm exec playwright test tests/e2e/exportacion.spec.ts
+```
+
+**Lo que no se ha hecho**: no hay portada, no se ha probado la lectura en un
+lector comercial y EPUBCheck no sustituye a la revisión editorial. Word y
+LibreOffice siguen sin estar instalados en esta máquina, así que la
+comprobación del DOCX se hace con otras herramientas.
 
 ## DOCX
 
@@ -151,9 +166,26 @@ extremo «el DOCX generado es un paquete de Word»:
 - Si falta la imagen, se escribe `[Imagen: …]` con el pie o el texto
   alternativo.
 
+**Validación externa (Lote L).** El DOCX se ha abierto con **Mammoth 1.11.0**,
+un lector de OOXML independiente del motor de escritura:
+
+- `pnpm validate:docx` genera un DOCX de prueba con el mismo motor y lo abre
+  con el lector indicado en `DOCX_VALIDATOR`. Resultado: el lector devuelve el
+  texto, la negrita, la cursiva, el enlace, la llamada con su nota al pie y la
+  imagen incrustada.
+- La prueba de extremo a extremo «el DOCX generado es un paquete de Word» deja
+  el archivo que descarga la aplicación en `test-results/docx-generado.docx`,
+  para poder abrirlo con la misma herramienta:
+
+```bash
+DOCX_VALIDATOR="pnpm dlx mammoth@1.11.0" pnpm validate:docx
+pnpm dlx mammoth@1.11.0 test-results\docx-generado.docx
+```
+
 **Lo que no se ha hecho**: no se ha abierto el archivo en Microsoft Word ni en
-LibreOffice desde este entorno. La estructura OOXML es correcta y se puede
-inspeccionar, pero la compatibilidad real con Word no está comprobada.
+LibreOffice desde este entorno. El paquete lo entiende un lector OOXML
+independiente, pero la compatibilidad real con Word y con LibreOffice no está
+comprobada.
 
 ## Integridad, seguridad y reproducibilidad
 
@@ -186,20 +218,23 @@ incluyen en ese banco: no hay credenciales de Cloudinary para descargarlas.
 
 ## Evidencia ejecutada
 
-| Comprobación        | Resultado                  |
-| ------------------- | -------------------------- |
-| `pnpm test`         | 289 pruebas en 32 archivos |
-| `pnpm test:e2e`     | 72 pruebas en Chromium     |
-| `pnpm typecheck`    | Sin errores                |
-| `pnpm lint`         | Sin errores                |
-| `pnpm build`        | Correcto                   |
-| `pnpm bench:export` | Ejecutado con fuentes      |
+| Comprobación         | Resultado                     |
+| -------------------- | ----------------------------- |
+| `pnpm test`          | 289 pruebas en 32 archivos    |
+| `pnpm test:e2e`      | 72 pruebas en Chromium        |
+| `pnpm typecheck`     | Sin errores                   |
+| `pnpm lint`          | Sin errores                   |
+| `pnpm build`         | Correcto                      |
+| `pnpm bench:export`  | Ejecutado con fuentes         |
+| `pnpm validate:epub` | 0 errores con EPUBCheck 5.1.0 |
+| `pnpm validate:docx` | Leído con Mammoth 1.11.0      |
 
 ## Bloqueos externos
 
-- EPUBCheck no está instalado.
-- Word y LibreOffice no están disponibles.
-- Cloudinary no está configurado en local.
+- Word y LibreOffice no están disponibles en esta máquina: la compatibilidad
+  real con esas aplicaciones no está comprobada.
+- Cloudinary no está configurado en local: la subida y la descarga reales de
+  imágenes no se han probado de extremo a extremo.
 - Render Free no es accesible desde esta red.
 - No se ha probado la exportación con 80 imágenes reales en una instancia Free.
 

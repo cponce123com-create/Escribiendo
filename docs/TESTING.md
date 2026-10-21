@@ -339,7 +339,27 @@ pnpm typecheck      # TypeScript en todos los paquetes, scripts y pruebas
 pnpm test           # Vitest
 pnpm test:e2e       # Playwright (requiere base de datos desechable)
 pnpm build          # Compilación de producción
+pnpm bench:export   # Banco de composición y exportación
+pnpm validate:epub  # EPUB con EPUBCheck (necesita EPUBCHECK_JAR)
+pnpm validate:docx  # DOCX con un lector externo (necesita DOCX_VALIDATOR)
+pnpm audit          # Escaneo de dependencias
 ```
+
+### Validación externa de los archivos exportados
+
+Las dos órdenes anteriores solo validan si se les indica la herramienta:
+
+```bash
+EPUBCHECK_JAR=ruta\epubcheck.jar JAVA=ruta\java.exe pnpm validate:epub
+DOCX_VALIDATOR="pnpm dlx mammoth@1.11.0" pnpm validate:docx
+```
+
+Ambas devuelven el código 0 cuando la validación pasa, 1 cuando falla y 2
+cuando la herramienta no está configurada (en ese caso no se ha validado
+nada y el script lo dice). La prueba de extremo a extremo «el archivo
+descargado es un EPUB válido» valida además el EPUB que descarga la
+aplicación cuando `EPUBCHECK_JAR` está definido, y deja el DOCX en
+`test-results/docx-generado.docx` para abrirlo con la misma herramienta.
 
 ---
 
@@ -374,6 +394,10 @@ Lo que **no** está verificado automáticamente en las Fases 1 a 3:
    navegador, así que la prueba automatizada solo las exercise en Chromium. No
    se ha comprobado el comportamiento en modo privado, con el almacenamiento
    bloqueado ni entre navegadores distintos.
+9. **Lectores de EPUB y de Word.** El EPUB se valida con EPUBCheck y el DOCX lo
+   lee un lector OOXML independiente, pero no se ha abierto el DOCX en Word ni
+   en LibreOffice, ni el EPUB en un lector comercial, porque esas aplicaciones
+   no están instaladas en esta máquina.
 
 ---
 

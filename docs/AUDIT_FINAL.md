@@ -49,6 +49,13 @@ Donde un criterio no sea aplicable, se dice y se redistribuye su peso.
 criterios se estima en **87,4** (antes: 85,6), con el mismo desplazamiento que
 la media de áreas. La estimación no reclama precisión que no se haya medido.
 
+> Esta tabla es la fotografía de la auditoría del 20 de octubre de 2026. Las
+> actualizaciones de los lotes J, K y L, al final del documento, corrigen lo
+> que entonces estaba pendiente: imágenes y notas al pie en las exportaciones,
+> fuentes TTF incrustadas con métricas reales y validación externa con
+> EPUBCheck y con un lector de DOCX. La puntuación no se recalcula sin cerrar
+> además los bloqueos externos.
+
 ## La meta de 95 no se alcanza, y esto es lo que falta
 
 No se ha alcanzado el 95 porque quedan tres cosas **sin hacer**, todas
@@ -295,10 +302,50 @@ que se ha ejecutado.
 1. Cobertura Unicode más allá de latín, griego y cirílico: CJK, emoji y shaping
    complejo. No se ha añadido una cadena de fuentes de reserva por script.
 2. Subconjuntos de fuente para reducir el tamaño del PDF.
-3. EPUBCheck, Word/LibreOffice y un lector de EPUB real.
+3. Word y LibreOffice, que no están instalados en esta máquina, y la lectura en
+   un lector de EPUB comercial.
 4. Subida real a Cloudinary con credenciales.
 5. Pruebas contra Render y carga real.
-6. Auditoría externa de seguridad y escaneo de dependencias.
+6. Auditoría externa de seguridad y prueba de penetración. El escaneo de
+   dependencias ya se ejecuta (`pnpm audit`).
 
 Ninguno de estos puntos se ha sustituido por una afirmación. El detalle está en
 [AUDIT_BASELINE_95.md](AUDIT_BASELINE_95.md).
+
+---
+
+## Actualización de la rama `improvement/escribiendo-95`: validación externa (Lote L)
+
+Fecha: 21 de octubre de 2026.
+Base del lote: `86610b6`.
+Alcance cerrado: EPUB validado con EPUBCheck, DOCX leído con un lector
+independiente y escaneo de dependencias ejecutado.
+
+La puntuación de 95 **sigue sin declararse alcanzada** y la última medición
+documentada continúa siendo 87,4/100.
+
+### Correcciones verificadas
+
+- El EPUB lo aprueba **EPUBCheck 5.1.0** (reglas EPUB 3.3): 0 errores fatales,
+  0 errores, 0 advertencias y 0 indicaciones. La prueba de extremo a extremo
+  valida el archivo que descarga la aplicación, no un ejemplo.
+- El DOCX lo lee **Mammoth 1.11.0**, un lector OOXML independiente del motor
+  que lo escribe: devuelve el texto, la negrita, la cursiva, el enlace, la
+  llamada con su nota al pie y la imagen incrustada.
+- `pnpm audit --prod` no encuentra vulnerabilidades conocidas. El aviso alto de
+  `deepmerge-ts` que llegaba por el CLI de Prisma se corrige con un `override`
+  a la versión 8.0.0 y se comprueba que Prisma sigue funcionando.
+
+### Evidencia
+
+| Comprobación         | Resultado                                               |
+| -------------------- | ------------------------------------------------------- |
+| `pnpm validate:epub` | 0 errores, 0 advertencias (EPUBCheck 5.1.0)             |
+| E2E con EPUBCheck    | El EPUB descargado por la aplicación valida sin errores |
+| `pnpm validate:docx` | El DOCX lo lee Mammoth 1.11.0                           |
+| `pnpm audit --prod`  | Sin vulnerabilidades conocidas                          |
+| `pnpm test`          | 289 pruebas, 32 archivos                                |
+| `pnpm test:e2e`      | 72 pruebas en Chromium                                  |
+
+El detalle está en [EXPORT_VALIDATION.md](EXPORT_VALIDATION.md) y en
+[AUDIT_CORRECTIONS.md](AUDIT_CORRECTIONS.md).

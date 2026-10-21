@@ -184,3 +184,33 @@ La puntuación documentada **no sube a 95**. Se mantiene la última medición
 conservadora de 87,4/100 hasta que la validación externa y la cobertura
 Unicode pendientes puedan demostrarse. El Lote K mejora el PDF, pero no
 autoriza a declarar terminado lo que no se ha probado.
+
+## Actualizacion del Lote L: validacion externa y escaneo de dependencias
+
+Fecha: 21 de octubre de 2026.
+Base del lote: `86610b6`.
+
+| Comprobacion         | Resultado                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------ |
+| `pnpm validate:epub` | 0 errores fatales, 0 errores, 0 advertencias (EPUBCheck 5.1.0, reglas EPUB 3.3)      |
+| E2E con EPUBCheck    | El EPUB que descarga la aplicacion tambien valida sin errores                        |
+| `pnpm validate:docx` | El DOCX lo lee Mammoth 1.11.0: texto, negrita, cursiva, enlace, nota al pie e imagen |
+| `pnpm audit --prod`  | Sin vulnerabilidades conocidas                                                       |
+| `pnpm audit`         | 1 aviso alto de desarrollo (`braces`), sin parche upstream                           |
+| `pnpm test`          | 289 pruebas en 32 archivos                                                           |
+| `pnpm test:e2e`      | 72 pruebas en Chromium                                                               |
+
+Correcciones asociadas:
+
+- El EPUB ya no se da por bueno solo por su estructura: lo aprueba la
+  herramienta oficial del W3C. La prueba de extremo a extremo valida el
+  archivo que descarga la aplicacion, no un ejemplo.
+- El DOCX lo abre un lector OOXML independiente del motor que lo escribe.
+- El aviso de `deepmerge-ts` (GHSA-ggr8-5vv4-36mx), que llegaba por el CLI de
+  Prisma, se corrige con un `override` a la version 8.0.0. `pnpm db:generate` y
+  `pnpm db:validate` siguen funcionando.
+
+Lo que sigue sin verificarse: Word y LibreOffice, la subida real a Cloudinary,
+el despliegue en Render, Neon por 5432, el pentest y la cobertura Unicode mas
+alla de latin, griego y cirilico. La puntuacion documentada sigue siendo
+87,4/100: **95 no se declara**.

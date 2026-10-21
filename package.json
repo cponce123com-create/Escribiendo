@@ -30,7 +30,9 @@
     "db:studio": "tsx scripts/prisma.ts studio",
     "admin:password-reset": "tsx scripts/admin-password-reset.ts",
     "retention:clean": "tsx scripts/retention.ts",
-    "bench:export": "tsx scripts/benchmark-export.ts"
+    "bench:export": "tsx scripts/benchmark-export.ts",
+    "validate:epub": "tsx scripts/validate-epub.ts",
+    "validate:docx": "tsx scripts/validate-docx.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",
