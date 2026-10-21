@@ -62,62 +62,129 @@ const FONTS: Record<PdfFont, string> = {
 
 const FONT_KEYS: PdfFont[] = ["regular", "bold", "italic"];
 
-/** Escapado de texto para una cadena literal de PDF. */
-function escapePdfText(text: string): string {
-  let result = "";
+/**
+ * Caracteres que WinAnsiEncoding no cubre de forma directa pero que sí
+ * existen en la tabla de Win1252, que es la que declara el PDF.
+ *
+ * Sin esta tabla, las comillas tipográficas y la raya larga —tan frecuentes
+ * en un texto en español— se perderían al exportar.
+ */
+const WINANSI_EXTRA: Record<string, string> = {
+  "€": "", // €
+  "‚": "", // comilla simple baja
+  ƒ: "", // florín
+  "„": "", // comillas dobles bajas
+  "…": "", // puntos suspensivos
+  "†": "", // daguer
+  "‡": "", // doble daguer
+  ˆ: "", // circunflejo
+  "‰": "", // por mil
+  Š: "", // S con acento
+  "‹": "", // signos angulares simples
+  Œ: "", // O con trazo
+  Ž: "", // Z con acento
+  "‘": "", // comilla simple izquierda
+  "’": "", // comilla simple derecha
+  "“": "", // comillas dobles izquierdas
+  "”": "", // comillas dobles derechas
+  "•": "", // viñeta
+  "–": "", // raya corta
+  "—": "", // raya larga
+  "˜": "", // virgulilla
+  "™": "", // marca registrada
+  š: "", // s con acento
+  "›": "", // signos angulares simples
+  œ: "", // oe ligature
+  ž: "", // z con acento
+  Ÿ: "", // Y con acento
+};
+
+/**
+ * Sustituciones para los caracteres que no tienen representación posible.
+ *
+ * No se pierden en silencio: se cambian por un signo visible y se cuentan
+ * para que la interfaz pueda avisar de ello.
+ */
+const SIN_EQUIVALENTE = "□";
+
+/** Resultado de preparar el texto para el PDF. */
+export interface WinAnsiResult {
+  text: string;
+  /** Cuántos caracteres no se pudieron representar. */
+  perdidos: number;
+  /** Los caracteres distintos que se han perdido, sin repetir. */
+  caracteresPerdidos: string[];
+}
+
+/**
+ * Prepara el texto para una cadena literal de PDF con WinAnsiEncoding.
+ *
+ * Devuelve el texto convertido y el recuento de lo que no se ha podido
+ * representar, de modo que la pérdida sea visible y no silenciosa.
+ */
+export function toWinAnsi(text: string): WinAnsiResult {
+  let perdidos = 0;
+  const perdidosSet = new Set<string>();
+  let resultado = "";
 
   for (const character of text) {
     const code = character.codePointAt(0) ?? 0;
 
     if (code === 0x28 || code === 0x29 || code === 0x5c) {
-      result += `\\${character}`;
+      resultado += `\\${character}`;
       continue;
     }
 
     if (code < 32) {
-      result += " ";
+      resultado += " ";
+      continue;
+    }
+
+    if (code < 127) {
+      resultado += character;
       continue;
     }
 
     if (code < 256) {
-      result += character;
+      resultado += character;
       continue;
     }
 
-    // WinAnsiEncoding no llega más allá de Latin-1: el resto se sustituye.
-    result += "?";
+    const equivalente = WINANSI_EXTRA[character];
+
+    if (equivalente) {
+      resultado += equivalente;
+      continue;
+    }
+
+    perdidos += 1;
+    perdidosSet.add(character);
+    resultado += SIN_EQUIVALENTE;
   }
 
-  return result;
+  return {
+    text: resultado,
+    perdidos,
+    caracteresPerdidos: [...perdidosSet],
+  };
 }
 
-/** Fecha en el formato `D:YYYYMMDDHHmmSSZ` que espera el diccionario de información. */
-function pdfDate(date: Date): string {
-  const pad = (value: number, length = 2): string => String(value).padStart(length, "0");
-
-  return [
-    "D:",
-    date.getUTCFullYear(),
-    pad(date.getUTCMonth() + 1),
-    pad(date.getUTCDate()),
-    pad(date.getUTCHours()),
-    pad(date.getUTCMinutes()),
-    pad(date.getUTCSeconds()),
-    "Z",
-  ].join("");
+export interface PdfResult {
+  bytes: Uint8Array;
+  /**
+   * Caracteres que no se han podido representar y que se han sustituido por
+   * un signo visible. La lista está vacía si no se ha perdido nada.
+   */
+  caracteresPerdidos: string[];
 }
-
-/** Longitud de las marcas de corte, en milímetros. */
-const CROP_MARK_LENGTH_MM = 5;
-/** Distancia entre la marca y el borde de la hoja acabada. */
-const CROP_MARK_GAP_MM = 2;
 
 /**
  * Construye el PDF.
  */
-export function buildPdf(document: PdfDocument): Uint8Array {
+export function buildPdf(document: PdfDocument): PdfResult {
   const objects: string[] = [];
   const pageObjectNumbers: number[] = [];
+  const perdidos = new Set<string>();
 
   // 1 catálogo, 2 páginas, 3-5 fuentes, 6 información.
   const catalogNumber = 1;
@@ -177,7 +244,7 @@ export function buildPdf(document: PdfDocument): Uint8Array {
     const trimX = (mediaWidth - page.widthMm) / 2;
     const trimY = (mediaHeight - page.heightMm) / 2;
 
-    const content = pageContent(page, mediaHeight, trimX, trimY, hasMarks);
+    const content = pageContent(page, mediaHeight, trimX, trimY, hasMarks, perdidos);
 
     objects[pageNumber] =
       `<< /Type /Page /Parent ${pagesNumber} 0 R ` +
@@ -243,7 +310,43 @@ export function buildPdf(document: PdfDocument): Uint8Array {
     `trailer\n<< /Size ${size} /Root ${catalogNumber} 0 R /Info ${infoNumber} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`,
   );
 
-  return latin1ToBytes(parts.join(""));
+  return {
+    bytes: latin1ToBytes(parts.join("")),
+    caracteresPerdidos: [...perdidos],
+  };
+}
+
+/** Longitud de las marcas de corte, en milímetros. */
+const CROP_MARK_LENGTH_MM = 5;
+/** Distancia entre la marca y el borde de la hoja acabada. */
+const CROP_MARK_GAP_MM = 2;
+
+/**
+ * Prepara un texto para los metadatos del PDF.
+ *
+ * Aquí el contenido es el título y la autoría, no el cuerpo: se escapan los
+ * caracteres especiales de la sintaxis de PDF.
+ */
+function escapePdfText(text: string): string {
+  const preparado = toWinAnsi(text);
+
+  return preparado.text;
+}
+
+/** Fecha en el formato `D:YYYYMMDDHHmmSSZ` que espera el diccionario de información. */
+function pdfDate(date: Date): string {
+  const pad = (value: number, length = 2): string => String(value).padStart(length, "0");
+
+  return [
+    "D:",
+    date.getUTCFullYear(),
+    pad(date.getUTCMonth() + 1),
+    pad(date.getUTCDate()),
+    pad(date.getUTCHours()),
+    pad(date.getUTCMinutes()),
+    pad(date.getUTCSeconds()),
+    "Z",
+  ].join("");
 }
 
 function toPoints(mm: number): string {
@@ -257,11 +360,12 @@ function pageContent(
   trimXMm: number,
   trimYMm: number,
   hasMarks: boolean,
+  perdidos: Set<string>,
 ): string {
   const parts: string[] = [];
 
   if (hasMarks) {
-    parts.push(marksContent(page, mediaHeightMm, trimXMm, trimYMm));
+    parts.push(marksContent(page, trimXMm, trimYMm));
   }
 
   for (const run of page.runs) {
@@ -274,9 +378,14 @@ function pageContent(
     const y = (mediaHeightMm - trimYMm - run.baselineMm) * MM_TO_POINTS;
     const spacing =
       run.wordSpacing && run.wordSpacing > 0 ? `${run.wordSpacing.toFixed(3)} Tw ` : "0 Tw ";
+    const preparado = toWinAnsi(run.text);
+
+    for (const perdido of preparado.caracteresPerdidos) {
+      perdidos.add(perdido);
+    }
 
     parts.push(
-      `BT /F${fontIndex} ${run.sizePt.toFixed(2)} Tf ${spacing}1 0 0 1 ${x.toFixed(3)} ${y.toFixed(3)} Tm (${escapePdfText(run.text)}) Tj ET`,
+      `BT /F${fontIndex} ${run.sizePt.toFixed(2)} Tf ${spacing}1 0 0 1 ${x.toFixed(3)} ${y.toFixed(3)} Tm (${preparado.text}) Tj ET`,
     );
   }
 
@@ -284,12 +393,7 @@ function pageContent(
 }
 
 /** Marcas de corte y de registro. */
-function marksContent(
-  page: PdfPage,
-  mediaHeightMm: number,
-  trimXMm: number,
-  trimYMm: number,
-): string {
+function marksContent(page: PdfPage, trimXMm: number, trimYMm: number): string {
   const parts: string[] = ["0.5 w", "0 0 0 RG"];
   const length = CROP_MARK_LENGTH_MM;
   const gap = CROP_MARK_GAP_MM;
@@ -324,8 +428,6 @@ function marksContent(
   line(left, top, right, top);
   line(left, bottom, left, top);
   line(right, bottom, right, top);
-
-  void mediaHeightMm;
 
   return parts.join("\n");
 }

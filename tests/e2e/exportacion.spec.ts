@@ -280,6 +280,61 @@ test.describe("Exportación", () => {
     expect(bytes.subarray(30, 49).toString("utf8")).toBe("[Content_Types].xml");
   });
 
+  test("el PDF conserva la tipografía española", async ({ page }) => {
+    await page.goto("/books");
+    await page.getByRole("link", { name: BOOK_TITLE }).click();
+    await page.getByRole("link", { name: SECTION_TITLE }).click();
+
+    const editor = page.locator(".ProseMirror");
+    await editor.click();
+    await page.keyboard.type("«Cita» — con rayas… y eñes: niño, caía, miró.");
+    await page.getByRole("button", { name: "Guardar manuscrito" }).click();
+    await expect(page.getByText("Guardado en el servidor.")).toBeVisible();
+
+    await page.goto("/books");
+    await page.getByRole("link", { name: BOOK_TITLE }).click();
+    await page
+      .getByRole("navigation", { name: "Acciones del libro" })
+      .getByRole("link", { name: "Exportación" })
+      .click();
+
+    await page
+      .getByRole("listitem")
+      .filter({ hasText: "PDF digital" })
+      .getByRole("button", { name: "Generar" })
+      .click();
+
+    await expect(page.getByText("Archivo generado.")).toBeVisible();
+
+    // El PDF no debe avisar de caracteres perdidos: los signos españoles
+    // tienen representación en la fuente estándar.
+    await expect(
+      page.getByRole("alert").filter({ hasText: "no ha podido representar" }),
+    ).toHaveCount(0);
+
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("link", { name: "Descargar" }).click(),
+    ]);
+
+    const ruta = await download.path();
+
+    if (!ruta) {
+      throw new Error("No se ha descargado el archivo.");
+    }
+
+    const contenido = readFileSync(ruta).toString("latin1");
+
+    // Las comillas angulares, la raya larga y los puntos suspensivos se
+    // guardan con sus códigos de Win1252.
+    expect(contenido).toContain("\xabCita\xbb");
+    expect(contenido).toContain("\x97");
+    expect(contenido).toContain("\x85");
+    // Las tildes y la eñe se conservan tal cual.
+    expect(contenido).toContain("niño");
+    expect(contenido).toContain("caía");
+  });
+
   test("una descarga sin firma se rechaza", async ({ page, request }) => {
     await page.goto("/books");
     await page.getByRole("link", { name: BOOK_TITLE }).click();

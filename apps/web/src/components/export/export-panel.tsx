@@ -121,6 +121,18 @@ export function ExportPanel({ bookId, hasLayout }: ExportPanelProps) {
             </a>
           </div>
 
+          {state.metadata && state.metadata.caracteresPerdidos.length > 0 ? (
+            <p className="alert alert-error mt-4" role="alert">
+              El archivo no ha podido representar{" "}
+              {state.metadata.caracteresPerdidos.length === 1
+                ? "un carácter"
+                : "algunos caracteres"}{" "}
+              ({state.metadata.caracteresPerdidos.join(" ")}). En el PDF aparecen como un signo
+              vacío, porque la fuente estándar no los incluye; en el EPUB y el DOCX se conservan sin
+              cambio.
+            </p>
+          ) : null}
+
           <p className="mt-3 text-xs leading-relaxed text-ink-muted">
             La dirección caduca en unos minutos. Si deja de funcionar, vuelve a generar el archivo.
           </p>

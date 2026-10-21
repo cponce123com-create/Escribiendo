@@ -29,7 +29,8 @@
     "db:status": "tsx scripts/db-status.ts",
     "db:studio": "tsx scripts/prisma.ts studio",
     "admin:password-reset": "tsx scripts/admin-password-reset.ts",
-    "retention:clean": "tsx scripts/retention.ts"
+    "retention:clean": "tsx scripts/retention.ts",
+    "bench:export": "tsx scripts/benchmark-export.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",

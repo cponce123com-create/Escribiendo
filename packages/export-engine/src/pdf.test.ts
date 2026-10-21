@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPdf, type PdfDocument } from "./pdf";
+import { buildPdf, toWinAnsi, type PdfDocument, type PdfResult } from "./pdf";
 
 const DOCUMENT: PdfDocument = {
   title: "El velo de la tarde",
@@ -30,10 +30,17 @@ const DOCUMENT: PdfDocument = {
   ],
 };
 
-function asText(bytes: Uint8Array): string {
+/** Bytes del PDF, tanto si el resultado viene envuelto como si no. */
+function bytes(resultado: PdfResult | Uint8Array): Uint8Array {
+  return resultado instanceof Uint8Array ? resultado : resultado.bytes;
+}
+
+function asText(resultado: PdfResult | Uint8Array): string {
+  const contenido = bytes(resultado);
+
   let result = "";
 
-  for (const byte of bytes) {
+  for (const byte of contenido) {
     result += String.fromCharCode(byte);
   }
 
@@ -41,13 +48,16 @@ function asText(bytes: Uint8Array): string {
 }
 
 /** Compara dos arreglos de bytes sin depender de los tipos de Node. */
-function equals(left: Uint8Array, right: Uint8Array): boolean {
-  if (left.length !== right.length) {
+function equals(left: PdfResult | Uint8Array, right: PdfResult | Uint8Array): boolean {
+  const a = bytes(left);
+  const b = bytes(right);
+
+  if (a.length !== b.length) {
     return false;
   }
 
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index] !== right[index]) {
+  for (let index = 0; index < a.length; index += 1) {
+    if (a[index] !== b[index]) {
       return false;
     }
   }
@@ -170,5 +180,65 @@ describe("buildPdf", () => {
     // 18 mm desde el borde izquierdo son 51,024 puntos; 210 mm de alto menos
     // 60 mm de línea base son 150 mm: 425,197 puntos.
     expect(text).toContain("1 0 0 1 51.024 425.197 Tm");
+  });
+});
+
+describe("toWinAnsi", () => {
+  it("conserva los signos tipográficos del español", () => {
+    const resultado = toWinAnsi("«Cita» — con rayas… y comillas “así”");
+
+    expect(resultado.perdidos).toBe(0);
+
+    // Los signos tipográficos se guardan como sus equivalentes de Win1252,
+    // que es la codificación que declara el PDF.
+    const puntos = [...resultado.text].map((caracter) => caracter.codePointAt(0) ?? 0);
+
+    expect(puntos).toContain(0x93); // comillas dobles izquierdas
+    expect(puntos).toContain(0x94); // comillas dobles derechas
+    expect(puntos).toContain(0x97); // raya larga
+    expect(puntos).toContain(0x85); // puntos suspensivos
+    expect(puntos).toContain(0xab); // comillas angulares de apertura
+    expect(puntos).toContain(0xbb); // comillas angulares de cierre
+  });
+
+  it("conserva los signos de apertura y cierre en español", () => {
+    const resultado = toWinAnsi("«Hola»");
+
+    expect(resultado.perdidos).toBe(0);
+    expect(resultado.text).toContain("«");
+    expect(resultado.text).toContain("»");
+  });
+
+  it("informa de los caracteres que no puede representar", () => {
+    const resultado = toWinAnsi("texto 漢 Nip 中文");
+
+    expect(resultado.perdidos).toBeGreaterThan(0);
+    expect(resultado.caracteresPerdidos).toContain("漢");
+  });
+
+  it("no pierde caracteres en el PDF con acentos y eñes", () => {
+    const resultado = buildPdf({
+      ...DOCUMENT,
+      pages: [
+        {
+          widthMm: 148,
+          heightMm: 210,
+          runs: [
+            {
+              text: "El velo de la tarde caía sobre la plaza; el niño la miró.",
+              font: "regular",
+              sizePt: 11,
+              xMm: 18,
+              baselineMm: 30,
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(resultado.caracteresPerdidos).toEqual([]);
+    expect(asText(resultado)).toContain("caía");
+    expect(asText(resultado)).toContain("niño");
+    expect(asText(resultado)).toContain("miró");
   });
 });

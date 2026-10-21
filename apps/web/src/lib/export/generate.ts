@@ -46,6 +46,11 @@ export interface ExportMetadata {
   generatedAt: string;
   /** Si la composición se ha estimado sin métricas reales de la fuente. */
   estimatedPagination: boolean;
+  /**
+   * Caracteres que el archivo no ha podido representar, si los hay. No se
+   * pierde nada en silencio: se avisa.
+   */
+  caracteresPerdidos: string[];
 }
 
 export interface GeneratedFile {
@@ -230,6 +235,8 @@ export function generateFile(input: GenerateInput): GeneratedFile {
 
   let bytes: Uint8Array;
   let pageCount: number | null = null;
+  /** Caracteres que el PDF no ha podido representar. */
+  let caracteresPerdidos: string[] = [];
 
   if (input.format === "PDF_DIGITAL" || input.format === "PDF_PRINT") {
     if (!input.profile) {
@@ -255,7 +262,7 @@ export function generateFile(input: GenerateInput): GeneratedFile {
 
     pageCount = pdfPages.length;
 
-    bytes = buildPdf({
+    const pdf = buildPdf({
       title: input.title,
       author: input.author,
       subject: input.format === "PDF_PRINT" ? "Documento para imprenta" : "Documento digital",
@@ -266,6 +273,9 @@ export function generateFile(input: GenerateInput): GeneratedFile {
           ? pdfPages.map((page) => ({ ...page, cropMarks: true }))
           : pdfPages,
     });
+
+    bytes = pdf.bytes;
+    caracteresPerdidos = pdf.caracteresPerdidos;
   } else {
     const chapters: ExportChapter[] = input.sections.map((section) => ({
       id: section.id,
@@ -306,6 +316,7 @@ export function generateFile(input: GenerateInput): GeneratedFile {
       sectionCount: input.sections.length,
       generatedAt: input.createdAt.toISOString(),
       estimatedPagination: input.format === "PDF_DIGITAL" || input.format === "PDF_PRINT",
+      caracteresPerdidos,
     },
   };
 }

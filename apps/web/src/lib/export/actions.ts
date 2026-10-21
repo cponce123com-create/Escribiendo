@@ -37,6 +37,8 @@ export interface ExportActionState extends ActionState {
     pageCount: number | null;
     wordCount: number;
     fileName: string | null;
+    /** Caracteres que el archivo no ha podido representar. */
+    caracteresPerdidos: string[];
   };
 }
 
@@ -123,6 +125,7 @@ export async function requestExportAction(
           pageCount: job.metadata.pageCount,
           wordCount: job.metadata.wordCount,
           fileName: job.fileName,
+          caracteresPerdidos: job.metadata.caracteresPerdidos ?? [],
         }
       : undefined,
   };

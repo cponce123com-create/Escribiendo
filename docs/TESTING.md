@@ -261,11 +261,11 @@ crea su propio libro, su sección y su perfil de página:
 ### 4.5 Resultados obtenidos
 
 ```text
-Running 69 tests using 1 worker
-69 passed (2.6m)
+Running 70 tests using 1 worker
+70 passed (2.6m)
 ```
 
-Las 69 pruebas incluyen la preparación de la cuenta de pruebas. La suite se ha
+Las 70 pruebas incluyen la preparación de la cuenta de pruebas. La suite se ha
 ejecutado de forma repetida con resultado completo en todas las ejecuciones,
 contra PostgreSQL 17.7 local y contra la **compilación de producción** (no el
 servidor de desarrollo). En producción, el mismo flujo de instalación, acceso y
