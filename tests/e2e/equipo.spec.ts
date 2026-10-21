@@ -1,4 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { prisma } from "../../packages/database/src/client";
+import { E2E_USER_EMAIL } from "./support/session";
 
 /**
  * Equipo y gobernanza: invitaciones, roles, bajas, asignación de trabajo y
@@ -139,5 +141,59 @@ test.describe("Equipo", () => {
     expect(auditoria.status()).toBe(403);
 
     await contexto.close();
+  });
+
+  test("una persona que pertenece a dos estudios puede cambiar de uno a otro", async ({ page }) => {
+    // Se crea un segundo estudio y se añade a la cuenta de pruebas, como si
+    // le hubieran invitado.
+    const usuario = await prisma.user.findUnique({
+      where: { email: E2E_USER_EMAIL },
+      select: { id: true },
+    });
+
+    expect(usuario).not.toBeNull();
+
+    const estudio = await prisma.workspace.create({
+      data: {
+        name: "Segundo estudio",
+        slug: `segundo-estudio-${Date.now()}`,
+        ownerId: usuario!.id,
+      },
+      select: { id: true, name: true },
+    });
+
+    await prisma.workspaceMember.create({
+      data: {
+        workspaceId: estudio.id,
+        userId: usuario!.id,
+        role: "AUTHOR",
+      },
+    });
+
+    await page.goto("/dashboard");
+
+    // El selector ofrece los dos estudios.
+    const selector = page.getByLabel("Cambiar de espacio de trabajo");
+
+    await expect(selector).toBeVisible();
+    await expect(selector.locator("option")).toHaveCount(2);
+
+    // La prueba deja la sesión compartida como estaba, para que las pruebas
+    // siguientes sigan viendo el estudio original.
+    const original = await selector.inputValue();
+
+    await selector.selectOption(estudio.id);
+    await page.getByRole("button", { name: "Cambiar de estudio" }).click();
+
+    await expect(page.getByText("Has cambiado de estudio.")).toBeVisible();
+
+    // Y a partir de ahora se trabaja en el estudio nuevo.
+    await page.goto("/team");
+    await expect(page.getByText(estudio.name).first()).toBeVisible();
+
+    // Se vuelve al estudio de siempre.
+    await selector.selectOption(original);
+    await page.getByRole("button", { name: "Cambiar de estudio" }).click();
+    await expect(page.getByText("Has cambiado de estudio.")).toBeVisible();
   });
 });

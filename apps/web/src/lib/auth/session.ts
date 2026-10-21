@@ -29,6 +29,8 @@ export interface SessionContext {
   sessionId: string;
   user: AuthenticatedUser;
   workspace: ActiveWorkspace;
+  /** Todos los estudios a los que pertenece la persona. */
+  workspaces: ActiveWorkspace[];
 }
 
 function sessionCookieName(): string {
@@ -48,6 +50,7 @@ function sessionCookieOptions() {
 export async function createSession(
   userId: string,
   requestContext?: RequestContext,
+  workspaceId?: string,
 ): Promise<void> {
   const context = requestContext ?? (await getRequestContext());
   const token = generateToken();
@@ -61,6 +64,7 @@ export async function createSession(
       expiresAt,
       ipHash: context.ipHash,
       userAgent: context.userAgent,
+      ...(workspaceId ? { workspaceId } : {}),
     },
   });
 
@@ -115,6 +119,7 @@ export const getSession = cache(async (): Promise<SessionContext | null> => {
       expiresAt: true,
       revokedAt: true,
       lastUsedAt: true,
+      workspaceId: true,
       user: {
         select: {
           id: true,
@@ -125,7 +130,6 @@ export const getSession = cache(async (): Promise<SessionContext | null> => {
           deletedAt: true,
           memberships: {
             orderBy: { createdAt: "asc" },
-            take: 1,
             select: {
               role: true,
               workspace: {
@@ -148,9 +152,21 @@ export const getSession = cache(async (): Promise<SessionContext | null> => {
     return null;
   }
 
-  const membership = session.user.memberships[0];
+  const workspaces: ActiveWorkspace[] = session.user.memberships
+    .filter((membership) => !membership.workspace.deletedAt)
+    .map((membership) => ({
+      id: membership.workspace.id,
+      name: membership.workspace.name,
+      slug: membership.workspace.slug,
+      role: membership.role,
+    }));
 
-  if (!membership || membership.workspace.deletedAt) {
+  // El estudio activo es el que guardó la sesión. Si la persona ya no
+  // pertenece a él, se recurre al primero que le quede.
+  const membership =
+    workspaces.find((workspace) => workspace.id === session.workspaceId) ?? workspaces[0];
+
+  if (!membership) {
     return null;
   }
 
@@ -170,13 +186,38 @@ export const getSession = cache(async (): Promise<SessionContext | null> => {
       role: session.user.role,
     },
     workspace: {
-      id: membership.workspace.id,
-      name: membership.workspace.name,
-      slug: membership.workspace.slug,
+      id: membership.id,
+      name: membership.name,
+      slug: membership.slug,
       role: membership.role,
     },
+    workspaces,
   };
 });
+
+/**
+ * Cambia el estudio con el que se trabaja.
+ *
+ * La pertenencia se comprueba: no se puede entrar en un estudio del que la
+ * persona no forma parte.
+ */
+export async function switchWorkspace(
+  session: SessionContext,
+  workspaceId: string,
+): Promise<boolean> {
+  const pertenece = session.workspaces.some((workspace) => workspace.id === workspaceId);
+
+  if (!pertenece) {
+    return false;
+  }
+
+  await prisma.session.updateMany({
+    where: { id: session.sessionId, revokedAt: null },
+    data: { workspaceId },
+  });
+
+  return true;
+}
 
 export async function requireSession(): Promise<SessionContext> {
   const session = await getSession();

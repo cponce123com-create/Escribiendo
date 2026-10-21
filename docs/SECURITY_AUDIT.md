@@ -280,7 +280,7 @@ comprobó que `pnpm db:generate` y `pnpm db:validate` siguen funcionando.
 | `pnpm validate:epub`       | EPUB validado con EPUBCheck 5.1.0                                                                                                              | Verde     |
 | `pnpm validate:docx`       | DOCX leído con Mammoth 1.11.0                                                                                                                  | Verde     |
 | `pnpm validate:pdf`        | PDF abierto con pdf.js 4.10.38                                                                                                                 | Verde     |
-| Suite completa             | 328 unitarias y 78 E2E                                                                                                                         | Verde     |
+| Suite completa             | 328 unitarias y 79 E2E                                                                                                                         | Verde     |
 
 Los comandos son los del protocolo de `IMPLEMENTATION_PLAN.md`. Las pruebas
 E2E se ejecutan contra la compilación de producción en el puerto 3100 y una

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
 import { NavLinks } from "@/components/app/nav-links";
+import { WorkspaceSwitcher } from "@/components/app/workspace-switcher";
 import { DownloadIcon, LayoutIcon, LogOutIcon, UsersIcon } from "@/components/icons";
 import { logoutAction } from "@/lib/auth/actions";
 import type { SessionContext } from "@/lib/auth/session";
@@ -31,6 +32,7 @@ export function Sidebar({ session }: SidebarProps) {
         <p className="mt-1 text-xs text-ink-muted">
           {WORKSPACE_ROLE_LABELS[session.workspace.role] ?? session.workspace.role}
         </p>
+        <WorkspaceSwitcher activo={session.workspace} estudios={session.workspaces} />
       </div>
 
       <div className="px-3 py-4">
