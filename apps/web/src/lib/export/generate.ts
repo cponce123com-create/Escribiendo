@@ -353,7 +353,11 @@ function toPdfPages(
           const font: PdfRun["font"] =
             bold && italic ? "boldItalic" : bold ? "bold" : italic ? "italic" : "regular";
           const sizePt = segmentSize(segment);
-          const segmentWidth = measureSegment(segment.text, sizePt, bold, italic);
+          // El texto se dibuja en mayúsculas si el estilo lo pide: la
+          // medición ya cuenta con esa transformación, así que el ancho y el
+          // dibujo tienen que ir juntos.
+          const texto = block.style.uppercase ? segment.text.toLocaleUpperCase("es") : segment.text;
+          const segmentWidth = measureSegment(texto, sizePt, bold, italic);
           const espaciosSegmento = wordSpacing > 0 ? (segment.text.match(/ /gu)?.length ?? 0) : 0;
           const extraMm = (wordSpacing * espaciosSegmento * 25.4) / 72;
           const advanceMm = segmentWidth + extraMm;
@@ -364,7 +368,7 @@ function toPdfPages(
               : undefined;
 
           runs.push({
-            text: segment.text,
+            text: texto,
             font,
             family: block.style.fontFamily,
             sizePt,

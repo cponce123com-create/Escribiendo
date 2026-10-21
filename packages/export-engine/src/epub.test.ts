@@ -290,3 +290,90 @@ describe("formato en línea en EPUB y DOCX", () => {
     expect(documento).toContain('<w:bottom w:val="single"');
   });
 });
+
+describe("texto que no se puede exportar", () => {
+  const CON_CONTROLES = {
+    title: "Libro de prueba",
+    author: "Ana Torres",
+    language: "es",
+    identifier: "urn:uuid:6f1c0f6e-3f2b-4f4a-9d1e-1b2c3d4e5f61",
+    chapters: [
+      {
+        id: "c1",
+        title: "Capítulo",
+        blocks: [
+          {
+            kind: "body" as const,
+            text: "Texto con un control\u0007 dentro",
+          },
+        ],
+      },
+    ],
+  };
+
+  it("el EPUB no lleva caracteres de control", () => {
+    const capitulo =
+      entryText(buildEpub(CON_CONTROLES, FECHA), "EPUB/text/chapter-001.xhtml") ?? "";
+
+    expect(capitulo).toContain("Texto con un control dentro");
+    expect(capitulo).not.toContain("\u0007");
+  });
+
+  it("el DOCX no lleva caracteres de control", () => {
+    const documento = entryText(buildDocx(CON_CONTROLES, FECHA), "word/document.xml") ?? "";
+
+    expect(documento).toContain("Texto con un control dentro");
+    expect(documento).not.toContain("\u0007");
+  });
+
+  it("el EPUB no escribe un enlace con un esquema peligroso", () => {
+    const conEnlace = {
+      ...CON_CONTROLES,
+      chapters: [
+        {
+          id: "c1",
+          title: "Capítulo",
+          blocks: [
+            {
+              kind: "body" as const,
+              text: "clic",
+              runs: [{ text: "clic", link: "javascript:alert(1)" }],
+            },
+          ],
+        },
+      ],
+    };
+
+    const capitulo = entryText(buildEpub(conEnlace, FECHA), "EPUB/text/chapter-001.xhtml") ?? "";
+
+    expect(capitulo).toContain("clic");
+    expect(capitulo).not.toContain("javascript:");
+    expect(capitulo).not.toContain("<a href");
+  });
+
+  it("el DOCX no escribe un enlace con un esquema peligroso", () => {
+    const conEnlace = {
+      ...CON_CONTROLES,
+      chapters: [
+        {
+          id: "c1",
+          title: "Capítulo",
+          blocks: [
+            {
+              kind: "body" as const,
+              text: "clic",
+              runs: [{ text: "clic", link: "javascript:alert(1)" }],
+            },
+          ],
+        },
+      ],
+    };
+
+    const documento = entryText(buildDocx(conEnlace, FECHA), "word/document.xml") ?? "";
+    const relaciones = entryText(buildDocx(conEnlace, FECHA), "word/_rels/document.xml.rels") ?? "";
+
+    expect(documento).toContain("clic");
+    expect(documento).not.toContain("<w:hyperlink");
+    expect(relaciones).not.toContain("javascript:");
+  });
+});
