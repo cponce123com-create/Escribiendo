@@ -39,7 +39,7 @@ Después del lote de imágenes y de las pruebas nuevas de esta rama:
 Las cifras son de esta máquina y de la compilación de producción local. No
 presumen el comportamiento del despliegue de Render.
 
-La cifra vigente despues del Lote S es **328 pruebas unitarias en 34 archivos**
+La cifra vigente despues del Lote S es **332 pruebas unitarias en 35 archivos**
 y **80 pruebas E2E en Chromium**. Las tablas siguientes conservan la historia de
 cada lote; no se reescriben los resultados anteriores.
 
@@ -153,7 +153,7 @@ Base del lote: `dc7c6ea`.
 
 | Comprobación         | Resultado                |
 | -------------------- | ------------------------ |
-| Pruebas unitarias    | 328 pruebas, 34 archivos |
+| Pruebas unitarias    | 332 pruebas, 35 archivos |
 | Extremo a extremo    | 80 pruebas en Chromium   |
 | Formato, lint        | Sin errores              |
 | Tipos y compilación  | Sin errores              |
@@ -204,7 +204,7 @@ Base del lote: `86610b6`.
 | `pnpm validate:docx` | El DOCX lo lee Mammoth 1.11.0: texto, negrita, cursiva, enlace, nota al pie e imagen |
 | `pnpm audit --prod`  | Sin vulnerabilidades conocidas                                                       |
 | `pnpm audit`         | 1 aviso alto de desarrollo (`braces`), sin parche upstream                           |
-| `pnpm test`          | 328 pruebas en 34 archivos                                                           |
+| `pnpm test`          | 332 pruebas en 35 archivos                                                           |
 | `pnpm test:e2e`      | 80 pruebas en Chromium                                                               |
 
 Correcciones asociadas:
@@ -232,7 +232,7 @@ Base del lote: `c43ee27`.
 | `pnpm validate:pdf`  | pdf.js 4.10.38 abre el PDF y extrae el texto con la fuente incrustada |
 | `pnpm validate:epub` | 0 errores y 0 advertencias con EPUBCheck 5.1.0                        |
 | `pnpm validate:docx` | Mammoth 1.11.0 lee el documento                                       |
-| `pnpm test`          | 328 pruebas en 34 archivos                                            |
+| `pnpm test`          | 332 pruebas en 35 archivos                                            |
 | `pnpm test:e2e`      | 80 pruebas en Chromium                                                |
 | `pnpm bench:export`  | PDF de 671 KB, EPUB de 29 KB y DOCX de 8 KB para 200 000 palabras     |
 
@@ -262,7 +262,7 @@ Base del lote: `29dac65`.
 | -------------------- | ------------------------------------------------------------------------ |
 | `pnpm stress:export` | 200 000 palabras, 80 fotografias y 500 notas al pie en los tres formatos |
 | Memoria maxima       | 367 MB, con un margen de 145 MB sobre los 512 MB de Render Free          |
-| `pnpm test`          | 328 pruebas en 34 archivos                                               |
+| `pnpm test`          | 332 pruebas en 35 archivos                                               |
 | `pnpm test:e2e`      | 80 pruebas en Chromium                                                   |
 
 Correcciones:

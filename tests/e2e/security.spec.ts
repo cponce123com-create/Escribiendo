@@ -20,8 +20,11 @@ test.describe("Capa de seguridad", () => {
     const ready = await request.get("/api/health/ready");
     expect(ready.status()).toBe(200);
 
-    const readyBody = (await ready.json()) as { checks: { database: string } };
+    const readyBody = (await ready.json()) as { checks: { database: string; schema: string } };
     expect(readyBody.checks.database).toBe("ok");
+    // El esquema al día: si no lo estuviera, la aplicación se caería al
+    // pedir la sesión y el aviso de migración no se vería nunca.
+    expect(readyBody.checks.schema).toBe("ok");
   });
 
   test("la respuesta incluye una CSP con nonce y sin estilos en línea libres", async ({

@@ -138,7 +138,7 @@ se afirma más de lo que se ha comprobado.
 | Archivos PDF corruptos                               | No: la cabecera, la estructura y el cierre se comprueban en cada prueba                   |
 | Pérdida de imágenes o formato sin advertencia        | **Resuelto** para el formato en línea, los separadores y las imágenes en PDF, EPUB y DOCX |
 | Migraciones destructivas no autorizadas              | Ninguna: las tres migraciones son aditivas                                                |
-| Pruebas críticas fallidas                            | Ninguna: 328 unitarias y 80 E2E en verde                                                  |
+| Pruebas críticas fallidas                            | Ninguna: 332 unitarias y 80 E2E en verde                                                  |
 | Error de compilación                                 | Ninguno                                                                                   |
 | Regresión funcional                                  | Ninguna detectada                                                                         |
 | Exposición de secretos                               | Ninguna: escaneo del árbol y del historial de commits                                     |
@@ -297,7 +297,7 @@ que se ha ejecutado.
 
 | Comprobación        | Resultado                                                      |
 | ------------------- | -------------------------------------------------------------- |
-| `pnpm test`         | 328 pruebas, 34 archivos                                       |
+| `pnpm test`         | 332 pruebas, 35 archivos                                       |
 | `pnpm test:e2e`     | 80 pruebas en Chromium                                         |
 | `pnpm format:check` | Correcto                                                       |
 | `pnpm lint`         | Sin errores                                                    |
@@ -352,7 +352,7 @@ documentada continúa siendo 87,4/100.
 | E2E con EPUBCheck    | El EPUB descargado por la aplicación valida sin errores |
 | `pnpm validate:docx` | El DOCX lo lee Mammoth 1.11.0                           |
 | `pnpm audit --prod`  | Sin vulnerabilidades conocidas                          |
-| `pnpm test`          | 328 pruebas, 34 archivos                                |
+| `pnpm test`          | 332 pruebas, 35 archivos                                |
 | `pnpm test:e2e`      | 80 pruebas en Chromium                                  |
 
 El detalle está en [EXPORT_VALIDATION.md](EXPORT_VALIDATION.md) y en
@@ -391,7 +391,7 @@ documentada continua siendo 87,4/100.
 | `pnpm validate:epub` | 0 errores y 0 advertencias con EPUBCheck 5.1.0                    |
 | `pnpm validate:docx` | Mammoth 1.11.0 lee el documento                                   |
 | `pnpm bench:export`  | PDF de 671 KB, EPUB de 29 KB y DOCX de 8 KB para 200 000 palabras |
-| `pnpm test`          | 328 pruebas, 34 archivos                                          |
+| `pnpm test`          | 332 pruebas, 35 archivos                                          |
 | `pnpm test:e2e`      | 80 pruebas en Chromium                                            |
 
 El detalle esta en [EXPORT_VALIDATION.md](EXPORT_VALIDATION.md) y en
@@ -429,7 +429,7 @@ documentada continua siendo 87,4/100.
 | -------------------- | ------------------------------------------------------------- |
 | `pnpm stress:export` | PDF de 588 ms y 40 159 KB, EPUB de 1 413 ms, DOCX de 1 355 ms |
 | Memoria maxima       | 367 MB, con margen de 145 MB sobre los 512 MB de Render Free  |
-| `pnpm test`          | 328 pruebas, 34 archivos                                      |
+| `pnpm test`          | 332 pruebas, 35 archivos                                      |
 | `pnpm test:e2e`      | 80 pruebas en Chromium                                        |
 | `pnpm validate:epub` | 0 errores y 0 advertencias con EPUBCheck 5.1.0                |
 

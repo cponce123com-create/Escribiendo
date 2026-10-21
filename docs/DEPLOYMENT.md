@@ -58,7 +58,24 @@ pnpm db:status
 `pnpm db:status` comprueba, sin modificar nada, si la base de datos responde y
 si tiene el esquema aplicado. **Ejecuta `pnpm db:migrate` antes de dar por
 bueno un despliegue**: sin migraciones aplicadas, la aplicación arranca pero
-todas las páginas que consultan la base de datos fallan con `P2021`.
+todas las páginas que consultan la base de datos fallan.
+
+### Si la aplicación dice «Migración pendiente»
+
+Cuando el código es más nuevo que la base de datos, la aplicación lo dice en
+vez de dejar un «error de interfaz»: en el acceso y en las páginas privadas
+aparece un aviso con el comando exacto, y `/api/health/ready` responde `503`
+con `"schema": "outdated"`. Lo que hay que hacer es:
+
+```bash
+pnpm db:migrate
+```
+
+y recargar. La migración es aditiva (no borra datos). Si prefieres comprobarlo
+antes de tocar nada, `pnpm db:migrate:status` dice si falta alguna.
+
+Este caso se reproduce a propósito: si el despliegue usa una base de datos
+antigua, el aviso aparece en lugar de una pantalla de error sin explicación.
 
 `pnpm db:status` también comprueba que `DATABASE_URL` y `DIRECT_URL` apunten al
 mismo endpoint de Neon. Si no, la migración se aplicaría a una base de datos

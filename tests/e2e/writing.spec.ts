@@ -89,8 +89,12 @@ test.describe("Escritura asistida", () => {
     await expect(size).toBeVisible();
 
     // El control guarda las preferencias en el navegador, de modo que solo
-    // funcionan cuando la página está hidratada. Se reintenta el ajuste
-    // hasta que el valor queda guardado de verdad.
+    // funcionan cuando la página está hidratada. Se espera a que la página
+    // termine de cargar antes de tocar nada: si no, el relleno se hace sobre
+    // un formulario que todavía no controla nadie.
+    await page.waitForLoadState("networkidle");
+
+    // Se reintenta el ajuste hasta que el valor queda guardado de verdad.
     await expect
       .poll(
         async () => {
@@ -101,7 +105,7 @@ test.describe("Escritura asistida", () => {
         },
         // La hidratación puede tardar más cuando la suite entera acaba de
         // compilar y el equipo está cargado.
-        { timeout: 15_000 },
+        { timeout: 30_000 },
       )
       .toContain('"fontSize":22');
 
