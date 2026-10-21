@@ -18,6 +18,19 @@
 import { spawn } from "node:child_process";
 import { repoRoot } from "./lib/prisma-cli";
 
+/**
+ * El servidor se apaga al terminar la suite. Playwright mata el proceso y el
+ * hijo puede salir con un código distinto de cero: eso no es un fallo del
+ * servidor, así que se distingue del arranque fallido.
+ */
+let stopping = false;
+
+for (const signal of ["SIGINT", "SIGTERM", "SIGBREAK"] as const) {
+  process.on(signal, () => {
+    stopping = true;
+  });
+}
+
 function run(command: string, args: string[], env: NodeJS.ProcessEnv): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -27,15 +40,23 @@ function run(command: string, args: string[], env: NodeJS.ProcessEnv): Promise<v
       shell: process.platform === "win32",
     });
 
-    child.on("error", reject);
-
-    child.on("exit", (code) => {
-      if (code === 0) {
+    child.on("error", (error) => {
+      if (stopping) {
         resolve();
         return;
       }
 
-      reject(new Error(`«${command} ${args.join(" ")}» terminó con el código ${code ?? "?"}.`));
+      reject(error);
+    });
+
+    child.on("exit", (code) => {
+      if (code !== 0 && !stopping) {
+        process.stderr.write(`[e2e] El servidor terminó con el código ${code ?? "?"}.\n`);
+      }
+
+      // El final del servidor no decide el resultado de la suite: si se cae
+      // durante las pruebas, Playwright ya falla al no poder conectarse.
+      resolve();
     });
   });
 }

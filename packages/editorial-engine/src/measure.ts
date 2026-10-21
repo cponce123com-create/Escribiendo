@@ -33,7 +33,16 @@ export interface MeasureOptions {
   letterSpacingPt?: number;
   uppercase?: boolean;
   smallCaps?: boolean;
+  /**
+   * La negrita ocupa algo más que la redonda. No se simula engordando la
+   * letra: se aplica un factor de ancho, que es lo que hace una fuente real
+   * al pasar de redonda a negra.
+   */
+  bold?: boolean;
 }
+
+/** Ensanchamiento medio de la negrita respecto a la redonda. */
+const BOLD_FACTOR = 1.03;
 
 /** Ancho de un texto en puntos. */
 export function measureTextPoints(text: string, options: MeasureOptions): number {
@@ -50,8 +59,9 @@ export function measureTextPoints(text: string, options: MeasureOptions): number
   }
 
   const spacing = letterSpacing * text.length;
+  const weight = options.bold ? BOLD_FACTOR : 1;
 
-  return total * options.fontSizePt + spacing;
+  return (total * options.fontSizePt + spacing) * weight;
 }
 
 /** Anchura de un carácter en em (fracciones del tamaño de letra). */

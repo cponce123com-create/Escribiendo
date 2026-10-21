@@ -1,4 +1,5 @@
 import { breakIntoLines, measureTextMm, type LineBreak } from "./measure";
+import { breakRunsIntoLines, type InlineRun } from "./rich-text";
 import {
   DEFAULT_TYPOGRAPHY_CONFIG,
   withTypographyDefaults,
@@ -36,6 +37,11 @@ export interface LayoutBlock {
   id: string;
   kind: LayoutBlockKind;
   text: string;
+  /**
+   * Tramos con formato en línea. Si falta, el bloque se compone como texto
+   * plano; si está, cada tramo se mide con su estilo.
+   */
+  runs?: InlineRun[];
   /** Identificador de la sección del libro de la que procede. */
   sectionId?: string;
   /** Título de la sección, para los encabezados de página. */
@@ -44,6 +50,8 @@ export interface LayoutBlock {
   startsChapter?: boolean;
   /** El bloque es el primero de su sección. */
   firstOfSection?: boolean;
+  /** Referencia de la imagen, cuando `kind` es `image`. */
+  image?: { src?: string; alt?: string };
 }
 
 export interface PageGeometry {
@@ -85,6 +93,8 @@ export interface LaidOutLine {
   text: string;
   hyphenated: boolean;
   overflow: boolean;
+  /** Tramos con su formato, para dibujar la línea con sus estilos. */
+  segments?: InlineRun[];
 }
 
 export interface LaidOutBlock {
@@ -291,7 +301,7 @@ export function paginate(
           ? 0
           : style.firstLineIndentMm;
 
-    const lines = breakIntoLines(block.text, {
+    const breakOptions = {
       fontFamily: style.fontFamily,
       fontSizePt: style.fontSizePt,
       letterSpacingPt: style.letterSpacingPt,
@@ -300,7 +310,18 @@ export function paginate(
       lineWidthMm: widthMm,
       firstLineIndentMm: indentMm,
       hyphenation: style.hyphenation,
-    });
+      // Los títulos se componen en negrita: si se midieran como redonda, la
+      // línea cabría en el cálculo y se saldría en el papel.
+      bold: block.kind.startsWith("heading"),
+    };
+
+    const lines: LaidOutLine[] =
+      block.runs && block.runs.length > 0
+        ? breakRunsIntoLines(block.runs, breakOptions)
+        : breakIntoLines(block.text, breakOptions).map((line) => ({
+            ...line,
+            segments: [{ text: line.text }],
+          }));
 
     if (lines.length === 0) {
       continue;
@@ -445,8 +466,13 @@ export function paginate(
   };
 }
 
-function toLaidOutLine(line: LineBreak): LaidOutLine {
-  return { text: line.text, hyphenated: line.hyphenated, overflow: line.overflow };
+function toLaidOutLine(line: LineBreak & { segments?: InlineRun[] }): LaidOutLine {
+  return {
+    text: line.text,
+    hyphenated: line.hyphenated,
+    overflow: line.overflow,
+    ...(line.segments && line.segments.length > 0 ? { segments: line.segments } : {}),
+  };
 }
 
 /**

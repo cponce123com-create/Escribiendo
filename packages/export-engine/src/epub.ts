@@ -8,11 +8,28 @@ import { buildZip, type ZipEntry } from "./zip";
  * el paquete, y el resto describe el contenido.
  */
 
-export type ExportBlockKind = "title" | "heading" | "body" | "quote" | "pageBreak";
+export type ExportBlockKind =
+  "title" | "heading" | "body" | "quote" | "pageBreak" | "rule" | "image";
+
+/** Tramo de texto con formato en línea, para el EPUB y el DOCX. */
+export interface ExportInlineRun {
+  text: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strike?: boolean;
+  superscript?: boolean;
+  subscript?: boolean;
+  link?: string;
+}
 
 export interface ExportBlock {
   kind: ExportBlockKind;
   text: string;
+  /** Tramos con formato. Si falta, se usa `text` tal cual. */
+  runs?: ExportInlineRun[];
+  /** Referencia de la imagen, cuando `kind` es `image`. */
+  image?: { src?: string; alt?: string };
 }
 
 export interface ExportChapter {
@@ -54,7 +71,54 @@ h1 { font-size: 1.6em; margin: 1.2em 0 0.8em; }
 h2 { font-size: 1.25em; margin: 1.1em 0 0.6em; }
 p { margin: 0 0 0.35em; text-indent: 1.2em; }
 p.quote { margin-left: 1.5em; margin-right: 1.5em; font-style: italic; text-indent: 0; }
+hr.scene { border: 0; text-align: center; margin: 1.2em 0; }
+hr.scene::after { content: "* * *"; letter-spacing: 0.4em; }
+figure.image { margin: 1.2em 0; text-align: center; }
+figure.image img { max-width: 100%; }
+figure.image figcaption, p.image-alt { font-size: 0.9em; font-style: italic; text-align: center; text-indent: 0; }
 div.pagebreak { page-break-after: always; }`;
+
+/** Un tramo con sus etiquetas de formato. */
+function inlineHtml(run: ExportInlineRun): string {
+  let html = escapeXml(run.text);
+
+  if (run.subscript) {
+    html = `<sub>${html}</sub>`;
+  } else if (run.superscript) {
+    html = `<sup>${html}</sup>`;
+  }
+
+  if (run.strike) {
+    html = `<s>${html}</s>`;
+  }
+
+  if (run.underline) {
+    html = `<u>${html}</u>`;
+  }
+
+  if (run.italic) {
+    html = `<em>${html}</em>`;
+  }
+
+  if (run.bold) {
+    html = `<strong>${html}</strong>`;
+  }
+
+  if (run.link) {
+    html = `<a href="${escapeXml(run.link)}">${html}</a>`;
+  }
+
+  return html;
+}
+
+/** Contenido en línea de un bloque, con o sin formato. */
+function inlineContent(block: ExportBlock): string {
+  if (!block.runs || block.runs.length === 0) {
+    return escapeXml(block.text);
+  }
+
+  return block.runs.map(inlineHtml).join("");
+}
 
 /** Cuerpo de un capítulo en XHTML. */
 function chapterXhtml(chapter: ExportChapter, language: string): string {
@@ -66,22 +130,44 @@ function chapterXhtml(chapter: ExportChapter, language: string): string {
       continue;
     }
 
+    if (block.kind === "rule") {
+      body.push('<hr class="scene"/>');
+      continue;
+    }
+
+    if (block.kind === "image") {
+      const src = block.image?.src;
+      const alt = block.image?.alt ?? block.text;
+
+      if (src) {
+        body.push(
+          `<figure class="image"><img src="${escapeXml(src)}" alt="${escapeXml(alt)}"/>${
+            alt.length > 0 ? `<figcaption>${escapeXml(alt)}</figcaption>` : ""
+          }</figure>`,
+        );
+      } else if (alt.length > 0) {
+        body.push(`<p class="image-alt">${escapeXml(alt)}</p>`);
+      }
+
+      continue;
+    }
+
     if (block.kind === "title") {
-      body.push(`<h1>${escapeXml(block.text)}</h1>`);
+      body.push(`<h1>${inlineContent(block)}</h1>`);
       continue;
     }
 
     if (block.kind === "heading") {
-      body.push(`<h2>${escapeXml(block.text)}</h2>`);
+      body.push(`<h2>${inlineContent(block)}</h2>`);
       continue;
     }
 
     if (block.kind === "quote") {
-      body.push(`<p class="quote">${escapeXml(block.text)}</p>`);
+      body.push(`<p class="quote">${inlineContent(block)}</p>`);
       continue;
     }
 
-    body.push(`<p>${escapeXml(block.text)}</p>`);
+    body.push(`<p>${inlineContent(block)}</p>`);
   }
 
   return (
@@ -131,8 +217,17 @@ export function buildEpub(document: ExportDocumentModel, createdAt: Date): Uint8
 
   chapters.forEach((chapter, index) => {
     const id = `chapter-${String(index + 1).padStart(3, "0")}`;
+    const tieneRemotas = chapter.blocks.some(
+      (block) =>
+        block.kind === "image" &&
+        typeof block.image?.src === "string" &&
+        /^https?:/u.test(block.image.src),
+    );
+
     manifest.push(
-      `    <item id="${id}" href="text/${id}.xhtml" media-type="application/xhtml+xml"/>`,
+      `    <item id="${id}" href="text/${id}.xhtml" media-type="application/xhtml+xml"${
+        tieneRemotas ? ' properties="remote-resources"' : ""
+      }/>`,
     );
     spine.push(`    <itemref idref="${id}"/>`);
   });

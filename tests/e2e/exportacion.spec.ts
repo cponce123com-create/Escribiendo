@@ -32,9 +32,11 @@ test.describe("Exportación", () => {
 
     const editor = page.locator(".ProseMirror");
     await editor.click();
-    await page.keyboard.type(
-      "Caía la tarde sobre la plaza cuando Marta cerró la puerta de la librería.",
-    );
+    await page.keyboard.type("Caía la tarde sobre la plaza cuando ");
+    await page.keyboard.press("Control+b");
+    await page.keyboard.type("Marta");
+    await page.keyboard.press("Control+b");
+    await page.keyboard.type(" cerró la puerta de la librería.");
     await page.getByRole("button", { name: "Guardar manuscrito" }).click();
     await expect(page.getByText("Guardado en el servidor.")).toBeVisible();
   });
@@ -120,6 +122,14 @@ test.describe("Exportación", () => {
 
     expect(bytes.subarray(0, 8).toString("utf8")).toBe("%PDF-1.4");
     expect(bytes.subarray(bytes.length - 6).toString("utf8")).toContain("%%EOF");
+
+    // La palabra en negrita se dibuja con la fuente negra, no con la redonda:
+    // el formato del manuscrito llega hasta el archivo final.
+    const texto = bytes.toString("latin1");
+    const posicion = texto.indexOf("Marta) Tj");
+
+    expect(posicion).toBeGreaterThan(0);
+    expect(texto.slice(Math.max(0, posicion - 160), posicion)).toContain("/F2 ");
   });
 
   test("el PDF de imprenta lleva sangrado y marcas de corte", async ({ page }) => {

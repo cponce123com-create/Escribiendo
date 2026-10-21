@@ -1,5 +1,5 @@
 import { buildZip, type ZipEntry } from "./zip";
-import type { ExportDocumentModel } from "./epub";
+import type { ExportBlock, ExportDocumentModel, ExportInlineRun } from "./epub";
 
 /**
  * DOCX.
@@ -33,11 +33,6 @@ const ROOT_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
   <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
   <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
-</Relationships>`;
-
-const DOCUMENT_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
 </Relationships>`;
 
 const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -87,6 +82,89 @@ const APP_PROPERTIES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
   <Application>ESCRIBIENDO</Application>
 </Properties>`;
 
+/** Propiedades de un tramo: negrita, cursiva, subrayado, tachado, superíndice. */
+function runXml(run: ExportInlineRun): string {
+  const props: string[] = [];
+
+  if (run.bold) {
+    props.push("<w:b/>");
+  }
+
+  if (run.italic) {
+    props.push("<w:i/>");
+  }
+
+  if (run.underline) {
+    props.push('<w:u w:val="single"/>');
+  }
+
+  if (run.strike) {
+    props.push("<w:strike/>");
+  }
+
+  if (run.superscript) {
+    props.push('<w:vertAlign w:val="superscript"/>');
+  }
+
+  if (run.subscript) {
+    props.push('<w:vertAlign w:val="subscript"/>');
+  }
+
+  const properties = props.length > 0 ? `<w:rPr>${props.join("")}</w:rPr>` : "";
+
+  return `<w:r>${properties}<w:t xml:space="preserve">${escapeXml(run.text)}</w:t></w:r>`;
+}
+
+/**
+ * Contenido de un párrafo con sus tramos.
+ *
+ * Los enlaces se agrupan en un solo hipervínculo para no repetir la relación
+ * de Word en cada palabra: el identificador se registra una vez y se reutiliza.
+ */
+function inlineXml(block: ExportBlock, links: string[]): string {
+  if (!block.runs || block.runs.length === 0) {
+    return `<w:r><w:t xml:space="preserve">${escapeXml(block.text)}</w:t></w:r>`;
+  }
+
+  const parts: string[] = [];
+  let index = 0;
+
+  while (index < block.runs.length) {
+    const run = block.runs[index];
+
+    if (!run) {
+      break;
+    }
+
+    if (run.link) {
+      const href = run.link;
+      const group: ExportInlineRun[] = [];
+
+      while (index < block.runs.length && block.runs[index]?.link === href) {
+        const current = block.runs[index];
+
+        if (current) {
+          group.push(current);
+        }
+
+        index += 1;
+      }
+
+      links.push(href);
+      const id = `rIdL${links.length}`;
+      const content = group.map((item) => runXml({ ...item, link: undefined })).join("");
+
+      parts.push(`<w:hyperlink r:id="${id}" w:history="1">${content}</w:hyperlink>`);
+      continue;
+    }
+
+    parts.push(runXml(run));
+    index += 1;
+  }
+
+  return parts.join("");
+}
+
 /** Párrafo de Word. */
 function paragraph(text: string, styleId: string | null): string {
   const properties = styleId ? `<w:pPr><w:pStyle w:val="${styleId}"/></w:pPr>` : "";
@@ -94,11 +172,39 @@ function paragraph(text: string, styleId: string | null): string {
   return `<w:p>${properties}<w:r><w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r></w:p>`;
 }
 
+/** Párrafo de Word a partir de un bloque con formato. */
+function blockParagraph(block: ExportBlock, styleId: string | null, links: string[]): string {
+  const properties = styleId ? `<w:pPr><w:pStyle w:val="${styleId}"/></w:pPr>` : "";
+
+  return `<w:p>${properties}${inlineXml(block, links)}</w:p>`;
+}
+
+/** Separador de escena: una línea horizontal de párrafo. */
+const RULE_PARAGRAPH =
+  '<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="808080"/></w:pBdr></w:pPr></w:p>';
+
+/** Relaciones del documento, incluidas las de los enlaces. */
+function documentRels(links: readonly string[]): string {
+  const hyperlinks = links
+    .map(
+      (href, index) =>
+        `<Relationship Id="rIdL${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${escapeXml(href)}" TargetMode="External"/>`,
+    )
+    .join("\n  ");
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>${hyperlinks.length > 0 ? `\n  ${hyperlinks}` : ""}
+</Relationships>`;
+}
+
 /**
  * Construye el DOCX.
  */
 export function buildDocx(document: ExportDocumentModel, createdAt: Date): Uint8Array {
   const body: string[] = [];
+  /** Enlaces del documento, para las relaciones de Word. */
+  const links: string[] = [];
 
   for (const chapter of document.chapters) {
     body.push(paragraph(chapter.title, "Ttulo1"));
@@ -109,22 +215,27 @@ export function buildDocx(document: ExportDocumentModel, createdAt: Date): Uint8
         continue;
       }
 
+      if (block.kind === "rule") {
+        body.push(RULE_PARAGRAPH);
+        continue;
+      }
+
       if (block.kind === "title") {
-        body.push(paragraph(block.text, "Ttulo1"));
+        body.push(blockParagraph(block, "Ttulo1", links));
         continue;
       }
 
       if (block.kind === "heading") {
-        body.push(paragraph(block.text, "Ttulo2"));
+        body.push(blockParagraph(block, "Ttulo2", links));
         continue;
       }
 
       if (block.kind === "quote") {
-        body.push(paragraph(block.text, "Cita"));
+        body.push(blockParagraph(block, "Cita", links));
         continue;
       }
 
-      body.push(paragraph(block.text, null));
+      body.push(blockParagraph(block, null, links));
     }
   }
 
@@ -135,13 +246,13 @@ export function buildDocx(document: ExportDocumentModel, createdAt: Date): Uint8
       name: "word/document.xml",
       data: new TextEncoder().encode(
         `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n` +
-          `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">\n` +
+          `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">\n` +
           `<w:body>\n${body.join("\n")}\n` +
           `<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1418" w:right="1418" w:bottom="1418" w:left="1418" w:header="709" w:footer="709" w:gutter="0"/></w:sectPr>\n` +
           `</w:body>\n</w:document>\n`,
       ),
     },
-    { name: "word/_rels/document.xml.rels", data: new TextEncoder().encode(DOCUMENT_RELS) },
+    { name: "word/_rels/document.xml.rels", data: new TextEncoder().encode(documentRels(links)) },
     { name: "word/styles.xml", data: new TextEncoder().encode(STYLES) },
     {
       name: "docProps/core.xml",

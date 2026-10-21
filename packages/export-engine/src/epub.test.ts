@@ -226,3 +226,104 @@ describe("buildDocx", () => {
     expect(equals(buildDocx(DOCUMENTO, FECHA), bytes)).toBe(true);
   });
 });
+
+describe("formato en línea en EPUB y DOCX", () => {
+  const CON_FORMATO: ExportDocumentModel = {
+    ...DOCUMENTO,
+    chapters: [
+      {
+        id: "c1",
+        title: "El velo de la tarde",
+        blocks: [
+          { kind: "title", text: "El velo de la tarde" },
+          {
+            kind: "body",
+            text: "La noche era oscura y el reloj marcaba las dos.",
+            runs: [
+              { text: "La " },
+              { text: "noche", bold: true },
+              { text: " era " },
+              { text: "oscura", italic: true },
+              { text: " y el " },
+              { text: "reloj", underline: true, strike: true },
+              { text: " marcaba las " },
+              { text: "dos", superscript: true },
+              { text: "." },
+            ],
+          },
+          {
+            kind: "body",
+            text: "Una nota y un enlace.",
+            runs: [
+              { text: "Una nota" },
+              { text: "2", superscript: true },
+              { text: " y un " },
+              { text: "enlace", link: "https://ejemplo.test/libro" },
+              { text: "." },
+            ],
+          },
+          { kind: "rule", text: "" },
+          {
+            kind: "image",
+            text: "La plaza al anochecer",
+            image: { src: "https://ejemplo.test/plaza.jpg", alt: "La plaza al anochecer" },
+          },
+        ],
+      },
+    ],
+  };
+
+  const epub = buildEpub(CON_FORMATO, FECHA);
+  const docx = buildDocx(CON_FORMATO, FECHA);
+
+  it("el EPUB conserva negrita, cursiva, subrayado y tachado", () => {
+    const capitulo = entryText(epub, "EPUB/text/chapter-001.xhtml") ?? "";
+
+    expect(capitulo).toContain("<strong>noche</strong>");
+    expect(capitulo).toContain("<em>oscura</em>");
+    expect(capitulo).toContain("<u><s>reloj</s></u>");
+  });
+
+  it("el EPUB conserva superíndices, enlaces y separadores", () => {
+    const capitulo = entryText(epub, "EPUB/text/chapter-001.xhtml") ?? "";
+
+    expect(capitulo).toContain("<sup>dos</sup>");
+    expect(capitulo).toContain('<a href="https://ejemplo.test/libro">enlace</a>');
+    expect(capitulo).toContain('<hr class="scene"/>');
+  });
+
+  it("el EPUB declara los recursos remotos de las imágenes", () => {
+    const paquete = entryText(epub, "EPUB/package.opf") ?? "";
+    const capitulo = entryText(epub, "EPUB/text/chapter-001.xhtml") ?? "";
+
+    expect(capitulo).toContain('<img src="https://ejemplo.test/plaza.jpg"');
+    expect(capitulo).toContain("<figcaption>La plaza al anochecer</figcaption>");
+    expect(paquete).toContain('properties="remote-resources"');
+  });
+
+  it("el DOCX conserva el formato de cada tramo", () => {
+    const documento = entryText(docx, "word/document.xml") ?? "";
+
+    expect(documento).toContain("<w:b/>");
+    expect(documento).toContain("<w:i/>");
+    expect(documento).toContain('<w:u w:val="single"/>');
+    expect(documento).toContain("<w:strike/>");
+    expect(documento).toContain('<w:vertAlign w:val="superscript"/>');
+  });
+
+  it("el DOCX escribe enlaces con su relación externa", () => {
+    const documento = entryText(docx, "word/document.xml") ?? "";
+    const relaciones = entryText(docx, "word/_rels/document.xml.rels") ?? "";
+
+    expect(documento).toContain('<w:hyperlink r:id="rIdL1"');
+    expect(relaciones).toContain('Target="https://ejemplo.test/libro"');
+    expect(relaciones).toContain('TargetMode="External"');
+  });
+
+  it("el DOCX dibuja el separador como línea de párrafo", () => {
+    const documento = entryText(docx, "word/document.xml") ?? "";
+
+    expect(documento).toContain("<w:pBdr>");
+    expect(documento).toContain('<w:bottom w:val="single"');
+  });
+});

@@ -148,26 +148,75 @@ function PreviewBlock({ block }: { block: LaidOutBlock }) {
         fontStyle: block.kind === "blockquote" ? "italic" : undefined,
       }}
     >
-      {block.lines.map((line, index) => {
-        const esUltima = index === block.lines.length - 1;
+      {block.kind === "rule" ? (
+        <div style={{ textAlign: "center", letterSpacing: "0.4em" }}>* * *</div>
+      ) : block.kind === "image" ? (
+        <div
+          style={{
+            textAlign: "center",
+            fontStyle: "italic",
+            opacity: 0.7,
+          }}
+        >
+          {block.id && block.lines.length === 0 ? "▣" : null}
+        </div>
+      ) : (
+        block.lines.map((line, index) => {
+          const esUltima = index === block.lines.length - 1;
 
-        return (
-          <div
-            key={`${block.id}-${index}`}
-            style={{
-              minHeight: `${lineHeight}pt`,
-              // Cada línea es un bloque propio, así que el justificado del
-              // navegador no se aplica: hay que pedirlo explícitamente. La
-              // última línea del párrafo se deja suelta, como en un libro.
-              textAlignLast: style.alignment === "justify" && !esUltima ? "justify" : alignment,
-              ...(line.overflow ? { color: "var(--color-danger, #b3261e)" } : {}),
-            }}
-          >
-            {line.text}
-            {line.hyphenated ? "‑" : ""}
-          </div>
-        );
-      })}
+          return (
+            <div
+              key={`${block.id}-${index}`}
+              style={{
+                minHeight: `${lineHeight}pt`,
+                // Cada línea es un bloque propio, así que el justificado del
+                // navegador no se aplica: hay que pedirlo explícitamente. La
+                // última línea del párrafo se deja suelta, como en un libro.
+                textAlignLast: style.alignment === "justify" && !esUltima ? "justify" : alignment,
+                ...(line.overflow ? { color: "var(--color-danger, #b3261e)" } : {}),
+              }}
+            >
+              {line.segments && line.segments.length > 0
+                ? line.segments.map((segment, segmentIndex) => {
+                    const marks = segment.marks;
+
+                    if (!marks) {
+                      return <span key={segmentIndex}>{segment.text}</span>;
+                    }
+
+                    const decorations = [
+                      marks.underline ? "underline" : null,
+                      marks.strike ? "line-through" : null,
+                    ].filter(Boolean);
+
+                    return (
+                      <span
+                        key={segmentIndex}
+                        style={{
+                          fontWeight: marks.bold ? 700 : undefined,
+                          fontStyle: marks.italic ? "italic" : undefined,
+                          textDecoration:
+                            decorations.length > 0 ? decorations.join(" ") : undefined,
+                          verticalAlign: marks.superscript
+                            ? "super"
+                            : marks.subscript
+                              ? "sub"
+                              : undefined,
+                          fontSize: marks.superscript || marks.subscript ? "0.72em" : undefined,
+                          fontFamily: marks.code ? "monospace" : undefined,
+                          ...(marks.link ? { color: "#1a4f9c", textDecoration: "underline" } : {}),
+                        }}
+                      >
+                        {segment.text}
+                      </span>
+                    );
+                  })
+                : line.text}
+              {line.hyphenated ? "‑" : ""}
+            </div>
+          );
+        })
+      )}
     </div>
   );
 }

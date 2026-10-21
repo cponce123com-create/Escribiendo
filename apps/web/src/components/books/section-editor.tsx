@@ -90,7 +90,13 @@ export function SectionEditor({
   }, []);
 
   const editor = useEditor({
-    extensions: [StarterKit],
+    extensions: [
+      StarterKit.configure({
+        // El enlace se edita, no se navega: un clic dentro del manuscrito no
+        // debe sacar al autor de la página.
+        link: { openOnClick: false },
+      }),
+    ],
     content,
     // El editor se inicializa en el cliente: sin esta opción, Next.js
     // intentaría renderizarlo en el servidor y la hidratación no coincidiría.
@@ -445,6 +451,37 @@ export function SectionEditor({
           title: "Tachado",
           isActive: () => editor.isActive("strike"),
           run: () => editor.chain().focus().toggleStrike().run(),
+        },
+        {
+          label: "U",
+          title: "Subrayado",
+          isActive: () => editor.isActive("underline"),
+          run: () => editor.chain().focus().toggleUnderline().run(),
+        },
+        {
+          label: "E",
+          title: "Enlace",
+          isActive: () => editor.isActive("link"),
+          run: () => {
+            const anterior = editor.getAttributes("link").href;
+            const href = window.prompt(
+              "Dirección del enlace (vacía para quitarlo)",
+              typeof anterior === "string" ? anterior : "https://",
+            );
+
+            if (href === null) {
+              return;
+            }
+
+            const limpio = href.trim();
+
+            if (limpio.length === 0) {
+              editor.chain().focus().extendMarkRange("link").unsetLink().run();
+              return;
+            }
+
+            editor.chain().focus().extendMarkRange("link").setLink({ href: limpio }).run();
+          },
         },
         {
           label: "H2",

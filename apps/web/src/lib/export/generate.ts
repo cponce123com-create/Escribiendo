@@ -145,14 +145,50 @@ function toPdfPages(
       const lineHeightMm = (block.style.fontSizePt * block.style.lineHeight * 25.4) / 72;
       y += block.spaceBeforeMm;
 
+      // Separador de escena: no tiene líneas de texto, pero ocupa su renglón.
+      if (block.kind === "rule") {
+        const marca = "* * *";
+        const ancho = measureTextMm(marca, {
+          fontFamily: block.style.fontFamily,
+          fontSizePt: block.style.fontSizePt,
+        });
+
+        runs.push({
+          text: marca,
+          font: "regular",
+          sizePt: block.style.fontSizePt,
+          xMm: leftMm + Math.max(0, (textWidthMm - ancho) / 2),
+          baselineMm: y + lineHeightMm * 0.8,
+        });
+
+        y += lineHeightMm;
+        continue;
+      }
+
       block.lines.forEach((line, index) => {
         const baselineMm = y + lineHeightMm * 0.8;
-        const naturalWidth =
-          measureTextMm(line.text, {
+        const baseFont: "regular" | "bold" | "italic" = block.kind.startsWith("heading")
+          ? "bold"
+          : block.kind === "blockquote"
+            ? "italic"
+            : "regular";
+        const baseBold = baseFont === "bold";
+        const baseItalic = baseFont === "italic";
+        const measure = (text: string, bold: boolean): number =>
+          measureTextMm(text, {
             fontFamily: block.style.fontFamily,
             fontSizePt: block.style.fontSizePt,
             letterSpacingPt: block.style.letterSpacingPt,
+            bold,
           }) || 0;
+
+        const segments =
+          line.segments && line.segments.length > 0 ? line.segments : [{ text: line.text }];
+
+        const naturalWidth = segments.reduce(
+          (sum, segment) => sum + measure(segment.text, baseBold || segment.marks?.bold === true),
+          0,
+        );
 
         let x = leftMm;
         let wordSpacing = 0;
@@ -163,7 +199,10 @@ function toPdfPages(
           x = leftMm + Math.max(0, textWidthMm - naturalWidth);
         } else if (block.style.alignment === "justify") {
           const esUltima = index === block.lines.length - 1;
-          const espacios = (line.text.match(/ /gu) ?? []).length;
+          const espacios = segments.reduce(
+            (sum, segment) => sum + (segment.text.match(/ /gu)?.length ?? 0),
+            0,
+          );
 
           if (!esUltima && espacios > 0) {
             // El ancho extra se reparte entre los espacios, como hace el
@@ -173,18 +212,42 @@ function toPdfPages(
           }
         }
 
-        runs.push({
-          text: line.text,
-          font: block.kind.startsWith("heading")
-            ? "bold"
-            : block.kind === "blockquote"
-              ? "italic"
-              : "regular",
-          sizePt: block.style.fontSizePt,
-          xMm: x,
-          baselineMm,
-          ...(wordSpacing > 0 ? { wordSpacing } : {}),
-        });
+        // Un renglón puede mezclar negrita, cursiva y redonda: cada tramo se
+        // dibuja con su fuente y en su posición, no se aplana a un solo estilo.
+        for (const segment of segments) {
+          if (segment.text.length === 0) {
+            continue;
+          }
+
+          const bold = baseBold || segment.marks?.bold === true;
+          const italic = baseItalic || segment.marks?.italic === true;
+          const font: PdfRun["font"] =
+            bold && italic ? "boldItalic" : bold ? "bold" : italic ? "italic" : "regular";
+          const segmentWidth = measure(segment.text, bold);
+          const sizePt =
+            block.style.fontSizePt *
+            (segment.marks?.superscript || segment.marks?.subscript ? 0.72 : 1);
+          const risePt = segment.marks?.superscript
+            ? block.style.fontSizePt * 0.38
+            : segment.marks?.subscript
+              ? -block.style.fontSizePt * 0.18
+              : undefined;
+
+          runs.push({
+            text: segment.text,
+            font,
+            sizePt,
+            xMm: x,
+            baselineMm,
+            widthMm: segmentWidth,
+            ...(wordSpacing > 0 ? { wordSpacing } : {}),
+            ...(segment.marks?.underline ? { underline: true } : {}),
+            ...(segment.marks?.strike ? { strike: true } : {}),
+            ...(risePt !== undefined ? { risePt } : {}),
+          });
+
+          x += segmentWidth;
+        }
 
         y += lineHeightMm;
       });
@@ -283,6 +346,8 @@ export function generateFile(input: GenerateInput): GeneratedFile {
       blocks: sectionToBlocks(section).map((block): ExportBlock => ({
         kind: block.kind,
         text: block.text,
+        ...(block.runs ? { runs: block.runs } : {}),
+        ...(block.image ? { image: block.image } : {}),
       })),
     }));
 

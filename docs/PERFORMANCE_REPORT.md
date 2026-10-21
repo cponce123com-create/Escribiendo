@@ -35,13 +35,31 @@ reserva del proceso durante la medición, no el consumo absoluto: el
 recolector de basura de Node.js no devuelve la memoria al sistema de
 inmediato.
 
+### Reejecución tras el Lote E (21 de octubre de 2026)
+
+El motor de tramos con formato añade un camino nuevo, pero los manuscritos sin
+marcas siguen usando el reparto rápido de siempre. La reejecución lo confirma:
+
+| Palabras | Páginas | Paginación |   PDF |  EPUB |  DOCX | Memoria |
+| -------- | ------: | ---------: | ----: | ----: | ----: | ------: |
+| 10 000   |      28 |      24 ms | 11 ms |  8 ms |  9 ms |  2,8 MB |
+| 50 000   |     137 |      61 ms | 18 ms | 16 ms | 17 ms | 26,6 MB |
+| 100 000  |     273 |     101 ms | 34 ms | 31 ms | 28 ms |  7,2 MB |
+| 200 000  |     546 |     212 ms | 71 ms | 59 ms | 74 ms | 12,8 MB |
+
+La paginación y el PDF varían unos milisegundos entre pasadas por el
+recolector y la carga del equipo. El máximo de memoria observado en todas las
+pasadas sigue siendo 55,7 MB, por debajo de los 512 MB de Render Free. Ninguna
+cifra de esta sección procede de una estimación: todas salen de ejecutar el
+comando.
+
 ## Suite de pruebas
 
 | Suite                       | Duración | Resultado    |
 | --------------------------- | -------: | ------------ |
-| `pnpm test` (unitarias)     |     ~5 s | 220 en verde |
+| `pnpm test` (unitarias)     |     ~7 s | 248 en verde |
 | `pnpm build` (producción)   |    ~20 s | 26 rutas     |
-| `pnpm test:e2e` (navegador) |   ~2,6 m | 70 en verde  |
+| `pnpm test:e2e` (navegador) |   ~3,5 m | 70 en verde  |
 
 La suite de extremo a extremo es la que tarda, y lo hace por el navegador: 70
 pruebas en Chromium con un solo trabajador, contra la compilación de

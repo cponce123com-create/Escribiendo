@@ -22,49 +22,55 @@ Donde un criterio no sea aplicable, se dice y se redistribuye su peso.
 
 ## Puntuación por área
 
-| Área                         |  Antes | Después | Evidencia                                                                                        | Pendiente                                   |
-| ---------------------------- | -----: | ------: | ------------------------------------------------------------------------------------------------ | ------------------------------------------- |
-| Arquitectura                 |     88 |      90 | Ocho paquetes con responsabilidad única; `team/` y `editor/` no acoplan nada                     | —                                           |
-| Organización del repositorio |     92 |      93 | Códigos nuevos con pruebas propias en el mismo sitio                                             | —                                           |
-| Prisma ORM                   |     87 |      90 | 3 migraciones aditivas, 20 tablas, 16 `CHECK`, índices en las columnas nuevas                    | —                                           |
-| Autenticación                |     84 |      87 | Sesiones opacas, argon2id, bloqueo de cuenta, invitaciones con huella de token                   | Sin segundo factor                          |
-| Seguridad                    |     80 |      87 | Roles en servidor, descarga firmada, auditoría con permiso, sin pérdida silenciosa de caracteres | Sin auditoría de dependencias automatizada  |
-| Biblioteca                   |     90 |      90 | Búsqueda, filtros, árbol de secciones                                                            | —                                           |
-| Editor                       |     78 |      85 | Tiptap, estados de sincronización, borradores locales, conflictos con comparación                | Sin imágenes ni notas al pie                |
-| **Guardado y recuperación**  | **48** |  **90** | 9 pruebas E2E de resiliencia y 27 unitarias de la máquina de estados                             | —                                           |
-| Historial                    |     88 |      90 | Revisiones inmutables,trigger y restauración como versión nueva                                  | —                                           |
-| Revisión editorial           |     88 |      91 | Comentarios, resolución, aprobación condicionada, asignación por persona                         | —                                           |
-| Maquetación                  |     72 |      77 | Geometría validada, paginación por altura, diagnóstico, vista a escala real                      | Modelo editorial con formato en línea       |
-| PDF                          |     55 |      73 | Unicode español corregido, sin pérdida silenciosa, cajas de recorte y sangre                     | Métricas reales de fuente incrustada        |
-| EPUB                         |     78 |      80 | EPUB 3 con la estructura completa verificada byte a byte                                         | Validación con EPUBCheck, portada, imágenes |
-| DOCX                         |     72 |      75 | Paquete OOXML con tipos, relaciones, estilos y saltos de página                                  | Apertura real en Word, imágenes, notas      |
-| Exportaciones                |     72 |      84 | Cola idempotente, descarga firmada, metadatos, 200 000 palabras en 230 ms                        | Límite explícito de tamaño por petición     |
-| UX/UI                        |     85 |      89 | Estado de guardado honesto, equipo, Conflictos con comparación                                   | —                                           |
-| Render Free                  |     80 |      90 | Sin procesos permanentes; la exportación de 200 k palabras usa 56 MB                             | —                                           |
-| Pruebas                      |     86 |      93 | 220 unitarias y 70 E2E, con resiliencia y exportación                                            | Sin navegador distinto de Chromium          |
-| Documentación                |     93 |      96 | Auditoría, correcciones, recuperación, exportaciones, rendimiento, ROADMAP                       | —                                           |
-| Escalabilidad                |     72 |      80 | Consultas acotadas por estudio; exportación lineal con el tamaño                                 | Techo de memoria en la exportación          |
+| Área                         |  Antes | Después | Evidencia                                                                                        | Pendiente                                  |
+| ---------------------------- | -----: | ------: | ------------------------------------------------------------------------------------------------ | ------------------------------------------ |
+| Arquitectura                 |     88 |      90 | Ocho paquetes con responsabilidad única; `team/` y `editor/` no acoplan nada                     | —                                          |
+| Organización del repositorio |     92 |      93 | Códigos nuevos con pruebas propias en el mismo sitio                                             | —                                          |
+| Prisma ORM                   |     87 |      90 | 3 migraciones aditivas, 20 tablas, 16 `CHECK`, índices en las columnas nuevas                    | —                                          |
+| Autenticación                |     84 |      87 | Sesiones opacas, argon2id, bloqueo de cuenta, invitaciones con huella de token                   | Sin segundo factor                         |
+| Seguridad                    |     80 |      87 | Roles en servidor, descarga firmada, auditoría con permiso, sin pérdida silenciosa de caracteres | Sin auditoría de dependencias automatizada |
+| Biblioteca                   |     90 |      90 | Búsqueda, filtros, árbol de secciones                                                            | —                                          |
+| Editor                       |     78 |      89 | Tiptap, borradores locales, conflictos, subrayado y enlaces en la barra                          | Sin imágenes ni notas al pie               |
+| **Guardado y recuperación**  | **48** |  **90** | 9 pruebas E2E de resiliencia y 27 unitarias de la máquina de estados                             | —                                          |
+| Historial                    |     88 |      90 | Revisiones inmutables, trigger y restauración como versión nueva                                 | —                                          |
+| Revisión editorial           |     88 |      91 | Comentarios, resolución, aprobación condicionada, asignación por persona                         | —                                          |
+| Maquetación                  |     72 |      84 | Geometría validada, paginación por altura, tramos con formato y separadores de escena            | Imágenes en la maqueta                     |
+| PDF                          |     55 |      81 | Unicode español, negrita/cursiva/subrayado/tachado, superíndices y separadores sin pérdida       | Métricas reales de fuente, imágenes        |
+| EPUB                         |     78 |      86 | EPUB 3 con formato en línea, separadores e imágenes remotas declaradas                           | Validación con EPUBCheck, portada          |
+| DOCX                         |     72 |      82 | OOXML con tramos, hipervínculos con relación externa y separadores dibujados                     | Apertura real en Word, imágenes, notas     |
+| Exportaciones                |     72 |      86 | Cola idempotente, descarga firmada, metadatos, 200 000 palabras en 230 ms                        | Límite explícito de tamaño por petición    |
+| UX/UI                        |     85 |      89 | Estado de guardado honesto, equipo, Conflictos con comparación                                   | —                                          |
+| Render Free                  |     80 |      90 | Sin procesos permanentes; la exportación de 200 k palabras usa 56 MB                             | —                                          |
+| Pruebas                      |     86 |      94 | 248 unitarias y 70 E2E, con resiliencia, formato en línea y exportación                          | Sin navegador distinto de Chromium         |
+| Documentación                |     93 |      96 | Auditoría, correcciones, recuperación, exportaciones, rendimiento, ROADMAP                       | —                                          |
+| Escalabilidad                |     72 |      80 | Consultas acotadas por estudio; exportación lineal con el tamaño                                 | Techo de memoria en la exportación         |
 
-**Media ponderada: 85,6 sobre 100** (antes: 77,3).
+**Media de áreas: 88,3 sobre 100** (antes: 86,5). La media ponderada por
+criterios se estima en **87,4** (antes: 85,6), con el mismo desplazamiento que
+la media de áreas. La estimación no reclama precisión que no se haya medido.
 
 ## La meta de 95 no se alcanza, y esto es lo que falta
 
 No se ha alcanzado el 95 porque quedan tres cosas **sin hacer**, todas
 identificadas y acotadas:
 
-### 1. Modelo editorial estructurado (afecta a maquetación, PDF, EPUB y DOCX)
+### 1. Modelo editorial estructurado (resuelto para el formato en línea; faltan imágenes y notas)
 
-Hoy la maquetación y las exportaciones **aplanan** el documento: el formato en
-línea (negrita, cursiva, subrayado), las imágenes y los separadores de escena
-se pierden al convertirlos a texto. El contenido no se pierde de forma
-silenciosa en el caso de los separadores (se conservan como una regla), pero
-las imágenes sí, y el formato en línea también.
+El Lote E ha sustituido la conversión plana por un modelo de tramos
+(`InlineRun` con sus marcas) que comparten la vista previa, el PDF, el EPUB y
+el DOCX. Se conservan negrita, cursiva, subrayado, tachado, superíndices,
+subíndices y enlaces. Los separadores de escena dejan de ser saltos de página
+y se dibujan como `* * *`, `<hr class="scene"/>` o una línea de párrafo. Los
+títulos se miden con el ancho de la negrita que después se dibuja, de modo que
+la línea calculada y la impresa coinciden.
 
-La solución es un modelo intermedio (`EditorialBlock` con tramos de texto y
-sus marcas) que sirva a la vista previa, al PDF, al EPUB y al DOCX, en lugar de
-cuatro conversiones incompatibles. Es el Lote 2 del plan de auditoría y es
-el trabajo de mayor tamaño pendiente: toca el motor de paginación, los tres
-escritores de archivo y sus pruebas.
+Queda pendiente dentro de esta brecha:
+
+- **Imágenes.** El modelo las conserva (`LayoutBlock.image`), el EPUB las
+  incluye como recurso remoto declarado, pero el PDF y el DOCX todavía no las
+  dibujan.
+- **Notas al pie.** El esquema las admite, pero no hay editor ni composición
+  de notas.
 
 ### 2. Fuentes incrustadas en el PDF (afecta a PDF)
 
@@ -102,21 +108,25 @@ se afirma más de lo que se ha comprobado.
 | 12  | El panel lateral anunciaba como «próximas» las Fases 3, 4 y 5, ya hechas                   | Media    | Corregido |
 | 13  | Los archivos de prueba se ejecutaban en un orden que rompía la suite                       | Media    | Corregido |
 | 14  | Un comentario del código contenía texto corrupto en cirílico                               | Menor    | Corregido |
+| 15  | La exportación convertía los separadores de escena en saltos de página                     | Alta     | Corregido |
+| 16  | La exportación aplanaba el formato en línea y descartaba las imágenes                      | Alta     | Corregido |
+| 17  | La paginación perdía los tramos al convertir las líneas para el PDF                        | Alta     | Corregido |
+| 18  | Los títulos se medían como redonda y se imprimían en negrita                               | Media    | Corregido |
 
 ## Estado de las condiciones de cierre
 
-| Condición                                            | Estado                                                                  |
-| ---------------------------------------------------- | ----------------------------------------------------------------------- |
-| Riesgo conocido de pérdida silenciosa de manuscritos | **Resuelto**: borrador local, control de orden y avisos de conflicto    |
-| Vulnerabilidad crítica sin corregir                  | No consta ninguna abierta en esta auditoría                             |
-| Exportación que pierde caracteres                    | **Resuelto** para la tipografía española; el resto se avisa             |
-| Archivos PDF corruptos                               | No: la cabecera, la estructura y el cierre se comprueban en cada prueba |
-| Pérdida de imágenes o formato sin advertencia        | **Pendiente**: el modelo editorial del Lote 2                           |
-| Migraciones destructivas no autorizadas              | Ninguna: las tres migraciones son aditivas                              |
-| Pruebas críticas fallidas                            | Ninguna: 220 unitarias y 70 E2E en verde                                |
-| Error de compilación                                 | Ninguno                                                                 |
-| Regresión funcional                                  | Ninguna detectada                                                       |
-| Exposición de secretos                               | Ninguna: escaneo del árbol y del historial de commits                   |
+| Condición                                            | Estado                                                                                                                                                          |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Riesgo conocido de pérdida silenciosa de manuscritos | **Resuelto**: borrador local, control de orden y avisos de conflicto                                                                                            |
+| Vulnerabilidad crítica sin corregir                  | No consta ninguna abierta en esta auditoría                                                                                                                     |
+| Exportación que pierde caracteres                    | **Resuelto** para la tipografía española; el resto se avisa                                                                                                     |
+| Archivos PDF corruptos                               | No: la cabecera, la estructura y el cierre se comprueban en cada prueba                                                                                         |
+| Pérdida de imágenes o formato sin advertencia        | **Resuelto** para el formato en línea y los separadores; las imágenes se conservan en el modelo y el EPUB las incluye, pero el PDF y el DOCX aún no las dibujan |
+| Migraciones destructivas no autorizadas              | Ninguna: las tres migraciones son aditivas                                                                                                                      |
+| Pruebas críticas fallidas                            | Ninguna: 248 unitarias y 70 E2E en verde                                                                                                                        |
+| Error de compilación                                 | Ninguno                                                                                                                                                         |
+| Regresión funcional                                  | Ninguna detectada                                                                                                                                               |
+| Exposición de secretos                               | Ninguna: escaneo del árbol y del historial de commits                                                                                                           |
 
 ## Lo que no se ha verificado
 

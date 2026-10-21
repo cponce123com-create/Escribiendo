@@ -79,7 +79,7 @@ El detalle de cada escenario está en [RECOVERY_TESTS.md](RECOVERY_TESTS.md).
 
 ### Falso positivo detectado y corregido durante el lote
 
-El `beforeunload` solo avisa; no salva. En un primer momento se/confundió el
+El `beforeunload` solo avisa; no salva. En un primer momento se confundió el
 aviso con una protección y se dio por buena la persistencia local. La
 prueba de «servidor caído» lo puso de manifiesto: al recargar, el texto no
 estaba. La persistencia local es la que lo resuelve, no el aviso.
@@ -96,3 +96,70 @@ estaba. La persistencia local es la que lo resuelve, no el aviso.
 - El límite de 45 s entre guardados automáticos del servidor sigue en pie: es
   deliberado, para no crear una revisión por pulsación. El texto no se pierde
   por eso, porque queda en el equipo hasta que el servidor lo acepte.
+
+## Lote E — fidelidad editorial del formato en línea
+
+Fecha: 21 de octubre de 2026. Rama: `audit/optimization-95`.
+
+### Qué estaba mal
+
+1. La vista previa y la exportación usaban **dos conversores distintos**. El de
+   la exportación aplanaba el documento a texto: negritas, cursivas, enlaces y
+   superíndices se perdían sin aviso.
+2. Los separadores de escena (`horizontalRule`) se convertían en **saltos de
+   página** en el EPUB y el DOCX. Una pausa de escena partía el capítulo en dos.
+3. El PDF dibujaba una sola fuente por línea. Aunque el documento tuviera
+   negritas, la línea entera salía en redonda.
+4. Los títulos se medían con el ancho de la redonda y se imprimían en negrita:
+   el cálculo podía dar por buena una línea que en el papel se salía.
+
+### Qué se ha cambiado
+
+- `packages/editorial-engine/src/rich-text.ts`: modelo de tramos (`InlineRun`,
+  `InlineMarks`) y reparto de líneas que mide cada tramo con su estilo. Sin
+  marcas, delega en el camino rápido de siempre.
+- `measure.ts`: la negrita se mide con un factor de 1,03 (`BOLD_FACTOR`), no
+  simulando un cuerpo mayor.
+- `pagination.ts`: `LayoutBlock.runs` y `LaidOutLine.segments`; los títulos se
+  miden en negrita.
+- `apps/web/src/lib/layout/inline.ts`: lectura única de las marcas de Tiptap,
+  compartida por la vista previa y la exportación.
+- `apps/web/src/lib/layout/blocks.ts`: conserva negrita, cursiva, subrayado,
+  tachado, superíndice, subíndice, código y enlaces; conserva reglas e
+  imágenes.
+- `apps/web/src/lib/export/manuscript.ts`: el mismo formato para EPUB y DOCX;
+  los separadores dejan de ser saltos de página; las listas ordenadas se
+  numeran.
+- `packages/export-engine/src/pdf.ts`: Times-BoldItalic, subrayado y tachado
+  trazados, desplazamiento de línea base para superíndices.
+- `packages/export-engine/src/epub.ts`: `<strong>`, `<em>`, `<u>`, `<s>`,
+  `<sup>`, `<sub>`, `<a>`, `<hr class="scene"/>`, `<figure>` con recursos
+  remotos declarados.
+- `packages/export-engine/src/docx.ts`: `<w:rPr>` por tramo, hipervínculos con
+  relación externa y separador como borde de párrafo.
+- `apps/web/src/components/layout/paginated-preview.tsx`: pinta los segmentos
+  con su estilo.
+- `apps/web/src/components/books/section-editor.tsx`: botones de subrayado y
+  enlace; el enlace no navega al hacer clic dentro del editor.
+
+### Pruebas
+
+| Prueba                                             | Resultado                          |
+| -------------------------------------------------- | ---------------------------------- |
+| `packages/editorial-engine/src/rich-text.test.ts`  | 13 nuevas                          |
+| `apps/web/src/lib/layout/blocks.test.ts`           | 6 nuevas                           |
+| `packages/export-engine/src/epub.test.ts`          | 6 nuevas                           |
+| `packages/export-engine/src/pdf.test.ts`           | 3 nuevas                           |
+| `packages/editorial-engine/src/pagination.test.ts` | 1 nueva (tramos conservados)       |
+| E2E de exportación                                 | La negrita llega al PDF como `/F2` |
+
+Total: 248 unitarias y 70 E2E en verde.
+
+### Lo que sigue sin estar resuelto
+
+- Las imágenes se conservan en el modelo y el EPUB las incluye como recurso
+  remoto, pero el PDF y el DOCX no las dibujan.
+- Las notas al pie no tienen editor ni composición.
+- El EPUB no se ha validado con EPUBCheck ni el DOCX se ha abierto en Word.
+- Las fuentes del PDF siguen siendo las estándar: la paginación es una
+  estimación de anchos, no la medida de una fuente incrustada.

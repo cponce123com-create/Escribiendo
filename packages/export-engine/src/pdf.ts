@@ -13,7 +13,7 @@
 /** Milímetros a puntos (1 pulgada = 72 puntos). */
 export const MM_TO_POINTS = 72 / 25.4;
 
-export type PdfFont = "regular" | "bold" | "italic";
+export type PdfFont = "regular" | "bold" | "italic" | "boldItalic";
 
 export interface PdfRun {
   text: string;
@@ -30,6 +30,12 @@ export interface PdfRun {
    * espacios de la línea.
    */
   wordSpacing?: number;
+  /** Ancho del tramo, para dibujar el subrayado y el tachado. */
+  widthMm?: number;
+  underline?: boolean;
+  strike?: boolean;
+  /** Desplazamiento vertical de la línea base, en puntos (superíndices). */
+  risePt?: number;
 }
 
 export interface PdfPage {
@@ -58,9 +64,10 @@ const FONTS: Record<PdfFont, string> = {
   regular: "Times-Roman",
   bold: "Times-Bold",
   italic: "Times-Italic",
+  boldItalic: "Times-BoldItalic",
 };
 
-const FONT_KEYS: PdfFont[] = ["regular", "bold", "italic"];
+const FONT_KEYS: PdfFont[] = ["regular", "bold", "italic", "boldItalic"];
 
 /**
  * Caracteres que WinAnsiEncoding no cubre de forma directa pero que sí
@@ -384,9 +391,37 @@ function pageContent(
       perdidos.add(perdido);
     }
 
+    const rise = run.risePt !== undefined ? `${run.risePt.toFixed(3)} Ts ` : "";
+
     parts.push(
-      `BT /F${fontIndex} ${run.sizePt.toFixed(2)} Tf ${spacing}1 0 0 1 ${x.toFixed(3)} ${y.toFixed(3)} Tm (${preparado.text}) Tj ET`,
+      `BT /F${fontIndex} ${run.sizePt.toFixed(2)} Tf ${rise}${spacing}1 0 0 1 ${x.toFixed(3)} ${y.toFixed(3)} Tm (${preparado.text}) Tj ET`,
     );
+
+    // Subrayado y tachado se dibujan como una línea fina sobre el texto. Las
+    // fuentes estándar no traen esos trazos, así que se trazan aparte.
+    if (run.widthMm !== undefined && (run.underline || run.strike)) {
+      const desde = (trimXMm + run.xMm) * MM_TO_POINTS;
+      const hasta = (trimXMm + run.xMm + run.widthMm) * MM_TO_POINTS;
+      const grosor = Math.max(0.4, run.sizePt * 0.05);
+
+      parts.push("0 0 0 RG", `${grosor.toFixed(2)} w`);
+
+      if (run.underline) {
+        const linea = y - run.sizePt * 0.12;
+
+        parts.push(
+          `${desde.toFixed(3)} ${linea.toFixed(3)} m ${hasta.toFixed(3)} ${linea.toFixed(3)} l S`,
+        );
+      }
+
+      if (run.strike) {
+        const linea = y + run.sizePt * 0.28;
+
+        parts.push(
+          `${desde.toFixed(3)} ${linea.toFixed(3)} m ${hasta.toFixed(3)} ${linea.toFixed(3)} l S`,
+        );
+      }
+    }
   }
 
   return parts.join("\n");

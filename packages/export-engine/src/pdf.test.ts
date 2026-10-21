@@ -242,3 +242,49 @@ describe("toWinAnsi", () => {
     expect(asText(resultado)).toContain("miró");
   });
 });
+
+describe("formato en línea en el PDF", () => {
+  const CON_FORMATO: PdfDocument = {
+    title: "El velo de la tarde",
+    author: "Ana Torres",
+    createdAt: new Date("2026-10-20T10:00:00.000Z"),
+    language: "es",
+    pages: [
+      {
+        widthMm: 148,
+        heightMm: 210,
+        runs: [
+          { text: "noche", font: "bold", sizePt: 11, xMm: 18, baselineMm: 40, widthMm: 12 },
+          { text: "oscura", font: "italic", sizePt: 11, xMm: 30, baselineMm: 40 },
+          {
+            text: "reloj",
+            font: "boldItalic",
+            sizePt: 11,
+            xMm: 42,
+            baselineMm: 40,
+            widthMm: 10,
+            underline: true,
+            strike: true,
+          },
+          { text: "dos", font: "regular", sizePt: 11, xMm: 52, baselineMm: 40, risePt: 4.18 },
+        ],
+      },
+    ],
+  };
+
+  const text = asText(buildPdf(CON_FORMATO));
+
+  it("declara la negrita cursiva además de las tres fuentes anteriores", () => {
+    expect(text).toContain("/BaseFont /Times-Bold");
+    expect(text).toContain("/BaseFont /Times-Italic");
+    expect(text).toContain("/BaseFont /Times-BoldItalic");
+  });
+
+  it("dibuja el subrayado y el tachado como trazos", () => {
+    expect(text).toContain(" l S");
+  });
+
+  it("desplaza la línea base de los superíndices", () => {
+    expect(text).toContain("4.180 Ts");
+  });
+});

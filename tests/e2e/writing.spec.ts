@@ -89,10 +89,17 @@ test.describe("Escritura asistida", () => {
     // funcionan cuando la página está hidratada. Se reintenta el ajuste
     // hasta que el valor queda guardado de verdad.
     await expect
-      .poll(async () => {
-        await size.fill("22");
-        return page.evaluate(() => window.localStorage.getItem("escribiendo-writing-preferences"));
-      })
+      .poll(
+        async () => {
+          await size.fill("22");
+          return page.evaluate(() =>
+            window.localStorage.getItem("escribiendo-writing-preferences"),
+          );
+        },
+        // La hidratación puede tardar más cuando la suite entera acaba de
+        // compilar y el equipo está cargado.
+        { timeout: 15_000 },
+      )
       .toContain('"fontSize":22');
 
     await page.reload();

@@ -39,6 +39,14 @@ export {
   type MeasureOptions,
 } from "./measure";
 export {
+  breakRunsIntoLines,
+  hasInlineMarks,
+  runsToText,
+  type InlineMarks,
+  type InlineRun,
+  type RichLine,
+} from "./rich-text";
+export {
   fitsTextBlock,
   lineHeightMm,
   paginate,

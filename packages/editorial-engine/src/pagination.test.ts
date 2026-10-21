@@ -320,4 +320,35 @@ describe("paginate", () => {
     expect(resultado.pages).toHaveLength(1);
     expect(resultado.pages[0]?.blank).toBe(true);
   });
+
+  it("conserva los tramos con formato en las líneas compuestas", () => {
+    const resultado = paginate(
+      [
+        {
+          id: "b1",
+          kind: "body",
+          text: "La noche era oscura.",
+          runs: [
+            { text: "La " },
+            { text: "noche", marks: { bold: true } },
+            { text: " era " },
+            { text: "oscura", marks: { italic: true } },
+            { text: "." },
+          ],
+        },
+      ],
+      GEOMETRY,
+      TIPOGRAFIA,
+    );
+
+    const lineas = resultado.pages[0]?.blocks[0]?.lines ?? [];
+
+    expect(lineas).toHaveLength(1);
+    expect(lineas[0]?.segments?.find((segment) => segment.text === "noche")?.marks?.bold).toBe(
+      true,
+    );
+    expect(lineas[0]?.segments?.find((segment) => segment.text === "oscura")?.marks?.italic).toBe(
+      true,
+    );
+  });
 });

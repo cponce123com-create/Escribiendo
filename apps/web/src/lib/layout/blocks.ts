@@ -4,13 +4,20 @@ import {
   type TiptapDocument,
   type TiptapNode,
 } from "@escribiendo/book-schema";
-import type { LayoutBlock, LayoutBlockKind } from "@escribiendo/editorial-engine";
+import {
+  runsToText,
+  type InlineRun,
+  type LayoutBlock,
+  type LayoutBlockKind,
+} from "@escribiendo/editorial-engine";
+import { inlineRuns, listRuns, trimRuns } from "./inline";
 
 /**
  * Conversión del manuscrito a bloques de maquetación.
  *
  * El motor de paginación no sabe nada de Tiptap: recibe bloques con su clase
- * y su texto. La traducción vive aquí, que es donde se conoce el documento.
+ * y sus tramos de texto con formato. La traducción vive aquí, que es donde se
+ * conoce el documento.
  */
 
 export interface PreviewSection {
@@ -22,15 +29,6 @@ export interface PreviewSection {
   isChapter: boolean;
   /** La sección debe empezar en página par. */
   startOnOddPage: boolean;
-}
-
-/** Texto de un nodo, incluidos sus descendientes. */
-function nodeText(node: TiptapNode): string {
-  if (node.type === "text") {
-    return node.text ?? "";
-  }
-
-  return (node.content ?? []).map(nodeText).join("");
 }
 
 function headingKind(node: TiptapNode): LayoutBlockKind {
@@ -51,14 +49,11 @@ function headingKind(node: TiptapNode): LayoutBlockKind {
   return "heading4";
 }
 
-/** Texto de una lista: cada elemento en su propia línea. */
-function listText(node: TiptapNode): string {
-  const items = (node.content ?? [])
-    .filter((child) => child.type === "listItem")
-    .map((child) => nodeText(child).trim())
-    .filter((text) => text.length > 0);
+/** Texto alternativo de una imagen, si lo trae. */
+function imageAlt(node: TiptapNode): string {
+  const alt = node.attrs?.alt;
 
-  return items.join("\n");
+  return typeof alt === "string" ? alt.trim() : "";
 }
 
 /**
@@ -68,19 +63,59 @@ export function sectionToBlocks(section: PreviewSection): LayoutBlock[] {
   const blocks: LayoutBlock[] = [];
   let index = 0;
 
-  const push = (kind: LayoutBlockKind, text: string): void => {
-    const trimmed = text.trim();
+  const registration = (): Pick<LayoutBlock, "sectionId" | "sectionTitle"> => ({
+    sectionId: section.id,
+    sectionTitle: section.title,
+  });
 
-    if (trimmed.length === 0) {
+  const pushRuns = (kind: LayoutBlockKind, runs: InlineRun[]): void => {
+    const limpios = trimRuns(runs);
+    const text = runsToText(limpios);
+
+    if (text.trim().length === 0) {
       return;
     }
 
     blocks.push({
       id: `${section.id}-${index}`,
       kind,
-      text: trimmed,
-      sectionId: section.id,
-      sectionTitle: section.title,
+      text,
+      runs: limpios,
+      ...registration(),
+      firstOfSection: index === 0,
+    });
+
+    index += 1;
+  };
+
+  /** Reglas y separadores: no tienen texto, pero sí ocupan su línea. */
+  const pushRule = (): void => {
+    blocks.push({
+      id: `${section.id}-${index}`,
+      kind: "rule",
+      text: "",
+      runs: [],
+      ...registration(),
+      firstOfSection: index === 0,
+    });
+
+    index += 1;
+  };
+
+  /** Imagen: se conserva la referencia aunque todavía no se dibuje. */
+  const pushImage = (node: TiptapNode): void => {
+    const src = typeof node.attrs?.src === "string" ? node.attrs.src : undefined;
+    const alt = imageAlt(node);
+
+    blocks.push({
+      id: `${section.id}-${index}`,
+      kind: "image",
+      text: alt,
+      image: {
+        ...(src ? { src } : {}),
+        ...(alt ? { alt } : {}),
+      },
+      ...registration(),
       firstOfSection: index === 0,
     });
 
@@ -98,38 +133,44 @@ export function sectionToBlocks(section: PreviewSection): LayoutBlock[] {
   for (const node of document.content ?? []) {
     switch (node.type) {
       case "heading":
-        push(headingKind(node), nodeText(node));
+        pushRuns(headingKind(node), inlineRuns(node));
         break;
 
       case "paragraph":
-        push("body", nodeText(node));
+        pushRuns("body", inlineRuns(node));
         break;
 
       case "blockquote":
-        push("blockquote", nodeText(node));
+        pushRuns("blockquote", inlineRuns(node));
         break;
 
       case "codeBlock":
-        push("code", nodeText(node));
+        pushRuns("code", inlineRuns(node));
         break;
 
       case "bulletList":
       case "orderedList":
-        push("list", listText(node));
+        pushRuns("list", listRuns(node));
         break;
 
       case "horizontalRule":
       case "sceneBreak":
-        push("rule", "");
+        pushRule();
         break;
 
       case "image":
-        push("image", "");
+        pushImage(node);
         break;
 
-      default:
-        push("body", nodeText(node));
+      default: {
+        const runs = inlineRuns(node);
+
+        if (runs.length > 0) {
+          pushRuns("body", runs);
+        }
+
         break;
+      }
     }
   }
 

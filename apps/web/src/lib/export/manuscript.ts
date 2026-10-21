@@ -1,11 +1,9 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import type { SessionContext } from "@/lib/auth/session";
-import {
-  parseTiptapDocument,
-  type TiptapDocument,
-  type TiptapNode,
-} from "@escribiendo/book-schema";
+import { parseTiptapDocument, type TiptapDocument } from "@escribiendo/book-schema";
+import { runsToText, type InlineRun } from "@escribiendo/editorial-engine";
+import { inlineRuns, trimRuns } from "@/lib/layout/inline";
 import { createHash } from "node:crypto";
 
 /**
@@ -153,21 +151,46 @@ export async function loadManuscript(
     });
 }
 
-/** Bloques de un documento Tiptap, con su clase. */
-export interface ManuscriptBlock {
-  kind: "title" | "heading" | "body" | "quote" | "pageBreak";
+/** Tramo de texto con formato, en la forma plana que consumen los escritores. */
+export interface ManuscriptRun {
   text: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strike?: boolean;
+  superscript?: boolean;
+  subscript?: boolean;
+  link?: string;
 }
 
-function nodeText(node: TiptapNode): string {
-  if (node.type === "text") {
-    return node.text ?? "";
-  }
-
-  return (node.content ?? []).map(nodeText).join("");
+/** Bloques de un documento Tiptap, con su clase y su formato. */
+export interface ManuscriptBlock {
+  kind: "title" | "heading" | "body" | "quote" | "pageBreak" | "rule" | "image";
+  text: string;
+  runs?: ManuscriptRun[];
+  /** Referencia de la imagen, cuando `kind` es `image`. */
+  image?: { src?: string; alt?: string };
 }
 
-/** Convierte una sección en bloques de texto para el EPUB y el DOCX. */
+/** Aplana las marcas anidadas a la forma que espera el motor de exportación. */
+function flattenRuns(runs: readonly InlineRun[]): ManuscriptRun[] {
+  return runs.map((run) => {
+    const marks = run.marks;
+
+    return {
+      text: run.text,
+      ...(marks?.bold ? { bold: true } : {}),
+      ...(marks?.italic ? { italic: true } : {}),
+      ...(marks?.underline ? { underline: true } : {}),
+      ...(marks?.strike ? { strike: true } : {}),
+      ...(marks?.superscript ? { superscript: true } : {}),
+      ...(marks?.subscript ? { subscript: true } : {}),
+      ...(marks?.link ? { link: marks.link } : {}),
+    };
+  });
+}
+
+/** Convierte una sección en bloques con formato para el EPUB y el DOCX. */
 export function sectionToBlocks(section: ExportSection): ManuscriptBlock[] {
   const blocks: ManuscriptBlock[] = [];
 
@@ -179,41 +202,88 @@ export function sectionToBlocks(section: ExportSection): ManuscriptBlock[] {
     return blocks;
   }
 
+  const pushRuns = (kind: ManuscriptBlock["kind"], runs: readonly InlineRun[]): void => {
+    const limpios = trimRuns(runs);
+    const text = runsToText(limpios);
+
+    if (text.trim().length === 0) {
+      return;
+    }
+
+    blocks.push({ kind, text, runs: flattenRuns(limpios) });
+  };
+
   for (const node of document.content ?? []) {
     switch (node.type) {
       case "heading":
-        blocks.push({ kind: "heading", text: nodeText(node).trim() });
+        pushRuns("heading", inlineRuns(node));
         break;
 
       case "paragraph":
-        blocks.push({ kind: "body", text: nodeText(node).trim() });
+        pushRuns("body", inlineRuns(node));
         break;
 
       case "blockquote":
-        blocks.push({ kind: "quote", text: nodeText(node).trim() });
+        pushRuns("quote", inlineRuns(node));
         break;
 
       case "codeBlock":
-        blocks.push({ kind: "body", text: nodeText(node).trim() });
+        pushRuns("body", inlineRuns(node));
         break;
 
       case "bulletList":
-      case "orderedList":
+      case "orderedList": {
+        let position = 1;
+
         for (const item of node.content ?? []) {
-          blocks.push({ kind: "body", text: `· ${nodeText(item).trim()}` });
+          if (item.type !== "listItem") {
+            continue;
+          }
+
+          const itemRuns = trimRuns(inlineRuns(item));
+
+          if (itemRuns.length === 0) {
+            continue;
+          }
+
+          const prefix = node.type === "orderedList" ? `${position}. ` : "· ";
+          position += 1;
+
+          pushRuns("body", [{ text: prefix }, ...itemRuns]);
         }
+
         break;
+      }
 
       case "horizontalRule":
       case "sceneBreak":
-        blocks.push({ kind: "pageBreak", text: "" });
+        // Un separador de escena no es un salto de página: es una marca
+        // tipográfica dentro del capítulo.
+        blocks.push({ kind: "rule", text: "" });
         break;
 
+      case "image": {
+        const src = typeof node.attrs?.src === "string" ? node.attrs.src : undefined;
+        const alt = typeof node.attrs?.alt === "string" ? node.attrs.alt.trim() : "";
+
+        blocks.push({
+          kind: "image",
+          text: alt,
+          image: {
+            ...(src ? { src } : {}),
+            ...(alt ? { alt } : {}),
+          },
+        });
+        break;
+      }
+
       default:
-        blocks.push({ kind: "body", text: nodeText(node).trim() });
+        pushRuns("body", inlineRuns(node));
         break;
     }
   }
 
-  return blocks.filter((block) => block.kind === "pageBreak" || block.text.length > 0);
+  return blocks.filter(
+    (block) => block.kind === "rule" || block.kind === "image" || block.text.length > 0,
+  );
 }
