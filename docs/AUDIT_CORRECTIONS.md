@@ -3,6 +3,10 @@
 Registro cronológico de lo que se ha corregido, con su evidencia. Cada
 corrección va acompañada de las pruebas que la sostienen.
 
+> Los lotes van del más antiguo al más reciente. Al final están las últimas
+> correcciones (integridad de la maqueta, archivos que no se rompen, el trabajo
+> de quien escribe, la aplicación y la operación).
+
 ---
 
 ## Lote 1 — Integridad de manuscritos

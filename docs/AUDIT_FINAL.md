@@ -4,6 +4,14 @@ Fecha: 20 de octubre de 2026.
 Rama: `main`.
 Alcance: las Fases 1 a 6 de ESCRIBIENDO.
 
+> La tabla de puntuación y las secciones siguientes son la fotografía de la
+> auditoría del 20 de octubre. Al final del documento están las actualizaciones
+> de los lotes J a S, que son **el estado vigente**: imágenes y notas al pie en
+> las exportaciones, fuentes TTF incrustadas con métricas reales, archivos
+> comprimidos, validación externa con EPUBCheck, Mammoth y pdf.js, integración
+> continua y auditoría de accesibilidad. La puntuación documentada sigue siendo
+> 87,4/100: **95 no se declara**.
+
 ## Cómo se puntúa
 
 Cada área se valora con los mismos pesos, y la puntuación solo sube si hay

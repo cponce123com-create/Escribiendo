@@ -4,6 +4,12 @@ Fecha: 20 de octubre de 2026.
 Rama: `audit/optimization-95`.
 Base: `babac78` (Fase 5, ya subida a `main`).
 
+> **Documento histórico.** Es la fotografía de la línea base, con las cifras y
+> las carencias de aquel momento. No describe el software actual: el estado
+> vigente está en [AUDIT_BASELINE_95.md](AUDIT_BASELINE_95.md) y en
+> [AUDIT_FINAL.md](AUDIT_FINAL.md), y las correcciones están en
+> [AUDIT_CORRECTIONS.md](AUDIT_CORRECTIONS.md).
+
 Esta auditoría **no** acepta las puntuaciones de referencia como ciertas: cada
 punto se ha comprobado contra el código. La columna «Referencia» recoge la
 evaluación estática previa; la columna «Comprobado» es el resultado de leer el

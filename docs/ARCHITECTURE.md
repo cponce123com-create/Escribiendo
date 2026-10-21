@@ -34,9 +34,9 @@ Render Free (una instancia Next.js)
 Neon PostgreSQL (pooled para la app, directa para migraciones)
 ```
 
-No hay Redis, colas, cron jobs ni workers permanentes en la Fase 1. Cualquier
-trabajo pesado futuro deberá diseñarse para ejecutarse bajo demanda o en un
-servicio externo, respetando las limitaciones de Render Free.
+No hay Redis, colas, cron jobs ni workers permanentes. Cualquier trabajo
+pesado futuro deberá diseñarse para ejecutarse bajo demanda o en un servicio
+externo, respetando las limitaciones de Render Free.
 
 ## Estructura del monorepo
 
@@ -54,6 +54,7 @@ apps/web
 │  ├─ (app)/books/[bookId]/sections/[sectionId]/history  # Historial y comparador
 │  ├─ api/health, /api/health/ready, /api/cloudinary/signature
 │  ├─ api/exports/[jobId]/download  # Descarga firmada del archivo
+│  ├─ api/audit/export             # Exportación de la auditoría
 │  ├─ error.tsx, global-error.tsx, not-found.tsx, loading.tsx
 │  └─ layout.tsx, page.tsx, robots.ts, manifest.ts
 ├─ src/components
@@ -195,8 +196,11 @@ La migración inicial documenta todo esto en
 
 ### `@escribiendo/export-engine`
 
-- Escritor de PDF sin dependencias, con las fuentes estándar y las cajas de
-  recorte, sangre yTrimBox.
+- Escritor de PDF sin dependencias externas, con las fuentes tipográficas
+  incrustadas (`Type0`/`CIDFontType2`, `ToUnicode` y tabla de anchos real) y las
+  cajas de recorte, sangre y `TrimBox`.
+- Lector de fuentes TrueType (`cmap`, `hmtx`, `name`, `OS/2`, `post`) para
+  medir con las métricas reales y codificar el texto con `Identity-H`.
 - Escritor de ZIP, que sirve para el EPUB y para el DOCX.
 - Escritor de EPUB 3 y de DOCX.
 
@@ -217,9 +221,9 @@ Cliente autenticado
   └─ POST directo a api.cloudinary.com
 ```
 
-La carpeta se deriva del workspace de la sesión, no de un valor enviado por el
-cliente. La ruta responde `503` si Cloudinary no está configurado; no hay
-subida simulada.
+La carpeta sale del entorno (`CLOUDINARY_UPLOAD_FOLDER`) y del espacio de
+trabajo de la sesión, nunca de un valor enviado por el cliente. La ruta
+responde `503` si Cloudinary no está configurado; no hay subida simulada.
 
 ## Decisiones deliberadas
 
@@ -236,11 +240,13 @@ subida simulada.
 | Escritores de PDF, EPUB y DOCX propios        | Sin dependencias pesadas ni procesos externos; el formato se puede verificar byte a byte en las pruebas                             |
 | Descarga firmada de corta duración            | La dirección se puede compartir unos minutos y luego deja de servir; el archivo nunca se guarda en un sitio accesible               |
 
-## Límites de la Fase 1
+## Límites actuales
 
-- No hay biblioteca, editor Tiptap funcional, versionado de manuscritos ni
-  exportación. Los paquetes preparan parte del terreno, pero la interfaz no
-  finge que existan.
+- La biblioteca, el editor, el versionado del manuscrito y la exportación a
+  PDF, EPUB y DOCX **sí existen** y están verificados; lo que sigue abierto es
+  lo que se detalla en [AUDIT_BASELINE_95.md](AUDIT_BASELINE_95.md): la
+  cobertura Unicode más allá de latín, griego y cirílico, la validación con
+  Word y LibreOffice, la subida real a Cloudinary y las pruebas contra Render.
 - No hay correo transaccional ni MFA.
 - No hay colaboración en tiempo real.
 - El rate limiter en memoria es por instancia; con una sola instancia Free es

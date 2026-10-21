@@ -9,6 +9,10 @@ hallazgo se ha comprobado contra el código de esta rama y cada corrección se
 ha sometido a las pruebas del repositorio. La puntuación de 95 **no se declara
 alcanzada**: este documento registra la línea base y lo que queda abierto.
 
+Las secciones de la línea base y de los lotes anteriores son un registro
+cronológico; **el estado vigente** está en las actualizaciones del final
+(lotes J a S) y en [EXPORT_VALIDATION.md](EXPORT_VALIDATION.md).
+
 ## Línea base ejecutada
 
 Antes de tocar el código se ejecutaron los mismos comandos que se usan para
@@ -75,8 +79,10 @@ Lote J cerró el punto 1; el resto sigue abierto.
    reales; los signos del español se conservan y se pueden extraer. Sigue sin
    cubrir CJK, emoji ni shaping complejo, y no se generan subconjuntos. Si las
    fuentes no se cargan, se conserva la alternativa Times/WinAnsi y se avisa.
-3. **Validación externa.** No se ha pasado EPUBCheck, no se ha abierto el DOCX
-   en Word o LibreOffice y no se ha probado un EPUB en un lector comercial.
+3. **Validación externa (cerrada en parte en el Lote L).** El EPUB lo aprueba
+   EPUBCheck 5.1.0 (0 errores, 0 advertencias) y el DOCX lo lee Mammoth 1.11.0;
+   en el Lote M el PDF lo abre pdf.js 4.10.38. Sigue sin abrirse el DOCX en Word
+   o LibreOffice ni probarse el EPUB en un lector comercial.
 4. **Cloudinary real.** No hay credenciales locales: la subida se ha validado
    por código y por las pruebas de autorización, no con una cuenta real.
 5. **Render y Neon reales.** El despliegue no es accesible desde esta red; las
@@ -86,7 +92,8 @@ Lote J cerró el punto 1; el resto sigue abierto.
 
 ## Bloqueos externos conocidos
 
-- EPUBCheck no está instalado y requiere Java.
+- EPUBCheck ya se usa (Lote L): requiere Java, que no viene con el sistema y
+  se instala aparte.
 - Word y LibreOffice no están disponibles en la máquina.
 - Cloudinary no está configurado en el entorno local.
 - El puerto 5432 de Neon está filtrado; las comprobaciones de base usan la API
