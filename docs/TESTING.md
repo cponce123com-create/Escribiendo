@@ -254,18 +254,22 @@ crea su propio libro, su sección y su perfil de página:
 - El archivo descargado es un EPUB válido.
 - Pedir dos veces la misma exportación reutiliza el trabajo.
 - El DOCX generado es un paquete de Word.
+- El PDF conserva la tipografía española.
 - Una descarga sin firma se rechaza.
 
-`tests/e2e/manuscrito.spec.ts` (resiliencia del manuscrito) y `tests/e2e/equipo.spec.ts` (equipo y gobernanza) cubren los escenarios descritos en [RECOVERY_TESTS.md](RECOVERY_TESTS.md) y en el ROADMAP.
+`tests/e2e/manuscrito.spec.ts` cubre la resiliencia del manuscrito y los
+controles de imagen; `tests/e2e/equipo.spec.ts` cubre equipo y gobernanza. Los
+escenarios están descritos en [RECOVERY_TESTS.md](RECOVERY_TESTS.md) y en el
+ROADMAP.
 
 ### 4.5 Resultados obtenidos
 
 ```text
-Running 70 tests using 1 worker
-70 passed (2.6m)
+Running 71 tests using 1 worker
+71 passed (3.2m)
 ```
 
-Las 70 pruebas incluyen la preparación de la cuenta de pruebas. La suite se ha
+Las 71 pruebas incluyen la preparación de la cuenta de pruebas. La suite se ha
 ejecutado de forma repetida con resultado completo en todas las ejecuciones,
 contra PostgreSQL 17.7 local y contra la **compilación de producción** (no el
 servidor de desarrollo). En producción, el mismo flujo de instalación, acceso y

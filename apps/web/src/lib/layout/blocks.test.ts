@@ -91,12 +91,20 @@ describe("sectionToBlocks", () => {
     expect(bloques[1]?.text).toBe("");
   });
 
-  it("conserva la imagen con su origen y su texto alternativo", () => {
+  it("conserva la imagen, su pie y sus proporciones", () => {
     const bloques = sectionToBlocks(
       seccion(
         documento({
           type: "image",
-          attrs: { src: "https://ejemplo.test/plaza.jpg", alt: "La plaza al anochecer" },
+          attrs: {
+            src: "https://ejemplo.test/plaza.jpg",
+            alt: "La plaza al anochecer",
+            caption: "La plaza, desde el balcón.",
+            widthPx: 1200,
+            heightPx: 800,
+            widthPercent: 75,
+            alignment: "right",
+          },
         }),
       ),
     );
@@ -105,6 +113,11 @@ describe("sectionToBlocks", () => {
     expect(bloques[0]?.image).toEqual({
       src: "https://ejemplo.test/plaza.jpg",
       alt: "La plaza al anochecer",
+      caption: "La plaza, desde el balcón.",
+      widthPx: 1200,
+      heightPx: 800,
+      widthPercent: 75,
+      alignment: "right",
     });
   });
 

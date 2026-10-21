@@ -7,6 +7,9 @@ import {
   type ExportBlock,
   type ExportChapter,
   type ExportDocumentModel,
+  type ExportImageMap,
+  type ImageTarget,
+  type PdfImage,
   type PdfPage,
   type PdfRun,
 } from "@escribiendo/export-engine";
@@ -22,6 +25,7 @@ import { bookToBlocks, isChapterType } from "@/lib/layout/blocks";
 import type { SessionContext } from "@/lib/auth/session";
 import type { ExportSection } from "./manuscript";
 import { sectionToBlocks } from "./manuscript";
+import { loadExportImages } from "./images";
 
 /**
  * Generación de los archivos de exportación.
@@ -51,6 +55,10 @@ export interface ExportMetadata {
    * pierde nada en silencio: se avisa.
    */
   caracteresPerdidos: string[];
+  /** Imágenes que se han incorporado al archivo. */
+  imagenesIncrustadas: number;
+  /** Imágenes que no se han podido resolver y quedan marcadas o como texto. */
+  imagenesOmitidas: number;
 }
 
 export interface GeneratedFile {
@@ -82,6 +90,8 @@ export interface GenerateInput {
     chapterStartsRecto: boolean;
   } | null;
   typography: unknown;
+  /** Imágenes ya resueltas, para pruebas o para una exportación reproducible. */
+  images?: ExportImageMap;
   /** Fecha de creación del documento; fija el resultado para que sea reproducible. */
   createdAt: Date;
 }
@@ -130,15 +140,24 @@ function toPdfPages(
   pages: LaidOutPage[],
   profile: NonNullable<GenerateInput["profile"]>,
   typography: ReturnType<typeof withTypographyDefaults>,
-): { pdfPages: PdfPage[]; textWidthMm: number } {
+  images: ExportImageMap,
+): {
+  pdfPages: PdfPage[];
+  textWidthMm: number;
+  imagenesIncrustadas: number;
+  imagenesOmitidas: number;
+} {
   const textWidthMm =
     profile.pageWidthMm - profile.marginInnerMm - profile.marginOuterMm - profile.gutterMm;
+  let imagenesIncrustadas = 0;
+  let imagenesOmitidas = 0;
 
   const pdfPages: PdfPage[] = pages.map((page) => {
     const interior = profile.mirrorMargins ? page.side === "recto" : true;
     const leftMm = interior ? profile.marginInnerMm + profile.gutterMm : profile.marginOuterMm;
 
     const runs: PdfRun[] = [];
+    const pdfImages: PdfImage[] = [];
     let y = profile.marginTopMm;
 
     for (const block of page.blocks) {
@@ -162,6 +181,82 @@ function toPdfPages(
         });
 
         y += lineHeightMm;
+        continue;
+      }
+
+      if (block.kind === "image") {
+        const layout = block.imageLayout;
+
+        if (!layout) {
+          y += block.spaceAfterMm;
+          continue;
+        }
+
+        const image = block.image;
+        const alignment = image?.alignment ?? "center";
+        let imageX = leftMm;
+
+        if (alignment === "center") {
+          imageX += Math.max(0, (textWidthMm - layout.widthMm) / 2);
+        } else if (alignment === "right") {
+          imageX += Math.max(0, textWidthMm - layout.widthMm);
+        }
+
+        const asset = image?.src ? images.get(image.src) : undefined;
+
+        if (asset) {
+          imagenesIncrustadas += 1;
+        } else {
+          imagenesOmitidas += 1;
+        }
+
+        pdfImages.push({
+          topMm: y,
+          xMm: imageX,
+          widthMm: layout.widthMm,
+          heightMm: layout.heightMm,
+          ...(asset
+            ? {
+                data: asset.data,
+                pixelWidth: asset.width,
+                pixelHeight: asset.height,
+              }
+            : {}),
+          ...(image?.alt ? { alt: image.alt } : {}),
+          ...(image?.src ? { src: image.src } : {}),
+        });
+
+        y += layout.heightMm;
+
+        if (layout.captionLines.length > 0) {
+          y += layout.captionGapMm;
+
+          for (const captionLine of layout.captionLines) {
+            const ancho = measureTextMm(captionLine, {
+              fontFamily: block.style.fontFamily,
+              fontSizePt: layout.captionFontSizePt,
+            });
+            const captionX =
+              alignment === "center"
+                ? imageX + Math.max(0, (layout.widthMm - ancho) / 2)
+                : alignment === "right"
+                  ? imageX + Math.max(0, layout.widthMm - ancho)
+                  : imageX;
+
+            runs.push({
+              text: captionLine,
+              font: "italic",
+              sizePt: layout.captionFontSizePt,
+              xMm: captionX,
+              baselineMm: y + layout.captionLineHeightMm * 0.8,
+              widthMm: ancho,
+            });
+
+            y += layout.captionLineHeightMm;
+          }
+        }
+
+        y += block.spaceAfterMm;
         continue;
       }
 
@@ -273,6 +368,7 @@ function toPdfPages(
       widthMm: profile.pageWidthMm,
       heightMm: profile.pageHeightMm,
       runs,
+      ...(pdfImages.length > 0 ? { images: pdfImages } : {}),
       bleedMm: profile.bleedMm,
       cropMarks: false,
     };
@@ -280,26 +376,51 @@ function toPdfPages(
 
   void typography;
 
-  return { pdfPages, textWidthMm };
+  return { pdfPages, textWidthMm, imagenesIncrustadas, imagenesOmitidas };
 }
 
 /** Genera el archivo en el formato pedido. */
-export function generateFile(input: GenerateInput): GeneratedFile {
+export async function generateFile(input: GenerateInput): Promise<GeneratedFile> {
   const info = FORMAT_INFO[input.format];
-  const wordCount = input.sections.reduce(
-    (total, section) =>
+  const sectionBlocks = input.sections.map((section) => sectionToBlocks(section));
+  const wordCount = sectionBlocks.reduce(
+    (total, blocks) =>
+      total + blocks.reduce((sum, block) => sum + (block.text.match(/\S+/gu)?.length ?? 0), 0),
+    0,
+  );
+
+  const sources = sectionBlocks.flatMap((blocks) =>
+    blocks.flatMap((block) => (block.image?.src ? [block.image.src] : [])),
+  );
+  const target: ImageTarget =
+    input.format === "EPUB3" ? "epub" : input.format === "DOCX" ? "docx" : "pdf";
+  const loadedImages = await loadExportImages({
+    sources,
+    target,
+    ...(input.images ? { provided: input.images } : {}),
+  });
+  const imageOccurrences = sectionBlocks.reduce(
+    (total, blocks) =>
+      total + blocks.filter((block) => block.kind === "image" && block.image?.src).length,
+    0,
+  );
+  const embeddedOccurrences = sectionBlocks.reduce(
+    (total, blocks) =>
       total +
-      sectionToBlocks(section).reduce(
-        (sum, block) => sum + (block.text.match(/\S+/gu)?.length ?? 0),
-        0,
-      ),
+      blocks.filter(
+        (block) =>
+          block.kind === "image" &&
+          block.image?.src !== undefined &&
+          loadedImages.assets.has(block.image.src),
+      ).length,
     0,
   );
 
   let bytes: Uint8Array;
   let pageCount: number | null = null;
-  /** Caracteres que el PDF no ha podido representar. */
   let caracteresPerdidos: string[] = [];
+  let imagenesIncrustadas = embeddedOccurrences;
+  let imagenesOmitidas = Math.max(0, imageOccurrences - embeddedOccurrences);
 
   if (input.format === "PDF_DIGITAL" || input.format === "PDF_PRINT") {
     if (!input.profile) {
@@ -321,7 +442,13 @@ export function generateFile(input: GenerateInput): GeneratedFile {
     );
 
     const composition = paginate(blocks, geometryFromProfile(input.profile), typography);
-    const { pdfPages } = toPdfPages(composition.pages, input.profile, typography);
+    const pdfComposition = toPdfPages(
+      composition.pages,
+      input.profile,
+      typography,
+      loadedImages.assets,
+    );
+    const pdfPages = pdfComposition.pdfPages;
 
     pageCount = pdfPages.length;
 
@@ -339,11 +466,13 @@ export function generateFile(input: GenerateInput): GeneratedFile {
 
     bytes = pdf.bytes;
     caracteresPerdidos = pdf.caracteresPerdidos;
+    imagenesIncrustadas = pdf.imagenesIncrustadas;
+    imagenesOmitidas = pdf.imagenesOmitidas;
   } else {
-    const chapters: ExportChapter[] = input.sections.map((section) => ({
+    const chapters: ExportChapter[] = input.sections.map((section, index) => ({
       id: section.id,
       title: section.title,
-      blocks: sectionToBlocks(section).map((block): ExportBlock => ({
+      blocks: (sectionBlocks[index] ?? []).map((block): ExportBlock => ({
         kind: block.kind,
         text: block.text,
         ...(block.runs ? { runs: block.runs } : {}),
@@ -365,8 +494,8 @@ export function generateFile(input: GenerateInput): GeneratedFile {
 
     bytes =
       input.format === "EPUB3"
-        ? buildEpub(model, input.createdAt)
-        : buildDocx(model, input.createdAt);
+        ? buildEpub(model, input.createdAt, loadedImages.assets)
+        : buildDocx(model, input.createdAt, loadedImages.assets);
   }
 
   return {
@@ -382,6 +511,8 @@ export function generateFile(input: GenerateInput): GeneratedFile {
       generatedAt: input.createdAt.toISOString(),
       estimatedPagination: input.format === "PDF_DIGITAL" || input.format === "PDF_PRINT",
       caracteresPerdidos,
+      imagenesIncrustadas,
+      imagenesOmitidas,
     },
   };
 }

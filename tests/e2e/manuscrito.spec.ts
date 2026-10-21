@@ -42,6 +42,14 @@ test.describe("Resiliencia del manuscrito", () => {
     await expect(page.getByRole("heading", { name: SECTION_TITLE })).toBeVisible();
   });
 
+  test("el editor ofrece imágenes y la biblioteca del libro", async ({ page }) => {
+    await abrirSeccion(page, SECTION_TITLE);
+
+    await expect(page.getByRole("button", { name: "Insertar imagen" })).toBeVisible();
+    await page.getByRole("button", { name: "Biblioteca (0)" }).click();
+    await expect(page.getByText("Todavía no hay imágenes en este libro.")).toBeVisible();
+  });
+
   test("el texto se guarda en el equipo al momento de escribir", async ({ page }) => {
     await abrirSeccion(page, SECTION_TITLE);
 

@@ -10,7 +10,7 @@ Esta auditoría combina dos fuentes, y distingue siempre cuál se usó:
 
 1. **Revisión del código** de autenticación, sesiones, permisos, validación de
    origen, cabeceras, descargas, auditoría y retención.
-2. **Pruebas ejecutadas** con la suite del repositorio: 249 unitarias y 70 de
+2. **Pruebas ejecutadas** con la suite del repositorio: 268 unitarias y 71 de
    extremo a extremo en Chromium, contra la compilación de producción.
 
 No se ha ejecutado una prueba de penetración externa, ni un escaneo
@@ -152,6 +152,41 @@ permanentes ni trabajadores en segundo plano.
 - No hay credenciales en el repositorio. Hay un escáner de secretos del árbol
   disponible para la revisión previa al commit.
 
+### 3.10 Imágenes, Cloudinary y descargas
+
+- **Firma de subida interior.** `POST /api/cloudinary/signature` exige sesión,
+  origen propio y el permiso `section:update`. Si el propósito es `interior`,
+  exige un `bookId` UUID, comprueba que el libro pertenece al espacio de trabajo
+  y firma una carpeta que incluye espacio, libro e interior. La carpeta de
+  portadas sigue siendo independiente.
+- **Registro del activo.** `registerBookAssetAction` vuelve a validar en el
+  servidor: URL HTTPS de `res.cloudinary.com/<cloudName>/image/upload/…`,
+  `publicId` dentro de la carpeta del libro, formato permitido, dimensiones
+  positivas, máximo de 15 MB y máximo de 12 000 px por lado. Si el `publicId`
+  ya existe en otro espacio de trabajo, se rechaza. El registro escribe una
+  entrada de auditoría sin contenido del manuscrito.
+- **Biblioteca.** `listBookAssets` filtra por `bookId` y por
+  `book.workspaceId` de la sesión; conocer el identificador de otro libro no
+  basta para leer sus imágenes.
+- **Descarga de imágenes para exportar.** Solo se descargan URLs HTTPS de la
+  cuenta configurada. Se comprueba la URL final después de las redirecciones,
+  no solo la inicial. Hay timeout de 15 s, máximo de 15 MB por imagen, máximo
+  de 80 imágenes y concurrencia 4. Una URL no permitida no se descarga: se
+  omite y se cuenta.
+- **Contenido de las imágenes.** `sharp` valida y normaliza los bytes. No se
+  confía en el `Content-Type` remoto para decidir el formato del archivo
+  incrustado.
+- **Descarga del archivo.** El nombre se sanea (controles, comillas y
+  separadores de ruta) y se envía con `filename` ASCII y `filename*` RFC 5987.
+  El `Content-Type` procede del archivo generado; no se toma un valor
+  almacenado en el trabajo. Se añade `X-Download-Options: noopen`.
+- **Riesgo residual.** La allowlist de exportación acepta cualquier imagen
+  pública de la cuenta configurada, no solo las de la carpeta del libro. Un
+  miembro con permiso de edición podría insertar la URL de otra imagen pública
+  de la misma cuenta. No permite leer activos privados sin firma y no cruza
+  espacios de trabajo en la base, pero conviene limitarlo por carpeta en una
+  fase posterior.
+
 ## 4. Hallazgos y riesgos abiertos
 
 | ID   | Severidad   | Hallazgo                                                                                                             | Estado                                                                                                                |
@@ -164,6 +199,7 @@ permanentes ni trabajadores en segundo plano.
 | S-06 | Baja        | La subida real a Cloudinary no se ha probado con credenciales; solo la firma, la autorización y el rechazo de origen | **Abierto**: depende de configuración local                                                                           |
 | S-07 | Baja        | La verificación de cabeceras y CSP se hizo en local; el despliegue de Render no es alcanzable desde esta red         | **Abierto**: repetir contra el despliegue                                                                             |
 | S-08 | Informativo | El PDF usa fuentes estándar y no incrustadas; no es PDF/X                                                            | **Conocido y documentado** en `EXPORT_VALIDATION.md`                                                                  |
+| S-09 | Baja        | La allowlist de exportación acepta cualquier imagen pública de la cuenta configurada, no solo la carpeta del libro   | **Abierto**: acotar por carpeta en una fase posterior; no permite leer activos privados ni cruza espacios en la base  |
 
 No consta ninguna vulnerabilidad crítica abierta en el código revisado. La
 ausencia de un hallazgo no equivale a la ausencia de vulnerabilidades: sin
@@ -171,16 +207,18 @@ pentest ni escaneo de dependencias, el alcance es el que se ha descrito.
 
 ## 5. Evidencia ejecutada
 
-| Prueba                   | Qué comprueba                                                                                                                                  | Resultado |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| `password.test.ts`       | Hash Argon2id, verificación, rechazo de contraseñas largas                                                                                     | Verde     |
-| `tokens.test.ts`         | Huellas SHA-256 y comparación en tiempo constante                                                                                              | Verde     |
-| `origin-policy.test.ts`  | Origen propio aceptado; ajeno o ausente rechazado                                                                                              | Verde     |
-| `permissions.test.ts`    | Matriz de roles y `assertCanPerform`                                                                                                           | Verde     |
-| `security.spec.ts` (E2E) | Health, CSP con nonce, cabeceras, noindex, ruta privada, firma de Cloudinary con sesión y origen                                               | Verde     |
-| `auth.spec.ts` (E2E)     | Cookie HttpOnly y SameSite, cambio de contraseña, credenciales incorrectas sin revelar la cuenta, instalación deshabilitada y cierre de sesión | Verde     |
-| `equipo.spec.ts` (E2E)   | Roles, invitaciones de un solo uso y auditoría                                                                                                 | Verde     |
-| Suite completa           | 249 unitarias y 70 E2E                                                                                                                         | Verde     |
+| Prueba                     | Qué comprueba                                                                                                                                  | Resultado |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| `password.test.ts`         | Hash Argon2id, verificación, rechazo de contraseñas largas                                                                                     | Verde     |
+| `tokens.test.ts`           | Huellas SHA-256 y comparación en tiempo constante                                                                                              | Verde     |
+| `origin-policy.test.ts`    | Origen propio aceptado; ajeno o ausente rechazado                                                                                              | Verde     |
+| `permissions.test.ts`      | Matriz de roles y `assertCanPerform`                                                                                                           | Verde     |
+| `security.spec.ts` (E2E)   | Health, CSP con nonce, cabeceras, noindex, ruta privada, firma de Cloudinary con sesión y origen                                               | Verde     |
+| `auth.spec.ts` (E2E)       | Cookie HttpOnly y SameSite, cambio de contraseña, credenciales incorrectas sin revelar la cuenta, instalación deshabilitada y cierre de sesión | Verde     |
+| `equipo.spec.ts` (E2E)     | Roles, invitaciones de un solo uso y auditoría                                                                                                 | Verde     |
+| `images.test.ts`           | Allowlist de Cloudinary, rechazo de otros hosts y reutilización de imágenes ya resueltas                                                       | Verde     |
+| `manuscrito.spec.ts` (E2E) | Controles de imagen y biblioteca del libro                                                                                                     | Verde     |
+| Suite completa             | 268 unitarias y 71 E2E                                                                                                                         | Verde     |
 
 Los comandos son los del protocolo de `IMPLEMENTATION_PLAN.md`. Las pruebas
 E2E se ejecutan contra la compilación de producción en el puerto 3100 y una

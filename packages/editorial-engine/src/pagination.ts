@@ -1,3 +1,9 @@
+import {
+  computeImageLayout,
+  IMAGE_CAPTION_SCALE,
+  type EditorialImage,
+  type ImageLayout,
+} from "./image";
 import { breakIntoLines, measureTextMm, type LineBreak } from "./measure";
 import { breakRunsIntoLines, type InlineRun } from "./rich-text";
 import {
@@ -51,7 +57,7 @@ export interface LayoutBlock {
   /** El bloque es el primero de su sección. */
   firstOfSection?: boolean;
   /** Referencia de la imagen, cuando `kind` es `image`. */
-  image?: { src?: string; alt?: string };
+  image?: EditorialImage;
 }
 
 export interface PageGeometry {
@@ -113,6 +119,9 @@ export interface LaidOutBlock {
   firstOfSection?: boolean;
   /** El bloque continúa de un párrafo partido en la página anterior. */
   continued?: boolean;
+  /** Imagen y su caja compuesta, cuando el bloque es una imagen. */
+  image?: EditorialImage;
+  imageLayout?: ImageLayout;
 }
 
 export interface LaidOutPage {
@@ -267,7 +276,7 @@ export function paginate(
     const spaceAfterMm = toMm(style.spaceAfterPt);
     const lineHeight = lineHeightMm(style);
 
-    if (block.kind === "rule" || block.kind === "image") {
+    if (block.kind === "rule") {
       const height = spaceBeforeMm + lineHeight + spaceAfterMm;
 
       if (usedHeightMm + height > heightMm && usedHeightMm > 0) {
@@ -286,6 +295,42 @@ export function paginate(
           sectionTitle: block.sectionTitle,
           startsChapter: block.startsChapter,
           firstOfSection: block.firstOfSection,
+        },
+        height,
+      );
+      continue;
+    }
+
+    if (block.kind === "image") {
+      // El espacio anterior y posterior también ocupa página: la imagen debe
+      // caber con ellos, no solo con su pie.
+      const availableHeightMm = Math.max(12, heightMm - spaceBeforeMm - spaceAfterMm);
+      const imageLayout = computeImageLayout(block.image, {
+        textWidthMm: widthMm,
+        textHeightMm: availableHeightMm,
+        captionFontFamily: typography.body.fontFamily,
+        captionFontSizePt: typography.body.fontSizePt * IMAGE_CAPTION_SCALE,
+      });
+      const height = spaceBeforeMm + imageLayout.totalHeightMm + spaceAfterMm;
+
+      if (usedHeightMm + height > heightMm && usedHeightMm > 0) {
+        flushPage();
+      }
+
+      placeBlock(
+        {
+          id: block.id,
+          kind: block.kind,
+          style,
+          lines: [],
+          spaceBeforeMm,
+          spaceAfterMm,
+          sectionId: block.sectionId,
+          sectionTitle: block.sectionTitle,
+          startsChapter: block.startsChapter,
+          firstOfSection: block.firstOfSection,
+          image: block.image,
+          imageLayout,
         },
         height,
       );

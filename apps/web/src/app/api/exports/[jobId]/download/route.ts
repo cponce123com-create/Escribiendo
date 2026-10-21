@@ -23,6 +23,30 @@ interface RouteContext {
   params: Promise<{ jobId: string }>;
 }
 
+/**
+ * Limpia el nombre de descarga.
+ *
+ * El nombre se guarda en la base de datos, pero un valor manipulado no debe
+ * poder romper la cabecera ni cambiar el tipo de archivo que recibe el
+ * navegador. Se eliminan controles, comillas y separadores de ruta.
+ */
+function safeFileName(value: string, fallback: string): string {
+  const base = value.split(/[\\/]/u).pop() ?? fallback;
+  const cleaned = base.replace(/[\u0000-\u001f\u007f"]/gu, "").trim();
+
+  return cleaned.length > 0 ? cleaned : fallback;
+}
+
+function contentDisposition(fileName: string): string {
+  const ascii = fileName.replace(/[^\u0020-\u007e]/gu, "_").replace(/["\\]/gu, "_");
+  const encoded = encodeURIComponent(fileName).replace(
+    /['()*]/gu,
+    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encoded}`;
+}
+
 export async function GET(request: Request, context: RouteContext): Promise<NextResponse> {
   const session = await getSession();
 
@@ -76,7 +100,7 @@ export async function GET(request: Request, context: RouteContext): Promise<Next
     const sections = await loadManuscript(session, job.bookId, versions);
     const contextData = await exportContext(session, job.bookId);
 
-    const file = generateFile({
+    const file = await generateFile({
       format: job.format,
       title: book.title,
       author: book.authorName,
@@ -86,16 +110,18 @@ export async function GET(request: Request, context: RouteContext): Promise<Next
       createdAt: job.createdAt,
     });
 
-    const options = (job.options ?? {}) as { fileName?: string; mimeType?: string };
+    const options = (job.options ?? {}) as { fileName?: string };
+    const fileName = safeFileName(options.fileName ?? file.fileName, file.fileName);
 
     return new NextResponse(file.bytes as unknown as BodyInit, {
       status: 200,
       headers: {
-        "Content-Type": options.mimeType ?? file.mimeType,
+        "Content-Type": file.mimeType,
         "Content-Length": String(file.bytes.length),
-        "Content-Disposition": `attachment; filename="${options.fileName ?? file.fileName}"`,
+        "Content-Disposition": contentDisposition(fileName),
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
+        "X-Download-Options": "noopen",
       },
     });
   } catch (error) {

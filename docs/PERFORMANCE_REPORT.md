@@ -115,3 +115,39 @@ Medido con las sondas de salud durante la suite:
 4. **No se ha medido el comportamiento bajo carga real en Render.** La salida
    de red de la máquina de trabajo está filtrada y el despliegue no es
    accesible desde aquí. Las cifras de esta página son de entorno local.
+
+## Reejecución tras el Lote I (imágenes)
+
+Comando: `pnpm bench:export`, ejecutado el 21 de octubre de 2026 en la rama
+`improvement/escribiendo-95`, con el motor de imágenes ya cargado. El banco no
+incluye imágenes reales: no hay credenciales de Cloudinary. Mide el coste fijo
+de la composición y de los tres escritores.
+
+| Palabras | Páginas | Paginación |    PDF |  EPUB |  DOCX |  Memoria |
+| -------- | ------: | ---------: | -----: | ----: | ----: | -------: |
+| 10 000   |      28 |      45 ms |  15 ms | 14 ms |  8 ms |   4,8 MB |
+| 50 000   |     137 |      70 ms |  22 ms | 21 ms | 20 ms |   1,1 MB |
+| 100 000  |     273 |     127 ms |  64 ms | 40 ms | 33 ms |  33,9 MB |
+| 200 000  |     546 |     265 ms | 101 ms | 66 ms | 81 ms | -18,5 MB |
+
+La última fila de memoria es negativa porque el mínimo observado quedó por
+encima del máximo final: el recolector devolvió memoria durante la medición.
+No es un consumo negativo ni una mejora real; es ruido del método. El máximo
+absoluto observado en esta pasada fue 33,9 MB, por debajo de los 512 MB de
+Render Free, pero no se usa como garantía porque el banco no descarga imágenes.
+
+El coste de imágenes reales no está medido. Por código, el peor caso aceptado
+es 80 imágenes de 15 MB, normalizadas a un lado máximo de 2400 px y procesadas
+con concurrencia 4. Ese caso puede superar la memoria de una instancia Free y
+debe medirse antes de subir el límite.
+
+## Suite de pruebas tras el Lote I
+
+| Suite                       | Duración | Resultado    |
+| --------------------------- | -------: | ------------ |
+| `pnpm test` (unitarias)     |     ~8 s | 268 en verde |
+| `pnpm build` (producción)   |    ~20 s | 30 rutas     |
+| `pnpm test:e2e` (navegador) |   ~3,2 m | 71 en verde  |
+
+Las cifras de duración son de esta máquina y varían con la carga. No se
+presentan como un compromiso de rendimiento del despliegue.

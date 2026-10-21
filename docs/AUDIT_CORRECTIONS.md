@@ -163,3 +163,77 @@ Total: 249 unitarias y 70 E2E en verde.
 - El EPUB no se ha validado con EPUBCheck ni el DOCX se ha abierto en Word.
 - Las fuentes del PDF siguen siendo las estándar: la paginación es una
   estimación de anchos, no la medida de una fuente incrustada.
+
+---
+
+## Lote I — Imágenes de extremo a extremo
+
+Fecha: 21 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+Base: `0f65b1e`.
+
+### Qué estaba mal
+
+1. El editor registraba solo `StarterKit` y no tenía nodo de imagen. Una imagen
+   no se podía insertar, ni con un comando, ni desde la interfaz.
+2. `LayoutBlock.image` solo guardaba `src` y `alt`; la paginación no reservaba
+   altura para la imagen ni para su pie.
+3. El PDF y el DOCX no dibujaban imágenes. El EPUB conservaba la URL remota,
+   pero no incrustaba el archivo.
+4. Los modelos `Asset` y `BookAsset` existían en Prisma y no se usaban.
+5. La firma de Cloudinary solo autorizaba la carpeta de portadas.
+6. El PDF empezaba los objetos en 0, un número reservado por la especificación,
+   y escribía los metadatos como cadenas Latin-1.
+7. Descargar una URL cualquiera del manuscrito desde el servidor permitía SSRF.
+8. El nombre del archivo de descarga llegaba sin sanear a
+   `Content-Disposition`.
+
+### Qué se ha cambiado
+
+| Área         | Archivos                                                                                                    | Cambio                                                                                                                             |
+| ------------ | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Editor       | `components/editor/editorial-image.ts`, `components/books/section-image-controls.tsx`, `section-editor.tsx` | Nodo `image` con pie, dimensiones, porcentaje, alineación y `publicId`; inserción, reemplazo, eliminación y biblioteca.            |
+| Persistencia | `lib/books/assets.ts`, `lib/books/asset-actions.ts`, `api/cloudinary/signature/route.ts`                    | Biblioteca por libro, registro autorizado en `Asset`/`BookAsset`, carpeta interior por espacio y libro, auditoría.                 |
+| Maqueta      | `packages/editorial-engine/src/image.ts`, `pagination.ts`, `apps/web/src/lib/layout/image.ts`, `blocks.ts`  | Caja real de imagen, pie, proporción, alineación y descuento del espacio anterior y posterior.                                     |
+| PDF          | `packages/export-engine/src/pdf.ts`, `image-processing.ts`                                                  | XObjects JPEG `DCTDecode`, dibujo, marcador visible, metadatos UTF-16BE y objeto 0 libre.                                          |
+| EPUB         | `packages/export-engine/src/epub.ts`                                                                        | Imágenes en `EPUB/images/`, manifiesto y rutas relativas; recurso remoto declarado solo si faltan los bytes.                       |
+| DOCX         | `packages/export-engine/src/docx.ts`                                                                        | `word/media/`, relaciones, `wp:inline`, `a:blip`, texto alternativo, pie y dimensiones EMU.                                        |
+| Descarga     | `api/exports/[jobId]/download/route.ts`                                                                     | Nombre saneado, `filename*` RFC 5987, `X-Download-Options: noopen` y tipo MIME del archivo generado.                               |
+| Red          | `lib/export/images.ts`                                                                                      | Allowlist de Cloudinary, HTTPS, timeout de 15 s, máximo de 15 MB, 80 imágenes y concurrencia 4; se comprueba también la URL final. |
+
+### Pruebas ejecutadas
+
+| Suite               | Resultado                  |
+| ------------------- | -------------------------- |
+| `pnpm test`         | 268 pruebas en 30 archivos |
+| `pnpm test:e2e`     | 71 pruebas en Chromium     |
+| `pnpm format:check` | Correcto                   |
+| `pnpm lint`         | Sin errores                |
+| `pnpm typecheck`    | Sin errores                |
+| `pnpm build`        | Correcto                   |
+
+Pruebas nuevas de este lote:
+
+- `packages/export-engine/src/image-export.test.ts`: 6 casos de PDF, EPUB y
+  DOCX con imágenes incrustadas, recursos remotos y marcadores de ausencia.
+- `packages/editorial-engine/src/image.test.ts`: 5 casos de geometría, pie,
+  porcentaje y reducción por altura.
+- `apps/web/src/lib/export/images.test.ts`: 4 casos de allowlist y de
+  reutilización de imágenes ya resueltas.
+- `packages/editorial-engine/src/pagination.test.ts`: 1 caso de imagen con pie
+  y espacio anterior/posterior.
+- `tests/e2e/manuscrito.spec.ts`: 1 caso de controles de imagen y biblioteca.
+- Se actualizaron las expectativas de `pdf.test.ts` y `blocks.test.ts` para los
+  metadatos UTF-16BE y los atributos editoriales.
+
+### Lo que sigue sin estar resuelto
+
+- La subida real a Cloudinary no se ha probado: no hay credenciales locales.
+- EPUBCheck, Word y LibreOffice no están disponibles; la estructura se
+  comprueba byte a byte, no con esas herramientas.
+- Las notas al pie siguen sin editor ni composición.
+- El cuerpo del PDF sigue usando fuentes estándar y WinAnsi. Los metadatos ya
+  son Unicode, pero el texto con caracteres sin equivalente se sustituye por
+  `□` y se cuenta.
+- No se ha medido el coste de descargar y normalizar 80 imágenes en Render
+  Free; solo se ha acotado por código.

@@ -39,6 +39,10 @@ export interface ExportActionState extends ActionState {
     fileName: string | null;
     /** Caracteres que el archivo no ha podido representar. */
     caracteresPerdidos: string[];
+    /** Imágenes que se han incorporado al archivo. */
+    imagenesIncrustadas: number;
+    /** Imágenes que no se han podido resolver. */
+    imagenesOmitidas: number;
   };
 }
 
@@ -126,6 +130,8 @@ export async function requestExportAction(
           wordCount: job.metadata.wordCount,
           fileName: job.fileName,
           caracteresPerdidos: job.metadata.caracteresPerdidos ?? [],
+          imagenesIncrustadas: job.metadata.imagenesIncrustadas ?? 0,
+          imagenesOmitidas: job.metadata.imagenesOmitidas ?? 0,
         }
       : undefined,
   };

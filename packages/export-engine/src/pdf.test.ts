@@ -125,9 +125,13 @@ describe("buildPdf", () => {
   it("conserva los metadatos del documento", () => {
     const text = asText(buildPdf(DOCUMENT));
 
-    expect(text).toContain("(El velo de la tarde)");
-    expect(text).toContain("(Ana Torres)");
-    expect(text).toContain("(Primera edición)");
+    expect(text).toContain(
+      "/Title <FEFF0045006C002000760065006C006F0020006400650020006C0061002000740061007200640065>",
+    );
+    expect(text).toContain("/Author <FEFF0041006E006100200054006F0072007200650073>");
+    expect(text).toContain(
+      "/Subject <FEFF005000720069006D00650072006100200065006400690063006900F3006E>",
+    );
     expect(text).toContain("/CreationDate (D:20261020100000Z)");
   });
 

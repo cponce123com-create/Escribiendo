@@ -106,6 +106,12 @@ export function ExportPanel({ bookId, hasLayout }: ExportPanelProps) {
                   <dd>{state.metadata.pageCount}</dd>
                 </div>
               ) : null}
+              {state.metadata.imagenesIncrustadas > 0 ? (
+                <div className="flex gap-2">
+                  <dt className="text-ink-muted">Imágenes:</dt>
+                  <dd>{state.metadata.imagenesIncrustadas}</dd>
+                </div>
+              ) : null}
               <div className="flex gap-2">
                 <dt className="text-ink-muted">Huella:</dt>
                 <dd className="truncate font-mono text-xs">
@@ -120,6 +126,16 @@ export function ExportPanel({ bookId, hasLayout }: ExportPanelProps) {
               Descargar
             </a>
           </div>
+
+          {state.metadata && state.metadata.imagenesOmitidas > 0 ? (
+            <p className="alert alert-error mt-4" role="alert">
+              {state.metadata.imagenesOmitidas === 1
+                ? "Una imagen no se ha podido incorporar"
+                : `${state.metadata.imagenesOmitidas} imágenes no se han podido incorporar`}
+              . El archivo deja un marcador visible en su lugar. Comprueba que las imágenes sigan
+              disponibles en Cloudinary y vuelve a exportar.
+            </p>
+          ) : null}
 
           {state.metadata && state.metadata.caracteresPerdidos.length > 0 ? (
             <p className="alert alert-error mt-4" role="alert">

@@ -22,6 +22,9 @@ import {
   type SyncMachine,
 } from "@/lib/editor/sync";
 import { SectionConflictPanel } from "@/components/books/section-conflict";
+import { SectionImageControls } from "@/components/books/section-image-controls";
+import { EditorialImage } from "@/components/editor/editorial-image";
+import type { BookAssetSummary } from "@/lib/books/assets";
 
 interface SectionEditorProps {
   sectionId: string;
@@ -32,6 +35,7 @@ interface SectionEditorProps {
   version: number;
   wordCount: number;
   canEdit: boolean;
+  bookAssets: BookAssetSummary[];
 }
 
 /**
@@ -66,11 +70,13 @@ export function SectionEditor({
   version,
   wordCount,
   canEdit,
+  bookAssets,
 }: SectionEditorProps) {
   const [machine, setMachine] = useState<SyncMachine>(() => initialSyncMachine(version));
   const [conflict, setConflict] = useState<SectionConflict | null>(null);
   const [online, setOnline] = useState(true);
   const [recovered, setRecovered] = useState(false);
+  const [assets, setAssets] = useState<BookAssetSummary[]>(() => bookAssets);
 
   const machineRef = useRef(machine);
   const versionRef = useRef(version);
@@ -96,6 +102,7 @@ export function SectionEditor({
         // debe sacar al autor de la página.
         link: { openOnClick: false },
       }),
+      EditorialImage,
     ],
     content,
     // El editor se inicializa en el cliente: sin esta opción, Next.js
@@ -555,6 +562,19 @@ export function SectionEditor({
             </button>
           ))}
         </div>
+      ) : null}
+
+      {canEdit ? (
+        <SectionImageControls
+          editor={editor}
+          bookId={bookId}
+          assets={assets}
+          onAssetRegistered={(asset) => {
+            setAssets((current) =>
+              current.some((item) => item.id === asset.id) ? current : [...current, asset],
+            );
+          }}
+        />
       ) : null}
 
       <div

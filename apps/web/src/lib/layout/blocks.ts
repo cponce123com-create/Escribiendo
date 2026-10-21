@@ -10,6 +10,7 @@ import {
   type LayoutBlock,
   type LayoutBlockKind,
 } from "@escribiendo/editorial-engine";
+import { editorialImageFromNode } from "./image";
 import { inlineRuns, listRuns, trimRuns } from "./inline";
 
 /**
@@ -47,13 +48,6 @@ function headingKind(node: TiptapNode): LayoutBlockKind {
   }
 
   return "heading4";
-}
-
-/** Texto alternativo de una imagen, si lo trae. */
-function imageAlt(node: TiptapNode): string {
-  const alt = node.attrs?.alt;
-
-  return typeof alt === "string" ? alt.trim() : "";
 }
 
 /**
@@ -102,19 +96,15 @@ export function sectionToBlocks(section: PreviewSection): LayoutBlock[] {
     index += 1;
   };
 
-  /** Imagen: se conserva la referencia aunque todavía no se dibuje. */
+  /** Imagen: conserva origen, pie, proporciones y alineación. */
   const pushImage = (node: TiptapNode): void => {
-    const src = typeof node.attrs?.src === "string" ? node.attrs.src : undefined;
-    const alt = imageAlt(node);
+    const image = editorialImageFromNode(node);
 
     blocks.push({
       id: `${section.id}-${index}`,
       kind: "image",
-      text: alt,
-      image: {
-        ...(src ? { src } : {}),
-        ...(alt ? { alt } : {}),
-      },
+      text: image.alt ?? image.caption ?? "",
+      image,
       ...registration(),
       firstOfSection: index === 0,
     });

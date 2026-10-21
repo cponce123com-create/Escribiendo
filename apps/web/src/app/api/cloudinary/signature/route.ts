@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { getCloudinaryConfig } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { getSession } from "@/lib/auth/session";
+import { canPerform } from "@/lib/books/permissions";
+import { getBook } from "@/lib/books/queries";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { assertRequestOrigin } from "@/lib/security/request-context";
 import { AppError } from "@/lib/errors";
@@ -62,8 +65,44 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
+  const body = await request.json().catch(() => null);
+  const requestSchema = z.object({
+    purpose: z.enum(["cover", "interior"]).default("cover"),
+    bookId: z.string().uuid().optional(),
+  });
+  const parsed = requestSchema.safeParse(body ?? {});
+
+  if (!parsed.success) {
+    return NextResponse.json({ error: "La solicitud no es válida." }, { status: 400 });
+  }
+
+  if (parsed.data.purpose === "interior") {
+    if (!parsed.data.bookId) {
+      return NextResponse.json({ error: "Falta el libro de destino." }, { status: 400 });
+    }
+
+    if (!canPerform(session.workspace.role, "section:update")) {
+      return NextResponse.json(
+        { error: "No tienes permisos para subir imágenes." },
+        { status: 403 },
+      );
+    }
+
+    const book = await getBook(session, parsed.data.bookId);
+
+    if (!book) {
+      return NextResponse.json(
+        { error: "El libro no existe en este espacio de trabajo." },
+        { status: 404 },
+      );
+    }
+  }
+
   const timestamp = Math.floor(Date.now() / 1_000).toString();
-  const folder = `${config.uploadFolder}/workspaces/${session.workspace.id}/covers`;
+  const folder =
+    parsed.data.purpose === "interior" && parsed.data.bookId
+      ? `${config.uploadFolder}/workspaces/${session.workspace.id}/books/${parsed.data.bookId}/interior`
+      : `${config.uploadFolder}/workspaces/${session.workspace.id}/covers`;
   const params = {
     timestamp,
     folder,
@@ -79,6 +118,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       uploadUrl: `https://api.cloudinary.com/v1_1/${config.cloudName}/image/upload`,
       signature,
       params,
+      purpose: parsed.data.purpose,
     },
     {
       headers: {

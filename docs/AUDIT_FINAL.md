@@ -139,3 +139,58 @@ se afirma más de lo que se ha comprobado.
 - **Otros navegadores.** Solo se ha probado Chromium.
 - **La lectura real de los archivos EPUB y DOCX** por parte de aplicaciones de
   usuario final.
+
+---
+
+## Actualización de la rama `improvement/escribiendo-95`
+
+Fecha: 21 de octubre de 2026.
+Base: `0f65b1e`.
+Alcance cerrado en esta actualización: imágenes de extremo a extremo.
+
+La puntuación de 95 **no se declara alcanzada**. La última medición documentada
+sigue siendo 87,4/100 y no se sustituye por una estimación. Esta actualización
+solo registra lo que se ha ejecutado y lo que falta.
+
+### Correcciones verificadas
+
+- El editor tiene un nodo de imagen con pie, dimensiones, porcentaje y
+  alineación; la biblioteca del libro inserta imágenes ya subidas.
+- `Asset` y `BookAsset` se usan de verdad: la subida se registra con
+  autorización por espacio de trabajo y por libro.
+- La firma de Cloudinary distingue portada e interior; la carpeta interior
+  incluye el espacio y el libro, y exige `section:update`.
+- La maqueta reserva altura para la imagen y su pie; la vista previa y el PDF
+  cuentan la misma caja.
+- El PDF incrusta JPEG como XObject `DCTDecode`; el EPUB guarda las imágenes en
+  `EPUB/images/` y el DOCX en `word/media/`. Si falta una imagen, queda un
+  marcador visible o un recurso remoto declarado, nunca una desaparición
+  silenciosa.
+- El PDF ya no usa el objeto 0 y sus metadatos se escriben en UTF-16BE.
+- La descarga sanea el nombre del archivo y la red de exportación solo acepta
+  HTTPS de la cuenta de Cloudinary configurada, con timeout, tamaño máximo y
+  comprobación de la URL final.
+
+### Evidencia
+
+| Comprobación        | Resultado                                  |
+| ------------------- | ------------------------------------------ |
+| `pnpm test`         | 268 pruebas, 30 archivos                   |
+| `pnpm test:e2e`     | 71 pruebas en Chromium                     |
+| `pnpm format:check` | Correcto                                   |
+| `pnpm lint`         | Sin errores                                |
+| `pnpm typecheck`    | Sin errores                                |
+| `pnpm build`        | Correcto                                   |
+| `pnpm bench:export` | Ejecutado; cifras en PERFORMANCE_REPORT.md |
+
+### Pendiente para 95
+
+1. Notas al pie de extremo a extremo.
+2. PDF con Unicode completo y fuentes TTF incrustadas.
+3. EPUBCheck, Word/LibreOffice y un lector de EPUB real.
+4. Subida real a Cloudinary con credenciales.
+5. Pruebas contra Render y carga real.
+6. Auditoría externa de seguridad y escaneo de dependencias.
+
+Ninguno de estos puntos se ha sustituido por una afirmación. El detalle está en
+[AUDIT_BASELINE_95.md](AUDIT_BASELINE_95.md).

@@ -6,6 +6,7 @@ import { SectionEditor } from "@/components/books/section-editor";
 import { requireSession } from "@/lib/auth/session";
 import { canPerform } from "@/lib/books/permissions";
 import { getSection, getBook, listRevisions } from "@/lib/books/queries";
+import { listBookAssets } from "@/lib/books/assets";
 import {
   emptyTiptapDocument,
   parseTiptapDocument,
@@ -42,10 +43,11 @@ export default async function SectionPage({ params }: SectionPageProps) {
     notFound();
   }
 
-  const [book, revisions, miembros] = await Promise.all([
+  const [book, revisions, miembros, imagenes] = await Promise.all([
     getBook(session, bookId),
     listRevisions(session, bookId, sectionId),
     listMembers(session),
+    listBookAssets(session, bookId),
   ]);
 
   const canEdit = canPerform(session.workspace.role, "section:update");
@@ -89,6 +91,7 @@ export default async function SectionPage({ params }: SectionPageProps) {
             version={section.version}
             wordCount={section.wordCount}
             canEdit={canEdit}
+            bookAssets={imagenes}
           />
         </section>
 

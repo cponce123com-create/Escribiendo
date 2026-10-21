@@ -912,6 +912,50 @@
   padding: 0;
 }
 
+.manuscript-editor .ProseMirror figure[data-editorial-image] {
+  margin: 1.6em auto;
+  max-width: 100%;
+}
+
+.manuscript-editor .ProseMirror figure[data-editorial-image].align-left {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.manuscript-editor .ProseMirror figure[data-editorial-image].align-right {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+.manuscript-editor .ProseMirror figure[data-editorial-image] img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 0.2rem;
+}
+
+.manuscript-editor .ProseMirror figure[data-editorial-image] figcaption {
+  margin-top: 0.5em;
+  color: var(--ink-muted);
+  font-size: 0.82rem;
+  font-style: italic;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.manuscript-editor .ProseMirror figure[data-editorial-image].align-left figcaption {
+  text-align: left;
+}
+
+.manuscript-editor .ProseMirror figure[data-editorial-image].align-right figcaption {
+  text-align: right;
+}
+
+.manuscript-editor .ProseMirror figure[data-editorial-image].ProseMirror-selectednode img {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
 .manuscript-editor .ProseMirror hr {
   border: none;
   border-top: 1px solid var(--line-strong);

@@ -3,9 +3,12 @@ export {
   buildPdf,
   type PdfDocument,
   type PdfFont,
+  type PdfImage,
   type PdfPage,
   type PdfRun,
 } from "./pdf";
+export { type ExportImage, type ExportImageAsset, type ExportImageMap } from "./assets";
+export { prepareImageAsset, type ImageTarget } from "./image-processing";
 export {
   buildEpub,
   type ExportBlock,

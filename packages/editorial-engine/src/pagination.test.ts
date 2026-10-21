@@ -321,6 +321,38 @@ describe("paginate", () => {
     expect(resultado.pages[0]?.blank).toBe(true);
   });
 
+  it("reserva el espacio anterior y posterior al ajustar una imagen con pie", () => {
+    const tipografia = {
+      ...TIPOGRAFIA,
+      body: { ...ESTILO, spaceBeforePt: 20, spaceAfterPt: 20 },
+    };
+    const resultado = paginate(
+      [
+        {
+          id: "img1",
+          kind: "image",
+          text: "",
+          image: {
+            src: "https://res.cloudinary.com/demo/image/upload/plaza.jpg",
+            widthPx: 1200,
+            heightPx: 4000,
+            widthPercent: 100,
+            caption:
+              "Una plaza pequeña al anochecer, con las farolas encendidas y el suelo mojado por la lluvia.",
+          },
+        },
+      ],
+      GEOMETRY,
+      tipografia,
+    );
+    const page = resultado.pages[0];
+    const layout = page?.blocks[0]?.imageLayout;
+
+    expect(page?.usedHeightMm).toBeLessThanOrEqual(80.001);
+    expect(layout?.captionLines.length).toBeGreaterThan(0);
+    expect(layout?.heightMm).toBeLessThan(65);
+  });
+
   it("conserva los tramos con formato en las líneas compuestas", () => {
     const resultado = paginate(
       [

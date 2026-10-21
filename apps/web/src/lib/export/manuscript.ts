@@ -2,7 +2,8 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import type { SessionContext } from "@/lib/auth/session";
 import { parseTiptapDocument, type TiptapDocument } from "@escribiendo/book-schema";
-import { runsToText, type InlineRun } from "@escribiendo/editorial-engine";
+import { runsToText, type EditorialImage, type InlineRun } from "@escribiendo/editorial-engine";
+import { editorialImageFromNode } from "@/lib/layout/image";
 import { inlineRuns, trimRuns } from "@/lib/layout/inline";
 import { createHash } from "node:crypto";
 
@@ -169,7 +170,7 @@ export interface ManuscriptBlock {
   text: string;
   runs?: ManuscriptRun[];
   /** Referencia de la imagen, cuando `kind` es `image`. */
-  image?: { src?: string; alt?: string };
+  image?: EditorialImage;
 }
 
 /** Aplana las marcas anidadas a la forma que espera el motor de exportación. */
@@ -263,16 +264,12 @@ export function sectionToBlocks(section: ExportSection): ManuscriptBlock[] {
         break;
 
       case "image": {
-        const src = typeof node.attrs?.src === "string" ? node.attrs.src : undefined;
-        const alt = typeof node.attrs?.alt === "string" ? node.attrs.alt.trim() : "";
+        const image = editorialImageFromNode(node);
 
         blocks.push({
           kind: "image",
-          text: alt,
-          image: {
-            ...(src ? { src } : {}),
-            ...(alt ? { alt } : {}),
-          },
+          text: image.alt ?? image.caption ?? "",
+          image,
         });
         break;
       }

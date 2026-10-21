@@ -47,6 +47,20 @@ export {
   type RichLine,
 } from "./rich-text";
 export {
+  DEFAULT_IMAGE_WIDTH_PERCENT,
+  IMAGE_CAPTION_GAP_MM,
+  IMAGE_CAPTION_SCALE,
+  MAX_IMAGE_WIDTH_PERCENT,
+  MIN_IMAGE_WIDTH_PERCENT,
+  computeImageLayout,
+  normalizeImageAlignment,
+  normalizeImageWidthPercent,
+  type EditorialImage,
+  type ImageAlignment,
+  type ImageLayout,
+  type ImageLayoutInput,
+} from "./image";
+export {
   fitsTextBlock,
   lineHeightMm,
   paginate,

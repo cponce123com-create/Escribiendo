@@ -1,3 +1,4 @@
+import type { ExportImageAsset, ExportImageMap } from "./assets";
 import { buildZip, type ZipEntry } from "./zip";
 import type { ExportBlock, ExportDocumentModel, ExportInlineRun } from "./epub";
 
@@ -22,6 +23,9 @@ const CONTENT_TYPES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
+  <Default Extension="jpeg" ContentType="image/jpeg"/>
+  <Default Extension="jpg" ContentType="image/jpeg"/>
+  <Default Extension="png" ContentType="image/png"/>
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
   <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
   <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
@@ -165,6 +169,112 @@ function inlineXml(block: ExportBlock, links: string[]): string {
   return parts.join("");
 }
 
+interface DocxImageEntry {
+  src: string;
+  rId: string;
+  fileName: string;
+  asset: ExportImageAsset;
+}
+
+/** Ancho máximo de una imagen en un A4 con márgenes de 2,5 cm. */
+const MAX_IMAGE_WIDTH_EMU = 5_486_400;
+/** Alto máximo prudente para que una imagen quepa con su pie. */
+const MAX_IMAGE_HEIGHT_EMU = 7_315_200;
+
+function collectDocxImages(
+  document: ExportDocumentModel,
+  assets: ExportImageMap | undefined,
+): Map<string, DocxImageEntry> {
+  const bySrc = new Map<string, DocxImageEntry>();
+
+  if (!assets) {
+    return bySrc;
+  }
+
+  for (const chapter of document.chapters) {
+    for (const block of chapter.blocks) {
+      if (block.kind !== "image") {
+        continue;
+      }
+
+      const src = block.image?.src;
+
+      if (!src || bySrc.has(src)) {
+        continue;
+      }
+
+      const asset = assets.get(src);
+
+      if (!asset) {
+        continue;
+      }
+
+      const index = bySrc.size + 1;
+      const fileName = `image-${String(index).padStart(3, "0")}.${asset.extension}`;
+
+      bySrc.set(src, {
+        src,
+        rId: `rIdImg${index}`,
+        fileName,
+        asset,
+      });
+    }
+  }
+
+  return bySrc;
+}
+
+/** Bloque de imagen OOXML, con su relación y su texto alternativo. */
+function imageParagraph(
+  block: ExportBlock,
+  images: Map<string, DocxImageEntry>,
+  nextId: number,
+): string {
+  const image = block.image;
+  const src = image?.src;
+  const entry = src ? images.get(src) : undefined;
+  const caption = image?.caption ?? image?.alt ?? block.text;
+  const alt = image?.alt ?? caption;
+
+  if (!entry) {
+    const fallback = caption.trim() || "Imagen no disponible";
+    return paragraph(`[Imagen: ${fallback}]`, "Cita");
+  }
+
+  const widthPercent = Math.min(100, Math.max(10, image?.widthPercent ?? 100));
+  let widthEmu = Math.round(MAX_IMAGE_WIDTH_EMU * (widthPercent / 100));
+  let heightEmu = Math.round(widthEmu * (entry.asset.height / entry.asset.width));
+
+  if (heightEmu > MAX_IMAGE_HEIGHT_EMU) {
+    const scale = MAX_IMAGE_HEIGHT_EMU / heightEmu;
+    heightEmu = MAX_IMAGE_HEIGHT_EMU;
+    widthEmu = Math.round(widthEmu * scale);
+  }
+
+  const alignment =
+    image?.alignment === "left" ? "left" : image?.alignment === "right" ? "right" : "center";
+  const docPrId = 1000 + nextId;
+  const captionXml =
+    caption.trim().length > 0
+      ? `<w:p><w:pPr><w:jc w:val="${alignment}"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="18"/><w:szCs w:val="18"/></w:rPr><w:t xml:space="preserve">${escapeXml(caption)}</w:t></w:r></w:p>`
+      : "";
+
+  return (
+    `<w:p><w:pPr><w:jc w:val="${alignment}"/></w:pPr><w:r><w:drawing>` +
+    `<wp:inline distT="0" distB="0" distL="0" distR="0">` +
+    `<wp:extent cx="${widthEmu}" cy="${heightEmu}"/>` +
+    `<wp:docPr id="${docPrId}" name="Imagen ${docPrId}" descr="${escapeXml(alt)}"/>` +
+    `<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
+    `<pic:pic><pic:nvPicPr><pic:cNvPr id="${docPrId}" name="${escapeXml(entry.fileName)}" descr="${escapeXml(alt)}"/>` +
+    `<pic:cNvPicPr/></pic:nvPicPr>` +
+    `<pic:blipFill><a:blip r:embed="${entry.rId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>` +
+    `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${widthEmu}" cy="${heightEmu}"/></a:xfrm>` +
+    `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic>` +
+    `</a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>` +
+    captionXml
+  );
+}
+
 /** Párrafo de Word. */
 function paragraph(text: string, styleId: string | null): string {
   const properties = styleId ? `<w:pPr><w:pStyle w:val="${styleId}"/></w:pPr>` : "";
@@ -183,28 +293,40 @@ function blockParagraph(block: ExportBlock, styleId: string | null, links: strin
 const RULE_PARAGRAPH =
   '<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="808080"/></w:pBdr></w:pPr></w:p>';
 
-/** Relaciones del documento, incluidas las de los enlaces. */
-function documentRels(links: readonly string[]): string {
+/** Relaciones del documento, incluidas las de enlaces e imágenes. */
+function documentRels(links: readonly string[], images: readonly DocxImageEntry[]): string {
   const hyperlinks = links
     .map(
       (href, index) =>
         `<Relationship Id="rIdL${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${escapeXml(href)}" TargetMode="External"/>`,
     )
     .join("\n  ");
+  const imageRels = images
+    .map(
+      (image) =>
+        `<Relationship Id="${image.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${image.fileName}"/>`,
+    )
+    .join("\n  ");
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>${hyperlinks.length > 0 ? `\n  ${hyperlinks}` : ""}
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>${hyperlinks.length > 0 ? `\n  ${hyperlinks}` : ""}${imageRels.length > 0 ? `\n  ${imageRels}` : ""}
 </Relationships>`;
 }
 
 /**
  * Construye el DOCX.
  */
-export function buildDocx(document: ExportDocumentModel, createdAt: Date): Uint8Array {
+export function buildDocx(
+  document: ExportDocumentModel,
+  createdAt: Date,
+  assets?: ExportImageMap,
+): Uint8Array {
   const body: string[] = [];
   /** Enlaces del documento, para las relaciones de Word. */
   const links: string[] = [];
+  const images = collectDocxImages(document, assets);
+  let imageIndex = 0;
 
   for (const chapter of document.chapters) {
     body.push(paragraph(chapter.title, "Ttulo1"));
@@ -217,6 +339,12 @@ export function buildDocx(document: ExportDocumentModel, createdAt: Date): Uint8
 
       if (block.kind === "rule") {
         body.push(RULE_PARAGRAPH);
+        continue;
+      }
+
+      if (block.kind === "image") {
+        imageIndex += 1;
+        body.push(imageParagraph(block, images, imageIndex));
         continue;
       }
 
@@ -246,13 +374,16 @@ export function buildDocx(document: ExportDocumentModel, createdAt: Date): Uint8
       name: "word/document.xml",
       data: new TextEncoder().encode(
         `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n` +
-          `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">\n` +
+          `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">\n` +
           `<w:body>\n${body.join("\n")}\n` +
           `<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1418" w:right="1418" w:bottom="1418" w:left="1418" w:header="709" w:footer="709" w:gutter="0"/></w:sectPr>\n` +
           `</w:body>\n</w:document>\n`,
       ),
     },
-    { name: "word/_rels/document.xml.rels", data: new TextEncoder().encode(documentRels(links)) },
+    {
+      name: "word/_rels/document.xml.rels",
+      data: new TextEncoder().encode(documentRels(links, [...images.values()])),
+    },
     { name: "word/styles.xml", data: new TextEncoder().encode(STYLES) },
     {
       name: "docProps/core.xml",
@@ -260,6 +391,13 @@ export function buildDocx(document: ExportDocumentModel, createdAt: Date): Uint8
     },
     { name: "docProps/app.xml", data: new TextEncoder().encode(APP_PROPERTIES) },
   ];
+
+  for (const image of images.values()) {
+    entries.push({
+      name: `word/media/${image.fileName}`,
+      data: image.asset.data,
+    });
+  }
 
   return buildZip(entries, createdAt);
 }
