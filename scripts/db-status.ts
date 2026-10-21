@@ -196,6 +196,48 @@ if (users === 0) {
   warn("No hay ninguna cuenta: la instalación inicial sigue pendiente en /setup.");
 }
 
+// Tamaño de las tablas: las revisiones y la auditoría crecen con el uso y son
+// las que pueden llenar el almacenamiento del plan gratuito.
+const sizes = await prisma.$queryRaw<{ tabla: string; bytes: bigint }[]>`
+  SELECT relname AS tabla, pg_total_relation_size(c.oid) AS bytes
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE c.relkind = 'r'
+    AND n.nspname = current_schema()
+  ORDER BY pg_total_relation_size(c.oid) DESC
+  LIMIT 8
+`;
+
+if (sizes.length > 0) {
+  const lineas = sizes.map(
+    (fila) => `  ${fila.tabla.padEnd(28)} ${(Number(fila.bytes) / 1024 / 1024).toFixed(1)} MB`,
+  );
+
+  process.stdout.write(`Tablas más grandes:\n${lineas.join("\n")}\n`);
+}
+
+// Índices parciales que solo existen en las migraciones: si una migración
+// futura los recompone, se perderían en silencio.
+const indices = await prisma.$queryRaw<{ indexname: string }[]>`
+  SELECT indexname
+  FROM pg_indexes
+  WHERE schemaname = current_schema()
+    AND indexname IN (
+      'book_editions_one_default_per_book_key',
+      'layout_profiles_one_default_per_workspace_key',
+      'editorial_templates_system_slug_key'
+    )
+`;
+
+if (indices.length < 3) {
+  warn(
+    "Faltan índices parciales de unicidad (edición predeterminada, perfil " +
+      "predeterminado y plantilla de sistema). Revisa las migraciones.",
+  );
+} else {
+  ok(`Índices parciales de unicidad: ${indices.length}`);
+}
+
 await prisma.$disconnect();
 
 process.stdout.write("\nEl estado de la base de datos es correcto.\n\n");

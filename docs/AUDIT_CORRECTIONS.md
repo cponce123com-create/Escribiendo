@@ -860,3 +860,46 @@ Base del lote: `b0a1949`.
 | `pnpm lint`         | Sin errores                |
 | `pnpm typecheck`    | Sin errores                |
 | `pnpm build`        | Correcto                   |
+
+---
+
+## Lote X: operacion y plan al dia
+
+Fecha: 21 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+Base del lote: `4281847`.
+
+### Que estaba mal
+
+1. `pnpm db:status` no decía cuanto ocupaban las tablas. Las revisiones y la
+   auditoria crecen con el uso y son las que pueden llenar el almacenamiento del
+   plan gratuito, sin que nadie lo viera.
+2. Los indices parciales de unicidad (una edicion predeterminada por libro, un
+   perfil predeterminado por estudio, un slug por plantilla de sistema) solo
+   existen en las migraciones: una migracion futura los recompone y se
+   perderian en silencio.
+3. La vista previa renderizaba **todas** las paginas de un libro largo, con
+   miles de nodos en el documento.
+4. `IMPLEMENTATION_PLAN.md` daba por pendientes las imagenes, las notas al pie
+   y las fuentes incrustadas, que hace dias estan cerradas y verificadas.
+
+### Que se ha cambiado
+
+| Area      | Archivo                                                | Cambio                                                                                                                  |
+| --------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| Operacion | `scripts/db-status.ts`                                 | Informa del tamano de las ocho tablas mas grandes y comprueba que siguen los tres indices parciales de unicidad.        |
+| Operacion | `docs/DATABASE.md`                                     | Explica la columna `sessions.workspaceId` y el aviso sobre los indices parciales.                                       |
+| Interfaz  | `apps/web/src/components/layout/paginated-preview.tsx` | La vista previa usa `content-visibility`, de modo que el navegador no dibuja las paginas que no se ven.                 |
+| Plan      | `IMPLEMENTATION_PLAN.md`                               | Los puntos 1, 2 y 3 pasan a **cerrados** con su evidencia; el punto 5, a medias; las condiciones del 95, con su estado. |
+
+### Pruebas ejecutadas
+
+| Comprobacion        | Resultado                                          |
+| ------------------- | -------------------------------------------------- |
+| `pnpm db:status`    | Tamano de tablas y 3 indices parciales comprobados |
+| `pnpm test`         | 328 pruebas en 34 archivos                         |
+| `pnpm test:e2e`     | 80 pruebas en Chromium                             |
+| `pnpm format:check` | Correcto                                           |
+| `pnpm lint`         | Sin errores                                        |
+| `pnpm typecheck`    | Sin errores                                        |
+| `pnpm build`        | Correcto                                           |

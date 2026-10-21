@@ -78,7 +78,15 @@ function PageSheet({ page, profile, typography, pageWidth, pageHeight }: PageShe
   return (
     <div
       className="relative overflow-hidden border border-ink/15 bg-white shadow-sm dark:bg-neutral-50"
-      style={{ width: `${pageWidth}px`, height: `${pageHeight}px` }}
+      style={{
+        width: `${pageWidth}px`,
+        height: `${pageHeight}px`,
+        // En un libro largo, el navegador no dibuja las páginas que no se
+        // ven: el tamaño se reserva para que el salto de página siga siendo
+        // exacto.
+        contentVisibility: "auto",
+        containIntrinsicSize: `${pageHeight}px`,
+      }}
       aria-label={`Página ${page.index}`}
     >
       {page.runningHead ? (
