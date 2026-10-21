@@ -99,7 +99,7 @@ estaba. La persistencia local es la que lo resuelve, no el aviso.
 
 ## Lote E — fidelidad editorial del formato en línea
 
-Fecha: 21 de octubre de 2026. Rama: `audit/optimization-95`.
+Fecha: 21 de octubre de 2026. Rama: `main`.
 
 ### Qué estaba mal
 

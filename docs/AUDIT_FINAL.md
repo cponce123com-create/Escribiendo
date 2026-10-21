@@ -1,7 +1,7 @@
 # Auditoría final
 
 Fecha: 20 de octubre de 2026.
-Rama: `audit/optimization-95`.
+Rama: `main`.
 Alcance: las Fases 1 a 6 de ESCRIBIENDO.
 
 ## Cómo se puntúa
