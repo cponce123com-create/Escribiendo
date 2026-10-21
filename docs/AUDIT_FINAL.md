@@ -289,7 +289,7 @@ que se ha ejecutado.
 
 | Comprobación        | Resultado                                                      |
 | ------------------- | -------------------------------------------------------------- |
-| `pnpm test`         | 291 pruebas, 32 archivos                                       |
+| `pnpm test`         | 292 pruebas, 32 archivos                                       |
 | `pnpm test:e2e`     | 72 pruebas en Chromium                                         |
 | `pnpm format:check` | Correcto                                                       |
 | `pnpm lint`         | Sin errores                                                    |
@@ -344,7 +344,7 @@ documentada continúa siendo 87,4/100.
 | E2E con EPUBCheck    | El EPUB descargado por la aplicación valida sin errores |
 | `pnpm validate:docx` | El DOCX lo lee Mammoth 1.11.0                           |
 | `pnpm audit --prod`  | Sin vulnerabilidades conocidas                          |
-| `pnpm test`          | 291 pruebas, 32 archivos                                |
+| `pnpm test`          | 292 pruebas, 32 archivos                                |
 | `pnpm test:e2e`      | 72 pruebas en Chromium                                  |
 
 El detalle está en [EXPORT_VALIDATION.md](EXPORT_VALIDATION.md) y en
@@ -383,8 +383,53 @@ documentada continua siendo 87,4/100.
 | `pnpm validate:epub` | 0 errores y 0 advertencias con EPUBCheck 5.1.0                    |
 | `pnpm validate:docx` | Mammoth 1.11.0 lee el documento                                   |
 | `pnpm bench:export`  | PDF de 671 KB, EPUB de 29 KB y DOCX de 8 KB para 200 000 palabras |
-| `pnpm test`          | 291 pruebas, 32 archivos                                          |
+| `pnpm test`          | 292 pruebas, 32 archivos                                          |
 | `pnpm test:e2e`      | 72 pruebas en Chromium                                            |
 
 El detalle esta en [EXPORT_VALIDATION.md](EXPORT_VALIDATION.md) y en
+[AUDIT_CORRECTIONS.md](AUDIT_CORRECTIONS.md).
+
+---
+
+## Actualizacion de la rama `improvement/escribiendo-95`: prueba de esfuerzo (Lote N)
+
+Fecha: 21 de octubre de 2026.
+Base del lote: `29dac65`.
+Alcance cerrado: prueba de esfuerzo con imagenes y notas al pie, y correccion
+del consumo de memoria del escritor de ZIP.
+
+La puntuacion de 95 **sigue sin declararse alcanzada** y la ultima medicion
+documentada continua siendo 87,4/100.
+
+### Correcciones verificadas
+
+- `pnpm stress:export` genera un manuscrito de 200 000 palabras, 80
+  fotografias y 500 notas al pie y exporta los tres formatos midiendo tiempo,
+  tamano y memoria maxima.
+- **La prueba encontro un fallo real.** La primera ejecucion daba 1 647 MB de
+  memoria: el escritor de ZIP armaba el archivo en una lista de numeros y un
+  ZIP de 40 MB ocupaba mas de un gigabyte. Un libro con 80 fotografias no
+  cabia en Render Free.
+- Con un bufer de bytes que crece por duplicacion, la memoria maxima baja a
+  **367 MB** (margen de 145 MB sobre los 512 MB de Render Free) y la escritura
+  del EPUB y del DOCX es el doble de rapida.
+- El PDF no habia cambiado: se quedaba en 259 MB.
+
+### Evidencia
+
+| Comprobacion         | Resultado                                                     |
+| -------------------- | ------------------------------------------------------------- |
+| `pnpm stress:export` | PDF de 588 ms y 40 159 KB, EPUB de 1 413 ms, DOCX de 1 355 ms |
+| Memoria maxima       | 367 MB, con margen de 145 MB sobre los 512 MB de Render Free  |
+| `pnpm test`          | 292 pruebas, 32 archivos                                      |
+| `pnpm test:e2e`      | 72 pruebas en Chromium                                        |
+| `pnpm validate:epub` | 0 errores y 0 advertencias con EPUBCheck 5.1.0                |
+
+### Pendiente
+
+El archivo se sigue generando entero en la memoria de la peticion. Un
+manuscrito mayor, o con mas imagenes, no cabria en Render Free: la solucion
+seria escribir a disco o a un almacenamiento temporal, y no esta hecha.
+
+El detalle esta en [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md) y en
 [AUDIT_CORRECTIONS.md](AUDIT_CORRECTIONS.md).

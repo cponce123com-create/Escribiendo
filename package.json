@@ -31,6 +31,7 @@
     "admin:password-reset": "tsx scripts/admin-password-reset.ts",
     "retention:clean": "tsx scripts/retention.ts",
     "bench:export": "tsx scripts/benchmark-export.ts",
+    "stress:export": "tsx scripts/stress-export.ts",
     "validate:epub": "tsx scripts/validate-epub.ts",
     "validate:docx": "tsx scripts/validate-docx.ts",
     "validate:pdf": "tsx scripts/validate-pdf.ts"
@@ -44,6 +45,7 @@
     "eslint": "9.39.5",
     "eslint-config-next": "16.4.2",
     "prettier": "3.9.10",
+    "sharp": "0.35.5",
     "tsx": "4.23.15",
     "typescript": "5.9.3",
     "vitest": "5.0.5"

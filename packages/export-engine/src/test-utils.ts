@@ -60,6 +60,44 @@ export interface ZipEntryLeida {
   offset: number;
 }
 
+/** Entradas de un ZIP sin desplegarlas: solo el nombre y el tamaño. */
+export interface ZipEntryResumen {
+  name: string;
+  method: number;
+  /** Tamaño guardado en el archivo. */
+  compressedSize: number;
+  /** Tamaño original de la entrada. */
+  originalSize: number;
+}
+
+/**
+ * Lista las entradas de un ZIP sin descomprimirlas.
+ *
+ * Sirve para comprobar el contenido de un archivo grande sin gastarse la
+ * memoria de todos sus datos.
+ */
+export function zipEntriesResumen(bytes: Uint8Array): ZipEntryResumen[] {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const entries: ZipEntryResumen[] = [];
+  let position = 0;
+
+  while (position + 4 <= bytes.length && view.getUint32(position, true) === 0x04034b50) {
+    const method = view.getUint16(position + 8, true);
+    const compressedSize = view.getUint32(position + 18, true);
+    const originalSize = view.getUint32(position + 22, true);
+    const nameLength = view.getUint16(position + 26, true);
+    const extraLength = view.getUint16(position + 28, true);
+    const nameStart = position + 30;
+    const dataStart = nameStart + nameLength + extraLength;
+    const name = new TextDecoder().decode(bytes.slice(nameStart, nameStart + nameLength));
+
+    entries.push({ name, method, compressedSize, originalSize });
+    position = dataStart + compressedSize;
+  }
+
+  return entries;
+}
+
 /** Lee las entradas locales de un ZIP y devuelve su contenido descomprimido. */
 export function zipEntries(bytes: Uint8Array): Map<string, ZipEntryLeida> {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);

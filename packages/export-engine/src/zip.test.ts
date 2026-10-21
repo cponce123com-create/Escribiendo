@@ -77,6 +77,24 @@ describe("buildZip", () => {
     expect(bytes.length).toBeLessThan(largo.length);
   });
 
+  it("guarda y recupera una entrada grande sin perder bytes", () => {
+    const grande = new Uint8Array(2 * 1024 * 1024);
+
+    for (let indice = 0; indice < grande.length; indice += 1) {
+      grande[indice] = (indice * 7) & 0xff;
+    }
+
+    const bytes = buildZip(
+      [{ name: "word/media/grande.bin", data: grande }],
+      new Date("2026-10-20T10:00:00.000Z"),
+    );
+    const [leida] = [...zipEntries(bytes).values()];
+
+    expect(leida?.data.length).toBe(grande.length);
+    expect(leida?.data[1234]).toBe(grande[1234]);
+    expect(leida?.data[grande.length - 1]).toBe(grande[grande.length - 1]);
+  });
+
   it("conserva el nombre y el contenido de cada entrada", () => {
     const bytes = buildZip(
       [entrada, { name: "EPUB/package.opf", data: new TextEncoder().encode("<package/>") }],

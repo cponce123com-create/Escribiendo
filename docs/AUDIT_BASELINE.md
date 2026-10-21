@@ -79,5 +79,5 @@ Las cifras de 187 pruebas unitarias y 56 E2E son la fotografía histórica de la
 línea base. El estado vigente de la rama `improvement/escribiendo-95`, con
 imágenes, notas al pie, fuentes TTF incrustadas y sus límites, está en
 [AUDIT_BASELINE_95.md](AUDIT_BASELINE_95.md). La última ejecución registrada es
-de **291 pruebas unitarias en 32 archivos y 72 pruebas E2E en Chromium**. La
+de **292 pruebas unitarias en 32 archivos y 72 pruebas E2E en Chromium**. La
 puntuación de 95 no se ha declarado alcanzada.

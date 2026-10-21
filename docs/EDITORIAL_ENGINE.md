@@ -174,6 +174,9 @@ modelo aproximado.
   manifiesto declara `properties="remote-resources"`.
 - Las entradas del ZIP van comprimidas con Deflate, salvo `mimetype`, que la
   especificación exige sin comprimir y en primer lugar.
+- El ZIP se escribe en un búfer de bytes que crece por duplicación, no en una
+  lista de números: con 80 fotografías, la diferencia son 367 MB frente a
+  1 647 MB de memoria.
 
 ### DOCX
 

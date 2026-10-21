@@ -343,7 +343,7 @@ Base del lote: `dc7c6ea`.
 
 | Suite               | Resultado                  |
 | ------------------- | -------------------------- |
-| `pnpm test`         | 291 pruebas en 32 archivos |
+| `pnpm test`         | 292 pruebas en 32 archivos |
 | `pnpm test:e2e`     | 72 pruebas en Chromium     |
 | `pnpm format:check` | Correcto                   |
 | `pnpm lint`         | Sin errores                |
@@ -415,7 +415,7 @@ Base del lote: `86610b6`.
 | `pnpm validate:docx` | Mammoth 1.11.0 lee el documento: texto, negrita, cursiva, enlace, nota al pie e imagen incrustada |
 | `pnpm audit --prod`  | Sin vulnerabilidades conocidas                                                                    |
 | `pnpm audit`         | 1 aviso alto de desarrollo (`braces`), sin version corregida publicada                            |
-| `pnpm test`          | 291 pruebas en 32 archivos                                                                        |
+| `pnpm test`          | 292 pruebas en 32 archivos                                                                        |
 | `pnpm test:e2e`      | 72 pruebas en Chromium                                                                            |
 
 ### Limites que permanecen
@@ -464,7 +464,7 @@ Base del lote: `c43ee27`.
 | PDF de la aplicacion | `node scripts/pdfjs/valida-pdf.mjs test-results\pdf-generado.pdf` devuelve el texto |
 | `pnpm validate:epub` | 0 errores y 0 advertencias con EPUBCheck 5.1.0                                      |
 | `pnpm validate:docx` | Mammoth 1.11.0 lee el documento                                                     |
-| `pnpm test`          | 291 pruebas en 32 archivos                                                          |
+| `pnpm test`          | 292 pruebas en 32 archivos                                                          |
 | `pnpm test:e2e`      | 72 pruebas en Chromium                                                              |
 | `pnpm bench:export`  | PDF de 671 KB, EPUB de 29 KB y DOCX de 8 KB para 200 000 palabras                   |
 
@@ -485,4 +485,53 @@ las tres herramientas externas leen el archivo igual que antes.
 - No se generan subconjuntos de fuente: la fuente completa sigue incrustada.
 - Word y LibreOffice no estan instalados: la compatibilidad con esas
   aplicaciones no esta comprobada.
+- La puntuacion no se declara en 95.
+
+---
+
+## Lote N: prueba de esfuerzo y escritor de ZIP sin lista de numeros
+
+Fecha: 21 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+Base del lote: `29dac65`.
+
+### Que estaba mal
+
+1. No habia ninguna prueba de esfuerzo con imagenes ni con notas al pie: el
+   banco de rendimiento solo midia texto, y el limite de 80 imagenes de la
+   aplicacion nunca se habia comprobado con el motor de exportacion.
+2. El escritor de ZIP armaba el archivo en una lista de numeros. Con un libro
+   de 80 fotografias, un ZIP de 40 MB ocupaba mas de un gigabyte de memoria:
+   la exportacion no cabia en una instancia de Render Free (512 MB).
+3. La documentacion daba por hecho que un libro con 80 fotos cabria en el
+   limite de memoria, sin medirlo.
+
+### Que se ha cambiado
+
+| Area         | Archivo                                    | Cambio                                                                                                                        |
+| ------------ | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| Banco        | `scripts/stress-export.ts`                 | Genera 200 000 palabras, 80 fotografias y 500 notas al pie, exporta los tres formatos y mide tiempo, tamano y memoria maxima. |
+| Escritor ZIP | `packages/export-engine/src/zip.ts`        | `ByteWriter`: el archivo se escribe en un bufer de bytes que crece por duplicacion, no en una lista de numeros.               |
+| Pruebas      | `packages/export-engine/src/zip.test.ts`   | Una entrada de 2 MB se guarda y se recupera sin perder bytes.                                                                 |
+| Utilidades   | `packages/export-engine/src/test-utils.ts` | `zipEntriesResumen`: lista las entradas sin desplegarlas, para no gastar memoria en un archivo grande.                        |
+
+### Pruebas ejecutadas
+
+| Comprobacion         | Resultado                                                             |
+| -------------------- | --------------------------------------------------------------------- |
+| `pnpm stress:export` | PDF de 588 ms y 40 159 KB, EPUB de 1 413 ms, DOCX de 1 355 ms         |
+| Memoria maxima       | 367 MB, con un margen de 145 MB sobre los 512 MB de Render Free       |
+| Antes del arreglo    | La misma prueba daba 1 647 MB: la exportacion no cabia en Render Free |
+| `pnpm test`          | 292 pruebas en 32 archivos                                            |
+| `pnpm test:e2e`      | 72 pruebas en Chromium                                                |
+| `pnpm validate:epub` | 0 errores y 0 advertencias con EPUBCheck 5.1.0                        |
+
+### Limites que permanecen
+
+- El archivo se genera entero en la memoria de la peticion: con 80
+  fotografias y 200 000 palabras se llega a 367 MB. Un manuscrito mayor, o con
+  mas imagenes, sigue sin caber en Render Free. La solucion seria escribir el
+  archivo a disco o a un almacenamiento temporal, no esta hecha.
+- La prueba no descarga imagenes de Cloudinary: las genera con `sharp`, igual
+  que la aplicacion las normaliza.
 - La puntuacion no se declara en 95.

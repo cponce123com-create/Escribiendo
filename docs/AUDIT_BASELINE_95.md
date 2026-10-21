@@ -35,7 +35,7 @@ Después del lote de imágenes y de las pruebas nuevas de esta rama:
 Las cifras son de esta máquina y de la compilación de producción local. No
 presumen el comportamiento del despliegue de Render.
 
-La cifra vigente después del Lote K es **291 pruebas unitarias en 32 archivos**
+La cifra vigente después del Lote K es **292 pruebas unitarias en 32 archivos**
 y **72 pruebas E2E en Chromium**. Las tablas siguientes conservan la historia de
 cada lote; no se reescriben los resultados anteriores.
 
@@ -146,7 +146,7 @@ Base del lote: `dc7c6ea`.
 
 | Comprobación         | Resultado                |
 | -------------------- | ------------------------ |
-| Pruebas unitarias    | 291 pruebas, 32 archivos |
+| Pruebas unitarias    | 292 pruebas, 32 archivos |
 | Extremo a extremo    | 72 pruebas en Chromium   |
 | Formato, lint        | Sin errores              |
 | Tipos y compilación  | Sin errores              |
@@ -197,7 +197,7 @@ Base del lote: `86610b6`.
 | `pnpm validate:docx` | El DOCX lo lee Mammoth 1.11.0: texto, negrita, cursiva, enlace, nota al pie e imagen |
 | `pnpm audit --prod`  | Sin vulnerabilidades conocidas                                                       |
 | `pnpm audit`         | 1 aviso alto de desarrollo (`braces`), sin parche upstream                           |
-| `pnpm test`          | 291 pruebas en 32 archivos                                                           |
+| `pnpm test`          | 292 pruebas en 32 archivos                                                           |
 | `pnpm test:e2e`      | 72 pruebas en Chromium                                                               |
 
 Correcciones asociadas:
@@ -225,7 +225,7 @@ Base del lote: `c43ee27`.
 | `pnpm validate:pdf`  | pdf.js 4.10.38 abre el PDF y extrae el texto con la fuente incrustada |
 | `pnpm validate:epub` | 0 errores y 0 advertencias con EPUBCheck 5.1.0                        |
 | `pnpm validate:docx` | Mammoth 1.11.0 lee el documento                                       |
-| `pnpm test`          | 291 pruebas en 32 archivos                                            |
+| `pnpm test`          | 292 pruebas en 32 archivos                                            |
 | `pnpm test:e2e`      | 72 pruebas en Chromium                                                |
 | `pnpm bench:export`  | PDF de 671 KB, EPUB de 29 KB y DOCX de 8 KB para 200 000 palabras     |
 
@@ -240,6 +240,36 @@ Correcciones:
 - El PDF lo abre ahora una herramienta externa, pdf.js, el lector de Mozilla.
   Con el Lote L ya lo leian EPUBCheck y Mammoth: los tres formatos exportados
   tienen una validacion independiente del motor que los escribe.
+
+Lo que sigue sin verificarse: Word y LibreOffice, la subida real a Cloudinary,
+el despliegue en Render, Neon por 5432, el pentest y la cobertura Unicode mas
+alla de latin, griego y cirilico. La puntuacion documentada sigue siendo
+87,4/100: **95 no se declara**.
+
+## Actualizacion del Lote N: prueba de esfuerzo y memoria de la exportacion
+
+Fecha: 21 de octubre de 2026.
+Base del lote: `29dac65`.
+
+| Comprobacion         | Resultado                                                                |
+| -------------------- | ------------------------------------------------------------------------ |
+| `pnpm stress:export` | 200 000 palabras, 80 fotografias y 500 notas al pie en los tres formatos |
+| Memoria maxima       | 367 MB, con un margen de 145 MB sobre los 512 MB de Render Free          |
+| `pnpm test`          | 292 pruebas en 32 archivos                                               |
+| `pnpm test:e2e`      | 72 pruebas en Chromium                                                   |
+
+Correcciones:
+
+- La prueba de esfuerzo que faltaba: un manuscrito grande con imagenes y notas
+  al pie, exportado a los tres formatos, con tiempo, tamano y memoria maxima.
+- **Fallo encontrado y corregido.** La primera ejecucion daba 1 647 MB de
+  memoria: el escritor de ZIP armaba el archivo en una lista de numeros, con
+  lo que un ZIP de 40 MB ocupaba mas de un gigabyte. La exportacion de un
+  libro con 80 fotografias no cabia en Render Free. Con un bufer de bytes que
+  crece por duplicacion, la memoria baja a 367 MB y la escritura es el doble
+  de rapida.
+- La documentacion ya no afirma que un libro con 80 fotos quepa en el limite
+  de memoria: ahora hay una cifra medida.
 
 Lo que sigue sin verificarse: Word y LibreOffice, la subida real a Cloudinary,
 el despliegue en Render, Neon por 5432, el pentest y la cobertura Unicode mas

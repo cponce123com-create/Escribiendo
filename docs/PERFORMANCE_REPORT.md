@@ -266,10 +266,48 @@ ms y después solo hay que medir.
 
 | Suite                       | Duración | Resultado    |
 | --------------------------- | -------: | ------------ |
-| `pnpm test` (unitarias)     |   ~9,5 s | 291 en verde |
+| `pnpm test` (unitarias)     |   ~9,5 s | 292 en verde |
 | `pnpm test:e2e` (navegador) |   ~3,6 m | 72 en verde  |
 | `pnpm build` (producción)   |        — | Correcto     |
 
 La duración de la suite E2E es la de esta máquina con un solo trabajador. El
 banco no mide el coste de descargar imágenes de Cloudinary ni de componer
 miles de notas; esas cifras siguen pendientes.
+
+## Prueba de esfuerzo (Lote N)
+
+Comando: `pnpm stress:export` (código en `scripts/stress-export.ts`). Es la
+prueba de esfuerzo que faltaba: un manuscrito de **200 000 palabras, 80
+fotografías y 500 notas al pie**, exportado a los tres formatos.
+
+| Formato | Tiempo   | Tamaño    | Contenido                |
+| ------- | -------- | --------- | ------------------------ |
+| PDF     | 588 ms   | 40 159 KB | 547 páginas, 80 imágenes |
+| EPUB    | 1 413 ms | 39 517 KB | 80 imágenes incrustadas  |
+| DOCX    | 1 355 ms | 39 505 KB | 80 imágenes incrustadas  |
+
+- La paginación de 547 páginas tarda 143 ms y produce 98 diagnósticos de
+  composición (viudas, huérfanas y notas que no caben).
+- Las imágenes son ruido pseudoaleatorio de 1200 × 800 px, el peor caso: no se
+  comprimen y ocupan unos 500 KB cada una. Un libro de 80 fotografías reales
+  pesa lo mismo.
+- **La memoria máxima del proceso es de 367 MB**, con un margen de 145 MB
+  sobre los 512 MB de Render Free.
+
+### El fallo que encontró esta prueba
+
+La primera ejecución de este banco dio **1 647 MB de memoria máxima**: la
+exportación de un libro con fotografías no cabía en Render Free. La causa no
+estaba en el PDF, que se quedaba en 259 MB, sino en el escritor de ZIP: armaba
+el archivo en una lista de números, con lo que un ZIP de 40 MB ocupaba más de
+un gigabyte en memoria.
+
+| Versión                         | Memoria máxima | EPUB     | DOCX     |
+| ------------------------------- | -------------: | -------- | -------- |
+| Lista de números                |       1 647 MB | 3 074 ms | 2 964 ms |
+| Búfer que crece por duplicación |         367 MB | 1 413 ms | 1 355 ms |
+
+El escritor de ZIP ahora escribe en un búfer de bytes que crece por duplicación
+(`ByteWriter` en `packages/export-engine/src/zip.ts`): ocupa el doble del
+archivo mientras se escribe, en vez de ocho bytes por byte. La memoria baja
+4,5 veces y la escritura es el doble de rápida.

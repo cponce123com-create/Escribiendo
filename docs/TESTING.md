@@ -38,7 +38,7 @@ pnpm test
 Vitest recorre `apps/**/*.test.ts`, `packages/**/*.test.ts` y
 `scripts/**/*.test.ts`. No necesita base de datos ni navegador.
 
-Resultado vigente: **291 pruebas en 32 archivos** (21 de octubre de 2026).
+Resultado vigente: **292 pruebas en 32 archivos** (21 de octubre de 2026).
 Cobertura actual (Fases 1 a 3):
 
 | Archivo                                                   | Qué verifica                                                                                                                                                                                                |
@@ -340,6 +340,7 @@ pnpm test           # Vitest
 pnpm test:e2e       # Playwright (requiere base de datos desechable)
 pnpm build          # Compilación de producción
 pnpm bench:export   # Banco de composición y exportación
+pnpm stress:export  # Banco de esfuerzo: 200 000 palabras, 80 imágenes y 500 notas
 pnpm validate:epub  # EPUB con EPUBCheck (necesita EPUBCHECK_JAR)
 pnpm validate:docx  # DOCX con un lector externo (necesita DOCX_VALIDATOR)
 pnpm validate:pdf   # PDF con un lector externo (necesita PDF_VALIDATOR)
@@ -401,6 +402,10 @@ Lo que **no** está verificado automáticamente en las Fases 1 a 3:
    lee un lector OOXML independiente, pero no se ha abierto el DOCX en Word ni
    en LibreOffice, ni el EPUB en un lector comercial, porque esas aplicaciones
    no están instaladas en esta máquina.
+10. **Carga real en Render.** El banco de esfuerzo mide la memoria del proceso
+    de exportación (367 MB con 200 000 palabras, 80 imágenes y 500 notas), pero
+    no mide la instancia de Render con tráfico real ni con la base de datos
+    en la misma petición.
 
 ---
 
