@@ -50,7 +50,7 @@ orden y cómo se comprueba.
 | PDF  | Tipografía española sin pérdida silenciosa, `caracteresPerdidos`, banco de pruebas                    | Cerrado | `8c62aaa` |
 | E    | Fidelidad editorial: tramos con formato de extremo a extremo, separadores de escena, imágenes en EPUB | Cerrado | `9074edb` |
 
-Verificación del Lote E: 248 pruebas unitarias, 70 E2E, `format:check`,
+Verificación del Lote E: 249 pruebas unitarias, 70 E2E, `format:check`,
 `lint`, `typecheck` y `build` en verde; escáneres de codificación y BOM en 0.
 
 ## 4. Brechas abiertas y orden de trabajo

@@ -57,7 +57,7 @@ comando.
 
 | Suite                       | Duración | Resultado    |
 | --------------------------- | -------: | ------------ |
-| `pnpm test` (unitarias)     |     ~7 s | 248 en verde |
+| `pnpm test` (unitarias)     |     ~7 s | 249 en verde |
 | `pnpm build` (producción)   |    ~20 s | 26 rutas     |
 | `pnpm test:e2e` (navegador) |   ~3,5 m | 70 en verde  |
 

@@ -41,7 +41,7 @@ Donde un criterio no sea aplicable, se dice y se redistribuye su peso.
 | Exportaciones                |     72 |      86 | Cola idempotente, descarga firmada, metadatos, 200 000 palabras en 230 ms                        | Límite explícito de tamaño por petición    |
 | UX/UI                        |     85 |      89 | Estado de guardado honesto, equipo, Conflictos con comparación                                   | —                                          |
 | Render Free                  |     80 |      90 | Sin procesos permanentes; la exportación de 200 k palabras usa 56 MB                             | —                                          |
-| Pruebas                      |     86 |      94 | 248 unitarias y 70 E2E, con resiliencia, formato en línea y exportación                          | Sin navegador distinto de Chromium         |
+| Pruebas                      |     86 |      94 | 249 unitarias y 70 E2E, con resiliencia, formato en línea y exportación                          | Sin navegador distinto de Chromium         |
 | Documentación                |     93 |      96 | Auditoría, correcciones, recuperación, exportaciones, rendimiento, ROADMAP                       | —                                          |
 | Escalabilidad                |     72 |      80 | Consultas acotadas por estudio; exportación lineal con el tamaño                                 | Techo de memoria en la exportación         |
 
@@ -123,7 +123,7 @@ se afirma más de lo que se ha comprobado.
 | Archivos PDF corruptos                               | No: la cabecera, la estructura y el cierre se comprueban en cada prueba                                                                                         |
 | Pérdida de imágenes o formato sin advertencia        | **Resuelto** para el formato en línea y los separadores; las imágenes se conservan en el modelo y el EPUB las incluye, pero el PDF y el DOCX aún no las dibujan |
 | Migraciones destructivas no autorizadas              | Ninguna: las tres migraciones son aditivas                                                                                                                      |
-| Pruebas críticas fallidas                            | Ninguna: 248 unitarias y 70 E2E en verde                                                                                                                        |
+| Pruebas críticas fallidas                            | Ninguna: 249 unitarias y 70 E2E en verde                                                                                                                        |
 | Error de compilación                                 | Ninguno                                                                                                                                                         |
 | Regresión funcional                                  | Ninguna detectada                                                                                                                                               |
 | Exposición de secretos                               | Ninguna: escaneo del árbol y del historial de commits                                                                                                           |

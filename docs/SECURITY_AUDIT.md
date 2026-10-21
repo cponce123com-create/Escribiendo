@@ -10,7 +10,7 @@ Esta auditoría combina dos fuentes, y distingue siempre cuál se usó:
 
 1. **Revisión del código** de autenticación, sesiones, permisos, validación de
    origen, cabeceras, descargas, auditoría y retención.
-2. **Pruebas ejecutadas** con la suite del repositorio: 248 unitarias y 70 de
+2. **Pruebas ejecutadas** con la suite del repositorio: 249 unitarias y 70 de
    extremo a extremo en Chromium, contra la compilación de producción.
 
 No se ha ejecutado una prueba de penetración externa, ni un escaneo
@@ -180,7 +180,7 @@ pentest ni escaneo de dependencias, el alcance es el que se ha descrito.
 | `security.spec.ts` (E2E) | Health, CSP con nonce, cabeceras, noindex, ruta privada, firma de Cloudinary con sesión y origen                                               | Verde     |
 | `auth.spec.ts` (E2E)     | Cookie HttpOnly y SameSite, cambio de contraseña, credenciales incorrectas sin revelar la cuenta, instalación deshabilitada y cierre de sesión | Verde     |
 | `equipo.spec.ts` (E2E)   | Roles, invitaciones de un solo uso y auditoría                                                                                                 | Verde     |
-| Suite completa           | 248 unitarias y 70 E2E                                                                                                                         | Verde     |
+| Suite completa           | 249 unitarias y 70 E2E                                                                                                                         | Verde     |
 
 Los comandos son los del protocolo de `IMPLEMENTATION_PLAN.md`. Las pruebas
 E2E se ejecutan contra la compilación de producción en el puerto 3100 y una

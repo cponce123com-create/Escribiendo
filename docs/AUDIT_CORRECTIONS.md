@@ -153,7 +153,7 @@ Fecha: 21 de octubre de 2026. Rama: `main`.
 | `packages/editorial-engine/src/pagination.test.ts` | 1 nueva (tramos conservados)       |
 | E2E de exportación                                 | La negrita llega al PDF como `/F2` |
 
-Total: 248 unitarias y 70 E2E en verde.
+Total: 249 unitarias y 70 E2E en verde.
 
 ### Lo que sigue sin estar resuelto
 
