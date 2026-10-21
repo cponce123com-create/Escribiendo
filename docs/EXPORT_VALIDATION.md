@@ -258,8 +258,8 @@ incluyen en ese banco: no hay credenciales de Cloudinary para descargarlas.
 
 | Comprobación         | Resultado                     |
 | -------------------- | ----------------------------- |
-| `pnpm test`          | 292 pruebas en 32 archivos    |
-| `pnpm test:e2e`      | 72 pruebas en Chromium        |
+| `pnpm test`          | 328 pruebas en 34 archivos    |
+| `pnpm test:e2e`      | 76 pruebas en Chromium        |
 | `pnpm typecheck`     | Sin errores                   |
 | `pnpm lint`          | Sin errores                   |
 | `pnpm build`         | Correcto                      |
@@ -322,8 +322,8 @@ prueba de editor de `tests/e2e/manuscrito.spec.ts`.
 
 | Suite           | Resultado                  |
 | --------------- | -------------------------- |
-| `pnpm test`     | 292 pruebas en 32 archivos |
-| `pnpm test:e2e` | 72 pruebas en Chromium     |
+| `pnpm test`     | 328 pruebas en 34 archivos |
+| `pnpm test:e2e` | 76 pruebas en Chromium     |
 | `pnpm build`    | Correcto                   |
 
 ## Fuentes incrustadas (Lote K)

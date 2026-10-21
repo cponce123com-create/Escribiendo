@@ -1,0 +1,70 @@
+name: Extremo a extremo
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: Chromium contra la compilación de producción
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: escribiendo_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5433/escribiendo_test
+      DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5433/escribiendo_test
+      E2E_SETUP_TOKEN: e2e-token-de-pruebas-con-mas-de-treinta-y-dos-caracteres
+      E2E_ALLOW_NON_TEST_DATABASE: "1"
+      E2E_ALLOW_REMOTE_DATABASE: "1"
+      NEXT_TELEMETRY_DISABLED: "1"
+
+    steps:
+      - name: Repositorio
+        uses: actions/checkout@v5
+
+      - name: Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+
+      - name: pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.14.0
+
+      - name: Dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Generar el cliente de Prisma
+        run: pnpm db:generate
+
+      - name: Aplicar las migraciones
+        run: pnpm db:migrate
+
+      - name: Navegador
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Pruebas de extremo a extremo
+        run: pnpm exec playwright test --reporter=line

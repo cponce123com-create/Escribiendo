@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { auditar, resume } from "./support/axe";
 
 /**
  * Resiliencia del manuscrito.
@@ -48,6 +49,26 @@ test.describe("Resiliencia del manuscrito", () => {
     await expect(page.getByRole("button", { name: "Insertar imagen" })).toBeVisible();
     await page.getByRole("button", { name: "Biblioteca (0)" }).click();
     await expect(page.getByText("Todavía no hay imágenes en este libro.")).toBeVisible();
+  });
+
+  test("el editor y la ficha del libro no tienen infracciones de accesibilidad graves", async ({
+    page,
+  }) => {
+    await abrirSeccion(page, SECTION_TITLE);
+
+    const editor = await auditar(page);
+    const graves = [...resume(editor.graves, "editor")];
+
+    // La ficha del libro, con su resumen y sus acciones.
+    await page.goto("/books");
+    await page.getByRole("link", { name: BOOK_TITLE }).click();
+    await expect(page.getByRole("heading", { name: BOOK_TITLE })).toBeVisible();
+
+    const ficha = await auditar(page);
+
+    graves.push(...resume(ficha.graves, "ficha del libro"));
+
+    expect(graves).toEqual([]);
   });
 
   test("inserta y conserva una nota al pie", async ({ page }) => {

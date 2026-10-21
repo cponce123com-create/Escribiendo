@@ -119,6 +119,16 @@ export function SectionEditor({
     // intentaría renderizarlo en el servidor y la hidratación no coincidiría.
     immediatelyRender: false,
     editable: canEdit,
+    editorProps: {
+      attributes: {
+        // ProseMirror es un campo de texto editable: sin nombre accesible, un
+        // lector de pantalla anuncia «grupo editable» y no dice qué es.
+        role: "textbox",
+        "aria-multiline": "true",
+        "aria-label": `Manuscrito de la sección «${sectionTitle}»`,
+        ...(canEdit ? {} : { "aria-readonly": "true" }),
+      },
+    },
     onUpdate: () => {
       if (!canEdit) {
         return;

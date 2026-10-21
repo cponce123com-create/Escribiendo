@@ -273,7 +273,7 @@ Base del lote: `4211bb6`.
 | Suite               | Resultado                  |
 | ------------------- | -------------------------- |
 | `pnpm test`         | 280 pruebas en 31 archivos |
-| `pnpm test:e2e`     | 72 pruebas en Chromium     |
+| `pnpm test:e2e`     | 76 pruebas en Chromium     |
 | `pnpm format:check` | Correcto                   |
 | `pnpm lint`         | Sin errores                |
 | `pnpm typecheck`    | Sin errores                |
@@ -343,8 +343,8 @@ Base del lote: `dc7c6ea`.
 
 | Suite               | Resultado                  |
 | ------------------- | -------------------------- |
-| `pnpm test`         | 292 pruebas en 32 archivos |
-| `pnpm test:e2e`     | 72 pruebas en Chromium     |
+| `pnpm test`         | 328 pruebas en 34 archivos |
+| `pnpm test:e2e`     | 76 pruebas en Chromium     |
 | `pnpm format:check` | Correcto                   |
 | `pnpm lint`         | Sin errores                |
 | `pnpm typecheck`    | Sin errores                |
@@ -415,8 +415,8 @@ Base del lote: `86610b6`.
 | `pnpm validate:docx` | Mammoth 1.11.0 lee el documento: texto, negrita, cursiva, enlace, nota al pie e imagen incrustada |
 | `pnpm audit --prod`  | Sin vulnerabilidades conocidas                                                                    |
 | `pnpm audit`         | 1 aviso alto de desarrollo (`braces`), sin version corregida publicada                            |
-| `pnpm test`          | 292 pruebas en 32 archivos                                                                        |
-| `pnpm test:e2e`      | 72 pruebas en Chromium                                                                            |
+| `pnpm test`          | 328 pruebas en 34 archivos                                                                        |
+| `pnpm test:e2e`      | 76 pruebas en Chromium                                                                            |
 
 ### Limites que permanecen
 
@@ -464,8 +464,8 @@ Base del lote: `c43ee27`.
 | PDF de la aplicacion | `node scripts/pdfjs/valida-pdf.mjs test-results\pdf-generado.pdf` devuelve el texto |
 | `pnpm validate:epub` | 0 errores y 0 advertencias con EPUBCheck 5.1.0                                      |
 | `pnpm validate:docx` | Mammoth 1.11.0 lee el documento                                                     |
-| `pnpm test`          | 292 pruebas en 32 archivos                                                          |
-| `pnpm test:e2e`      | 72 pruebas en Chromium                                                              |
+| `pnpm test`          | 328 pruebas en 34 archivos                                                          |
+| `pnpm test:e2e`      | 76 pruebas en Chromium                                                              |
 | `pnpm bench:export`  | PDF de 671 KB, EPUB de 29 KB y DOCX de 8 KB para 200 000 palabras                   |
 
 ### Tamano medido
@@ -522,8 +522,8 @@ Base del lote: `29dac65`.
 | `pnpm stress:export` | PDF de 588 ms y 40 159 KB, EPUB de 1 413 ms, DOCX de 1 355 ms         |
 | Memoria maxima       | 367 MB, con un margen de 145 MB sobre los 512 MB de Render Free       |
 | Antes del arreglo    | La misma prueba daba 1 647 MB: la exportacion no cabia en Render Free |
-| `pnpm test`          | 292 pruebas en 32 archivos                                            |
-| `pnpm test:e2e`      | 72 pruebas en Chromium                                                |
+| `pnpm test`          | 328 pruebas en 34 archivos                                            |
+| `pnpm test:e2e`      | 76 pruebas en Chromium                                                |
 | `pnpm validate:epub` | 0 errores y 0 advertencias con EPUBCheck 5.1.0                        |
 
 ### Limites que permanecen
@@ -668,3 +668,51 @@ independientes). 328 unitarias en 34 archivos y 73 E2E en Chromium.
 
 Pruebas: 328 unitarias en 34 archivos y 73 E2E en Chromium (la de escritura
 comprueba ahora la confirmacion).
+
+---
+
+## Lote S: integracion continua, control de tamano y accesibilidad automatica
+
+Fecha: 21 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+Base del lote: `b26c522`.
+
+### Que estaba mal
+
+1. No habia integracion continua: nada se ejecutaba al abrir una PR, y el
+   despliegue automatico de Render iba a `main` sin ninguna prueba que lo
+   frenara.
+2. No habia forma de detectar que el JavaScript del cliente o las fuentes
+   publicas crecian sin avisar.
+3. La accesibilidad era una limitacion documentada, sin ninguna comprobacion
+   automatica.
+4. No habia revision periodica de dependencias: el unico aviso de seguridad
+   conocido se habia encontrado a mano.
+
+### Que se ha cambiado
+
+| Area          | Archivo                           | Cambio                                                                                                      |
+| ------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| CI            | `.github/workflows/ci.yml`        | Formato, analisis, tipos, pruebas, tamano y compilacion en Node 24.20.0.                                    |
+| CI            | `.github/workflows/e2e.yml`       | Extremo a extremo contra la compilacion de produccion, con PostgreSQL 17 como servicio.                     |
+| CI            | `.github/workflows/audit.yml`     | Auditoria de dependencias cada lunes y listado de versiones anticuadas.                                     |
+| Dependencias  | `.github/dependabot.yml`          | Actualizaciones semanales de npm y de las acciones.                                                         |
+| Tamano        | `scripts/check-size.ts`           | `pnpm check:size` mide el JavaScript del cliente y los estaticos publicos y falla si pasan del presupuesto. |
+| Accesibilidad | `tests/e2e/accesibilidad.spec.ts` | Auditoria con axe-core de las paginas principales: falla ante infracciones graves o criticas.               |
+| Accesibilidad | `tests/e2e/support/axe.ts`        | Utilidad compartida por los archivos de prueba.                                                             |
+
+### Fallos encontrados y corregidos por la auditoria
+
+| Hallazgo                                                                    | Correccion                                                                      |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| El editor de ProseMirror no tenia nombre accesible (infraccion grave).      | `editorProps.attributes` con `role="textbox"`, `aria-multiline` y `aria-label`. |
+| Los campos de imagen ocultos no tenian etiqueta (infraccion critica).       | `aria-label` en los dos `input type="file"`.                                    |
+| El encabezado de pagina de la vista previa no cumplia el contraste (grave). | Se usa un tono de tinta mas oscuro sobre el papel blanco.                       |
+
+### Pruebas ejecutadas
+
+| Comprobacion         | Resultado                                                                        |
+| -------------------- | -------------------------------------------------------------------------------- |
+| `pnpm check:size`    | 1 240 KB de JavaScript (presupuesto 1 953 KB) y 4 265 KB de estaticos (5 859 KB) |
+| E2E de accesibilidad | 76 pruebas en Chromium, sin infracciones graves ni criticas                      |
+| `pnpm test`          | 328 pruebas en 34 archivos                                                       |

@@ -83,7 +83,7 @@ function PageSheet({ page, profile, typography, pageWidth, pageHeight }: PageShe
     >
       {page.runningHead ? (
         <div
-          className="absolute text-center text-ink-muted"
+          className="absolute text-center text-ink/70"
           style={{
             top: `${profile.headerDistanceMm * PX_PER_MM}px`,
             left: `${leftMarginMm * PX_PER_MM}px`,

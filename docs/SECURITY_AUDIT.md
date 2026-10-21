@@ -10,7 +10,7 @@ Esta auditoría combina dos fuentes, y distingue siempre cuál se usó:
 
 1. **Revisión del código** de autenticación, sesiones, permisos, validación de
    origen, cabeceras, descargas, auditoría y retención.
-2. **Pruebas ejecutadas** con la suite del repositorio: 280 unitarias y 72 de
+2. **Pruebas ejecutadas** con la suite del repositorio: 328 unitarias y 76 de
    extremo a extremo en Chromium, contra la compilación de producción.
 
 No se ha ejecutado una prueba de penetración externa, ni un escaneo
@@ -280,7 +280,7 @@ comprobó que `pnpm db:generate` y `pnpm db:validate` siguen funcionando.
 | `pnpm validate:epub`       | EPUB validado con EPUBCheck 5.1.0                                                                                                              | Verde     |
 | `pnpm validate:docx`       | DOCX leído con Mammoth 1.11.0                                                                                                                  | Verde     |
 | `pnpm validate:pdf`        | PDF abierto con pdf.js 4.10.38                                                                                                                 | Verde     |
-| Suite completa             | 292 unitarias y 72 E2E                                                                                                                         | Verde     |
+| Suite completa             | 328 unitarias y 76 E2E                                                                                                                         | Verde     |
 
 Los comandos son los del protocolo de `IMPLEMENTATION_PLAN.md`. Las pruebas
 E2E se ejecutan contra la compilación de producción en el puerto 3100 y una

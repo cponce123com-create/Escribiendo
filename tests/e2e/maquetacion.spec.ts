@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { auditar, resume } from "./support/axe";
 
 /**
  * Maquetación: plantillas con geometría predeterminada, perfiles avanzados,
@@ -213,6 +214,17 @@ test.describe("Maquetación", () => {
     await expect(page.getByRole("heading", { name: "Vista previa paginada" })).toBeVisible();
     await expect(page.getByText(/folio 1/)).toBeVisible();
     await expect(page.getByText(SECTION_TITLE).first()).toBeVisible();
+  });
+
+  test("la vista previa no tiene infracciones de accesibilidad graves", async ({ page }) => {
+    await openLayout(page);
+    await page.getByRole("link", { name: "Ver la vista previa paginada" }).click();
+
+    await expect(page.getByRole("heading", { name: "Vista previa paginada" })).toBeVisible();
+
+    const resultado = await auditar(page);
+
+    expect(resume(resultado.graves, "vista previa")).toEqual([]);
   });
 
   test("la página se dibuja a escala real y respeta los márgenes", async ({ page }) => {
