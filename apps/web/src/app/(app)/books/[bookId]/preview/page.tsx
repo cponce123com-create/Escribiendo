@@ -63,9 +63,9 @@ export default async function BookPreviewPage({ params }: BookPreviewPageProps) 
           palabras en {preview.sectionCount} {preview.sectionCount === 1 ? "sección" : "secciones"}.
         </p>
         <p className="max-w-2xl text-xs leading-relaxed text-ink-muted">
-          La composición se estima con un modelo de anchos medios de carácter, no con las métricas
-          reales de la fuente: sirve para ver la estructura y detectar problemas, pero la paginación
-          definitiva se calcula al exportar.
+          {preview.realMetrics
+            ? "La composición usa las métricas reales de la fuente que se incrusta en el PDF: los cortes de línea de esta vista previa son los mismos que los del archivo exportado."
+            : "La composición se estima con un modelo de anchos medios de carácter, porque no se han podido cargar las fuentes: sirve para ver la estructura y detectar problemas, pero la paginación definitiva se calcula al exportar."}
         </p>
       </header>
 

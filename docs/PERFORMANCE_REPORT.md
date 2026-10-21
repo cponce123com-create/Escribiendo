@@ -99,10 +99,10 @@ Medido con las sondas de salud durante la suite:
 
 ## Límites que no se pueden eliminar con optimización
 
-1. **La paginación es una estimación.** Sin las métricas reales de la fuente
-   incrustada, el reparto de líneas es aproximado. El coste de tener
-   paginación exacta es incrustar la fuente en el PDF, que es trabajo de la
-   producción final, no una optimización.
+1. **La paginación usa métricas reales cuando las fuentes están disponibles.**
+   Si no se cargan, vuelve a la estimación y lo declara. El coste de la
+   exactitud es incrustar la fuente completa en el PDF, porque no hay
+   subconjuntos; el tamaño resultante se mide más abajo.
 2. **La exportación usa memoria proporcional al manuscrito.** Con 200 000
    palabras son unos 56 MB. Un manuscrito de un millón de palabras rondaría
    los 300 MB y empezaría a apretar la instancia: ese es el techo real del
@@ -115,3 +115,199 @@ Medido con las sondas de salud durante la suite:
 4. **No se ha medido el comportamiento bajo carga real en Render.** La salida
    de red de la máquina de trabajo está filtrada y el despliegue no es
    accesible desde aquí. Las cifras de esta página son de entorno local.
+
+## Reejecución tras el Lote I (imágenes)
+
+Comando: `pnpm bench:export`, ejecutado el 21 de octubre de 2026 en la rama
+`improvement/escribiendo-95`, con el motor de imágenes ya cargado. El banco no
+incluye imágenes reales: no hay credenciales de Cloudinary. Mide el coste fijo
+de la composición y de los tres escritores.
+
+| Palabras | Páginas | Paginación |    PDF |  EPUB |  DOCX |  Memoria |
+| -------- | ------: | ---------: | -----: | ----: | ----: | -------: |
+| 10 000   |      28 |      45 ms |  15 ms | 14 ms |  8 ms |   4,8 MB |
+| 50 000   |     137 |      70 ms |  22 ms | 21 ms | 20 ms |   1,1 MB |
+| 100 000  |     273 |     127 ms |  64 ms | 40 ms | 33 ms |  33,9 MB |
+| 200 000  |     546 |     265 ms | 101 ms | 66 ms | 81 ms | -18,5 MB |
+
+La última fila de memoria es negativa porque el mínimo observado quedó por
+encima del máximo final: el recolector devolvió memoria durante la medición.
+No es un consumo negativo ni una mejora real; es ruido del método. El máximo
+absoluto observado en esta pasada fue 33,9 MB, por debajo de los 512 MB de
+Render Free, pero no se usa como garantía porque el banco no descarga imágenes.
+
+El coste de imágenes reales no está medido. Por código, el peor caso aceptado
+es 80 imágenes de 15 MB, normalizadas a un lado máximo de 2400 px y procesadas
+con concurrencia 4. Ese caso puede superar la memoria de una instancia Free y
+debe medirse antes de subir el límite.
+
+## Suite de pruebas tras el Lote I
+
+| Suite                       | Duración | Resultado    |
+| --------------------------- | -------: | ------------ |
+| `pnpm test` (unitarias)     |     ~8 s | 268 en verde |
+| `pnpm build` (producción)   |    ~20 s | 30 rutas     |
+| `pnpm test:e2e` (navegador) |   ~3,2 m | 71 en verde  |
+
+Las cifras de duración son de esta máquina y varían con la carga. No se
+presentan como un compromiso de rendimiento del despliegue.
+
+## Reejecución tras el Lote J (notas al pie)
+
+Comando: `pnpm bench:export`, ejecutado el 21 de octubre de 2026. El banco
+sigue sin incluir notas ni imágenes reales; sirve para comprobar que el camino
+sin notas no ha sufrido una regresión.
+
+| Palabras | Páginas | Paginación |   PDF |  EPUB |  DOCX | Memoria |
+| -------- | ------: | ---------: | ----: | ----: | ----: | ------: |
+| 10 000   |      28 |      31 ms |  9 ms |  9 ms |  7 ms | -2,7 MB |
+| 50 000   |     137 |      60 ms | 20 ms | 14 ms | 16 ms | 14,5 MB |
+| 100 000  |     273 |      98 ms | 46 ms | 30 ms | 32 ms | 26,8 MB |
+| 200 000  |     546 |     197 ms | 67 ms | 54 ms | 69 ms | -2,6 MB |
+
+La fila de memoria negativa es ruido del recolector: el mínimo observado quedó
+por encima del máximo final. No es consumo negativo. El máximo absoluto de esta
+pasada fue 26,8 MB, por debajo de los 512 MB de Render Free, pero el banco no
+descarga imágenes ni compone notas reales.
+
+### Coste de las notas
+
+La composición de una nota se calcula una sola vez por página y se reutiliza en
+la reserva de altura; la búsqueda de notas nuevas recorre únicamente los tramos
+de las líneas candidatas. No se ha ejecutado un banco específico con miles de
+notas: sería necesario para afirmar un límite de densidad. El peor caso
+aceptado por esquema es una nota de 2000 caracteres; una nota así puede activar
+`FOOTNOTE_OVERFLOW` si no cabe con su llamada. Esa condición se conserva y se
+avisa, no se elimina.
+
+## Suite de pruebas tras el Lote J
+
+| Suite                       | Duración | Resultado    |
+| --------------------------- | -------: | ------------ |
+| `pnpm test` (unitarias)     |     ~6 s | 280 en verde |
+| `pnpm build` (producción)   |    ~20 s | 30 rutas     |
+| `pnpm test:e2e` (navegador) |   ~2,9 m | 72 en verde  |
+
+Las cifras de duración son de esta máquina y varían con la carga. No se
+presentan como un compromiso de rendimiento del despliegue.
+
+## Reejecución tras el Lote K (fuentes TTF y métricas reales)
+
+Comando: `pnpm bench:export`, ejecutado el 21 de octubre de 2026 con
+`LiberationSerif-Regular.ttf` cargada. El banco usa la medición real de
+`hmtx`/`cmap` y el PDF incrusta esa cara. Sigue sin incluir imágenes ni notas
+reales.
+
+| Palabras | Páginas | Paginación |    PDF | PDF KB |  EPUB |  DOCX | Memoria |
+| -------- | ------: | ---------: | -----: | -----: | ----: | ----: | ------: |
+| 10 000   |      28 |      15 ms |  31 ms |    677 |  8 ms |  7 ms |  3,8 MB |
+| 50 000   |     137 |      28 ms |  67 ms |  1 668 | 14 ms | 14 ms | 24,5 MB |
+| 100 000  |     273 |      61 ms | 175 ms |  2 907 | 32 ms | 51 ms | 10,2 MB |
+| 200 000  |     546 |     112 ms | 227 ms |  5 387 | 51 ms | 60 ms | -1,1 MB |
+
+Lectura:
+
+- La paginación con métricas reales fue más rápida que las pasadas anteriores
+  porque el banco cambió de modelo de medición; no se presenta como una mejora
+  del producto, sino como el resultado de esta ejecución concreta.
+- El PDF tarda más porque incrusta la fuente completa y escribe el mapa
+  `ToUnicode` y la tabla de anchos. A cambio, el archivo es autocontenido.
+- El tamaño del PDF crece con el manuscrito y con las caras usadas. La tabla
+  mide una sola cara regular; un libro con negrita, cursiva y negrita cursiva
+  puede añadir varias fuentes completas.
+- **La columna de memoria es ruido.** Es la diferencia entre el mínimo y el
+  máximo de la reserva del proceso, no el consumo absoluto: entre dos pasadas
+  de este mismo banco se han medido valores desde -1,1 MB hasta 51,1 MB. El
+  máximo absoluto observado sigue estando muy por debajo de los 512 MB de
+  Render Free, pero la cifra no es comparable entre ejecuciones. No incluye
+  imágenes reales ni notas.
+
+### Reejecución tras el Lote M (compresión de los archivos)
+
+Comando: `pnpm bench:export`, ejecutado el 21 de octubre de 2026 con
+`LiberationSerif-Regular.ttf` cargada, medición real y flujos comprimidos.
+
+| Palabras | Páginas | Paginación |    PDF | PDF KB |  EPUB | EPUB KB |  DOCX | DOCX KB | Memoria |
+| -------- | ------: | ---------: | -----: | -----: | ----: | ------: | ----: | ------: | ------: |
+| 10 000   |      28 |      21 ms |  52 ms |    253 |  6 ms |    3 KB |  6 ms |    4 KB | -3,1 MB |
+| 50 000   |     137 |      29 ms | 102 ms |    341 |  7 ms |    9 KB |  6 ms |    5 KB | 16,1 MB |
+| 100 000  |     273 |      46 ms | 175 ms |    451 | 12 ms |   15 KB | 10 ms |    6 KB |  5,3 MB |
+| 200 000  |     546 |     102 ms | 310 ms |    671 | 21 ms |   29 KB | 18 ms |    8 KB | 20,0 MB |
+
+Lectura:
+
+- **El tamaño del PDF baja ocho veces**: de 5 387 KB a 671 KB para 200 000
+  palabras. El archivo pasa a estar dominado por la fuente incrustada, no por
+  el texto.
+- El coste es de CPU: escribir el PDF pasa de 227 ms a 310 ms, porque comprime
+  el contenido, el programa de la fuente y el mapa `ToUnicode`. La
+  paginación no cambia.
+- El EPUB y el DOCX también van comprimidos (29 KB y 8 KB para 200 000
+  palabras).
+- La columna de memoria sigue siendo ruido: es la diferencia entre el mínimo y
+  el máximo de la reserva del proceso, no el consumo absoluto. El máximo
+  observado en esta pasada fue 20 MB.
+
+### Coste de las fuentes y de la vista previa
+
+Medido con el mismo lector que usa la aplicación:
+
+| Operación                                     | Coste |
+| --------------------------------------------- | ----- |
+| Leer y analizar las doce caras Liberation     | 33 ms |
+| 1 000 mediciones de texto con métricas reales | 5 ms  |
+
+Las fuentes se cargan una vez por proceso y se reutilizan en la exportación y
+en la vista previa. La vista previa paginada puede, por tanto, usar las
+métricas reales sin coste apreciable: el retraso de la primera carga es de 33
+ms y después solo hay que medir.
+
+### Suite tras el Lote M
+
+| Suite                       | Duración | Resultado    |
+| --------------------------- | -------: | ------------ |
+| `pnpm test` (unitarias)     |   ~9,5 s | 292 en verde |
+| `pnpm test:e2e` (navegador) |   ~3,6 m | 72 en verde  |
+| `pnpm build` (producción)   |        — | Correcto     |
+
+La duración de la suite E2E es la de esta máquina con un solo trabajador. El
+banco no mide el coste de descargar imágenes de Cloudinary ni de componer
+miles de notas; esas cifras siguen pendientes.
+
+## Prueba de esfuerzo (Lote N)
+
+Comando: `pnpm stress:export` (código en `scripts/stress-export.ts`). Es la
+prueba de esfuerzo que faltaba: un manuscrito de **200 000 palabras, 80
+fotografías y 500 notas al pie**, exportado a los tres formatos.
+
+| Formato | Tiempo   | Tamaño    | Contenido                |
+| ------- | -------- | --------- | ------------------------ |
+| PDF     | 588 ms   | 40 159 KB | 547 páginas, 80 imágenes |
+| EPUB    | 1 413 ms | 39 517 KB | 80 imágenes incrustadas  |
+| DOCX    | 1 355 ms | 39 505 KB | 80 imágenes incrustadas  |
+
+- La paginación de 547 páginas tarda 143 ms y produce 98 diagnósticos de
+  composición (viudas, huérfanas y notas que no caben).
+- Las imágenes son ruido pseudoaleatorio de 1200 × 800 px, el peor caso: no se
+  comprimen y ocupan unos 500 KB cada una. Un libro de 80 fotografías reales
+  pesa lo mismo.
+- **La memoria máxima del proceso es de 367 MB**, con un margen de 145 MB
+  sobre los 512 MB de Render Free.
+
+### El fallo que encontró esta prueba
+
+La primera ejecución de este banco dio **1 647 MB de memoria máxima**: la
+exportación de un libro con fotografías no cabía en Render Free. La causa no
+estaba en el PDF, que se quedaba en 259 MB, sino en el escritor de ZIP: armaba
+el archivo en una lista de números, con lo que un ZIP de 40 MB ocupaba más de
+un gigabyte en memoria.
+
+| Versión                         | Memoria máxima | EPUB     | DOCX     |
+| ------------------------------- | -------------: | -------- | -------- |
+| Lista de números                |       1 647 MB | 3 074 ms | 2 964 ms |
+| Búfer que crece por duplicación |         367 MB | 1 413 ms | 1 355 ms |
+
+El escritor de ZIP ahora escribe en un búfer de bytes que crece por duplicación
+(`ByteWriter` en `packages/export-engine/src/zip.ts`): ocupa el doble del
+archivo mientras se escribe, en vez de ocho bytes por byte. La memoria baja
+4,5 veces y la escritura es el doble de rápida.

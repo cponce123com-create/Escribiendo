@@ -1,5 +1,10 @@
-import { expect, test } from "@playwright/test";
-import { readFileSync } from "node:fs";
+import { expect, test, type Download } from "@playwright/test";
+import { spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { inflateSync } from "node:zlib";
 
 /**
  * Exportación: generación de archivos, idempotencia de la cola y descarga
@@ -12,6 +17,173 @@ test.describe.configure({ mode: "serial" });
 
 const BOOK_TITLE = "Libro exportable";
 const SECTION_TITLE = "Prólogo exportable";
+
+function unicodeFromHex(hex: string): string {
+  const puntos: number[] = [];
+
+  for (let index = 0; index < hex.length; index += 4) {
+    puntos.push(Number.parseInt(hex.slice(index, index + 4), 16));
+  }
+
+  return String.fromCodePoint(...puntos);
+}
+
+/**
+ * Despliega los flujos comprimidos del PDF.
+ *
+ * Los flujos van con `FlateDecode`. La prueba analiza el contenido real del
+ * archivo, así que primero los despliega. El programa de la fuente se
+ * descarta: es binario y no aporta nada a la comprobación.
+ */
+function descomprimirFlujos(pdf: string): string {
+  const patron = /(\d+) 0 obj\s*<<([^>]*?)\/Filter \/FlateDecode([^>]*?)>>\s*stream\n/gu;
+  let salida = "";
+  let ultimo = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = patron.exec(pdf)) !== null) {
+    const inicio = match.index + match[0].length;
+    const fin = pdf.indexOf("\nendstream", inicio);
+
+    if (fin < 0) {
+      break;
+    }
+
+    const esFuente = match[2]!.includes("/Length1");
+    const plano = esFuente
+      ? ""
+      : inflateSync(Buffer.from(pdf.slice(inicio, fin), "latin1")).toString("latin1");
+
+    salida += pdf.slice(ultimo, match.index) + match[0] + plano;
+    ultimo = fin;
+  }
+
+  return salida + pdf.slice(ultimo);
+}
+
+/**
+ * Extrae el texto de los flujos `Identity-H` usando los mapas `ToUnicode`
+ * incrustados. No es un lector PDF general: sirve para comprobar que los CIDs
+ * del archivo vuelven a ser el texto que escribió la autora.
+ */
+function extractPdfText(pdf: string): string {
+  const cmaps = new Map<string, Map<number, string>>();
+
+  for (const match of pdf.matchAll(
+    /(\d+) 0 obj\s*<< \/Length \d+( \/Filter \/FlateDecode)? >>\s*stream\n([\s\S]*?)\nendstream/gu,
+  )) {
+    if (!match[3]!.includes("beginbfchar")) {
+      continue;
+    }
+
+    const map = new Map<number, string>();
+
+    for (const entry of match[3]!.matchAll(/<([0-9A-Fa-f]{4})>\s*<([0-9A-Fa-f]+)>/gu)) {
+      map.set(Number.parseInt(entry[1]!, 16), unicodeFromHex(entry[2]!));
+    }
+
+    cmaps.set(match[1]!, map);
+  }
+
+  const type0 = new Map<string, string>();
+
+  for (const match of pdf.matchAll(/(\d+) 0 obj\s*<<([\s\S]*?)>>\s*endobj/gu)) {
+    if (!match[2]!.includes("/Subtype /Type0")) {
+      continue;
+    }
+
+    const toUnicode = match[2]!.match(/\/ToUnicode (\d+) 0 R/u);
+
+    if (toUnicode) {
+      type0.set(match[1]!, toUnicode[1]!);
+    }
+  }
+
+  const resources = new Map<string, Map<number, string>>();
+
+  for (const match of pdf.matchAll(/\/(E\d+) (\d+) 0 R/gu)) {
+    const cmap = type0.get(match[2]!);
+
+    if (cmap && cmaps.has(cmap)) {
+      resources.set(match[1]!, cmaps.get(cmap)!);
+    }
+  }
+
+  let text = "";
+
+  for (const block of pdf.matchAll(/\bBT ([\s\S]*?) ET/gu)) {
+    const font = block[1]!.match(/^\/(E\d+) /u);
+
+    if (!font) {
+      continue;
+    }
+
+    const cmap = resources.get(font[1]!);
+
+    if (!cmap) {
+      continue;
+    }
+
+    const hexadecimales = [...block[1]!.matchAll(/<([0-9A-Fa-f]+)>/gu)].map((match) => match[1]!);
+
+    for (const hexadecimal of hexadecimales) {
+      for (let index = 0; index < hexadecimal.length; index += 4) {
+        const cid = Number.parseInt(hexadecimal.slice(index, index + 4), 16);
+        text += cmap.get(cid) ?? "?";
+      }
+    }
+  }
+
+  return text;
+}
+
+/**
+ * Valida el EPUB con EPUBCheck, la herramienta oficial del W3C.
+ *
+ * Necesita Java, así que solo se usa cuando se indica dónde está
+ * `epubcheck.jar`. Si no está configurado, se devuelve `null` y la prueba
+ * sigue con la comprobación estructural; si está configurado y falla, la
+ * prueba falla. Nunca se declara una validación que no se ha hecho.
+ */
+function validarConEpubCheck(ruta: string): { codigo: number; salida: string } | null {
+  const jar = process.env.EPUBCHECK_JAR;
+
+  if (!jar) {
+    return null;
+  }
+
+  const java = process.env.JAVA ?? "java";
+  // EPUBCheck decide el modo de validación por la extensión, así que el
+  // archivo descargado (que Playwright guarda con un nombre temporal) se
+  // copia con extensión `.epub` antes de validarlo.
+  const copia = path.join(tmpdir(), `escribiendo-${randomUUID()}.epub`);
+
+  copyFileSync(ruta, copia);
+
+  const resultado = spawnSync(java, ["-jar", jar, copia], { encoding: "utf8" });
+
+  if (resultado.error) {
+    throw new Error(`No se ha podido ejecutar EPUBCheck: ${resultado.error.message}`);
+  }
+
+  return {
+    codigo: resultado.status ?? 1,
+    salida: `${resultado.stdout ?? ""}${resultado.stderr ?? ""}`,
+  };
+}
+
+/**
+ * Guarda el archivo descargado en `test-results` para poder validarlo con
+ * herramientas externas fuera del proceso de pruebas.
+ */
+async function guardarParaValidacion(descarga: Download, nombre: string): Promise<string> {
+  const destino = path.join(process.cwd(), "test-results", nombre);
+
+  mkdirSync(path.dirname(destino), { recursive: true });
+  await descarga.saveAs(destino);
+
+  return destino;
+}
 
 test.describe("Exportación", () => {
   test("se crea un libro con una sección para exportar", async ({ page }) => {
@@ -108,13 +280,24 @@ test.describe("Exportación", () => {
     expect(bytes.subarray(0, 8).toString("utf8")).toBe("%PDF-1.4");
     expect(bytes.subarray(bytes.length - 6).toString("utf8")).toContain("%%EOF");
 
-    // La palabra en negrita se dibuja con la fuente negra, no con la redonda:
-    // el formato del manuscrito llega hasta el archivo final.
-    const texto = bytes.toString("latin1");
-    const posicion = texto.indexOf("Marta) Tj");
+    // El archivo se guarda para poder abrirlo con un lector externo
+    // (por ejemplo, `node scripts/pdfjs/valida-pdf.mjs`) fuera del proceso de
+    // pruebas.
+    await guardarParaValidacion(download, "pdf-generado.pdf");
 
-    expect(posicion).toBeGreaterThan(0);
-    expect(texto.slice(Math.max(0, posicion - 160), posicion)).toContain("/F2 ");
+    // La palabra en negrita se dibuja con una cara TTF incrustada, no con la
+    // fuente estándar ni con la redonda. El texto viaja como CIDs, por lo que
+    // ya no aparece como una cadena literal en el flujo.
+    const texto = bytes.toString("latin1");
+    const pagina = descomprimirFlujos(texto);
+
+    expect(texto).toContain("/Subtype /Type0");
+    expect(texto).toContain("/Subtype /CIDFontType2");
+    expect(texto).toContain("/FontFile2");
+    expect(texto).toContain("/ToUnicode");
+    expect(texto).toContain("/BaseFont /LiberationSans-Bold");
+    expect(pagina).toMatch(/BT \/E\d+ [\d.]+ Tf/u);
+    expect(pagina).not.toContain("Marta) Tj");
   });
 
   test("el PDF de imprenta lleva sangrado y marcas de corte", async ({ page }) => {
@@ -149,9 +332,12 @@ test.describe("Exportación", () => {
     expect(contenido).toContain("/CropBox");
     expect(contenido).toContain("/BleedBox");
     expect(contenido).toContain("/TrimBox");
-    // Las marcas de corte son líneas dibujadas fuera de la caja acabada.
-    expect(contenido).toContain(" m ");
-    expect(contenido).toContain(" l S");
+    // Las marcas de corte son líneas dibujadas fuera de la caja acabada. Van
+    // en el flujo de la página, que está comprimido.
+    const pagina = descomprimirFlujos(contenido);
+
+    expect(pagina).toContain(" m ");
+    expect(pagina).toContain(" l S");
   });
 
   test("el EPUB se genera y se descarga", async ({ page }) => {
@@ -212,6 +398,27 @@ test.describe("Exportación", () => {
     expect(bytes[1]).toBe(0x4b);
     expect(bytes.subarray(30, 38).toString("utf8")).toBe("mimetype");
     expect(bytes.subarray(38, 58).toString("utf8")).toBe("application/epub+zip");
+
+    // Validación externa con EPUBCheck, si la herramienta está configurada.
+    const epubcheck = validarConEpubCheck(ruta);
+
+    if (epubcheck) {
+      await test.info().attach("epubcheck.txt", {
+        body: epubcheck.salida,
+        contentType: "text/plain",
+      });
+      process.stdout.write(
+        `[epubcheck] ${epubcheck.salida.replace(/\s+/gu, " ").trim().slice(0, 1500)}\n`,
+      );
+
+      expect(epubcheck.codigo).toBe(0);
+      expect(epubcheck.salida).toContain("0 errores");
+    } else {
+      test.info().annotations.push({
+        type: "note",
+        description: "EPUBCheck no configurado: la validación externa se ha omitido.",
+      });
+    }
   });
 
   test("pedir dos veces la misma exportación reutiliza el trabajo", async ({ page }) => {
@@ -273,6 +480,10 @@ test.describe("Exportación", () => {
     expect(bytes[0]).toBe(0x50);
     expect(bytes[1]).toBe(0x4b);
     expect(bytes.subarray(30, 49).toString("utf8")).toBe("[Content_Types].xml");
+
+    // El archivo se guarda para poder abrirlo con un lector externo
+    // (por ejemplo, `pnpm dlx mammoth@1.11.0`) fuera del proceso de pruebas.
+    await guardarParaValidacion(download, "docx-generado.docx");
   });
 
   test("el PDF conserva la tipografía española", async ({ page }) => {
@@ -320,14 +531,20 @@ test.describe("Exportación", () => {
 
     const contenido = readFileSync(ruta).toString("latin1");
 
-    // Las comillas angulares, la raya larga y los puntos suspensivos se
-    // guardan con sus códigos de Win1252.
-    expect(contenido).toContain("\xabCita\xbb");
-    expect(contenido).toContain("\x97");
-    expect(contenido).toContain("\x85");
-    // Las tildes y la eñe se conservan tal cual.
-    expect(contenido).toContain("niño");
-    expect(contenido).toContain("caía");
+    expect(contenido).toContain("/ToUnicode");
+
+    // Los CIDs se convierten de vuelta a Unicode con el mapa incrustado. Así
+    // se comprueba a la vez que el texto se conserva y que se puede buscar o
+    // copiar desde un lector PDF.
+    const extraido = extractPdfText(descomprimirFlujos(contenido));
+
+    expect(extraido).not.toBe("");
+    expect(extraido).toContain("«Cita»");
+    expect(extraido).toContain("—");
+    expect(extraido).toContain("…");
+    expect(extraido).toContain("niño");
+    expect(extraido).toContain("caía");
+    expect(extraido).toContain("miró");
   });
 
   test("una descarga sin firma se rechaza", async ({ page, request }) => {

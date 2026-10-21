@@ -213,7 +213,7 @@ export async function processExportJob(
     const sections = await loadManuscript(session, job.bookId, versions);
     const context = await exportContext(session, job.bookId);
 
-    const file = generateFile({
+    const file = await generateFile({
       format: job.format,
       title: book.title,
       author: book.authorName,

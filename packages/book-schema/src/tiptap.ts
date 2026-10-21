@@ -33,6 +33,9 @@ const markSchema = z
   })
   .strict();
 
+/** Longitud máxima del texto de una nota al pie. */
+export const MAX_FOOTNOTE_LENGTH = 2_000;
+
 const nodeSchema: z.ZodType<TiptapNode> = z.lazy(() =>
   z
     .object({
@@ -56,6 +59,37 @@ const nodeSchema: z.ZodType<TiptapNode> = z.lazy(() =>
           code: "custom",
           message: "Solo los nodos de texto pueden incluir la propiedad text.",
         });
+      }
+
+      if (node.type === "footnote") {
+        const id = node.attrs?.id;
+        const note = node.attrs?.note;
+
+        if (typeof id !== "string" || !/^[A-Za-z0-9_-]{1,64}$/u.test(id)) {
+          context.addIssue({
+            code: "custom",
+            message: "Una nota al pie necesita un identificador válido.",
+          });
+        }
+
+        if (typeof note !== "string" || note.trim().length === 0) {
+          context.addIssue({
+            code: "custom",
+            message: "Una nota al pie necesita texto.",
+          });
+        } else if (note.length > MAX_FOOTNOTE_LENGTH) {
+          context.addIssue({
+            code: "custom",
+            message: `Una nota al pie no puede superar los ${MAX_FOOTNOTE_LENGTH} caracteres.`,
+          });
+        }
+
+        if (node.content !== undefined && node.content.length > 0) {
+          context.addIssue({
+            code: "custom",
+            message: "Una nota al pie no puede contener otros nodos.",
+          });
+        }
       }
     }),
 );
@@ -152,13 +186,16 @@ const BLOCK_NODE_TYPES = new Set([
   "tableRow",
   "tableCell",
   "tableHeader",
-  "footnote",
-  "footnotes",
 ]);
 
 function collectText(node: TiptapNode): string {
   if (node.type === "text") {
     return node.text ?? "";
+  }
+
+  if (node.type === "footnote") {
+    const note = node.attrs?.note;
+    return typeof note === "string" ? note : "";
   }
 
   const inner = (node.content ?? []).map(collectText).join("");

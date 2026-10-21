@@ -10,7 +10,8 @@ import {
   type LayoutBlock,
   type LayoutBlockKind,
 } from "@escribiendo/editorial-engine";
-import { inlineRuns, listRuns, trimRuns } from "./inline";
+import { editorialImageFromNode } from "./image";
+import { inlineRuns, listRuns, trimRuns, type FootnoteCounter } from "./inline";
 
 /**
  * Conversión del manuscrito a bloques de maquetación.
@@ -49,18 +50,17 @@ function headingKind(node: TiptapNode): LayoutBlockKind {
   return "heading4";
 }
 
-/** Texto alternativo de una imagen, si lo trae. */
-function imageAlt(node: TiptapNode): string {
-  const alt = node.attrs?.alt;
-
-  return typeof alt === "string" ? alt.trim() : "";
-}
-
 /**
  * Convierte el contenido de una sección en bloques de maquetación.
  */
-export function sectionToBlocks(section: PreviewSection): LayoutBlock[] {
+export function sectionToBlocks(
+  section: PreviewSection,
+  footnotes?: FootnoteCounter,
+): LayoutBlock[] {
   const blocks: LayoutBlock[] = [];
+  // Una llamada directa sin contador compartido sigue numerando dentro de su
+  // propia sección; el libro completo debe pasar un contador desde bookToBlocks.
+  const counter = footnotes ?? { next: 1 };
   let index = 0;
 
   const registration = (): Pick<LayoutBlock, "sectionId" | "sectionTitle"> => ({
@@ -102,19 +102,15 @@ export function sectionToBlocks(section: PreviewSection): LayoutBlock[] {
     index += 1;
   };
 
-  /** Imagen: se conserva la referencia aunque todavía no se dibuje. */
+  /** Imagen: conserva origen, pie, proporciones y alineación. */
   const pushImage = (node: TiptapNode): void => {
-    const src = typeof node.attrs?.src === "string" ? node.attrs.src : undefined;
-    const alt = imageAlt(node);
+    const image = editorialImageFromNode(node);
 
     blocks.push({
       id: `${section.id}-${index}`,
       kind: "image",
-      text: alt,
-      image: {
-        ...(src ? { src } : {}),
-        ...(alt ? { alt } : {}),
-      },
+      text: image.alt ?? image.caption ?? "",
+      image,
       ...registration(),
       firstOfSection: index === 0,
     });
@@ -133,24 +129,24 @@ export function sectionToBlocks(section: PreviewSection): LayoutBlock[] {
   for (const node of document.content ?? []) {
     switch (node.type) {
       case "heading":
-        pushRuns(headingKind(node), inlineRuns(node));
+        pushRuns(headingKind(node), inlineRuns(node, counter));
         break;
 
       case "paragraph":
-        pushRuns("body", inlineRuns(node));
+        pushRuns("body", inlineRuns(node, counter));
         break;
 
       case "blockquote":
-        pushRuns("blockquote", inlineRuns(node));
+        pushRuns("blockquote", inlineRuns(node, counter));
         break;
 
       case "codeBlock":
-        pushRuns("code", inlineRuns(node));
+        pushRuns("code", inlineRuns(node, counter));
         break;
 
       case "bulletList":
       case "orderedList":
-        pushRuns("list", listRuns(node));
+        pushRuns("list", listRuns(node, counter));
         break;
 
       case "horizontalRule":
@@ -163,7 +159,7 @@ export function sectionToBlocks(section: PreviewSection): LayoutBlock[] {
         break;
 
       default: {
-        const runs = inlineRuns(node);
+        const runs = inlineRuns(node, counter);
 
         if (runs.length > 0) {
           pushRuns("body", runs);
@@ -185,10 +181,11 @@ export function sectionToBlocks(section: PreviewSection): LayoutBlock[] {
  */
 export function bookToBlocks(sections: PreviewSection[]): LayoutBlock[] {
   const blocks: LayoutBlock[] = [];
+  const footnotes: FootnoteCounter = { next: 1 };
   let chapterSeen = false;
 
   for (const section of sections) {
-    const sectionBlocks = sectionToBlocks(section);
+    const sectionBlocks = sectionToBlocks(section, footnotes);
     const opensChapter = section.isChapter && (chapterSeen || section.startOnOddPage);
 
     if (section.isChapter) {

@@ -3,11 +3,15 @@ import type { FontFamilyId } from "./typography";
 /**
  * Medición del texto para la maquetación.
  *
- * El motor no carga fuentes reales: mide con un modelo de anchos medios por
- * tipo de carácter. Es una aproximación determinista, suficiente para una
- * vista previa y para detectar problemas de composición, y explícitamente
- * insuficiente para calcular la paginación definitiva de un PDF, que es
- * trabajo de la fase de exportación con métricas reales de la fuente.
+ * El motor no carga fuentes por sí mismo: por defecto mide con un modelo
+ * determinista de anchos medios por tipo de carácter. Ese modelo es una
+ * aproximación suficiente para detectar problemas de composición, y sirve de
+ * reserva cuando no hay una fuente real disponible.
+ *
+ * Cuando sí la hay, se inyecta un medidor real (`MeasureText`) que devuelve
+ * los anchos de la propia fuente. La aplicación lo hace con las métricas de
+ * `hmtx` de las fuentes que después se incrustan en el PDF, de modo que la
+ * paginación y la composición coinciden.
  */
 
 /** Ancho medio de carácter como fracción del tamaño de letra. */
@@ -27,6 +31,12 @@ const FAMILY_FACTOR: Record<FontFamilyId, number> = {
 
 const NARROW_CHARS = new Set([..."ijltfrI.,;:!|'’¡()[]{}/\\-«»"]);
 
+/**
+ * Medidor real de una fuente. Devuelve puntos, no milímetros, para que pueda
+ * sustituir al modelo aproximado sin cambiar las unidades del motor.
+ */
+export type MeasureText = (text: string, options: MeasureOptions) => number;
+
 export interface MeasureOptions {
   fontFamily: FontFamilyId;
   fontSizePt: number;
@@ -39,6 +49,13 @@ export interface MeasureOptions {
    * al pasar de redonda a negra.
    */
   bold?: boolean;
+  /**
+   * El tramo va en cursiva. El modelo aproximado no distingue la cursiva; un
+   * medidor real sí, porque cada cara tiene sus propios anchos.
+   */
+  italic?: boolean;
+  /** Medición real; si falta, se usa el modelo aproximado. */
+  measure?: MeasureText;
 }
 
 /** Ensanchamiento medio de la negrita respecto a la redonda. */
@@ -48,6 +65,10 @@ const BOLD_FACTOR = 1.03;
 export function measureTextPoints(text: string, options: MeasureOptions): number {
   if (text.length === 0) {
     return 0;
+  }
+
+  if (options.measure) {
+    return options.measure(text, options);
   }
 
   const factor = FAMILY_FACTOR[options.fontFamily];

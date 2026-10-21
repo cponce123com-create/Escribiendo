@@ -2,8 +2,14 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import type { SessionContext } from "@/lib/auth/session";
 import { parseTiptapDocument, type TiptapDocument } from "@escribiendo/book-schema";
-import { runsToText, type InlineRun } from "@escribiendo/editorial-engine";
-import { inlineRuns, trimRuns } from "@/lib/layout/inline";
+import {
+  runsToText,
+  type EditorialImage,
+  type InlineFootnote,
+  type InlineRun,
+} from "@escribiendo/editorial-engine";
+import { editorialImageFromNode } from "@/lib/layout/image";
+import { inlineRuns, trimRuns, type FootnoteCounter } from "@/lib/layout/inline";
 import { createHash } from "node:crypto";
 
 /**
@@ -161,6 +167,8 @@ export interface ManuscriptRun {
   superscript?: boolean;
   subscript?: boolean;
   link?: string;
+  /** Llamada a nota al pie, con su número y su texto. */
+  footnote?: InlineFootnote;
 }
 
 /** Bloques de un documento Tiptap, con su clase y su formato. */
@@ -169,7 +177,7 @@ export interface ManuscriptBlock {
   text: string;
   runs?: ManuscriptRun[];
   /** Referencia de la imagen, cuando `kind` es `image`. */
-  image?: { src?: string; alt?: string };
+  image?: EditorialImage;
 }
 
 /** Aplana las marcas anidadas a la forma que espera el motor de exportación. */
@@ -186,13 +194,20 @@ function flattenRuns(runs: readonly InlineRun[]): ManuscriptRun[] {
       ...(marks?.superscript ? { superscript: true } : {}),
       ...(marks?.subscript ? { subscript: true } : {}),
       ...(marks?.link ? { link: marks.link } : {}),
+      ...(run.footnote ? { footnote: run.footnote } : {}),
     };
   });
 }
 
 /** Convierte una sección en bloques con formato para el EPUB y el DOCX. */
-export function sectionToBlocks(section: ExportSection): ManuscriptBlock[] {
+export function sectionToBlocks(
+  section: ExportSection,
+  footnotes?: FootnoteCounter,
+): ManuscriptBlock[] {
   const blocks: ManuscriptBlock[] = [];
+  // Si se llama a una sección aislada, sus notas se numeran dentro de ella.
+  // generateFile pasa un contador compartido para numerar todo el libro.
+  const counter = footnotes ?? { next: 1 };
 
   let document: TiptapDocument;
 
@@ -216,19 +231,19 @@ export function sectionToBlocks(section: ExportSection): ManuscriptBlock[] {
   for (const node of document.content ?? []) {
     switch (node.type) {
       case "heading":
-        pushRuns("heading", inlineRuns(node));
+        pushRuns("heading", inlineRuns(node, counter));
         break;
 
       case "paragraph":
-        pushRuns("body", inlineRuns(node));
+        pushRuns("body", inlineRuns(node, counter));
         break;
 
       case "blockquote":
-        pushRuns("quote", inlineRuns(node));
+        pushRuns("quote", inlineRuns(node, counter));
         break;
 
       case "codeBlock":
-        pushRuns("body", inlineRuns(node));
+        pushRuns("body", inlineRuns(node, counter));
         break;
 
       case "bulletList":
@@ -240,7 +255,7 @@ export function sectionToBlocks(section: ExportSection): ManuscriptBlock[] {
             continue;
           }
 
-          const itemRuns = trimRuns(inlineRuns(item));
+          const itemRuns = trimRuns(inlineRuns(item, counter));
 
           if (itemRuns.length === 0) {
             continue;
@@ -263,22 +278,18 @@ export function sectionToBlocks(section: ExportSection): ManuscriptBlock[] {
         break;
 
       case "image": {
-        const src = typeof node.attrs?.src === "string" ? node.attrs.src : undefined;
-        const alt = typeof node.attrs?.alt === "string" ? node.attrs.alt.trim() : "";
+        const image = editorialImageFromNode(node);
 
         blocks.push({
           kind: "image",
-          text: alt,
-          image: {
-            ...(src ? { src } : {}),
-            ...(alt ? { alt } : {}),
-          },
+          text: image.alt ?? image.caption ?? "",
+          image,
         });
         break;
       }
 
       default:
-        pushRuns("body", inlineRuns(node));
+        pushRuns("body", inlineRuns(node, counter));
         break;
     }
   }

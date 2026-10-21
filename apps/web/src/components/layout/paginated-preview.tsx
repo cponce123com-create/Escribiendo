@@ -27,7 +27,7 @@ interface PaginatedPreviewProps {
   typography: TypographyConfig;
 }
 
-export function PaginatedPreview({ pages, profile }: PaginatedPreviewProps) {
+export function PaginatedPreview({ pages, profile, typography }: PaginatedPreviewProps) {
   const pageWidth = profile.pageWidthMm * PX_PER_MM;
   const pageHeight = profile.pageHeightMm * PX_PER_MM;
 
@@ -35,7 +35,13 @@ export function PaginatedPreview({ pages, profile }: PaginatedPreviewProps) {
     <div className="space-y-10">
       {pages.map((page) => (
         <figure key={page.index} className="space-y-2">
-          <PageSheet page={page} profile={profile} pageWidth={pageWidth} pageHeight={pageHeight} />
+          <PageSheet
+            page={page}
+            profile={profile}
+            typography={typography}
+            pageWidth={pageWidth}
+            pageHeight={pageHeight}
+          />
           <figcaption className="text-xs text-ink-muted">
             Página {page.index} · folio {page.folio} · {page.side === "recto" ? "par" : "impar"}
             {page.blank ? " · en blanco" : ""}
@@ -49,11 +55,12 @@ export function PaginatedPreview({ pages, profile }: PaginatedPreviewProps) {
 interface PageSheetProps {
   page: PreviewPage;
   profile: LayoutProfileSummary;
+  typography: TypographyConfig;
   pageWidth: number;
   pageHeight: number;
 }
 
-function PageSheet({ page, profile, pageWidth, pageHeight }: PageSheetProps) {
+function PageSheet({ page, profile, typography, pageWidth, pageHeight }: PageSheetProps) {
   const mirror = profile.mirrorMargins;
   // En una página par (la derecha) el margen interior queda a la izquierda;
   // en una impar, a la derecha.
@@ -103,6 +110,16 @@ function PageSheet({ page, profile, pageWidth, pageHeight }: PageSheetProps) {
         </div>
       )}
 
+      {page.footnotes.length > 0 ? (
+        <FootnoteArea
+          page={page}
+          typography={typography}
+          topMm={profile.marginTopMm + page.totalHeightMm - page.footnotesHeightMm}
+          leftMm={leftMarginMm}
+          widthMm={textWidthMm}
+        />
+      ) : null}
+
       {profile.showPageNumbers ? (
         <div
           className="absolute text-center tabular-nums text-ink-muted"
@@ -116,6 +133,50 @@ function PageSheet({ page, profile, pageWidth, pageHeight }: PageSheetProps) {
           {page.folio}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+interface FootnoteAreaProps {
+  page: PreviewPage;
+  typography: TypographyConfig;
+  topMm: number;
+  leftMm: number;
+  widthMm: number;
+}
+
+function FootnoteArea({ page, typography, topMm, leftMm, widthMm }: FootnoteAreaProps) {
+  const fontSizePt = typography.body.fontSizePt * 0.78;
+  const lineHeightPt = fontSizePt * 1.3;
+
+  return (
+    <div
+      className="absolute text-ink"
+      aria-label="Notas al pie"
+      style={{
+        top: `${topMm * PX_PER_MM}px`,
+        left: `${leftMm * PX_PER_MM}px`,
+        width: `${widthMm * PX_PER_MM}px`,
+        fontFamily: FAMILIAS[typography.body.fontFamily] ?? FAMILIAS.serif,
+        fontSize: `${fontSizePt}pt`,
+        lineHeight: `${lineHeightPt}pt`,
+      }}
+    >
+      <div
+        aria-hidden="true"
+        style={{
+          width: "35%",
+          borderTop: "0.5px solid #777",
+          marginBottom: `${1.5 * PX_PER_MM}px`,
+        }}
+      />
+      {page.footnotes.map((note) => (
+        <div key={note.id} style={{ marginBottom: `${1.2 * PX_PER_MM}px` }}>
+          {note.lines.map((line, index) => (
+            <div key={`${note.id}-${index}`}>{line}</div>
+          ))}
+        </div>
+      ))}
     </div>
   );
 }
@@ -192,6 +253,11 @@ function PreviewBlock({ block }: { block: LaidOutBlock }) {
                     return (
                       <span
                         key={segmentIndex}
+                        title={
+                          segment.footnote
+                            ? `Nota ${segment.footnote.number}: ${segment.footnote.note}`
+                            : undefined
+                        }
                         style={{
                           fontWeight: marks.bold ? 700 : undefined,
                           fontStyle: marks.italic ? "italic" : undefined,

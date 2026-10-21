@@ -49,6 +49,13 @@ Donde un criterio no sea aplicable, se dice y se redistribuye su peso.
 criterios se estima en **87,4** (antes: 85,6), con el mismo desplazamiento que
 la media de áreas. La estimación no reclama precisión que no se haya medido.
 
+> Esta tabla es la fotografía de la auditoría del 20 de octubre de 2026. Las
+> actualizaciones de los lotes J, K y L, al final del documento, corrigen lo
+> que entonces estaba pendiente: imágenes y notas al pie en las exportaciones,
+> fuentes TTF incrustadas con métricas reales y validación externa con
+> EPUBCheck y con un lector de DOCX. La puntuación no se recalcula sin cerrar
+> además los bloqueos externos.
+
 ## La meta de 95 no se alcanza, y esto es lo que falta
 
 No se ha alcanzado el 95 porque quedan tres cosas **sin hacer**, todas
@@ -115,18 +122,18 @@ se afirma más de lo que se ha comprobado.
 
 ## Estado de las condiciones de cierre
 
-| Condición                                            | Estado                                                                                                                                                          |
-| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Riesgo conocido de pérdida silenciosa de manuscritos | **Resuelto**: borrador local, control de orden y avisos de conflicto                                                                                            |
-| Vulnerabilidad crítica sin corregir                  | No consta ninguna abierta en esta auditoría                                                                                                                     |
-| Exportación que pierde caracteres                    | **Resuelto** para la tipografía española; el resto se avisa                                                                                                     |
-| Archivos PDF corruptos                               | No: la cabecera, la estructura y el cierre se comprueban en cada prueba                                                                                         |
-| Pérdida de imágenes o formato sin advertencia        | **Resuelto** para el formato en línea y los separadores; las imágenes se conservan en el modelo y el EPUB las incluye, pero el PDF y el DOCX aún no las dibujan |
-| Migraciones destructivas no autorizadas              | Ninguna: las tres migraciones son aditivas                                                                                                                      |
-| Pruebas críticas fallidas                            | Ninguna: 249 unitarias y 70 E2E en verde                                                                                                                        |
-| Error de compilación                                 | Ninguno                                                                                                                                                         |
-| Regresión funcional                                  | Ninguna detectada                                                                                                                                               |
-| Exposición de secretos                               | Ninguna: escaneo del árbol y del historial de commits                                                                                                           |
+| Condición                                            | Estado                                                                                    |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Riesgo conocido de pérdida silenciosa de manuscritos | **Resuelto**: borrador local, control de orden y avisos de conflicto                      |
+| Vulnerabilidad crítica sin corregir                  | No consta ninguna abierta en esta auditoría                                               |
+| Exportación que pierde caracteres                    | **Resuelto** para la tipografía española; el resto se avisa                               |
+| Archivos PDF corruptos                               | No: la cabecera, la estructura y el cierre se comprueban en cada prueba                   |
+| Pérdida de imágenes o formato sin advertencia        | **Resuelto** para el formato en línea, los separadores y las imágenes en PDF, EPUB y DOCX |
+| Migraciones destructivas no autorizadas              | Ninguna: las tres migraciones son aditivas                                                |
+| Pruebas críticas fallidas                            | Ninguna: 280 unitarias y 72 E2E en verde                                                  |
+| Error de compilación                                 | Ninguno                                                                                   |
+| Regresión funcional                                  | Ninguna detectada                                                                         |
+| Exposición de secretos                               | Ninguna: escaneo del árbol y del historial de commits                                     |
 
 ## Lo que no se ha verificado
 
@@ -139,3 +146,290 @@ se afirma más de lo que se ha comprobado.
 - **Otros navegadores.** Solo se ha probado Chromium.
 - **La lectura real de los archivos EPUB y DOCX** por parte de aplicaciones de
   usuario final.
+
+---
+
+## Actualización de la rama `improvement/escribiendo-95`
+
+Fecha: 21 de octubre de 2026.
+Base: `0f65b1e`.
+Alcance cerrado en esta actualización: imágenes de extremo a extremo.
+
+La puntuación de 95 **no se declara alcanzada**. La última medición documentada
+sigue siendo 87,4/100 y no se sustituye por una estimación. Esta actualización
+solo registra lo que se ha ejecutado y lo que falta.
+
+### Correcciones verificadas
+
+- El editor tiene un nodo de imagen con pie, dimensiones, porcentaje y
+  alineación; la biblioteca del libro inserta imágenes ya subidas.
+- `Asset` y `BookAsset` se usan de verdad: la subida se registra con
+  autorización por espacio de trabajo y por libro.
+- La firma de Cloudinary distingue portada e interior; la carpeta interior
+  incluye el espacio y el libro, y exige `section:update`.
+- La maqueta reserva altura para la imagen y su pie; la vista previa y el PDF
+  cuentan la misma caja.
+- El PDF incrusta JPEG como XObject `DCTDecode`; el EPUB guarda las imágenes en
+  `EPUB/images/` y el DOCX en `word/media/`. Si falta una imagen, queda un
+  marcador visible o un recurso remoto declarado, nunca una desaparición
+  silenciosa.
+- El PDF ya no usa el objeto 0 y sus metadatos se escriben en UTF-16BE.
+- La descarga sanea el nombre del archivo y la red de exportación solo acepta
+  HTTPS de la cuenta de Cloudinary configurada, con timeout, tamaño máximo y
+  comprobación de la URL final.
+
+### Evidencia
+
+| Comprobación        | Resultado                                  |
+| ------------------- | ------------------------------------------ |
+| `pnpm test`         | 268 pruebas, 30 archivos                   |
+| `pnpm test:e2e`     | 71 pruebas en Chromium                     |
+| `pnpm format:check` | Correcto                                   |
+| `pnpm lint`         | Sin errores                                |
+| `pnpm typecheck`    | Sin errores                                |
+| `pnpm build`        | Correcto                                   |
+| `pnpm bench:export` | Ejecutado; cifras en PERFORMANCE_REPORT.md |
+
+### Pendiente para 95
+
+1. Notas al pie: cerradas en el Lote J (ver la actualización posterior); queda
+   el formato enriquecido y la división de notas excepcionalmente largas.
+2. PDF con Unicode completo y fuentes TTF incrustadas.
+3. EPUBCheck, Word/LibreOffice y un lector de EPUB real.
+4. Subida real a Cloudinary con credenciales.
+5. Pruebas contra Render y carga real.
+6. Auditoría externa de seguridad y escaneo de dependencias.
+
+Ninguno de estos puntos se ha sustituido por una afirmación. El detalle está en
+[AUDIT_BASELINE_95.md](AUDIT_BASELINE_95.md).
+
+---
+
+## Actualización de la rama `improvement/escribiendo-95`: notas al pie
+
+Fecha: 21 de octubre de 2026.
+Base del lote: `4211bb6`.
+Alcance cerrado: notas al pie de extremo a extremo.
+
+La puntuación de 95 **sigue sin declararse alcanzada**. La última medición
+documentada continúa siendo 87,4/100. Esta actualización registra únicamente lo
+que se ha ejecutado.
+
+### Correcciones verificadas
+
+- El editor tiene un nodo `footnote` atómico, un botón «†», edición de la nota
+  al pulsar la llamada y numeración dinámica por orden de lectura.
+- El esquema rechaza notas sin identificador, vacías, con contenido anidado o
+  de más de 2000 caracteres.
+- La numeración es global entre secciones y no se congela en el JSON: la
+  vista previa, el PDF, el EPUB y el DOCX comparten el mismo orden.
+- La paginación compone las notas al 78 % del cuerpo, reserva su altura y
+  emite `FOOTNOTE_OVERFLOW` si una nota no cabe con su llamada.
+- La vista previa dibuja el área de notas con su línea separadora.
+- El EPUB usa `epub:type="noteref"` y `epub:type="footnote"`; el DOCX incluye
+  `word/footnotes.xml`, la relación, el tipo de contenido y los estilos; el PDF
+  dibuja la línea y las notas al pie de cada página.
+
+### Evidencia
+
+| Comprobación        | Resultado                |
+| ------------------- | ------------------------ |
+| `pnpm test`         | 280 pruebas, 31 archivos |
+| `pnpm test:e2e`     | 72 pruebas en Chromium   |
+| `pnpm format:check` | Correcto                 |
+| `pnpm lint`         | Sin errores              |
+| `pnpm typecheck`    | Sin errores              |
+| `pnpm build`        | Correcto                 |
+| `pnpm bench:export` | Ejecutado                |
+
+### Pendiente para 95
+
+1. PDF con Unicode completo y fuentes TTF incrustadas.
+2. EPUBCheck, Word/LibreOffice y un lector de EPUB real.
+3. Subida real a Cloudinary con credenciales.
+4. Pruebas contra Render y carga real.
+5. Auditoría externa de seguridad y escaneo de dependencias.
+6. Notas con formato enriquecido y división automática de notas muy largas.
+
+Ninguno de estos puntos se ha sustituido por una afirmación. El detalle está en
+[AUDIT_BASELINE_95.md](AUDIT_BASELINE_95.md).
+
+---
+
+## Actualización de la rama `improvement/escribiendo-95`: fuentes TTF y PDF Unicode
+
+Fecha: 21 de octubre de 2026.
+Base del lote: `dc7c6ea`.
+Alcance cerrado: fuentes TTF incrustadas, métricas reales y extracción de texto.
+
+La puntuación de 95 **sigue sin declararse alcanzada**. La última medición
+documentada continúa siendo 87,4/100. Esta actualización registra únicamente lo
+que se ha ejecutado.
+
+### Correcciones verificadas
+
+- El PDF incrusta las caras Liberation que usa el documento como
+  `Type0`/`CIDFontType2`, con `FontFile2`, `Identity-H`, `CIDToGIDMap
+/Identity`, tabla de anchos real y mapa `ToUnicode`.
+- La paginación, los pies de imagen, las notas, las reglas y los folios usan
+  `MeasureText`; ya no se decide el corte con un modelo de anchos medios cuando
+  las fuentes están disponibles.
+- La vista previa usa el mismo medidor real que el PDF, así que sus cortes de
+  línea coinciden con los del archivo exportado. Si las fuentes no se pueden
+  leer, la vista previa y la exportación lo declaran.
+- La cursiva se mide con su propia cara, no con los anchos de la redonda.
+- El justificado de dos bytes se reparte con `TJ` y el avance de cada tramo
+  incluye el espacio extra, de modo que el texto siguiente no se solapa.
+- Si las fuentes no se cargan, el PDF conserva Times/WinAnsi y el panel avisa
+  de que la paginación es estimada.
+- La prueba E2E extrae el texto del PDF con su `ToUnicode` y comprueba
+  comillas angulares, raya, puntos suspensivos, `niño`, `caía` y `miró`.
+
+### Evidencia
+
+| Comprobación        | Resultado                                                      |
+| ------------------- | -------------------------------------------------------------- |
+| `pnpm test`         | 292 pruebas, 32 archivos                                       |
+| `pnpm test:e2e`     | 72 pruebas en Chromium                                         |
+| `pnpm format:check` | Correcto                                                       |
+| `pnpm lint`         | Sin errores                                                    |
+| `pnpm typecheck`    | Sin errores                                                    |
+| `pnpm build`        | Correcto                                                       |
+| `pnpm bench:export` | 112 ms paginación y 227 ms PDF para 200 000 palabras; 5 387 KB |
+
+### Pendiente para 95
+
+1. Cobertura Unicode más allá de latín, griego y cirílico: CJK, emoji y shaping
+   complejo. No se ha añadido una cadena de fuentes de reserva por script.
+2. Subconjuntos de fuente para reducir el tamaño del PDF.
+3. Word y LibreOffice, que no están instalados en esta máquina, y la lectura en
+   un lector de EPUB comercial.
+4. Subida real a Cloudinary con credenciales.
+5. Pruebas contra Render y carga real.
+6. Auditoría externa de seguridad y prueba de penetración. El escaneo de
+   dependencias ya se ejecuta (`pnpm audit`).
+
+Ninguno de estos puntos se ha sustituido por una afirmación. El detalle está en
+[AUDIT_BASELINE_95.md](AUDIT_BASELINE_95.md).
+
+---
+
+## Actualización de la rama `improvement/escribiendo-95`: validación externa (Lote L)
+
+Fecha: 21 de octubre de 2026.
+Base del lote: `86610b6`.
+Alcance cerrado: EPUB validado con EPUBCheck, DOCX leído con un lector
+independiente y escaneo de dependencias ejecutado.
+
+La puntuación de 95 **sigue sin declararse alcanzada** y la última medición
+documentada continúa siendo 87,4/100.
+
+### Correcciones verificadas
+
+- El EPUB lo aprueba **EPUBCheck 5.1.0** (reglas EPUB 3.3): 0 errores fatales,
+  0 errores, 0 advertencias y 0 indicaciones. La prueba de extremo a extremo
+  valida el archivo que descarga la aplicación, no un ejemplo.
+- El DOCX lo lee **Mammoth 1.11.0**, un lector OOXML independiente del motor
+  que lo escribe: devuelve el texto, la negrita, la cursiva, el enlace, la
+  llamada con su nota al pie y la imagen incrustada.
+- `pnpm audit --prod` no encuentra vulnerabilidades conocidas. El aviso alto de
+  `deepmerge-ts` que llegaba por el CLI de Prisma se corrige con un `override`
+  a la versión 8.0.0 y se comprueba que Prisma sigue funcionando.
+
+### Evidencia
+
+| Comprobación         | Resultado                                               |
+| -------------------- | ------------------------------------------------------- |
+| `pnpm validate:epub` | 0 errores, 0 advertencias (EPUBCheck 5.1.0)             |
+| E2E con EPUBCheck    | El EPUB descargado por la aplicación valida sin errores |
+| `pnpm validate:docx` | El DOCX lo lee Mammoth 1.11.0                           |
+| `pnpm audit --prod`  | Sin vulnerabilidades conocidas                          |
+| `pnpm test`          | 292 pruebas, 32 archivos                                |
+| `pnpm test:e2e`      | 72 pruebas en Chromium                                  |
+
+El detalle está en [EXPORT_VALIDATION.md](EXPORT_VALIDATION.md) y en
+[AUDIT_CORRECTIONS.md](AUDIT_CORRECTIONS.md).
+
+---
+
+## Actualizacion de la rama `improvement/escribiendo-95`: compresion y validacion del PDF (Lote M)
+
+Fecha: 21 de octubre de 2026.
+Base del lote: `c43ee27`.
+Alcance cerrado: archivos comprimidos y validacion externa del PDF.
+
+La puntuacion de 95 **sigue sin declararse alcanzada** y la ultima medicion
+documentada continua siendo 87,4/100.
+
+### Correcciones verificadas
+
+- Los flujos del PDF (contenido, programa de la fuente y mapa `ToUnicode`) van
+  comprimidos con `FlateDecode`. El PDF de 200 000 palabras pasa de 5 387 KB a
+  671 KB.
+- Las entradas del ZIP del EPUB y del DOCX van comprimidas con Deflate. La
+  entrada `mimetype` del EPUB sigue sin comprimir y en primer lugar.
+- El PDF lo abre **pdf.js 4.10.38**, el lector de Mozilla, que es independiente
+  del motor de escritura: devuelve el texto con la fuente incrustada y el mapa
+  `ToUnicode`. Con el Lote L, el EPUB lo aprobaba EPUBCheck y el DOCX lo leia
+  Mammoth: los tres formatos tienen validacion externa.
+- La prueba de extremo a extremo deja el PDF y el DOCX que descarga la
+  aplicacion en `test-results/`, para poder abrirlos con esas herramientas.
+
+### Evidencia
+
+| Comprobacion         | Resultado                                                         |
+| -------------------- | ----------------------------------------------------------------- |
+| `pnpm validate:pdf`  | pdf.js abre el PDF y extrae el texto                              |
+| `pnpm validate:epub` | 0 errores y 0 advertencias con EPUBCheck 5.1.0                    |
+| `pnpm validate:docx` | Mammoth 1.11.0 lee el documento                                   |
+| `pnpm bench:export`  | PDF de 671 KB, EPUB de 29 KB y DOCX de 8 KB para 200 000 palabras |
+| `pnpm test`          | 292 pruebas, 32 archivos                                          |
+| `pnpm test:e2e`      | 72 pruebas en Chromium                                            |
+
+El detalle esta en [EXPORT_VALIDATION.md](EXPORT_VALIDATION.md) y en
+[AUDIT_CORRECTIONS.md](AUDIT_CORRECTIONS.md).
+
+---
+
+## Actualizacion de la rama `improvement/escribiendo-95`: prueba de esfuerzo (Lote N)
+
+Fecha: 21 de octubre de 2026.
+Base del lote: `29dac65`.
+Alcance cerrado: prueba de esfuerzo con imagenes y notas al pie, y correccion
+del consumo de memoria del escritor de ZIP.
+
+La puntuacion de 95 **sigue sin declararse alcanzada** y la ultima medicion
+documentada continua siendo 87,4/100.
+
+### Correcciones verificadas
+
+- `pnpm stress:export` genera un manuscrito de 200 000 palabras, 80
+  fotografias y 500 notas al pie y exporta los tres formatos midiendo tiempo,
+  tamano y memoria maxima.
+- **La prueba encontro un fallo real.** La primera ejecucion daba 1 647 MB de
+  memoria: el escritor de ZIP armaba el archivo en una lista de numeros y un
+  ZIP de 40 MB ocupaba mas de un gigabyte. Un libro con 80 fotografias no
+  cabia en Render Free.
+- Con un bufer de bytes que crece por duplicacion, la memoria maxima baja a
+  **367 MB** (margen de 145 MB sobre los 512 MB de Render Free) y la escritura
+  del EPUB y del DOCX es el doble de rapida.
+- El PDF no habia cambiado: se quedaba en 259 MB.
+
+### Evidencia
+
+| Comprobacion         | Resultado                                                     |
+| -------------------- | ------------------------------------------------------------- |
+| `pnpm stress:export` | PDF de 588 ms y 40 159 KB, EPUB de 1 413 ms, DOCX de 1 355 ms |
+| Memoria maxima       | 367 MB, con margen de 145 MB sobre los 512 MB de Render Free  |
+| `pnpm test`          | 292 pruebas, 32 archivos                                      |
+| `pnpm test:e2e`      | 72 pruebas en Chromium                                        |
+| `pnpm validate:epub` | 0 errores y 0 advertencias con EPUBCheck 5.1.0                |
+
+### Pendiente
+
+El archivo se sigue generando entero en la memoria de la peticion. Un
+manuscrito mayor, o con mas imagenes, no cabria en Render Free: la solucion
+seria escribir a disco o a un almacenamiento temporal, y no esta hecha.
+
+El detalle esta en [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md) y en
+[AUDIT_CORRECTIONS.md](AUDIT_CORRECTIONS.md).

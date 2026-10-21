@@ -1,3 +1,4 @@
+import type { ExportImage, ExportImageAsset, ExportImageMap } from "./assets";
 import { buildZip, type ZipEntry } from "./zip";
 
 /**
@@ -11,6 +12,13 @@ import { buildZip, type ZipEntry } from "./zip";
 export type ExportBlockKind =
   "title" | "heading" | "body" | "quote" | "pageBreak" | "rule" | "image";
 
+/** Nota al pie dentro de un tramo en línea. */
+export interface ExportFootnote {
+  id: string;
+  number: number;
+  note: string;
+}
+
 /** Tramo de texto con formato en línea, para el EPUB y el DOCX. */
 export interface ExportInlineRun {
   text: string;
@@ -21,6 +29,7 @@ export interface ExportInlineRun {
   superscript?: boolean;
   subscript?: boolean;
   link?: string;
+  footnote?: ExportFootnote;
 }
 
 export interface ExportBlock {
@@ -29,7 +38,7 @@ export interface ExportBlock {
   /** Tramos con formato. Si falta, se usa `text` tal cual. */
   runs?: ExportInlineRun[];
   /** Referencia de la imagen, cuando `kind` es `image`. */
-  image?: { src?: string; alt?: string };
+  image?: ExportImage;
 }
 
 export interface ExportChapter {
@@ -73,13 +82,30 @@ p { margin: 0 0 0.35em; text-indent: 1.2em; }
 p.quote { margin-left: 1.5em; margin-right: 1.5em; font-style: italic; text-indent: 0; }
 hr.scene { border: 0; text-align: center; margin: 1.2em 0; }
 hr.scene::after { content: "* * *"; letter-spacing: 0.4em; }
-figure.image { margin: 1.2em 0; text-align: center; }
-figure.image img { max-width: 100%; }
+figure.image { margin: 1.2em auto; text-align: center; }
+figure.image.align-left { margin-left: 0; margin-right: auto; text-align: left; }
+figure.image.align-right { margin-left: auto; margin-right: 0; text-align: right; }
+figure.image img { max-width: 100%; height: auto; }
 figure.image figcaption, p.image-alt { font-size: 0.9em; font-style: italic; text-align: center; text-indent: 0; }
-div.pagebreak { page-break-after: always; }`;
+div.pagebreak { page-break-after: always; }
+a.footnote-ref { text-decoration: none; }
+section.footnotes { margin-top: 2em; font-size: 0.82em; line-height: 1.35; }
+section.footnotes hr { border: 0; border-top: 1px solid #777; width: 35%; margin: 0 0 1em; }
+section.footnotes ol { padding-left: 1.4em; }
+section.footnotes li { margin-bottom: 0.6em; }
+a.footnote-back { text-decoration: none; }`;
 
 /** Un tramo con sus etiquetas de formato. */
 function inlineHtml(run: ExportInlineRun): string {
+  if (run.footnote) {
+    const id = escapeXml(run.footnote.id);
+
+    return (
+      `<a class="footnote-ref" epub:type="noteref" href="#fn-${id}" id="fnref-${id}">` +
+      `<sup>${run.footnote.number}</sup></a>`
+    );
+  }
+
   let html = escapeXml(run.text);
 
   if (run.subscript) {
@@ -120,9 +146,32 @@ function inlineContent(block: ExportBlock): string {
   return block.runs.map(inlineHtml).join("");
 }
 
+/** Notas de un capítulo, en orden de aparición y sin repetir. */
+function chapterFootnotes(chapter: ExportChapter): ExportFootnote[] {
+  const notes: ExportFootnote[] = [];
+  const known = new Set<string>();
+
+  for (const block of chapter.blocks) {
+    for (const run of block.runs ?? []) {
+      if (run.footnote && !known.has(run.footnote.id)) {
+        known.add(run.footnote.id);
+        notes.push(run.footnote);
+      }
+    }
+  }
+
+  return notes;
+}
+
 /** Cuerpo de un capítulo en XHTML. */
-function chapterXhtml(chapter: ExportChapter, language: string): string {
+function chapterXhtml(
+  chapter: ExportChapter,
+  language: string,
+  imageHrefs: ReadonlyMap<string, string>,
+): string {
   const body: string[] = [];
+
+  const footnotes = chapterFootnotes(chapter);
 
   for (const block of chapter.blocks) {
     if (block.kind === "pageBreak") {
@@ -138,15 +187,20 @@ function chapterXhtml(chapter: ExportChapter, language: string): string {
     if (block.kind === "image") {
       const src = block.image?.src;
       const alt = block.image?.alt ?? block.text;
+      const caption = block.image?.caption ?? alt;
+      const alignment = block.image?.alignment ?? "center";
+      const widthPercent = Math.min(100, Math.max(10, block.image?.widthPercent ?? 100));
+      const embedded = src ? imageHrefs.get(src) : undefined;
 
       if (src) {
         body.push(
-          `<figure class="image"><img src="${escapeXml(src)}" alt="${escapeXml(alt)}"/>${
-            alt.length > 0 ? `<figcaption>${escapeXml(alt)}</figcaption>` : ""
-          }</figure>`,
+          `<figure class="image align-${escapeXml(alignment)}" style="width: ${widthPercent}%">` +
+            `<img src="${escapeXml(embedded ?? src)}" alt="${escapeXml(alt || caption || "Imagen del libro")}"/>` +
+            (caption.length > 0 ? `<figcaption>${escapeXml(caption)}</figcaption>` : "") +
+            `</figure>`,
         );
-      } else if (alt.length > 0) {
-        body.push(`<p class="image-alt">${escapeXml(alt)}</p>`);
+      } else if (caption.length > 0) {
+        body.push(`<p class="image-alt">${escapeXml(caption)}</p>`);
       }
 
       continue;
@@ -170,6 +224,23 @@ function chapterXhtml(chapter: ExportChapter, language: string): string {
     body.push(`<p>${inlineContent(block)}</p>`);
   }
 
+  if (footnotes.length > 0) {
+    body.push('<section class="footnotes" epub:type="footnotes">');
+    body.push("<hr/>");
+    body.push("<ol>");
+
+    for (const note of footnotes) {
+      body.push(
+        `<li id="fn-${escapeXml(note.id)}" epub:type="footnote">` +
+          `<p><a class="footnote-back" href="#fnref-${escapeXml(note.id)}">${note.number}.</a> ` +
+          `${escapeXml(note.note)}</p></li>`,
+      );
+    }
+
+    body.push("</ol>");
+    body.push("</section>");
+  }
+
   return (
     `<?xml version="1.0" encoding="utf-8"?>\n` +
     `<!DOCTYPE html>\n` +
@@ -180,16 +251,81 @@ function chapterXhtml(chapter: ExportChapter, language: string): string {
   );
 }
 
+interface EmbeddedImageEntry {
+  src: string;
+  href: string;
+  fileName: string;
+  asset: ExportImageAsset;
+}
+
+/**
+ * Resuelve las imágenes que se van a incrustar y les asigna un nombre estable.
+ *
+ * El nombre depende del orden de aparición, no de la URL: así el paquete no
+ * filtra identificadores de Cloudinary y dos exportaciones del mismo
+ * manuscrito producen el mismo ZIP.
+ */
+function collectEmbeddedImages(
+  chapters: readonly ExportChapter[],
+  assets: ExportImageMap | undefined,
+): { bySrc: Map<string, string>; entries: EmbeddedImageEntry[] } {
+  const bySrc = new Map<string, string>();
+  const entries: EmbeddedImageEntry[] = [];
+
+  if (!assets) {
+    return { bySrc, entries };
+  }
+
+  for (const chapter of chapters) {
+    for (const block of chapter.blocks) {
+      if (block.kind !== "image") {
+        continue;
+      }
+
+      const src = block.image?.src;
+
+      if (!src || bySrc.has(src)) {
+        continue;
+      }
+
+      const asset = assets.get(src);
+
+      if (!asset) {
+        continue;
+      }
+
+      const index = entries.length + 1;
+      const fileName = `image-${String(index).padStart(3, "0")}.${asset.extension}`;
+      const href = `../images/${fileName}`;
+
+      bySrc.set(src, href);
+      entries.push({ src, href, fileName, asset });
+    }
+  }
+
+  return { bySrc, entries };
+}
+
 /**
  * Construye el EPUB 3.
+ *
+ * Las imágenes se incrustan cuando la aplicación ha resuelto sus bytes. Si
+ * alguna no se puede resolver, se conserva la referencia remota y el capítulo
+ * declara `remote-resources`, de modo que el lector sepa que necesita red.
  */
-export function buildEpub(document: ExportDocumentModel, createdAt: Date): Uint8Array {
+export function buildEpub(
+  document: ExportDocumentModel,
+  createdAt: Date,
+  assets?: ExportImageMap,
+): Uint8Array {
   const entries: ZipEntry[] = [];
 
   const chapters =
     document.chapters.length > 0
       ? document.chapters
       : [{ id: "c1", title: document.title, blocks: [] }];
+
+  const embedded = collectEmbeddedImages(chapters, assets);
 
   entries.push({
     name: "mimetype",
@@ -221,6 +357,7 @@ export function buildEpub(document: ExportDocumentModel, createdAt: Date): Uint8
       (block) =>
         block.kind === "image" &&
         typeof block.image?.src === "string" &&
+        !embedded.bySrc.has(block.image.src) &&
         /^https?:/u.test(block.image.src),
     );
 
@@ -230,6 +367,12 @@ export function buildEpub(document: ExportDocumentModel, createdAt: Date): Uint8
       }/>`,
     );
     spine.push(`    <itemref idref="${id}"/>`);
+  });
+
+  embedded.entries.forEach((entry, index) => {
+    manifest.push(
+      `    <item id="image-${String(index + 1).padStart(3, "0")}" href="images/${entry.fileName}" media-type="${escapeXml(entry.asset.mimeType)}"/>`,
+    );
   });
 
   entries.push({
@@ -282,9 +425,16 @@ export function buildEpub(document: ExportDocumentModel, createdAt: Date): Uint8
     const id = `chapter-${String(index + 1).padStart(3, "0")}`;
     entries.push({
       name: `EPUB/text/${id}.xhtml`,
-      data: new TextEncoder().encode(chapterXhtml(chapter, document.language)),
+      data: new TextEncoder().encode(chapterXhtml(chapter, document.language, embedded.bySrc)),
     });
   });
+
+  for (const entry of embedded.entries) {
+    entries.push({
+      name: `EPUB/images/${entry.fileName}`,
+      data: entry.asset.data,
+    });
+  }
 
   return buildZip(entries, createdAt);
 }

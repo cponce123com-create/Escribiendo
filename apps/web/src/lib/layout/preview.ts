@@ -10,6 +10,7 @@ import {
   type TypographyConfig,
 } from "@escribiendo/editorial-engine";
 import { bookToBlocks, isChapterType, type PreviewSection } from "./blocks";
+import { loadPdfFonts } from "@/lib/export/fonts";
 import {
   getBookEdition,
   getDefaultLayoutProfile,
@@ -42,6 +43,11 @@ export interface PreviewResult {
   wordCount: number;
   /** Si no hay edición, se ha usado el perfil predeterminado del estudio. */
   usingDefaultProfile: boolean;
+  /**
+   * `true` si la composición se ha calculado con las métricas reales de la
+   * fuente. Si es `false`, la paginación es aproximada.
+   */
+  realMetrics: boolean;
 }
 
 /** Secciones del libro con su contenido, en orden de lectura. */
@@ -118,7 +124,10 @@ export async function buildPreview(
     ? withTypographyDefaults(edition.template.config.typography)
     : withTypographyDefaults(profile.typography);
 
-  const result = paginate(blocks, geometryFromProfile(profile), typography);
+  // La misma métrica que usa el PDF: si las fuentes están disponibles, la
+  // vista previa y el archivo salen con los mismos cortes de línea.
+  const fuentes = await loadPdfFonts();
+  const result = paginate(blocks, geometryFromProfile(profile), typography, fuentes?.measure);
 
   // El encabezado de página lo define la plantilla. Si la plantilla no dice
   // nada, se usa el título de la sección, que es lo que hace el motor.
@@ -161,5 +170,6 @@ export async function buildPreview(
     sectionCount: sections.length,
     wordCount: blocks.reduce((total, block) => total + (block.text.match(/\S+/gu)?.length ?? 0), 0),
     usingDefaultProfile: !edition?.profile,
+    realMetrics: Boolean(fuentes),
   };
 }

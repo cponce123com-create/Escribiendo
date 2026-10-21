@@ -106,6 +106,18 @@ export function ExportPanel({ bookId, hasLayout }: ExportPanelProps) {
                   <dd>{state.metadata.pageCount}</dd>
                 </div>
               ) : null}
+              {state.metadata.imagenesIncrustadas > 0 ? (
+                <div className="flex gap-2">
+                  <dt className="text-ink-muted">Imágenes:</dt>
+                  <dd>{state.metadata.imagenesIncrustadas}</dd>
+                </div>
+              ) : null}
+              {state.metadata.fuentesIncrustadas > 0 ? (
+                <div className="flex gap-2">
+                  <dt className="text-ink-muted">Fuentes:</dt>
+                  <dd>{state.metadata.fuentesIncrustadas} incrustadas</dd>
+                </div>
+              ) : null}
               <div className="flex gap-2">
                 <dt className="text-ink-muted">Huella:</dt>
                 <dd className="truncate font-mono text-xs">
@@ -121,6 +133,16 @@ export function ExportPanel({ bookId, hasLayout }: ExportPanelProps) {
             </a>
           </div>
 
+          {state.metadata && state.metadata.imagenesOmitidas > 0 ? (
+            <p className="alert alert-error mt-4" role="alert">
+              {state.metadata.imagenesOmitidas === 1
+                ? "Una imagen no se ha podido incorporar"
+                : `${state.metadata.imagenesOmitidas} imágenes no se han podido incorporar`}
+              . El archivo deja un marcador visible en su lugar. Comprueba que las imágenes sigan
+              disponibles en Cloudinary y vuelve a exportar.
+            </p>
+          ) : null}
+
           {state.metadata && state.metadata.caracteresPerdidos.length > 0 ? (
             <p className="alert alert-error mt-4" role="alert">
               El archivo no ha podido representar{" "}
@@ -128,8 +150,15 @@ export function ExportPanel({ bookId, hasLayout }: ExportPanelProps) {
                 ? "un carácter"
                 : "algunos caracteres"}{" "}
               ({state.metadata.caracteresPerdidos.join(" ")}). En el PDF aparecen como un signo
-              vacío, porque la fuente estándar no los incluye; en el EPUB y el DOCX se conservan sin
-              cambio.
+              vacío, porque la fuente usada en el PDF no los incluye; en el EPUB y el DOCX se
+              conservan sin cambio.
+            </p>
+          ) : null}
+
+          {state.metadata && state.metadata.estimatedPagination ? (
+            <p className="alert alert-error mt-4" role="alert">
+              La paginación es estimada: no se han podido cargar las fuentes tipográficas. El PDF
+              usa una alternativa y puede no coincidir exactamente con la vista previa.
             </p>
           ) : null}
 

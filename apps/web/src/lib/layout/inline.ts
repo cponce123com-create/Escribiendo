@@ -9,6 +9,11 @@ import { runsToText, type InlineMarks, type InlineRun } from "@escribiendo/edito
  * manera, el archivo exportado dejaría de contar lo mismo que la pantalla.
  */
 
+/** Estado compartido para numerar las notas en orden de lectura. */
+export interface FootnoteCounter {
+  next: number;
+}
+
 /** Traduce las marcas de Tiptap a las del motor editorial. */
 export function marksOf(marks: readonly TiptapMark[] | undefined): InlineMarks | undefined {
   if (!marks || marks.length === 0) {
@@ -66,7 +71,7 @@ export function marksOf(marks: readonly TiptapMark[] | undefined): InlineMarks |
  * Los saltos duros se convierten en un espacio: el motor compone por párrafos
  * y no necesita distinguir un salto manual de un espacio.
  */
-export function inlineRuns(node: TiptapNode): InlineRun[] {
+export function inlineRuns(node: TiptapNode, footnotes?: FootnoteCounter): InlineRun[] {
   if (node.type === "text") {
     const text = node.text ?? "";
     const marks = marksOf(node.marks);
@@ -78,7 +83,35 @@ export function inlineRuns(node: TiptapNode): InlineRun[] {
     return [{ text: " " }];
   }
 
-  return (node.content ?? []).flatMap(inlineRuns);
+  if (node.type === "footnote") {
+    const note = typeof node.attrs?.note === "string" ? node.attrs.note.trim() : "";
+
+    // Una nota vacía no se inventa: el esquema la rechaza al guardar, pero un
+    // documento antiguo o corrupto no debe romper la composición.
+    if (note.length === 0) {
+      return [];
+    }
+
+    const number = footnotes ? footnotes.next++ : 1;
+    const storedId =
+      typeof node.attrs?.id === "string" && node.attrs.id.trim().length > 0
+        ? node.attrs.id.trim()
+        : null;
+    // El identificador guardado puede repetirse al copiar y pegar una llamada.
+    // Para la composición y la exportación se usa la aparición concreta; así
+    // cada nota conserva su texto y el EPUB no genera identificadores duplicados.
+    const id = storedId ? `${storedId}-${number}` : `fn-${number}`;
+
+    return [
+      {
+        text: String(number),
+        marks: { superscript: true },
+        footnote: { id, number, note },
+      },
+    ];
+  }
+
+  return (node.content ?? []).flatMap((child) => inlineRuns(child, footnotes));
 }
 
 /** Texto de un nodo, incluidos sus descendientes. */
@@ -128,7 +161,7 @@ export function trimRuns(runs: readonly InlineRun[]): InlineRun[] {
 }
 
 /** Tramos de una lista: cada elemento en su propia línea. */
-export function listRuns(node: TiptapNode): InlineRun[] {
+export function listRuns(node: TiptapNode, footnotes?: FootnoteCounter): InlineRun[] {
   const runs: InlineRun[] = [];
   let position = 1;
 
@@ -137,7 +170,7 @@ export function listRuns(node: TiptapNode): InlineRun[] {
       continue;
     }
 
-    const itemRuns = trimRuns(inlineRuns(child));
+    const itemRuns = trimRuns(inlineRuns(child, footnotes));
 
     if (itemRuns.length === 0) {
       continue;

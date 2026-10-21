@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { breakIntoLines, measureTextMm, measureTextPoints, splitWords } from "./measure";
+import {
+  breakIntoLines,
+  measureTextMm,
+  measureTextPoints,
+  splitWords,
+  type MeasureOptions,
+} from "./measure";
 
 const SERIF_11 = {
   fontFamily: "serif" as const,
@@ -45,6 +51,23 @@ describe("measureTextPoints", () => {
     const milimetros = measureTextMm("texto de prueba", SERIF_11);
 
     expect(milimetros).toBeCloseTo((puntos * 25.4) / 72, 6);
+  });
+
+  it("usa el medidor real cuando se le pasa y le dice el estilo del tramo", () => {
+    const llamadas: MeasureOptions[] = [];
+    const puntos = measureTextPoints("cursiva", {
+      ...SERIF_11,
+      italic: true,
+      measure: (text, options) => {
+        llamadas.push(options);
+
+        return text.length * 7;
+      },
+    });
+
+    expect(puntos).toBe(7 * "cursiva".length);
+    expect(llamadas[0]?.italic).toBe(true);
+    expect(llamadas[0]?.fontFamily).toBe("serif");
   });
 });
 

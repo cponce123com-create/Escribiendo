@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import type { TiptapDocument } from "@escribiendo/book-schema";
-import { countWordsInDocument } from "@escribiendo/book-schema";
+import { countWordsInDocument, MAX_FOOTNOTE_LENGTH } from "@escribiendo/book-schema";
 import { saveSectionAction } from "@/lib/books/actions";
 import { formatNumber } from "@/lib/ui/format";
 import {
@@ -22,6 +22,10 @@ import {
   type SyncMachine,
 } from "@/lib/editor/sync";
 import { SectionConflictPanel } from "@/components/books/section-conflict";
+import { SectionImageControls } from "@/components/books/section-image-controls";
+import { EditorialFootnote } from "@/components/editor/editorial-footnote";
+import { EditorialImage } from "@/components/editor/editorial-image";
+import type { BookAssetSummary } from "@/lib/books/assets";
 
 interface SectionEditorProps {
   sectionId: string;
@@ -32,6 +36,7 @@ interface SectionEditorProps {
   version: number;
   wordCount: number;
   canEdit: boolean;
+  bookAssets: BookAssetSummary[];
 }
 
 /**
@@ -66,11 +71,13 @@ export function SectionEditor({
   version,
   wordCount,
   canEdit,
+  bookAssets,
 }: SectionEditorProps) {
   const [machine, setMachine] = useState<SyncMachine>(() => initialSyncMachine(version));
   const [conflict, setConflict] = useState<SectionConflict | null>(null);
   const [online, setOnline] = useState(true);
   const [recovered, setRecovered] = useState(false);
+  const [assets, setAssets] = useState<BookAssetSummary[]>(() => bookAssets);
 
   const machineRef = useRef(machine);
   const versionRef = useRef(version);
@@ -96,6 +103,8 @@ export function SectionEditor({
         // debe sacar al autor de la página.
         link: { openOnClick: false },
       }),
+      EditorialImage,
+      EditorialFootnote,
     ],
     content,
     // El editor se inicializa en el cliente: sin esta opción, Next.js
@@ -520,6 +529,34 @@ export function SectionEditor({
           run: () => editor.chain().focus().setHorizontalRule().run(),
         },
         {
+          label: "†",
+          title: "Nota al pie",
+          isActive: () => editor.isActive("footnote"),
+          run: () => {
+            const note = window.prompt("Texto de la nota al pie");
+
+            if (note === null || note.trim().length === 0) {
+              return;
+            }
+
+            if (note.trim().length > MAX_FOOTNOTE_LENGTH) {
+              window.alert(`La nota no puede superar los ${MAX_FOOTNOTE_LENGTH} caracteres.`);
+              return;
+            }
+
+            const id = globalThis.crypto.randomUUID();
+
+            editor
+              .chain()
+              .focus()
+              .insertContentAt(editor.state.selection.to, {
+                type: "footnote",
+                attrs: { id, note: note.trim() },
+              })
+              .run();
+          },
+        },
+        {
           label: "↶",
           title: "Deshacer",
           isActive: () => false,
@@ -555,6 +592,19 @@ export function SectionEditor({
             </button>
           ))}
         </div>
+      ) : null}
+
+      {canEdit ? (
+        <SectionImageControls
+          editor={editor}
+          bookId={bookId}
+          assets={assets}
+          onAssetRegistered={(asset) => {
+            setAssets((current) =>
+              current.some((item) => item.id === asset.id) ? current : [...current, asset],
+            );
+          }}
+        />
       ) : null}
 
       <div

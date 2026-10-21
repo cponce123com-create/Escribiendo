@@ -15,6 +15,7 @@ const TITULOS: Record<LayoutDiagnostic["code"], string> = {
   LONG_WORD: "Palabra más ancha que la caja",
   EMPTY_PAGE: "Página en blanco",
   CHAPTER_NOT_ON_RECTO: "Capítulo en página par",
+  FOOTNOTE_OVERFLOW: "Nota al pie sin espacio",
 };
 
 interface DiagnosticsPanelProps {

@@ -42,6 +42,40 @@ test.describe("Resiliencia del manuscrito", () => {
     await expect(page.getByRole("heading", { name: SECTION_TITLE })).toBeVisible();
   });
 
+  test("el editor ofrece imágenes y la biblioteca del libro", async ({ page }) => {
+    await abrirSeccion(page, SECTION_TITLE);
+
+    await expect(page.getByRole("button", { name: "Insertar imagen" })).toBeVisible();
+    await page.getByRole("button", { name: "Biblioteca (0)" }).click();
+    await expect(page.getByText("Todavía no hay imágenes en este libro.")).toBeVisible();
+  });
+
+  test("inserta y conserva una nota al pie", async ({ page }) => {
+    await abrirSeccion(page, SECTION_TITLE);
+
+    await page.locator(".ProseMirror").click();
+    await page.keyboard.type("Una llamada a nota.");
+
+    page.once("dialog", async (dialog) => {
+      expect(dialog.type()).toBe("prompt");
+      await dialog.accept("Texto comprobado de la nota al pie.");
+    });
+
+    await page.getByRole("button", { name: "Nota al pie" }).click();
+
+    const llamada = page.locator("sup.footnote-ref");
+    await expect(llamada).toHaveCount(1);
+    await expect(llamada).toHaveAttribute("data-number", "1");
+    await expect(llamada).toHaveAttribute("title", /Texto comprobado de la nota al pie/u);
+
+    await page.getByRole("button", { name: "Guardar manuscrito" }).click();
+    await expect(page.getByText(/Guardado en el servidor/)).toBeVisible();
+
+    await page.reload();
+    await expect(page.locator("sup.footnote-ref")).toHaveCount(1);
+    await expect(page.locator("sup.footnote-ref")).toHaveAttribute("data-number", "1");
+  });
+
   test("el texto se guarda en el equipo al momento de escribir", async ({ page }) => {
     await abrirSeccion(page, SECTION_TITLE);
 

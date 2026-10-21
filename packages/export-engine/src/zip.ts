@@ -1,14 +1,18 @@
 /**
  * Escritor de ZIP mínimo.
  *
- * Lo necesitan el EPUB (que es un ZIP) y el DOCX (que también). Solo admite
- * entradas **sin comprimir**: es una limitación conocida y aceptable, porque
- * ambos formatos se leen igual de bien y evita añadir una dependencia de
- * compresión al proyecto.
+ * Lo necesitan el EPUB (que es un ZIP) y el DOCX (que también). Las entradas
+ * van comprimidas con Deflate, que es lo que espera cualquier lector, salvo
+ * la entrada `mimetype` del EPUB: la especificación exige que sea la primera
+ * del archivo y **sin comprimir**; `addFirst` lo garantiza.
  *
- * El EPUB exige además que la entrada `mimetype` sea la primera del
- * archivo y esté sin comprimir; `addFirst` lo garantiza.
+ * El archivo se escribe en un búfer que crece por duplicación, no en una
+ * lista de números: con un libro de 80 fotografías el ZIP pesa unos 40 MB y
+ * una lista de 40 millones de números se llevaría varios cientos de megabytes
+ * de memoria, que es justo lo que no tiene una instancia de Render Free.
  */
+
+import { deflateRawSync } from "node:zlib";
 
 export interface ZipEntry {
   name: string;
@@ -58,29 +62,100 @@ function dosDateTime(date: Date): { time: number; date: number } {
   };
 }
 
-function writeUint16(target: number[], value: number): void {
-  target.push(value & 0xff, (value >>> 8) & 0xff);
-}
+/**
+ * Búfer de bytes que crece por duplicación.
+ *
+ * Guarda lo justo: el doble del contenido final mientras se escribe y una
+ * copia al terminar. Un array de números ocuparía ocho bytes por byte del
+ * archivo, y con fotografías eso son cientos de megabytes.
+ */
+class ByteWriter {
+  private data: Uint8Array;
 
-function writeUint32(target: number[], value: number): void {
-  target.push(value & 0xff, (value >>> 8) & 0xff, (value >>> 16) & 0xff, (value >>> 24) & 0xff);
-}
+  private length = 0;
 
-function writeBytes(target: number[], data: number[] | Uint8Array): void {
-  for (const byte of data) {
-    target.push(byte);
+  constructor(capacity = 64 * 1024) {
+    this.data = new Uint8Array(capacity);
   }
+
+  get size(): number {
+    return this.length;
+  }
+
+  private reserve(extra: number): void {
+    const necesario = this.length + extra;
+
+    if (necesario <= this.data.length) {
+      return;
+    }
+
+    let capacidad = this.data.length * 2;
+
+    while (capacidad < necesario) {
+      capacidad *= 2;
+    }
+
+    const siguiente = new Uint8Array(capacidad);
+
+    siguiente.set(this.data.subarray(0, this.length));
+    this.data = siguiente;
+  }
+
+  u8(value: number): void {
+    this.reserve(1);
+    this.data[this.length] = value & 0xff;
+    this.length += 1;
+  }
+
+  u16(value: number): void {
+    this.reserve(2);
+    this.data[this.length] = value & 0xff;
+    this.data[this.length + 1] = (value >>> 8) & 0xff;
+    this.length += 2;
+  }
+
+  u32(value: number): void {
+    this.reserve(4);
+    this.data[this.length] = value & 0xff;
+    this.data[this.length + 1] = (value >>> 8) & 0xff;
+    this.data[this.length + 2] = (value >>> 16) & 0xff;
+    this.data[this.length + 3] = (value >>> 24) & 0xff;
+    this.length += 4;
+  }
+
+  bytes(data: Uint8Array): void {
+    this.reserve(data.length);
+    this.data.set(data, this.length);
+    this.length += data.length;
+  }
+
+  text(text: string): void {
+    this.bytes(new TextEncoder().encode(text));
+  }
+
+  toUint8Array(): Uint8Array {
+    return this.data.slice(0, this.length);
+  }
+}
+
+interface CentralEntry {
+  name: Uint8Array;
+  method: number;
+  checksum: number;
+  compressedSize: number;
+  originalSize: number;
+  offset: number;
 }
 
 /**
  * Construye un archivo ZIP con las entradas indicadas.
  *
  * Las entradas marcadas con `first` se colocan al principio, en el orden en
- * que aparecen, y sin comprimir.
+ * que aparecen, y sin comprimir. Las demás van comprimidas con Deflate.
  */
 export function buildZip(entries: ZipEntry[], modifiedAt: Date): Uint8Array {
-  const output: number[] = [];
-  const central: number[] = [];
+  const salida = new ByteWriter();
+  const central: CentralEntry[] = [];
   const stamp = dosDateTime(modifiedAt);
 
   const ordered = [
@@ -89,63 +164,74 @@ export function buildZip(entries: ZipEntry[], modifiedAt: Date): Uint8Array {
   ];
 
   for (const entry of ordered) {
-    const nameBytes = Array.from(new TextEncoder().encode(entry.name));
+    const nameBytes = new TextEncoder().encode(entry.name);
     const checksum = crc32(entry.data);
-    const offset = output.length;
+    const offset = salida.size;
+    const comprimido = entry.first ? null : deflateRawSync(entry.data, { level: 9 });
+    const guardada = comprimido ?? entry.data;
+    const method = comprimido ? 8 : 0;
 
     // Cabecera local.
-    writeUint32(output, 0x04034b50);
-    writeUint16(output, 10); // versión necesaria
-    writeUint16(output, 0); // flags
-    writeUint16(output, 0); // sin comprimir
-    writeUint16(output, stamp.time);
-    writeUint16(output, stamp.date);
-    writeUint32(output, checksum);
-    writeUint32(output, entry.data.length);
-    writeUint32(output, entry.data.length);
-    writeUint16(output, nameBytes.length);
-    writeUint16(output, 0); // sin campos extra
-    writeBytes(output, nameBytes);
-    writeBytes(output, entry.data);
+    salida.u32(0x04034b50);
+    salida.u16(10); // versión necesaria
+    salida.u16(0); // flags
+    salida.u16(method);
+    salida.u16(stamp.time);
+    salida.u16(stamp.date);
+    salida.u32(checksum);
+    salida.u32(guardada.length);
+    salida.u32(entry.data.length);
+    salida.u16(nameBytes.length);
+    salida.u16(0); // sin campos extra
+    salida.bytes(nameBytes);
+    salida.bytes(guardada);
 
+    central.push({
+      name: nameBytes,
+      method,
+      checksum,
+      compressedSize: guardada.length,
+      originalSize: entry.data.length,
+      offset,
+    });
+  }
+
+  const centralOffset = salida.size;
+  const centralStart = centralOffset;
+
+  for (const entry of central) {
     // Registro central.
-    writeUint32(central, 0x02014b50);
-    writeUint16(central, 0x031e); // versión creada por UNIX, ZIP 3.0
-    writeUint16(central, 10);
-    writeUint16(central, 0);
-    writeUint16(central, 0);
-    writeUint16(central, stamp.time);
-    writeUint16(central, stamp.date);
-    writeUint32(central, checksum);
-    writeUint32(central, entry.data.length);
-    writeUint32(central, entry.data.length);
-    writeUint16(central, nameBytes.length);
-    writeUint16(central, 0); // extra
-    writeUint16(central, 0); // comentario
-    writeUint16(central, 0); // número de disco
-    writeUint16(central, 0); // atributos internos
-    writeUint32(central, 0); // atributos externos
-    writeUint32(central, offset);
-    writeBytes(central, nameBytes);
+    salida.u32(0x02014b50);
+    salida.u16(0x031e); // versión creada por UNIX, ZIP 3.0
+    salida.u16(10);
+    salida.u16(0);
+    salida.u16(entry.method);
+    salida.u16(stamp.time);
+    salida.u16(stamp.date);
+    salida.u32(entry.checksum);
+    salida.u32(entry.compressedSize);
+    salida.u32(entry.originalSize);
+    salida.u16(entry.name.length);
+    salida.u16(0); // extra
+    salida.u16(0); // comentario
+    salida.u16(0); // número de disco
+    salida.u16(0); // atributos internos
+    salida.u32(0); // atributos externos
+    salida.u32(entry.offset);
+    salida.bytes(entry.name);
   }
 
-  const centralOffset = output.length;
-
-  for (const byte of central) {
-    output.push(byte);
-  }
-
-  const centralSize = central.length;
+  const centralSize = salida.size - centralStart;
 
   // Fin del archivo central.
-  writeUint32(output, 0x06054b50);
-  writeUint16(output, 0);
-  writeUint16(output, 0);
-  writeUint16(output, ordered.length);
-  writeUint16(output, ordered.length);
-  writeUint32(output, centralSize);
-  writeUint32(output, centralOffset);
-  writeUint16(output, 0);
+  salida.u32(0x06054b50);
+  salida.u16(0);
+  salida.u16(0);
+  salida.u16(central.length);
+  salida.u16(central.length);
+  salida.u32(centralSize);
+  salida.u32(centralOffset);
+  salida.u16(0);
 
-  return Uint8Array.from(output);
+  return salida.toUint8Array();
 }

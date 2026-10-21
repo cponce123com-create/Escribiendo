@@ -7,7 +7,11 @@ import {
   type ExportBlock,
   type ExportChapter,
   type ExportDocumentModel,
+  type ExportImageMap,
+  type ImageTarget,
+  type PdfImage,
   type PdfPage,
+  type PdfRule,
   type PdfRun,
 } from "@escribiendo/export-engine";
 import {
@@ -15,6 +19,7 @@ import {
   paginate,
   withTypographyDefaults,
   type LaidOutPage,
+  type MeasureText,
   type PageGeometry,
 } from "@escribiendo/editorial-engine";
 import { getBookEdition, getDefaultLayoutProfile } from "@/lib/layout/profiles";
@@ -22,6 +27,8 @@ import { bookToBlocks, isChapterType } from "@/lib/layout/blocks";
 import type { SessionContext } from "@/lib/auth/session";
 import type { ExportSection } from "./manuscript";
 import { sectionToBlocks } from "./manuscript";
+import { loadExportImages } from "./images";
+import { loadPdfFonts } from "./fonts";
 
 /**
  * Generación de los archivos de exportación.
@@ -51,6 +58,14 @@ export interface ExportMetadata {
    * pierde nada en silencio: se avisa.
    */
   caracteresPerdidos: string[];
+  /** Imágenes que se han incorporado al archivo. */
+  imagenesIncrustadas: number;
+  /** Imágenes que no se han podido resolver y quedan marcadas o como texto. */
+  imagenesOmitidas: number;
+  /** Fuentes TrueType incrustadas en el PDF. */
+  fuentesIncrustadas: number;
+  /** Fuentes que no se han podido interpretar y han caído a Times. */
+  fuentesOmitidas: number;
 }
 
 export interface GeneratedFile {
@@ -82,6 +97,8 @@ export interface GenerateInput {
     chapterStartsRecto: boolean;
   } | null;
   typography: unknown;
+  /** Imágenes ya resueltas, para pruebas o para una exportación reproducible. */
+  images?: ExportImageMap;
   /** Fecha de creación del documento; fija el resultado para que sea reproducible. */
   createdAt: Date;
 }
@@ -130,15 +147,31 @@ function toPdfPages(
   pages: LaidOutPage[],
   profile: NonNullable<GenerateInput["profile"]>,
   typography: ReturnType<typeof withTypographyDefaults>,
-): { pdfPages: PdfPage[]; textWidthMm: number } {
+  images: ExportImageMap,
+  measure?: MeasureText,
+): {
+  pdfPages: PdfPage[];
+  textWidthMm: number;
+  imagenesIncrustadas: number;
+  imagenesOmitidas: number;
+} {
   const textWidthMm =
     profile.pageWidthMm - profile.marginInnerMm - profile.marginOuterMm - profile.gutterMm;
+  const medir = (text: string, options: Parameters<typeof measureTextMm>[1]): number =>
+    measureTextMm(text, {
+      ...options,
+      ...(measure ? { measure } : {}),
+    });
+  let imagenesIncrustadas = 0;
+  let imagenesOmitidas = 0;
 
   const pdfPages: PdfPage[] = pages.map((page) => {
     const interior = profile.mirrorMargins ? page.side === "recto" : true;
     const leftMm = interior ? profile.marginInnerMm + profile.gutterMm : profile.marginOuterMm;
 
     const runs: PdfRun[] = [];
+    const pdfImages: PdfImage[] = [];
+    const rules: PdfRule[] = [];
     let y = profile.marginTopMm;
 
     for (const block of page.blocks) {
@@ -148,7 +181,7 @@ function toPdfPages(
       // Separador de escena: no tiene líneas de texto, pero ocupa su renglón.
       if (block.kind === "rule") {
         const marca = "* * *";
-        const ancho = measureTextMm(marca, {
+        const ancho = medir(marca, {
           fontFamily: block.style.fontFamily,
           fontSizePt: block.style.fontSizePt,
         });
@@ -156,12 +189,91 @@ function toPdfPages(
         runs.push({
           text: marca,
           font: "regular",
+          family: block.style.fontFamily,
           sizePt: block.style.fontSizePt,
           xMm: leftMm + Math.max(0, (textWidthMm - ancho) / 2),
           baselineMm: y + lineHeightMm * 0.8,
         });
 
         y += lineHeightMm;
+        continue;
+      }
+
+      if (block.kind === "image") {
+        const layout = block.imageLayout;
+
+        if (!layout) {
+          y += block.spaceAfterMm;
+          continue;
+        }
+
+        const image = block.image;
+        const alignment = image?.alignment ?? "center";
+        let imageX = leftMm;
+
+        if (alignment === "center") {
+          imageX += Math.max(0, (textWidthMm - layout.widthMm) / 2);
+        } else if (alignment === "right") {
+          imageX += Math.max(0, textWidthMm - layout.widthMm);
+        }
+
+        const asset = image?.src ? images.get(image.src) : undefined;
+
+        if (asset) {
+          imagenesIncrustadas += 1;
+        } else {
+          imagenesOmitidas += 1;
+        }
+
+        pdfImages.push({
+          topMm: y,
+          xMm: imageX,
+          widthMm: layout.widthMm,
+          heightMm: layout.heightMm,
+          ...(asset
+            ? {
+                data: asset.data,
+                pixelWidth: asset.width,
+                pixelHeight: asset.height,
+              }
+            : {}),
+          ...(image?.alt ? { alt: image.alt } : {}),
+          ...(image?.src ? { src: image.src } : {}),
+        });
+
+        y += layout.heightMm;
+
+        if (layout.captionLines.length > 0) {
+          y += layout.captionGapMm;
+
+          for (const captionLine of layout.captionLines) {
+            const ancho = medir(captionLine, {
+              fontFamily: block.style.fontFamily,
+              fontSizePt: layout.captionFontSizePt,
+              italic: true,
+            });
+            const captionX =
+              alignment === "center"
+                ? imageX + Math.max(0, (layout.widthMm - ancho) / 2)
+                : alignment === "right"
+                  ? imageX + Math.max(0, layout.widthMm - ancho)
+                  : imageX;
+
+            runs.push({
+              text: captionLine,
+              font: "italic",
+              family: block.style.fontFamily,
+              sizePt: layout.captionFontSizePt,
+              xMm: captionX,
+              baselineMm: y + layout.captionLineHeightMm * 0.8,
+              widthMm: ancho,
+            });
+
+            y += layout.captionLineHeightMm;
+          }
+        }
+
+        y += block.spaceAfterMm;
         continue;
       }
 
@@ -174,19 +286,36 @@ function toPdfPages(
             : "regular";
         const baseBold = baseFont === "bold";
         const baseItalic = baseFont === "italic";
-        const measure = (text: string, bold: boolean): number =>
-          measureTextMm(text, {
+        const measureSegment = (
+          text: string,
+          sizePt: number,
+          bold: boolean,
+          italic: boolean,
+          letterSpacingPt = block.style.letterSpacingPt,
+        ): number =>
+          medir(text, {
             fontFamily: block.style.fontFamily,
-            fontSizePt: block.style.fontSizePt,
-            letterSpacingPt: block.style.letterSpacingPt,
+            fontSizePt: sizePt,
+            letterSpacingPt,
             bold,
+            italic,
           }) || 0;
+        const segmentSize = (segment: (typeof segments)[number]): number =>
+          block.style.fontSizePt *
+          (segment.marks?.superscript || segment.marks?.subscript ? 0.72 : 1);
 
         const segments =
           line.segments && line.segments.length > 0 ? line.segments : [{ text: line.text }];
 
         const naturalWidth = segments.reduce(
-          (sum, segment) => sum + measure(segment.text, baseBold || segment.marks?.bold === true),
+          (sum, segment) =>
+            sum +
+            measureSegment(
+              segment.text,
+              segmentSize(segment),
+              baseBold || segment.marks?.bold === true,
+              baseItalic || segment.marks?.italic === true,
+            ),
           0,
         );
 
@@ -223,10 +352,11 @@ function toPdfPages(
           const italic = baseItalic || segment.marks?.italic === true;
           const font: PdfRun["font"] =
             bold && italic ? "boldItalic" : bold ? "bold" : italic ? "italic" : "regular";
-          const segmentWidth = measure(segment.text, bold);
-          const sizePt =
-            block.style.fontSizePt *
-            (segment.marks?.superscript || segment.marks?.subscript ? 0.72 : 1);
+          const sizePt = segmentSize(segment);
+          const segmentWidth = measureSegment(segment.text, sizePt, bold, italic);
+          const espaciosSegmento = wordSpacing > 0 ? (segment.text.match(/ /gu)?.length ?? 0) : 0;
+          const extraMm = (wordSpacing * espaciosSegmento * 25.4) / 72;
+          const advanceMm = segmentWidth + extraMm;
           const risePt = segment.marks?.superscript
             ? block.style.fontSizePt * 0.38
             : segment.marks?.subscript
@@ -236,17 +366,18 @@ function toPdfPages(
           runs.push({
             text: segment.text,
             font,
+            family: block.style.fontFamily,
             sizePt,
             xMm: x,
             baselineMm,
-            widthMm: segmentWidth,
+            widthMm: advanceMm,
             ...(wordSpacing > 0 ? { wordSpacing } : {}),
             ...(segment.marks?.underline ? { underline: true } : {}),
             ...(segment.marks?.strike ? { strike: true } : {}),
             ...(risePt !== undefined ? { risePt } : {}),
           });
 
-          x += segmentWidth;
+          x += advanceMm;
         }
 
         y += lineHeightMm;
@@ -255,16 +386,57 @@ function toPdfPages(
       y += block.spaceAfterMm;
     }
 
+    // Las notas se componen al pie del área de texto, con una línea separadora.
+    // La paginación ya reservó su altura; aquí solo se dibujan.
+    if (page.footnotes.length > 0) {
+      const footnoteFontSizePt = typography.body.fontSizePt * 0.78;
+      const footnoteLineHeightMm = (footnoteFontSizePt * 1.3 * 25.4) / 72;
+      const footnoteAreaTopMm =
+        profile.pageHeightMm - profile.marginBottomMm - page.footnotesHeightMm;
+
+      rules.push({
+        x1Mm: leftMm,
+        y1Mm: footnoteAreaTopMm + 1,
+        x2Mm: leftMm + textWidthMm * 0.35,
+        y2Mm: footnoteAreaTopMm + 1,
+        widthPt: 0.5,
+      });
+
+      let footnoteY = footnoteAreaTopMm + 3;
+
+      for (const note of page.footnotes) {
+        for (const line of note.lines) {
+          runs.push({
+            text: line,
+            font: "regular",
+            family: typography.body.fontFamily,
+            sizePt: footnoteFontSizePt,
+            xMm: leftMm,
+            baselineMm: footnoteY + footnoteLineHeightMm * 0.8,
+          });
+          footnoteY += footnoteLineHeightMm;
+        }
+
+        footnoteY += 1.5;
+      }
+    }
+
     // El folio va al pie de la página. Se deja un mínimo de 4 mm para que un
     // perfil antiguo con distancia cero no lo deje pegado al borde de la hoja.
     if (profile.showPageNumbers) {
       const footerDistance = Math.max(profile.footerDistanceMm, 4);
+      const folio = String(page.folio);
+      const anchoFolio = medir(folio, {
+        fontFamily: typography.body.fontFamily,
+        fontSizePt: 9,
+      });
 
       runs.push({
-        text: String(page.folio),
+        text: folio,
         font: "regular",
+        family: typography.body.fontFamily,
         sizePt: 9,
-        xMm: leftMm + textWidthMm / 2 - 2,
+        xMm: leftMm + (textWidthMm - anchoFolio) / 2,
         baselineMm: profile.pageHeightMm - footerDistance,
       });
     }
@@ -273,33 +445,62 @@ function toPdfPages(
       widthMm: profile.pageWidthMm,
       heightMm: profile.pageHeightMm,
       runs,
+      ...(pdfImages.length > 0 ? { images: pdfImages } : {}),
+      ...(rules.length > 0 ? { rules } : {}),
       bleedMm: profile.bleedMm,
       cropMarks: false,
     };
   });
 
-  void typography;
-
-  return { pdfPages, textWidthMm };
+  return { pdfPages, textWidthMm, imagenesIncrustadas, imagenesOmitidas };
 }
 
 /** Genera el archivo en el formato pedido. */
-export function generateFile(input: GenerateInput): GeneratedFile {
+export async function generateFile(input: GenerateInput): Promise<GeneratedFile> {
   const info = FORMAT_INFO[input.format];
-  const wordCount = input.sections.reduce(
-    (total, section) =>
+  const footnoteCounter = { next: 1 };
+  const sectionBlocks = input.sections.map((section) => sectionToBlocks(section, footnoteCounter));
+  const wordCount = sectionBlocks.reduce(
+    (total, blocks) =>
+      total + blocks.reduce((sum, block) => sum + (block.text.match(/\S+/gu)?.length ?? 0), 0),
+    0,
+  );
+
+  const sources = sectionBlocks.flatMap((blocks) =>
+    blocks.flatMap((block) => (block.image?.src ? [block.image.src] : [])),
+  );
+  const target: ImageTarget =
+    input.format === "EPUB3" ? "epub" : input.format === "DOCX" ? "docx" : "pdf";
+  const loadedImages = await loadExportImages({
+    sources,
+    target,
+    ...(input.images ? { provided: input.images } : {}),
+  });
+  const imageOccurrences = sectionBlocks.reduce(
+    (total, blocks) =>
+      total + blocks.filter((block) => block.kind === "image" && block.image?.src).length,
+    0,
+  );
+  const embeddedOccurrences = sectionBlocks.reduce(
+    (total, blocks) =>
       total +
-      sectionToBlocks(section).reduce(
-        (sum, block) => sum + (block.text.match(/\S+/gu)?.length ?? 0),
-        0,
-      ),
+      blocks.filter(
+        (block) =>
+          block.kind === "image" &&
+          block.image?.src !== undefined &&
+          loadedImages.assets.has(block.image.src),
+      ).length,
     0,
   );
 
   let bytes: Uint8Array;
   let pageCount: number | null = null;
-  /** Caracteres que el PDF no ha podido representar. */
   let caracteresPerdidos: string[] = [];
+  let imagenesIncrustadas = embeddedOccurrences;
+  let imagenesOmitidas = Math.max(0, imageOccurrences - embeddedOccurrences);
+  let estimatedPagination = false;
+  let fuentesIncrustadas = 0;
+  let fuentesOmitidas = 0;
 
   if (input.format === "PDF_DIGITAL" || input.format === "PDF_PRINT") {
     if (!input.profile) {
@@ -319,9 +520,19 @@ export function generateFile(input: GenerateInput): GeneratedFile {
         startOnOddPage: false,
       })),
     );
+    const pdfFonts = await loadPdfFonts();
+    const measure = pdfFonts?.measure;
+    estimatedPagination = !pdfFonts;
 
-    const composition = paginate(blocks, geometryFromProfile(input.profile), typography);
-    const { pdfPages } = toPdfPages(composition.pages, input.profile, typography);
+    const composition = paginate(blocks, geometryFromProfile(input.profile), typography, measure);
+    const pdfComposition = toPdfPages(
+      composition.pages,
+      input.profile,
+      typography,
+      loadedImages.assets,
+      measure,
+    );
+    const pdfPages = pdfComposition.pdfPages;
 
     pageCount = pdfPages.length;
 
@@ -335,15 +546,20 @@ export function generateFile(input: GenerateInput): GeneratedFile {
         input.format === "PDF_PRINT"
           ? pdfPages.map((page) => ({ ...page, cropMarks: true }))
           : pdfPages,
+      ...(pdfFonts ? { fonts: pdfFonts.programs } : {}),
     });
 
     bytes = pdf.bytes;
     caracteresPerdidos = pdf.caracteresPerdidos;
+    imagenesIncrustadas = pdf.imagenesIncrustadas;
+    imagenesOmitidas = pdf.imagenesOmitidas;
+    fuentesIncrustadas = pdf.fuentesIncrustadas;
+    fuentesOmitidas = pdf.fuentesOmitidas;
   } else {
-    const chapters: ExportChapter[] = input.sections.map((section) => ({
+    const chapters: ExportChapter[] = input.sections.map((section, index) => ({
       id: section.id,
       title: section.title,
-      blocks: sectionToBlocks(section).map((block): ExportBlock => ({
+      blocks: (sectionBlocks[index] ?? []).map((block): ExportBlock => ({
         kind: block.kind,
         text: block.text,
         ...(block.runs ? { runs: block.runs } : {}),
@@ -365,8 +581,8 @@ export function generateFile(input: GenerateInput): GeneratedFile {
 
     bytes =
       input.format === "EPUB3"
-        ? buildEpub(model, input.createdAt)
-        : buildDocx(model, input.createdAt);
+        ? buildEpub(model, input.createdAt, loadedImages.assets)
+        : buildDocx(model, input.createdAt, loadedImages.assets);
   }
 
   return {
@@ -380,8 +596,12 @@ export function generateFile(input: GenerateInput): GeneratedFile {
       wordCount,
       sectionCount: input.sections.length,
       generatedAt: input.createdAt.toISOString(),
-      estimatedPagination: input.format === "PDF_DIGITAL" || input.format === "PDF_PRINT",
+      estimatedPagination,
       caracteresPerdidos,
+      imagenesIncrustadas,
+      imagenesOmitidas,
+      fuentesIncrustadas,
+      fuentesOmitidas,
     },
   };
 }

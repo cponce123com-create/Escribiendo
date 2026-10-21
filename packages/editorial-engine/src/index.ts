@@ -37,15 +37,31 @@ export {
   type BreakOptions,
   type LineBreak,
   type MeasureOptions,
+  type MeasureText,
 } from "./measure";
 export {
   breakRunsIntoLines,
   hasInlineMarks,
   runsToText,
+  type InlineFootnote,
   type InlineMarks,
   type InlineRun,
   type RichLine,
 } from "./rich-text";
+export {
+  DEFAULT_IMAGE_WIDTH_PERCENT,
+  IMAGE_CAPTION_GAP_MM,
+  IMAGE_CAPTION_SCALE,
+  MAX_IMAGE_WIDTH_PERCENT,
+  MIN_IMAGE_WIDTH_PERCENT,
+  computeImageLayout,
+  normalizeImageAlignment,
+  normalizeImageWidthPercent,
+  type EditorialImage,
+  type ImageAlignment,
+  type ImageLayout,
+  type ImageLayoutInput,
+} from "./image";
 export {
   fitsTextBlock,
   lineHeightMm,
@@ -53,6 +69,7 @@ export {
   textBlockSize,
   type DiagnosticSeverity,
   type LaidOutBlock,
+  type LaidOutFootnote,
   type LaidOutLine,
   type LaidOutPage,
   type LayoutBlock,

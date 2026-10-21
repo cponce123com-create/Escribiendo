@@ -163,3 +163,375 @@ Total: 249 unitarias y 70 E2E en verde.
 - El EPUB no se ha validado con EPUBCheck ni el DOCX se ha abierto en Word.
 - Las fuentes del PDF siguen siendo las estándar: la paginación es una
   estimación de anchos, no la medida de una fuente incrustada.
+
+---
+
+## Lote I — Imágenes de extremo a extremo
+
+Fecha: 21 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+Base: `0f65b1e`.
+
+### Qué estaba mal
+
+1. El editor registraba solo `StarterKit` y no tenía nodo de imagen. Una imagen
+   no se podía insertar, ni con un comando, ni desde la interfaz.
+2. `LayoutBlock.image` solo guardaba `src` y `alt`; la paginación no reservaba
+   altura para la imagen ni para su pie.
+3. El PDF y el DOCX no dibujaban imágenes. El EPUB conservaba la URL remota,
+   pero no incrustaba el archivo.
+4. Los modelos `Asset` y `BookAsset` existían en Prisma y no se usaban.
+5. La firma de Cloudinary solo autorizaba la carpeta de portadas.
+6. El PDF empezaba los objetos en 0, un número reservado por la especificación,
+   y escribía los metadatos como cadenas Latin-1.
+7. Descargar una URL cualquiera del manuscrito desde el servidor permitía SSRF.
+8. El nombre del archivo de descarga llegaba sin sanear a
+   `Content-Disposition`.
+
+### Qué se ha cambiado
+
+| Área         | Archivos                                                                                                    | Cambio                                                                                                                             |
+| ------------ | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Editor       | `components/editor/editorial-image.ts`, `components/books/section-image-controls.tsx`, `section-editor.tsx` | Nodo `image` con pie, dimensiones, porcentaje, alineación y `publicId`; inserción, reemplazo, eliminación y biblioteca.            |
+| Persistencia | `lib/books/assets.ts`, `lib/books/asset-actions.ts`, `api/cloudinary/signature/route.ts`                    | Biblioteca por libro, registro autorizado en `Asset`/`BookAsset`, carpeta interior por espacio y libro, auditoría.                 |
+| Maqueta      | `packages/editorial-engine/src/image.ts`, `pagination.ts`, `apps/web/src/lib/layout/image.ts`, `blocks.ts`  | Caja real de imagen, pie, proporción, alineación y descuento del espacio anterior y posterior.                                     |
+| PDF          | `packages/export-engine/src/pdf.ts`, `image-processing.ts`                                                  | XObjects JPEG `DCTDecode`, dibujo, marcador visible, metadatos UTF-16BE y objeto 0 libre.                                          |
+| EPUB         | `packages/export-engine/src/epub.ts`                                                                        | Imágenes en `EPUB/images/`, manifiesto y rutas relativas; recurso remoto declarado solo si faltan los bytes.                       |
+| DOCX         | `packages/export-engine/src/docx.ts`                                                                        | `word/media/`, relaciones, `wp:inline`, `a:blip`, texto alternativo, pie y dimensiones EMU.                                        |
+| Descarga     | `api/exports/[jobId]/download/route.ts`                                                                     | Nombre saneado, `filename*` RFC 5987, `X-Download-Options: noopen` y tipo MIME del archivo generado.                               |
+| Red          | `lib/export/images.ts`                                                                                      | Allowlist de Cloudinary, HTTPS, timeout de 15 s, máximo de 15 MB, 80 imágenes y concurrencia 4; se comprueba también la URL final. |
+
+### Pruebas ejecutadas
+
+| Suite               | Resultado                  |
+| ------------------- | -------------------------- |
+| `pnpm test`         | 268 pruebas en 30 archivos |
+| `pnpm test:e2e`     | 71 pruebas en Chromium     |
+| `pnpm format:check` | Correcto                   |
+| `pnpm lint`         | Sin errores                |
+| `pnpm typecheck`    | Sin errores                |
+| `pnpm build`        | Correcto                   |
+
+Pruebas nuevas de este lote:
+
+- `packages/export-engine/src/image-export.test.ts`: 6 casos de PDF, EPUB y
+  DOCX con imágenes incrustadas, recursos remotos y marcadores de ausencia.
+- `packages/editorial-engine/src/image.test.ts`: 5 casos de geometría, pie,
+  porcentaje y reducción por altura.
+- `apps/web/src/lib/export/images.test.ts`: 4 casos de allowlist y de
+  reutilización de imágenes ya resueltas.
+- `packages/editorial-engine/src/pagination.test.ts`: 1 caso de imagen con pie
+  y espacio anterior/posterior.
+- `tests/e2e/manuscrito.spec.ts`: 1 caso de controles de imagen y biblioteca.
+- Se actualizaron las expectativas de `pdf.test.ts` y `blocks.test.ts` para los
+  metadatos UTF-16BE y los atributos editoriales.
+
+### Lo que sigue sin estar resuelto
+
+- La subida real a Cloudinary no se ha probado: no hay credenciales locales.
+- EPUBCheck, Word y LibreOffice no están disponibles; la estructura se
+  comprueba byte a byte, no con esas herramientas.
+- Las notas al pie siguen sin editor ni composición.
+- El cuerpo del PDF sigue usando fuentes estándar y WinAnsi. Los metadatos ya
+  son Unicode, pero el texto con caracteres sin equivalente se sustituye por
+  `□` y se cuenta.
+- No se ha medido el coste de descargar y normalizar 80 imágenes en Render
+  Free; solo se ha acotado por código.
+
+---
+
+## Lote J — Notas al pie de extremo a extremo
+
+Fecha: 21 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+Base del lote: `4211bb6`.
+
+### Qué estaba mal
+
+1. El editor solo tenía `StarterKit`: no existía un nodo para insertar una
+   llamada a nota ni una forma de editar su texto.
+2. La maqueta no reservaba altura para las notas; una nota habría quedado
+   fuera del área de texto o habría desplazado el cuerpo sin avisar.
+3. PDF, EPUB y DOCX no tenían ninguna representación de notas al pie.
+4. La numeración no podía depender de un número guardado en el JSON: insertar
+   una nota antes de otra debía renumerar las siguientes.
+
+### Qué se ha cambiado
+
+| Área       | Archivos                                                                                                        | Cambio                                                                                                                                                          |
+| ---------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Esquema    | `packages/book-schema/src/tiptap.ts`                                                                            | Nodo `footnote` con `id` validado y `note` no vacío de hasta 2000 caracteres; texto plano y conteo incluyen la nota.                                            |
+| Editor     | `components/editor/editorial-footnote.ts`, `section-editor.tsx`, `globals.css`                                  | Nodo atómico en línea, numeración dinámica por decoraciones, botón «†», inserción con diálogo y edición o borrado al pulsar la llamada.                         |
+| Conversión | `lib/layout/inline.ts`, `lib/layout/blocks.ts`, `lib/export/manuscript.ts`                                      | La nota se convierte en un tramo superíndice con identidad, número y texto; un contador compartido numera todas las secciones en orden de lectura.              |
+| Maqueta    | `packages/editorial-engine/src/rich-text.ts`, `pagination.ts`, `paginated-preview.tsx`, `diagnostics-panel.tsx` | Medición real del superíndice, composición de la nota al 78 % del cuerpo, reserva de altura, área visible en la vista previa y diagnóstico `FOOTNOTE_OVERFLOW`. |
+| EPUB       | `packages/export-engine/src/epub.ts`                                                                            | `epub:type="noteref"` en la llamada y `aside`/`li` con `epub:type="footnote"` al final del capítulo, con enlace de vuelta.                                      |
+| DOCX       | `packages/export-engine/src/docx.ts`                                                                            | `word/footnotes.xml`, relación `footnotes`, override de tipo de contenido, estilos `FootnoteText`/`FootnoteReference` y `w:footnoteReference` reales.           |
+| PDF        | `packages/export-engine/src/pdf.ts`, `lib/export/generate.ts`                                                   | Línea separadora vectorial y notas compuestas al pie de cada página, con la altura que reservó la paginación.                                                   |
+
+### Pruebas ejecutadas
+
+| Suite               | Resultado                  |
+| ------------------- | -------------------------- |
+| `pnpm test`         | 280 pruebas en 31 archivos |
+| `pnpm test:e2e`     | 72 pruebas en Chromium     |
+| `pnpm format:check` | Correcto                   |
+| `pnpm lint`         | Sin errores                |
+| `pnpm typecheck`    | Sin errores                |
+| `pnpm build`        | Correcto                   |
+
+Pruebas nuevas de este lote:
+
+- `packages/book-schema/src/tiptap.test.ts`: 4 casos de aceptación y rechazo
+  de la estructura de una nota.
+- `apps/web/src/lib/layout/blocks.test.ts`: 3 casos de conversión, numeración
+  global entre secciones y llamadas copiadas con el mismo identificador
+  guardado.
+- `packages/editorial-engine/src/pagination.test.ts`: 2 casos de composición
+  al pie y descuento de altura.
+- `packages/export-engine/src/footnote-export.test.ts`: 3 casos de EPUB, DOCX
+  y PDF.
+- `tests/e2e/manuscrito.spec.ts`: inserción, numeración, guardado y
+  persistencia de una nota en el editor real.
+
+### Lo que sigue sin estar resuelto
+
+- La nota es texto plano: no admite cursiva, negrita ni enlaces dentro de la
+  nota.
+- Una nota excepcionalmente larga puede no caber con su llamada en una página.
+  En ese caso se conserva entera, se emite `FOOTNOTE_OVERFLOW` y la maqueta
+  debe revisarse; no se divide automáticamente entre páginas.
+- EPUBCheck, Word y LibreOffice siguen sin estar disponibles. La estructura
+  OOXML/EPUB se comprueba en las pruebas, no con esas aplicaciones.
+- El cuerpo del PDF usaba Times/WinAnsi en este lote. El Lote K lo sustituye
+  por TTF Liberation incrustadas; la cobertura limitada se documenta más abajo.
+
+---
+
+## Lote K: fuentes TTF, métricas reales y Unicode en el PDF
+
+Fecha: 21 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+Base del lote: `dc7c6ea`.
+
+### Qué estaba mal
+
+1. El PDF solo usaba las fuentes estándar del lector. La paginación estimaba
+   los anchos y el texto fuera de WinAnsi se sustituía por un signo vacío.
+2. El justificado se apoyaba en `Tw`, que no funciona igual con códigos de dos
+   bytes de `Identity-H`.
+3. No había forma de extraer el texto de un PDF con fuentes incrustadas ni de
+   saber si la paginación era real o estimada.
+4. La vista previa paginada se componía con el modelo aproximado mientras el
+   PDF usaba métricas reales: sus cortes de línea no coincidían.
+5. La cursiva se medía con los anchos de la redonda, de modo que un tramo en
+   cursiva podía solaparse con el siguiente al colocarlo en el PDF.
+
+### Qué se ha cambiado
+
+| Área         | Archivos                                                                | Cambio                                                                                                                                                  |
+| ------------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lector TTF   | `packages/export-engine/src/truetype.ts`                                | Lectura de `head`, `maxp`, `hhea`, `hmtx`, `cmap` (formatos 0, 4, 6 y 12), `name`, `OS/2` y `post`; métricas, glifos y mapa inverso.                    |
+| Escritor PDF | `packages/export-engine/src/pdf.ts`                                     | Objetos `Type0`, `CIDFontType2`, `FontFile2`, `CIDToGIDMap /Identity`, `ToUnicode`, tabla `W` y fuentes solo para las caras usadas.                     |
+| Métricas     | `packages/editorial-engine/src/measure.ts`, `pagination.ts`, `image.ts` | `MeasureText` opcional propagado a líneas, notas, pies de imagen, reglas y folios.                                                                      |
+| Orquestación | `apps/web/src/lib/export/fonts.ts`, `generate.ts`                       | Carga y cachea las doce caras, pasa la medición real a la paginación y al PDF, añade `family` a los tramos y reparte el justificado con `TJ`.           |
+| Vista previa | `apps/web/src/lib/layout/preview.ts`, `books/[bookId]/preview/page.tsx` | La vista previa compone con el mismo medidor real que el PDF y declara si la composición es exacta o estimada.                                          |
+| Cursiva      | `packages/editorial-engine/src/rich-text.ts`, `measure.ts`, `fonts.ts`  | El tramo conserva su estilo al medirse: la cursiva usa su propia cara (`italic` o `boldItalic`) en la composición y en la colocación del PDF.           |
+| Interfaz     | `components/export/export-panel.tsx`, `lib/export/actions.ts`           | Muestra las fuentes incrustadas y avisa si la paginación es estimada; el aviso de caracteres perdidos ya no atribuye la pérdida a la «fuente estándar». |
+| Activos      | `apps/web/public/fonts/liberation/`                                     | Liberation Fonts 2.1.5, doce TTF, `OFL.txt` y nota de licencia.                                                                                         |
+
+### Pruebas ejecutadas
+
+| Suite               | Resultado                  |
+| ------------------- | -------------------------- |
+| `pnpm test`         | 292 pruebas en 32 archivos |
+| `pnpm test:e2e`     | 72 pruebas en Chromium     |
+| `pnpm format:check` | Correcto                   |
+| `pnpm lint`         | Sin errores                |
+| `pnpm typecheck`    | Sin errores                |
+| `pnpm build`        | Correcto                   |
+| `pnpm bench:export` | Ejecutado con fuentes      |
+
+Pruebas nuevas o ampliadas:
+
+- `packages/export-engine/src/pdf-fonts.test.ts`: seis casos de lectura de la
+  fuente, signos del español, carácter ausente, objetos PDF, caras usadas y
+  determinismo.
+- `packages/editorial-engine/src/pagination.test.ts`: un caso comprueba que
+  `paginate` usa el medidor real para decidir los cortes de línea.
+- `packages/editorial-engine/src/measure.test.ts` y `rich-text.test.ts`: dos
+  casos comprueban que el medidor real recibe el estilo del tramo, incluida la
+  cursiva.
+- `tests/e2e/maquetacion.spec.ts`: la vista previa declara que usa las métricas
+  reales de la fuente.
+- `tests/e2e/exportacion.spec.ts`: el PDF descargado declara `Type0`,
+  `CIDFontType2`, `FontFile2` y `ToUnicode`; el texto se extrae del mapa y se
+  comprueban comillas, raya, puntos suspensivos, eñe, tilde y diéresis.
+
+### Límites que permanecen
+
+- No se generan subconjuntos: se incrusta el TTF completo. El PDF de 200 000
+  palabras mide 5 387 KB.
+- Liberation cubre latín, griego y cirílico; no cubre CJK, emoji ni todos los
+  sistemas de escritura. No hay shaping complejo.
+- Los caracteres sin glifo se sustituyen y se cuentan; no se inventa una
+  representación.
+- EPUBCheck, Word/LibreOffice, Cloudinary real, Render y Neon por 5432 siguen
+  bloqueados.
+- La puntuación no se declara en 95.
+
+---
+
+## Lote L: validacion externa de las exportaciones y escaneo de dependencias
+
+Fecha: 21 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+Base del lote: `86610b6`.
+
+### Que estaba mal
+
+1. El EPUB se daba por bueno solo por su estructura interna. La herramienta
+   oficial del W3C, EPUBCheck, no se habia ejecutado: el documento de
+   auditoria lo declaraba como bloqueo sin resolver.
+2. El DOCX solo se comprobaba byte a byte. No lo habia leido ninguna
+   herramienta independiente del motor que lo escribe.
+3. No se habia ejecutado nunca un escaneo de dependencias, y el aviso
+   `deepmerge-ts` (GHSA-ggr8-5vv4-36mx) seguia presente sin evaluar.
+
+### Que se ha cambiado
+
+| Area            | Archivo                                                      | Cambio                                                                                                                                  |
+| --------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Validacion EPUB | `scripts/validate-epub.ts`, `scripts/lib/export-fixtures.ts` | Genera un EPUB de prueba con el motor y lo valida con EPUBCheck cuando se indica `EPUBCHECK_JAR`.                                       |
+| Validacion DOCX | `scripts/validate-docx.ts`                                   | Genera un DOCX de prueba y lo abre con el lector indicado en `DOCX_VALIDATOR` (por ejemplo, Mammoth), comprobando el texto esperado.    |
+| E2E exportacion | `tests/e2e/exportacion.spec.ts`                              | El EPUB que descarga la aplicacion se valida con EPUBCheck; el DOCX se guarda en `test-results/docx-generado.docx` para abrirlo aparte. |
+| Dependencias    | `pnpm-workspace.yaml`                                        | `override` de `deepmerge-ts` a la version 8.0.0, que corrige el aviso de agotamiento de pila.                                           |
+
+### Pruebas ejecutadas
+
+| Comprobacion         | Resultado                                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------------------- |
+| `pnpm validate:epub` | 0 errores fatales, 0 errores, 0 advertencias, 0 indicaciones (EPUB 3.3)                           |
+| E2E con EPUBCheck    | El EPUB descargado por la aplicacion: 0 errores y 0 advertencias                                  |
+| `pnpm validate:docx` | Mammoth 1.11.0 lee el documento: texto, negrita, cursiva, enlace, nota al pie e imagen incrustada |
+| `pnpm audit --prod`  | Sin vulnerabilidades conocidas                                                                    |
+| `pnpm audit`         | 1 aviso alto de desarrollo (`braces`), sin version corregida publicada                            |
+| `pnpm test`          | 292 pruebas en 32 archivos                                                                        |
+| `pnpm test:e2e`      | 72 pruebas en Chromium                                                                            |
+
+### Limites que permanecen
+
+- EPUBCheck valida el EPUB, no la lectura en un lector comercial. Word y
+  LibreOffice no estan instalados en esta maquina: la compatibilidad con esas
+  aplicaciones no esta comprobada.
+- El aviso de `braces` no tiene parche upstream y solo afecta al lint. Se
+  documenta en vez de ocultarse: `pnpm audit` sigue informandolo.
+- Cloudinary real, Render y Neon por 5432 siguen bloqueados.
+- La puntuacion no se declara en 95.
+
+---
+
+## Lote M: compresion de los archivos exportados y validacion del PDF con pdf.js
+
+Fecha: 21 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+Base del lote: `c43ee27`.
+
+### Que estaba mal
+
+1. El PDF no comprimia nada: los flujos de las paginas, el programa de la
+   fuente y los mapas `ToUnicode` se guardaban sin comprimir. Un manuscrito de
+   200 000 palabras pesaba 5 387 KB, casi todo texto que se podia comprimir.
+2. El ZIP de EPUB y DOCX solo admitia entradas sin comprimir, con lo que el
+   EPUB y el DOCX crecian sin necesidad.
+3. El PDF no lo habia abierto ninguna herramienta externa. EPUB y DOCX ya los
+   leian EPUBCheck y Mammoth; el PDF se quedaba en las pruebas propias.
+
+### Que se ha cambiado
+
+| Area      | Archivo                                     | Cambio                                                                                                                  |
+| --------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| PDF       | `packages/export-engine/src/pdf.ts`         | Los flujos van con `/Filter /FlateDecode`: contenido, programa de la fuente y mapa `ToUnicode`.                         |
+| ZIP       | `packages/export-engine/src/zip.ts`         | Las entradas van comprimidas con Deflate; `mimetype` sigue sin comprimir y en primer lugar, como exige el EPUB.         |
+| Pruebas   | `packages/export-engine/src/test-utils.ts`  | Utilidades compartidas que despliegan los flujos del PDF y las entradas del ZIP para poder comprobar el contenido real. |
+| Validador | `scripts/pdfjs/`, `scripts/validate-pdf.ts` | Validador externo del PDF con pdf.js (Mozilla) y script que genera un PDF de prueba y lo abre con el.                   |
+| Banco     | `scripts/benchmark-export.ts`               | El banco mide tambien el tamano del EPUB y del DOCX.                                                                    |
+
+### Pruebas ejecutadas
+
+| Comprobacion         | Resultado                                                                           |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| `pnpm validate:pdf`  | pdf.js 4.10.38 abre el PDF y devuelve el texto con la fuente incrustada             |
+| PDF de la aplicacion | `node scripts/pdfjs/valida-pdf.mjs test-results\pdf-generado.pdf` devuelve el texto |
+| `pnpm validate:epub` | 0 errores y 0 advertencias con EPUBCheck 5.1.0                                      |
+| `pnpm validate:docx` | Mammoth 1.11.0 lee el documento                                                     |
+| `pnpm test`          | 292 pruebas en 32 archivos                                                          |
+| `pnpm test:e2e`      | 72 pruebas en Chromium                                                              |
+| `pnpm bench:export`  | PDF de 671 KB, EPUB de 29 KB y DOCX de 8 KB para 200 000 palabras                   |
+
+### Tamano medido
+
+| Formato | Antes    | Ahora  |
+| ------- | -------- | ------ |
+| PDF     | 5 387 KB | 671 KB |
+| EPUB    | -        | 29 KB  |
+| DOCX    | -        | 8 KB   |
+
+El PDF pesa ocho veces menos. El coste es de CPU: escribirlo pasa de 227 ms a
+310 ms para 200 000 palabras. No cambia ni lo que se ve ni lo que se extrae:
+las tres herramientas externas leen el archivo igual que antes.
+
+### Limites que permanecen
+
+- No se generan subconjuntos de fuente: la fuente completa sigue incrustada.
+- Word y LibreOffice no estan instalados: la compatibilidad con esas
+  aplicaciones no esta comprobada.
+- La puntuacion no se declara en 95.
+
+---
+
+## Lote N: prueba de esfuerzo y escritor de ZIP sin lista de numeros
+
+Fecha: 21 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+Base del lote: `29dac65`.
+
+### Que estaba mal
+
+1. No habia ninguna prueba de esfuerzo con imagenes ni con notas al pie: el
+   banco de rendimiento solo midia texto, y el limite de 80 imagenes de la
+   aplicacion nunca se habia comprobado con el motor de exportacion.
+2. El escritor de ZIP armaba el archivo en una lista de numeros. Con un libro
+   de 80 fotografias, un ZIP de 40 MB ocupaba mas de un gigabyte de memoria:
+   la exportacion no cabia en una instancia de Render Free (512 MB).
+3. La documentacion daba por hecho que un libro con 80 fotos cabria en el
+   limite de memoria, sin medirlo.
+
+### Que se ha cambiado
+
+| Area         | Archivo                                    | Cambio                                                                                                                        |
+| ------------ | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| Banco        | `scripts/stress-export.ts`                 | Genera 200 000 palabras, 80 fotografias y 500 notas al pie, exporta los tres formatos y mide tiempo, tamano y memoria maxima. |
+| Escritor ZIP | `packages/export-engine/src/zip.ts`        | `ByteWriter`: el archivo se escribe en un bufer de bytes que crece por duplicacion, no en una lista de numeros.               |
+| Pruebas      | `packages/export-engine/src/zip.test.ts`   | Una entrada de 2 MB se guarda y se recupera sin perder bytes.                                                                 |
+| Utilidades   | `packages/export-engine/src/test-utils.ts` | `zipEntriesResumen`: lista las entradas sin desplegarlas, para no gastar memoria en un archivo grande.                        |
+
+### Pruebas ejecutadas
+
+| Comprobacion         | Resultado                                                             |
+| -------------------- | --------------------------------------------------------------------- |
+| `pnpm stress:export` | PDF de 588 ms y 40 159 KB, EPUB de 1 413 ms, DOCX de 1 355 ms         |
+| Memoria maxima       | 367 MB, con un margen de 145 MB sobre los 512 MB de Render Free       |
+| Antes del arreglo    | La misma prueba daba 1 647 MB: la exportacion no cabia en Render Free |
+| `pnpm test`          | 292 pruebas en 32 archivos                                            |
+| `pnpm test:e2e`      | 72 pruebas en Chromium                                                |
+| `pnpm validate:epub` | 0 errores y 0 advertencias con EPUBCheck 5.1.0                        |
+
+### Limites que permanecen
+
+- El archivo se genera entero en la memoria de la peticion: con 80
+  fotografias y 200 000 palabras se llega a 367 MB. Un manuscrito mayor, o con
+  mas imagenes, sigue sin caber en Render Free. La solucion seria escribir el
+  archivo a disco o a un almacenamiento temporal, no esta hecha.
+- La prueba no descarga imagenes de Cloudinary: las genera con `sharp`, igual
+  que la aplicacion las normaliza.
+- La puntuacion no se declara en 95.

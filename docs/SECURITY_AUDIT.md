@@ -10,7 +10,7 @@ Esta auditoría combina dos fuentes, y distingue siempre cuál se usó:
 
 1. **Revisión del código** de autenticación, sesiones, permisos, validación de
    origen, cabeceras, descargas, auditoría y retención.
-2. **Pruebas ejecutadas** con la suite del repositorio: 249 unitarias y 70 de
+2. **Pruebas ejecutadas** con la suite del repositorio: 280 unitarias y 72 de
    extremo a extremo en Chromium, contra la compilación de producción.
 
 No se ha ejecutado una prueba de penetración externa, ni un escaneo
@@ -133,7 +133,8 @@ permanentes ni trabajadores en segundo plano.
   antes de guardarse.
 - La vista previa pinta texto en nodos de React, no HTML crudo.
 - Las exportaciones escapan el texto y los atributos: `escapeXml` en EPUB y
-  DOCX, y la codificación WinAnsi con tabla en el PDF.
+  DOCX, y códigos CIDs con mapa `ToUnicode` en el PDF (con WinAnsi solo como
+  alternativa si faltan las fuentes).
 - Los enlaces se guardan como texto y se escapan al serializar; el editor no
   navega al hacer clic (`link: { openOnClick: false }`).
 
@@ -152,6 +153,76 @@ permanentes ni trabajadores en segundo plano.
 - No hay credenciales en el repositorio. Hay un escáner de secretos del árbol
   disponible para la revisión previa al commit.
 
+### 3.10 Imágenes, Cloudinary y descargas
+
+- **Firma de subida interior.** `POST /api/cloudinary/signature` exige sesión,
+  origen propio y el permiso `section:update`. Si el propósito es `interior`,
+  exige un `bookId` UUID, comprueba que el libro pertenece al espacio de trabajo
+  y firma una carpeta que incluye espacio, libro e interior. La carpeta de
+  portadas sigue siendo independiente.
+- **Registro del activo.** `registerBookAssetAction` vuelve a validar en el
+  servidor: URL HTTPS de `res.cloudinary.com/<cloudName>/image/upload/…`,
+  `publicId` dentro de la carpeta del libro, formato permitido, dimensiones
+  positivas, máximo de 15 MB y máximo de 12 000 px por lado. Si el `publicId`
+  ya existe en otro espacio de trabajo, se rechaza. El registro escribe una
+  entrada de auditoría sin contenido del manuscrito.
+- **Biblioteca.** `listBookAssets` filtra por `bookId` y por
+  `book.workspaceId` de la sesión; conocer el identificador de otro libro no
+  basta para leer sus imágenes.
+- **Descarga de imágenes para exportar.** Solo se descargan URLs HTTPS de la
+  cuenta configurada. Se comprueba la URL final después de las redirecciones,
+  no solo la inicial. Hay timeout de 15 s, máximo de 15 MB por imagen, máximo
+  de 80 imágenes y concurrencia 4. Una URL no permitida no se descarga: se
+  omite y se cuenta.
+- **Contenido de las imágenes.** `sharp` valida y normaliza los bytes. No se
+  confía en el `Content-Type` remoto para decidir el formato del archivo
+  incrustado.
+- **Descarga del archivo.** El nombre se sanea (controles, comillas y
+  separadores de ruta) y se envía con `filename` ASCII y `filename*` RFC 5987.
+  El `Content-Type` procede del archivo generado; no se toma un valor
+  almacenado en el trabajo. Se añade `X-Download-Options: noopen`.
+- **Riesgo residual.** La allowlist de exportación acepta cualquier imagen
+  pública de la cuenta configurada, no solo las de la carpeta del libro. Un
+  miembro con permiso de edición podría insertar la URL de otra imagen pública
+  de la misma cuenta. No permite leer activos privados sin firma y no cruza
+  espacios de trabajo en la base, pero conviene limitarlo por carpeta en una
+  fase posterior.
+
+### 3.11 Fuentes del PDF
+
+- **Origen fijo.** Las doce caras se leen de `public/fonts/liberation/` con una
+  lista constante de nombres. No se acepta una ruta, un nombre ni bytes de
+  fuente desde la petición.
+- **Sin red.** La carga es local; la exportación no descarga fuentes ni sigue
+  URL alguna para tipografía. La única red sigue siendo la allowlist de
+  Cloudinary.
+- **Lector acotado.** `truetype.ts` comprueba límites de tabla, rangos de
+  `cmap` y longitudes antes de leer; una fuente inválida lanza y el PDF cae a
+  Times/WinAnsi con `estimatedPagination`.
+- **Contenido.** La fuente se incrusta como datos binarios en `FontFile2`; no
+  se ejecuta ni se interpreta como código. El texto se escribe como CIDs y el
+  `ToUnicode` solo sirve para extraerlo.
+- **Riesgo residual.** No se ha auditado el parser TTF con fuzzing ni con
+  fuentes maliciosas de terceros. El modelo actual solo admite los activos
+  versionados en el repositorio.
+
+### 3.12 Notas al pie
+
+- **Texto no confiable.** El texto de la nota se guarda en el atributo `note`
+  del nodo Tiptap. La vista previa lo pinta como texto de React, y EPUB, DOCX y
+  PDF lo escapan antes de escribir el archivo. No se interpreta como HTML.
+- **Identidad.** El `id` de la nota se valida contra
+  `[A-Za-z0-9_-]{1,64}` antes de guardar. En EPUB se usa con prefijo `fn-`
+  para que el identificador sea válido como `xml:id`/fragmento.
+- **Longitud.** El esquema limita la nota a 2000 caracteres y rechaza notas
+  vacías o con contenido anidado.
+- **Exportación.** Las notas no abren conexiones ni leen archivos: son texto
+  del manuscrito. La única red de exportación sigue siendo la allowlist de
+  Cloudinary descrita en 3.10.
+- **Riesgo residual.** Una nota excepcionalmente larga puede no caber en la
+  página; se conserva y se emite `FOOTNOTE_OVERFLOW`, pero la composición debe
+  revisarse. No es un riesgo de seguridad, sino de maqueta.
+
 ## 4. Hallazgos y riesgos abiertos
 
 | ID   | Severidad   | Hallazgo                                                                                                             | Estado                                                                                                                |
@@ -160,27 +231,56 @@ permanentes ni trabajadores en segundo plano.
 | S-02 | Media       | `SETUP_TOKEN` sigue configurado en Render después de crear la cuenta                                                 | **Abierto**: retirarlo del entorno                                                                                    |
 | S-03 | Media       | El límite de intentos vive en la memoria de una instancia; con varias instancias se puede eludir por instancia       | **Abierto**: el bloqueo persistente de cuenta mitiga el caso por cuenta; si Render escala, usar un almacén compartido |
 | S-04 | Media       | No hay MFA para cuentas con `team:manage` o `audit:export`                                                           | **Abierto**: planificado en la Fase 7                                                                                 |
-| S-05 | Media       | No se ha ejecutado un escaneo automatizado de dependencias ni una prueba de penetración                              | **Abierto**: no se afirma lo contrario                                                                                |
+| S-05 | Media       | No se ha ejecutado una prueba de penetración externa                                                                 | **Parcial**: el escaneo de dependencias ya se ejecuta (ver 4.1); el pentest sigue **abierto**                         |
 | S-06 | Baja        | La subida real a Cloudinary no se ha probado con credenciales; solo la firma, la autorización y el rechazo de origen | **Abierto**: depende de configuración local                                                                           |
 | S-07 | Baja        | La verificación de cabeceras y CSP se hizo en local; el despliegue de Render no es alcanzable desde esta red         | **Abierto**: repetir contra el despliegue                                                                             |
-| S-08 | Informativo | El PDF usa fuentes estándar y no incrustadas; no es PDF/X                                                            | **Conocido y documentado** en `EXPORT_VALIDATION.md`                                                                  |
+| S-08 | Informativo | El PDF incrusta TTF completas y no genera subconjuntos; no se afirma PDF/X                                           | **Conocido y documentado** en `EXPORT_VALIDATION.md`                                                                  |
+| S-09 | Baja        | La allowlist de exportación acepta cualquier imagen pública de la cuenta configurada, no solo la carpeta del libro   | **Abierto**: acotar por carpeta en una fase posterior; no permite leer activos privados ni cruza espacios en la base  |
 
 No consta ninguna vulnerabilidad crítica abierta en el código revisado. La
 ausencia de un hallazgo no equivale a la ausencia de vulnerabilidades: sin
-pentest ni escaneo de dependencias, el alcance es el que se ha descrito.
+pentest, el alcance es el que se ha descrito.
+
+### 4.1 Escaneo de dependencias
+
+Ejecutado el 21 de octubre de 2026 con el auditor de pnpm sobre el registro
+público:
+
+| Ámbito                         | Resultado                          |
+| ------------------------------ | ---------------------------------- |
+| `pnpm audit --prod`            | **Sin vulnerabilidades conocidas** |
+| `pnpm audit --audit-level=low` | 1 aviso alto, solo de desarrollo   |
+
+El aviso que queda es `braces` (GHSA-vfj7-8cjw-p6xm), que llega por
+`eslint-config-next → fast-glob → micromatch → braces` y **no tiene versión
+corregida publicada**. Solo se usa en el lint, nunca en el código que se
+despliega, y el problema solo aparece si se compilan patrones glob con
+entradas no confiables, que aquí no ocurre. Se documenta en vez de ocultarse:
+`pnpm audit` sigue informando de él.
+
+Durante la revisión se corrigió otro aviso que sí tenía parche:
+`deepmerge-ts` (GHSA-ggr8-5vv4-36mx), que llegaba por el CLI de Prisma. Se
+fijo la versión corregida con un `override` en `pnpm-workspace.yaml` y se
+comprobó que `pnpm db:generate` y `pnpm db:validate` siguen funcionando.
 
 ## 5. Evidencia ejecutada
 
-| Prueba                   | Qué comprueba                                                                                                                                  | Resultado |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| `password.test.ts`       | Hash Argon2id, verificación, rechazo de contraseñas largas                                                                                     | Verde     |
-| `tokens.test.ts`         | Huellas SHA-256 y comparación en tiempo constante                                                                                              | Verde     |
-| `origin-policy.test.ts`  | Origen propio aceptado; ajeno o ausente rechazado                                                                                              | Verde     |
-| `permissions.test.ts`    | Matriz de roles y `assertCanPerform`                                                                                                           | Verde     |
-| `security.spec.ts` (E2E) | Health, CSP con nonce, cabeceras, noindex, ruta privada, firma de Cloudinary con sesión y origen                                               | Verde     |
-| `auth.spec.ts` (E2E)     | Cookie HttpOnly y SameSite, cambio de contraseña, credenciales incorrectas sin revelar la cuenta, instalación deshabilitada y cierre de sesión | Verde     |
-| `equipo.spec.ts` (E2E)   | Roles, invitaciones de un solo uso y auditoría                                                                                                 | Verde     |
-| Suite completa           | 249 unitarias y 70 E2E                                                                                                                         | Verde     |
+| Prueba                     | Qué comprueba                                                                                                                                  | Resultado |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| `password.test.ts`         | Hash Argon2id, verificación, rechazo de contraseñas largas                                                                                     | Verde     |
+| `tokens.test.ts`           | Huellas SHA-256 y comparación en tiempo constante                                                                                              | Verde     |
+| `origin-policy.test.ts`    | Origen propio aceptado; ajeno o ausente rechazado                                                                                              | Verde     |
+| `permissions.test.ts`      | Matriz de roles y `assertCanPerform`                                                                                                           | Verde     |
+| `security.spec.ts` (E2E)   | Health, CSP con nonce, cabeceras, noindex, ruta privada, firma de Cloudinary con sesión y origen                                               | Verde     |
+| `auth.spec.ts` (E2E)       | Cookie HttpOnly y SameSite, cambio de contraseña, credenciales incorrectas sin revelar la cuenta, instalación deshabilitada y cierre de sesión | Verde     |
+| `equipo.spec.ts` (E2E)     | Roles, invitaciones de un solo uso y auditoría                                                                                                 | Verde     |
+| `images.test.ts`           | Allowlist de Cloudinary, rechazo de otros hosts y reutilización de imágenes ya resueltas                                                       | Verde     |
+| `manuscrito.spec.ts` (E2E) | Controles de imagen y biblioteca del libro                                                                                                     | Verde     |
+| `pnpm audit --prod`        | Escaneo de dependencias de producción                                                                                                          | Verde     |
+| `pnpm validate:epub`       | EPUB validado con EPUBCheck 5.1.0                                                                                                              | Verde     |
+| `pnpm validate:docx`       | DOCX leído con Mammoth 1.11.0                                                                                                                  | Verde     |
+| `pnpm validate:pdf`        | PDF abierto con pdf.js 4.10.38                                                                                                                 | Verde     |
+| Suite completa             | 292 unitarias y 72 E2E                                                                                                                         | Verde     |
 
 Los comandos son los del protocolo de `IMPLEMENTATION_PLAN.md`. Las pruebas
 E2E se ejecutan contra la compilación de producción en el puerto 3100 y una
@@ -189,12 +289,13 @@ base de datos desechable cuyo nombre contiene `test`.
 ## 6. Lo que no se ha verificado
 
 - Prueba de penetración externa.
-- Escaneo de dependencias con una herramienta dedicada.
 - MFA, que no existe todavía.
 - Subida real de archivos a Cloudinary.
 - Comportamiento con más de una instancia de Render.
 - Copia de seguridad restaurada y ensayo de recuperación.
 - Despliegue real desde esta red.
+- Apertura del DOCX en Word o LibreOffice: no están instalados en esta
+  máquina. El paquete sí lo entiende un lector OOXML independiente (Mammoth).
 
 Estas ausencias están en el plan y no se compensan con afirmaciones.
 

@@ -1,5 +1,11 @@
-import { breakIntoLines, measureTextMm, type LineBreak } from "./measure";
-import { breakRunsIntoLines, type InlineRun } from "./rich-text";
+import {
+  computeImageLayout,
+  IMAGE_CAPTION_SCALE,
+  type EditorialImage,
+  type ImageLayout,
+} from "./image";
+import { breakIntoLines, measureTextMm, type LineBreak, type MeasureText } from "./measure";
+import { breakRunsIntoLines, type InlineFootnote, type InlineRun } from "./rich-text";
 import {
   DEFAULT_TYPOGRAPHY_CONFIG,
   withTypographyDefaults,
@@ -51,7 +57,7 @@ export interface LayoutBlock {
   /** El bloque es el primero de su sección. */
   firstOfSection?: boolean;
   /** Referencia de la imagen, cuando `kind` es `image`. */
-  image?: { src?: string; alt?: string };
+  image?: EditorialImage;
 }
 
 export interface PageGeometry {
@@ -80,7 +86,8 @@ export interface LayoutDiagnostic {
     | "LINE_TOO_LONG"
     | "LONG_WORD"
     | "EMPTY_PAGE"
-    | "CHAPTER_NOT_ON_RECTO";
+    | "CHAPTER_NOT_ON_RECTO"
+    | "FOOTNOTE_OVERFLOW";
   severity: DiagnosticSeverity;
   message: string;
   /** Página en la que se ha detectado, contando desde 1. */
@@ -113,6 +120,19 @@ export interface LaidOutBlock {
   firstOfSection?: boolean;
   /** El bloque continúa de un párrafo partido en la página anterior. */
   continued?: boolean;
+  /** Imagen y su caja compuesta, cuando el bloque es una imagen. */
+  image?: EditorialImage;
+  imageLayout?: ImageLayout;
+}
+
+/** Nota al pie compuesta en una página. */
+export interface LaidOutFootnote {
+  id: string;
+  number: number;
+  /** Texto original de la nota, sin el número. */
+  text: string;
+  /** Líneas ya compuestas, con el número delante de la primera. */
+  lines: string[];
 }
 
 export interface LaidOutPage {
@@ -123,10 +143,14 @@ export interface LaidOutPage {
   /** `recto` es la página derecha (impar), `verso` la izquierda. */
   side: "recto" | "verso";
   blocks: LaidOutBlock[];
-  /** Altura ocupada en la página, en milímetros. */
+  /** Altura ocupada en la página, incluidas las notas, en milímetros. */
   usedHeightMm: number;
   /** Altura disponible, en milímetros. */
   totalHeightMm: number;
+  /** Notas al pie que corresponden a llamadas de esta página. */
+  footnotes: LaidOutFootnote[];
+  /** Altura reservada por las notas al pie, en milímetros. */
+  footnotesHeightMm: number;
   /** Encabezado de la página. */
   runningHead: string | null;
   /** Página en blanco insertada para forzar un comienzo en par. */
@@ -143,6 +167,15 @@ export interface PaginationResult {
 }
 
 const POINTS_TO_MM = 25.4 / 72;
+
+/** Proporción del cuerpo que se usa para las notas al pie. */
+const FOOTNOTE_SCALE = 0.78;
+/** Interlineado de las notas, más compacto que el del cuerpo. */
+const FOOTNOTE_LINE_HEIGHT = 1.3;
+/** Separación entre dos notas consecutivas. */
+const FOOTNOTE_GAP_MM = 1.5;
+/** Espacio de la línea separadora antes de la primera nota. */
+const FOOTNOTE_SEPARATOR_MM = 3;
 
 function toMm(points: number): number {
   return points * POINTS_TO_MM;
@@ -198,6 +231,7 @@ export function paginate(
   blocks: LayoutBlock[],
   geometry: PageGeometry,
   typographyInput: unknown,
+  measure?: MeasureText,
 ): PaginationResult {
   const typography = withTypographyDefaults(typographyInput ?? DEFAULT_TYPOGRAPHY_CONFIG);
   const diagnostics: LayoutDiagnostic[] = [];
@@ -211,8 +245,13 @@ export function paginate(
 
   let currentBlocks: LaidOutBlock[] = [];
   let usedHeightMm = 0;
+  let currentFootnotes: LaidOutFootnote[] = [];
+  let footnotesHeightMm = 0;
   let currentRunningHead: string | null = null;
   let pageIndex = 0;
+
+  const footnoteFontSizePt = typography.body.fontSizePt * FOOTNOTE_SCALE;
+  const footnoteLineHeightMm = toMm(footnoteFontSizePt * FOOTNOTE_LINE_HEIGHT);
 
   const pageSide = (index: number): "recto" | "verso" =>
     (index - 1) % 2 === 0 ? "recto" : "verso";
@@ -227,17 +266,93 @@ export function paginate(
       blocks: currentBlocks,
       usedHeightMm,
       totalHeightMm: heightMm,
+      footnotes: currentFootnotes,
+      footnotesHeightMm,
       runningHead: blank ? null : currentRunningHead,
       blank,
     });
 
     currentBlocks = [];
+    currentFootnotes = [];
     usedHeightMm = 0;
+    footnotesHeightMm = 0;
   };
 
   const placeBlock = (block: LaidOutBlock, height: number): void => {
     currentBlocks.push(block);
     usedHeightMm += height;
+  };
+
+  /** Compone el texto de una nota con el cuerpo menor y el ancho útil. */
+  const composeFootnote = (reference: InlineFootnote): LaidOutFootnote => {
+    const lines = breakIntoLines(`${reference.number}. ${reference.note}`, {
+      fontFamily: typography.body.fontFamily,
+      fontSizePt: footnoteFontSizePt,
+      letterSpacingPt: 0,
+      lineWidthMm: widthMm,
+      hyphenation: typography.body.hyphenation,
+      ...(measure ? { measure } : {}),
+    });
+
+    return {
+      id: reference.id,
+      number: reference.number,
+      text: reference.note,
+      lines: lines.map((line) => line.text),
+    };
+  };
+
+  /** Notas nuevas que aparecen en un grupo de líneas, sin repetir las ya puestas. */
+  const newFootnotesIn = (lines: ReadonlyArray<{ segments?: InlineRun[] }>): LaidOutFootnote[] => {
+    const known = new Set(currentFootnotes.map((footnote) => footnote.id));
+    const result: LaidOutFootnote[] = [];
+
+    for (const line of lines) {
+      for (const segment of line.segments ?? []) {
+        const reference = segment.footnote;
+
+        if (!reference || known.has(reference.id)) {
+          continue;
+        }
+
+        known.add(reference.id);
+        result.push(composeFootnote(reference));
+      }
+    }
+
+    return result;
+  };
+
+  /** Altura que añaden unas notas, incluida la línea separadora si es la primera. */
+  const footnoteHeight = (notes: readonly LaidOutFootnote[]): number => {
+    if (notes.length === 0) {
+      return 0;
+    }
+
+    const separator = currentFootnotes.length === 0 ? FOOTNOTE_SEPARATOR_MM : 0;
+    return (
+      separator +
+      notes.reduce(
+        (total, note) => total + note.lines.length * footnoteLineHeightMm + FOOTNOTE_GAP_MM,
+        0,
+      )
+    );
+  };
+
+  /** Registra las notas de un grupo de líneas y descuenta su altura de la página. */
+  const registerFootnotes = (lines: ReadonlyArray<{ segments?: InlineRun[] }>): number => {
+    const notes = newFootnotesIn(lines);
+
+    if (notes.length === 0) {
+      return 0;
+    }
+
+    const height = footnoteHeight(notes);
+    currentFootnotes.push(...notes);
+    footnotesHeightMm += height;
+    usedHeightMm += height;
+
+    return height;
   };
 
   for (const block of blocks) {
@@ -267,7 +382,7 @@ export function paginate(
     const spaceAfterMm = toMm(style.spaceAfterPt);
     const lineHeight = lineHeightMm(style);
 
-    if (block.kind === "rule" || block.kind === "image") {
+    if (block.kind === "rule") {
       const height = spaceBeforeMm + lineHeight + spaceAfterMm;
 
       if (usedHeightMm + height > heightMm && usedHeightMm > 0) {
@@ -286,6 +401,43 @@ export function paginate(
           sectionTitle: block.sectionTitle,
           startsChapter: block.startsChapter,
           firstOfSection: block.firstOfSection,
+        },
+        height,
+      );
+      continue;
+    }
+
+    if (block.kind === "image") {
+      // El espacio anterior y posterior también ocupa página: la imagen debe
+      // caber con ellos, no solo con su pie.
+      const availableHeightMm = Math.max(12, heightMm - spaceBeforeMm - spaceAfterMm);
+      const imageLayout = computeImageLayout(block.image, {
+        textWidthMm: widthMm,
+        textHeightMm: availableHeightMm,
+        captionFontFamily: typography.body.fontFamily,
+        captionFontSizePt: typography.body.fontSizePt * IMAGE_CAPTION_SCALE,
+        ...(measure ? { measure } : {}),
+      });
+      const height = spaceBeforeMm + imageLayout.totalHeightMm + spaceAfterMm;
+
+      if (usedHeightMm + height > heightMm && usedHeightMm > 0) {
+        flushPage();
+      }
+
+      placeBlock(
+        {
+          id: block.id,
+          kind: block.kind,
+          style,
+          lines: [],
+          spaceBeforeMm,
+          spaceAfterMm,
+          sectionId: block.sectionId,
+          sectionTitle: block.sectionTitle,
+          startsChapter: block.startsChapter,
+          firstOfSection: block.firstOfSection,
+          image: block.image,
+          imageLayout,
         },
         height,
       );
@@ -313,6 +465,7 @@ export function paginate(
       // Los títulos se componen en negrita: si se midieran como redonda, la
       // línea cabría en el cálculo y se saldría en el papel.
       bold: block.kind.startsWith("heading"),
+      ...(measure ? { measure } : {}),
     };
 
     const lines: LaidOutLine[] =
@@ -351,13 +504,78 @@ export function paginate(
     let pending = lines;
     let isFirstChunk = true;
 
+    /**
+     * Líneas que caben teniendo en cuenta las notas que arrastran.
+     *
+     * No basta con dividir la altura entre el interlineado: una llamada puede
+     * añadir varias líneas al pie y dejar sin sitio al texto que la contiene.
+     */
+    const capacityFor = (candidate: readonly LaidOutLine[], before: number): number => {
+      let max = Math.min(
+        candidate.length,
+        Math.max(0, Math.floor((heightMm - usedHeightMm - before) / lineHeight)),
+      );
+
+      while (max > 0) {
+        const notes = newFootnotesIn(candidate.slice(0, max));
+        const added = footnoteHeight(notes);
+        const after = max === candidate.length ? spaceAfterMm : 0;
+
+        if (before + max * lineHeight + after + added <= heightMm - usedHeightMm) {
+          return max;
+        }
+
+        max -= 1;
+      }
+
+      return 0;
+    };
+
     while (pending.length > 0) {
       const before = isFirstChunk ? spaceBeforeMm : 0;
-      const capacity = Math.floor((heightMm - usedHeightMm - before) / lineHeight);
+      const capacity = capacityFor(pending, before);
 
       if (capacity <= 0) {
         if (usedHeightMm > 0) {
           flushPage();
+          continue;
+        }
+
+        // La línea cabe, pero su nota no: se conserva todo y se avisa. Es
+        // preferible una nota que se sale del área a una nota que desaparece.
+        if (before + lineHeight <= heightMm) {
+          const first = pending.slice(0, 1);
+          registerFootnotes(first);
+
+          placeBlock(
+            {
+              id: block.id,
+              kind: block.kind,
+              style,
+              lines: first.map(toLaidOutLine),
+              spaceBeforeMm: before,
+              spaceAfterMm: 0,
+              sectionId: block.sectionId,
+              sectionTitle: block.sectionTitle,
+              startsChapter: block.startsChapter,
+              firstOfSection: block.firstOfSection,
+              continued: !isFirstChunk,
+            },
+            before + lineHeight,
+          );
+
+          diagnostics.push({
+            code: "FOOTNOTE_OVERFLOW",
+            severity: "warning",
+            message: `La nota ${first[0]?.segments?.find((segment) => segment.footnote)?.footnote?.number ?? ""} no cabe en la página con su llamada. Se ha conservado y la maqueta debe revisarse.`,
+            page: pageIndex + 1,
+            sectionId: block.sectionId,
+            blockId: block.id,
+          });
+
+          pending = pending.slice(1);
+          flushPage();
+          isFirstChunk = false;
           continue;
         }
 
@@ -375,6 +593,8 @@ export function paginate(
       }
 
       if (pending.length <= capacity) {
+        registerFootnotes(pending);
+
         placeBlock(
           {
             id: block.id,
@@ -416,7 +636,7 @@ export function paginate(
 
       if (rest > 0 && rest < minAtTop) {
         // Viuda: la continuación quedaría con muy pocas líneas arriba.
-        take = pending.length - minAtTop;
+        take = Math.max(1, pending.length - minAtTop);
         diagnostics.push({
           code: "WIDOW",
           severity: "warning",
@@ -426,6 +646,8 @@ export function paginate(
           blockId: block.id,
         });
       }
+
+      registerFootnotes(pending.slice(0, take));
 
       placeBlock(
         {

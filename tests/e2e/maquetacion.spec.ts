@@ -167,6 +167,9 @@ test.describe("Maquetación", () => {
     await expect(page.getByText("página", { exact: false }).first()).toBeVisible();
     await expect(page.getByText(/con la plantilla «Novela»/)).toBeVisible();
     await expect(page.getByRole("heading", { name: "Problemas de composición" })).toBeVisible();
+    // Las fuentes están en el repositorio: la vista previa debe usar las
+    // métricas reales, no el modelo aproximado de anchos medios.
+    await expect(page.getByText(/métricas reales de la fuente/)).toBeVisible();
   });
 
   test("la vista previa muestra el folio y el encabezado de página", async ({ page }) => {

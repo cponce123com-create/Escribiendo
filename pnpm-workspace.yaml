@@ -3,6 +3,11 @@ packages:
   - packages/*
   - workers/*
 
+# `deepmerge-ts` llega a través del CLI de Prisma y tenía un aviso de
+# agotamiento de pila (GHSA-ggr8-5vv4-36mx). Se fija la versión corregida.
+overrides:
+  deepmerge-ts: 8.0.0
+
 allowBuilds:
   "@prisma/client": true
   "@prisma/engines": true

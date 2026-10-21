@@ -32,9 +32,18 @@ export interface InlineMarks {
   link?: string;
 }
 
+/** Referencia a una nota al pie, con su número y su texto. */
+export interface InlineFootnote {
+  id: string;
+  number: number;
+  note: string;
+}
+
 export interface InlineRun {
   text: string;
   marks?: InlineMarks;
+  /** Si el tramo es una llamada a nota al pie, conserva su identidad y texto. */
+  footnote?: InlineFootnote;
 }
 
 /** Una línea compuesta, con sus tramos y sus marcas. */
@@ -93,7 +102,11 @@ function sliceRuns(runs: readonly InlineRun[], start: number, end: number): Inli
     const to = Math.min(end, runEnd) - runStart;
 
     if (to > from) {
-      result.push({ text: run.text.slice(from, to), marks: run.marks });
+      result.push({
+        text: run.text.slice(from, to),
+        marks: run.marks,
+        ...(run.footnote ? { footnote: run.footnote } : {}),
+      });
     }
   }
 
@@ -130,13 +143,29 @@ function toWords(runs: readonly InlineRun[]): RichWord[] {
         continue;
       }
 
-      current.push({ text: part, marks: run.marks });
+      current.push({
+        text: part,
+        marks: run.marks,
+        ...(run.footnote ? { footnote: run.footnote } : {}),
+      });
     }
   }
 
   flush();
 
   return words;
+}
+
+/**
+ * Tamaño efectivo de un tramo.
+ *
+ * Las llamadas a nota y los superíndices se componen al 72 % del cuerpo; si se
+ * midieran al tamaño completo, la línea se daría por llena antes de tiempo.
+ */
+function segmentFontSizePt(segment: InlineRun, options: MeasureOptions): number {
+  return segment.marks?.superscript || segment.marks?.subscript
+    ? options.fontSizePt * 0.72
+    : options.fontSizePt;
 }
 
 /** Ancho de una palabra con formato, en milímetros. */
@@ -146,7 +175,9 @@ function wordWidth(word: RichWord, options: MeasureOptions): number {
   for (const segment of word.segments) {
     total += measureTextMm(segment.text, {
       ...options,
+      fontSizePt: segmentFontSizePt(segment, options),
       bold: options.bold === true || segment.marks?.bold === true,
+      italic: options.italic === true || segment.marks?.italic === true,
     });
   }
 
@@ -225,7 +256,9 @@ function measureSegments(segments: readonly InlineRun[], options: MeasureOptions
   for (const segment of segments) {
     total += measureTextMm(segment.text, {
       ...options,
+      fontSizePt: segmentFontSizePt(segment, options),
       bold: options.bold === true || segment.marks?.bold === true,
+      italic: options.italic === true || segment.marks?.italic === true,
     });
   }
 

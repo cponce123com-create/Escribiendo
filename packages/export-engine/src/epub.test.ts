@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildEpub, type ExportDocumentModel } from "./epub";
 import { buildDocx } from "./docx";
+import { zipEntries, zipEntryNames } from "./test-utils";
 
 const DOCUMENTO: ExportDocumentModel = {
   title: "El velo de la tarde",
@@ -49,52 +50,14 @@ function equals(left: Uint8Array, right: Uint8Array): boolean {
 
 /** Extrae el texto de una entrada de un ZIP. */
 function entryText(bytes: Uint8Array, name: string): string | null {
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  let position = 0;
+  const entries = zipEntries(bytes);
+  const entry = entries.get(name);
 
-  while (position + 4 <= bytes.length) {
-    if (view.getUint32(position, true) !== 0x04034b50) {
-      break;
-    }
-
-    const size = view.getUint32(position + 18, true);
-    const nameLength = view.getUint16(position + 26, true);
-    const extraLength = view.getUint16(position + 28, true);
-    const nameStart = position + 30;
-    const dataStart = nameStart + nameLength + extraLength;
-    const entryName = new TextDecoder().decode(bytes.slice(nameStart, nameStart + nameLength));
-
-    if (entryName === name) {
-      return new TextDecoder().decode(bytes.slice(dataStart, dataStart + size));
-    }
-
-    position = dataStart + size;
-  }
-
-  return null;
+  return entry ? new TextDecoder().decode(entry.data) : null;
 }
 
 function entryNames(bytes: Uint8Array): string[] {
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const names: string[] = [];
-  let position = 0;
-
-  while (position + 4 <= bytes.length) {
-    if (view.getUint32(position, true) !== 0x04034b50) {
-      break;
-    }
-
-    const size = view.getUint32(position + 18, true);
-    const nameLength = view.getUint16(position + 26, true);
-    const extraLength = view.getUint16(position + 28, true);
-    const nameStart = position + 30;
-    const dataStart = nameStart + nameLength + extraLength;
-
-    names.push(new TextDecoder().decode(bytes.slice(nameStart, nameStart + nameLength)));
-    position = dataStart + size;
-  }
-
-  return names;
+  return zipEntryNames(bytes);
 }
 
 describe("buildEpub", () => {

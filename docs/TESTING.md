@@ -38,6 +38,7 @@ pnpm test
 Vitest recorre `apps/**/*.test.ts`, `packages/**/*.test.ts` y
 `scripts/**/*.test.ts`. No necesita base de datos ni navegador.
 
+Resultado vigente: **292 pruebas en 32 archivos** (21 de octubre de 2026).
 Cobertura actual (Fases 1 a 3):
 
 | Archivo                                                   | Qué verifica                                                                                                                                                                                                |
@@ -59,9 +60,10 @@ Cobertura actual (Fases 1 a 3):
 | `packages/book-schema/src/tiptap.test.ts`                 | Normalización y validación del documento Tiptap.                                                                                                                                                            |
 | `packages/book-schema/src/diff.test.ts`                   | Comparación de revisiones por palabras: texto idéntico, palabras añadidas y eliminadas, reconstrucción del original y del nuevo, y sustitución completa por encima del límite.                              |
 | `packages/editorial-engine/src/measure.test.ts`           | Medición del texto: anchos por tipo de carácter, reparto en líneas, palabras que desbordan la caja y guionado por guion.                                                                                    |
-| `packages/editorial-engine/src/pagination.test.ts`        | Composición en páginas: reparto del texto, párrafos que ocupan más de una página, aperturas de capítulo en página par, viudas, huérfanas, folios y encabezados.                                             |
+| `packages/editorial-engine/src/pagination.test.ts`        | Composición en páginas: reparto del texto, medidor real, párrafos que ocupan más de una página, aperturas de capítulo en página par, viudas, huérfanas, folios y encabezados.                               |
 | `packages/editorial-engine/src/layout-validation.test.ts` | Validación de la geometría de página y de los formatos.                                                                                                                                                     |
-| `packages/export-engine/src/pdf.test.ts`                  | Escritura de PDF: cabecera, objetos, fuentes estándar, escapado del texto, metadatos, cajas de recorte y sangre, marcas de corte y reproducibilidad.                                                        |
+| `packages/export-engine/src/pdf.test.ts`                  | Escritura de PDF: cabecera, objetos, fuentes estándar de reserva, escapado del texto, metadatos, cajas de recorte y sangre, marcas de corte y reproducibilidad.                                             |
+| `packages/export-engine/src/pdf-fonts.test.ts`            | Fuentes TrueType: lectura de `cmap`/`hmtx`, signos del español, carácter ausente, objetos `Type0`/`FontFile2`/`ToUnicode`, caras usadas y determinismo.                                                     |
 | `packages/export-engine/src/zip.test.ts`                  | ZIP: firma, entradas sin comprimir, nombres, CRC-32 de referencia y la entrada `mimetype` colocada en primer lugar.                                                                                         |
 | `packages/export-engine/src/epub.test.ts`                 | EPUB 3 y DOCX: entradas del paquete, `mimetype` en primer lugar, manifiesto, spine, navegación, estilos, XML escapado y reproducibilidad.                                                                   |
 | `apps/web/src/lib/editor/sync.test.ts`                    | Máquina de estados de la sincronización: transiciones, espera de reintento creciente, cuándo toca sincronizar y la invariante «no se dice «guardado» mientras no lo está».                                  |
@@ -239,6 +241,7 @@ solitario:
 - El perfil creado se puede editar.
 - Se aplica la maqueta al libro.
 - La vista previa paginada compone las páginas del manuscrito.
+- La vista previa declara que usa las métricas reales de la fuente.
 - La vista previa muestra el folio y el encabezado de página.
 - La página se dibuja a escala real y respeta los márgenes.
 
@@ -254,18 +257,23 @@ crea su propio libro, su sección y su perfil de página:
 - El archivo descargado es un EPUB válido.
 - Pedir dos veces la misma exportación reutiliza el trabajo.
 - El DOCX generado es un paquete de Word.
+- El PDF conserva la tipografía española y su texto se extrae con `ToUnicode`.
 - Una descarga sin firma se rechaza.
 
-`tests/e2e/manuscrito.spec.ts` (resiliencia del manuscrito) y `tests/e2e/equipo.spec.ts` (equipo y gobernanza) cubren los escenarios descritos en [RECOVERY_TESTS.md](RECOVERY_TESTS.md) y en el ROADMAP.
+`tests/e2e/manuscrito.spec.ts` cubre la resiliencia del manuscrito, los
+controles de imagen y la inserción, numeración, guardado y persistencia de una
+nota al pie. `tests/e2e/equipo.spec.ts` cubre equipo y gobernanza. Los
+escenarios están descritos en [RECOVERY_TESTS.md](RECOVERY_TESTS.md) y en el
+ROADMAP.
 
 ### 4.5 Resultados obtenidos
 
 ```text
-Running 70 tests using 1 worker
-70 passed (2.6m)
+Running 72 tests using 1 worker
+72 passed (3.0m)
 ```
 
-Las 70 pruebas incluyen la preparación de la cuenta de pruebas. La suite se ha
+Las 72 pruebas incluyen la preparación de la cuenta de pruebas. La suite se ha
 ejecutado de forma repetida con resultado completo en todas las ejecuciones,
 contra PostgreSQL 17.7 local y contra la **compilación de producción** (no el
 servidor de desarrollo). En producción, el mismo flujo de instalación, acceso y
@@ -331,7 +339,31 @@ pnpm typecheck      # TypeScript en todos los paquetes, scripts y pruebas
 pnpm test           # Vitest
 pnpm test:e2e       # Playwright (requiere base de datos desechable)
 pnpm build          # Compilación de producción
+pnpm bench:export   # Banco de composición y exportación
+pnpm stress:export  # Banco de esfuerzo: 200 000 palabras, 80 imágenes y 500 notas
+pnpm validate:epub  # EPUB con EPUBCheck (necesita EPUBCHECK_JAR)
+pnpm validate:docx  # DOCX con un lector externo (necesita DOCX_VALIDATOR)
+pnpm validate:pdf   # PDF con un lector externo (necesita PDF_VALIDATOR)
+pnpm audit          # Escaneo de dependencias
 ```
+
+### Validación externa de los archivos exportados
+
+Las tres órdenes anteriores solo validan si se les indica la herramienta:
+
+```bash
+EPUBCHECK_JAR=ruta\epubcheck.jar JAVA=ruta\java.exe pnpm validate:epub
+DOCX_VALIDATOR="pnpm dlx mammoth@1.11.0" pnpm validate:docx
+pnpm --dir scripts/pdfjs install
+PDF_VALIDATOR="node scripts/pdfjs/valida-pdf.mjs" pnpm validate:pdf
+```
+
+Todas devuelven el código 0 cuando la validación pasa, 1 cuando falla y 2
+cuando la herramienta no está configurada (en ese caso no se ha validado
+nada y el script lo dice). La prueba de extremo a extremo «el archivo
+descargado es un EPUB válido» valida además el EPUB que descarga la
+aplicación cuando `EPUBCHECK_JAR` está definido, y deja el PDF y el DOCX en
+`test-results/` para abrirlos con las mismas herramientas.
 
 ---
 
@@ -366,6 +398,14 @@ Lo que **no** está verificado automáticamente en las Fases 1 a 3:
    navegador, así que la prueba automatizada solo las exercise en Chromium. No
    se ha comprobado el comportamiento en modo privado, con el almacenamiento
    bloqueado ni entre navegadores distintos.
+9. **Lectores de EPUB y de Word.** El EPUB se valida con EPUBCheck y el DOCX lo
+   lee un lector OOXML independiente, pero no se ha abierto el DOCX en Word ni
+   en LibreOffice, ni el EPUB en un lector comercial, porque esas aplicaciones
+   no están instaladas en esta máquina.
+10. **Carga real en Render.** El banco de esfuerzo mide la memoria del proceso
+    de exportación (367 MB con 200 000 palabras, 80 imágenes y 500 notas), pero
+    no mide la instancia de Render con tráfico real ni con la base de datos
+    en la misma petición.
 
 ---
 
