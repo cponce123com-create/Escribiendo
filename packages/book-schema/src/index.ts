@@ -14,6 +14,7 @@ export {
 } from "./diff";
 export {
   MAX_DOCUMENT_BYTES,
+  MAX_FOOTNOTE_LENGTH,
   MAX_NODE_COUNT,
   TiptapValidationError,
   assertDocumentLimits,

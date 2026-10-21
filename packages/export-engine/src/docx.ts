@@ -1,6 +1,6 @@
 import type { ExportImageAsset, ExportImageMap } from "./assets";
 import { buildZip, type ZipEntry } from "./zip";
-import type { ExportBlock, ExportDocumentModel, ExportInlineRun } from "./epub";
+import type { ExportBlock, ExportDocumentModel, ExportFootnote, ExportInlineRun } from "./epub";
 
 /**
  * DOCX.
@@ -28,6 +28,7 @@ const CONTENT_TYPES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
   <Default Extension="png" ContentType="image/png"/>
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
   <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+  <Override PartName="/word/footnotes.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml"/>
   <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
   <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
 </Types>`;
@@ -66,6 +67,16 @@ const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <w:pPr><w:ind w:left="720" w:right="720"/></w:pPr>
     <w:rPr><w:i/></w:rPr>
   </w:style>
+  <w:style w:type="paragraph" w:styleId="FootnoteText">
+    <w:name w:val="footnote text"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr>
+    <w:rPr><w:sz w:val="18"/><w:szCs w:val="18"/></w:rPr>
+  </w:style>
+  <w:style w:type="character" w:styleId="FootnoteReference">
+    <w:name w:val="footnote reference"/>
+    <w:rPr><w:vertAlign w:val="superscript"/></w:rPr>
+  </w:style>
 </w:styles>`;
 
 function coreProperties(document: ExportDocumentModel, createdAt: Date): string {
@@ -88,6 +99,13 @@ const APP_PROPERTIES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 
 /** Propiedades de un tramo: negrita, cursiva, subrayado, tachado, superíndice. */
 function runXml(run: ExportInlineRun): string {
+  if (run.footnote) {
+    return (
+      `<w:r><w:rPr><w:rStyle w:val="FootnoteReference"/></w:rPr>` +
+      `<w:footnoteReference w:id="${run.footnote.number}"/></w:r>`
+    );
+  }
+
   const props: string[] = [];
 
   if (run.bold) {
@@ -310,8 +328,46 @@ function documentRels(links: readonly string[], images: readonly DocxImageEntry[
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>${hyperlinks.length > 0 ? `\n  ${hyperlinks}` : ""}${imageRels.length > 0 ? `\n  ${imageRels}` : ""}
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  <Relationship Id="rIdFootnotes" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes" Target="footnotes.xml"/>${hyperlinks.length > 0 ? `\n  ${hyperlinks}` : ""}${imageRels.length > 0 ? `\n  ${imageRels}` : ""}
 </Relationships>`;
+}
+
+/** Notas del documento, en orden de aparición y sin repetir. */
+function collectFootnotes(document: ExportDocumentModel): ExportFootnote[] {
+  const notes: ExportFootnote[] = [];
+  const known = new Set<string>();
+
+  for (const chapter of document.chapters) {
+    for (const block of chapter.blocks) {
+      for (const run of block.runs ?? []) {
+        if (run.footnote && !known.has(run.footnote.id)) {
+          known.add(run.footnote.id);
+          notes.push(run.footnote);
+        }
+      }
+    }
+  }
+
+  return notes;
+}
+
+/** Parte `word/footnotes.xml` con las notas reales de Word. */
+function footnotesXml(footnotes: readonly ExportFootnote[]): string {
+  const entries = footnotes
+    .map(
+      (note) =>
+        `<w:footnote w:id="${note.number}"><w:p><w:pPr><w:pStyle w:val="FootnoteText"/></w:pPr>` +
+        `<w:r><w:rPr><w:rStyle w:val="FootnoteReference"/></w:rPr><w:footnoteRef/></w:r>` +
+        `<w:r><w:t xml:space="preserve"> ${escapeXml(note.note)}</w:t></w:r></w:p></w:footnote>`,
+    )
+    .join("\n  ");
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:footnotes xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:footnote w:type="separator" w:id="-1"><w:p><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:r><w:separator/></w:r></w:p></w:footnote>
+  <w:footnote w:type="continuationSeparator" w:id="0"><w:p><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:r><w:continuationSeparator/></w:r></w:p></w:footnote>${entries.length > 0 ? `\n  ${entries}` : ""}
+</w:footnotes>`;
 }
 
 /**
@@ -326,6 +382,7 @@ export function buildDocx(
   /** Enlaces del documento, para las relaciones de Word. */
   const links: string[] = [];
   const images = collectDocxImages(document, assets);
+  const footnotes = collectFootnotes(document);
   let imageIndex = 0;
 
   for (const chapter of document.chapters) {
@@ -385,6 +442,7 @@ export function buildDocx(
       data: new TextEncoder().encode(documentRels(links, [...images.values()])),
     },
     { name: "word/styles.xml", data: new TextEncoder().encode(STYLES) },
+    { name: "word/footnotes.xml", data: new TextEncoder().encode(footnotesXml(footnotes)) },
     {
       name: "docProps/core.xml",
       data: new TextEncoder().encode(coreProperties(document, createdAt)),

@@ -115,18 +115,18 @@ se afirma más de lo que se ha comprobado.
 
 ## Estado de las condiciones de cierre
 
-| Condición                                            | Estado                                                                                                                                                          |
-| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Riesgo conocido de pérdida silenciosa de manuscritos | **Resuelto**: borrador local, control de orden y avisos de conflicto                                                                                            |
-| Vulnerabilidad crítica sin corregir                  | No consta ninguna abierta en esta auditoría                                                                                                                     |
-| Exportación que pierde caracteres                    | **Resuelto** para la tipografía española; el resto se avisa                                                                                                     |
-| Archivos PDF corruptos                               | No: la cabecera, la estructura y el cierre se comprueban en cada prueba                                                                                         |
-| Pérdida de imágenes o formato sin advertencia        | **Resuelto** para el formato en línea y los separadores; las imágenes se conservan en el modelo y el EPUB las incluye, pero el PDF y el DOCX aún no las dibujan |
-| Migraciones destructivas no autorizadas              | Ninguna: las tres migraciones son aditivas                                                                                                                      |
-| Pruebas críticas fallidas                            | Ninguna: 249 unitarias y 70 E2E en verde                                                                                                                        |
-| Error de compilación                                 | Ninguno                                                                                                                                                         |
-| Regresión funcional                                  | Ninguna detectada                                                                                                                                               |
-| Exposición de secretos                               | Ninguna: escaneo del árbol y del historial de commits                                                                                                           |
+| Condición                                            | Estado                                                                                    |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Riesgo conocido de pérdida silenciosa de manuscritos | **Resuelto**: borrador local, control de orden y avisos de conflicto                      |
+| Vulnerabilidad crítica sin corregir                  | No consta ninguna abierta en esta auditoría                                               |
+| Exportación que pierde caracteres                    | **Resuelto** para la tipografía española; el resto se avisa                               |
+| Archivos PDF corruptos                               | No: la cabecera, la estructura y el cierre se comprueban en cada prueba                   |
+| Pérdida de imágenes o formato sin advertencia        | **Resuelto** para el formato en línea, los separadores y las imágenes en PDF, EPUB y DOCX |
+| Migraciones destructivas no autorizadas              | Ninguna: las tres migraciones son aditivas                                                |
+| Pruebas críticas fallidas                            | Ninguna: 280 unitarias y 72 E2E en verde                                                  |
+| Error de compilación                                 | Ninguno                                                                                   |
+| Regresión funcional                                  | Ninguna detectada                                                                         |
+| Exposición de secretos                               | Ninguna: escaneo del árbol y del historial de commits                                     |
 
 ## Lo que no se ha verificado
 
@@ -185,12 +185,64 @@ solo registra lo que se ha ejecutado y lo que falta.
 
 ### Pendiente para 95
 
-1. Notas al pie de extremo a extremo.
+1. Notas al pie: cerradas en el Lote J (ver la actualización posterior); queda
+   el formato enriquecido y la división de notas excepcionalmente largas.
 2. PDF con Unicode completo y fuentes TTF incrustadas.
 3. EPUBCheck, Word/LibreOffice y un lector de EPUB real.
 4. Subida real a Cloudinary con credenciales.
 5. Pruebas contra Render y carga real.
 6. Auditoría externa de seguridad y escaneo de dependencias.
+
+Ninguno de estos puntos se ha sustituido por una afirmación. El detalle está en
+[AUDIT_BASELINE_95.md](AUDIT_BASELINE_95.md).
+
+---
+
+## Actualización de la rama `improvement/escribiendo-95`: notas al pie
+
+Fecha: 21 de octubre de 2026.
+Base del lote: `4211bb6`.
+Alcance cerrado: notas al pie de extremo a extremo.
+
+La puntuación de 95 **sigue sin declararse alcanzada**. La última medición
+documentada continúa siendo 87,4/100. Esta actualización registra únicamente lo
+que se ha ejecutado.
+
+### Correcciones verificadas
+
+- El editor tiene un nodo `footnote` atómico, un botón «†», edición de la nota
+  al pulsar la llamada y numeración dinámica por orden de lectura.
+- El esquema rechaza notas sin identificador, vacías, con contenido anidado o
+  de más de 2000 caracteres.
+- La numeración es global entre secciones y no se congela en el JSON: la
+  vista previa, el PDF, el EPUB y el DOCX comparten el mismo orden.
+- La paginación compone las notas al 78 % del cuerpo, reserva su altura y
+  emite `FOOTNOTE_OVERFLOW` si una nota no cabe con su llamada.
+- La vista previa dibuja el área de notas con su línea separadora.
+- El EPUB usa `epub:type="noteref"` y `epub:type="footnote"`; el DOCX incluye
+  `word/footnotes.xml`, la relación, el tipo de contenido y los estilos; el PDF
+  dibuja la línea y las notas al pie de cada página.
+
+### Evidencia
+
+| Comprobación        | Resultado                |
+| ------------------- | ------------------------ |
+| `pnpm test`         | 280 pruebas, 31 archivos |
+| `pnpm test:e2e`     | 72 pruebas en Chromium   |
+| `pnpm format:check` | Correcto                 |
+| `pnpm lint`         | Sin errores              |
+| `pnpm typecheck`    | Sin errores              |
+| `pnpm build`        | Correcto                 |
+| `pnpm bench:export` | Ejecutado                |
+
+### Pendiente para 95
+
+1. PDF con Unicode completo y fuentes TTF incrustadas.
+2. EPUBCheck, Word/LibreOffice y un lector de EPUB real.
+3. Subida real a Cloudinary con credenciales.
+4. Pruebas contra Render y carga real.
+5. Auditoría externa de seguridad y escaneo de dependencias.
+6. Notas con formato enriquecido y división automática de notas muy largas.
 
 Ninguno de estos puntos se ha sustituido por una afirmación. El detalle está en
 [AUDIT_BASELINE_95.md](AUDIT_BASELINE_95.md).

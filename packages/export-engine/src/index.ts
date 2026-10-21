@@ -5,6 +5,7 @@ export {
   type PdfFont,
   type PdfImage,
   type PdfPage,
+  type PdfRule,
   type PdfRun,
 } from "./pdf";
 export { type ExportImage, type ExportImageAsset, type ExportImageMap } from "./assets";

@@ -54,12 +54,23 @@ export interface PdfImage {
   src?: string;
 }
 
+/** Línea vectorial de una página, en milímetros desde la caja acabada. */
+export interface PdfRule {
+  x1Mm: number;
+  y1Mm: number;
+  x2Mm: number;
+  y2Mm: number;
+  /** Grosor en puntos. */
+  widthPt?: number;
+}
+
 export interface PdfPage {
   /** Tamaño de la hoja acabada, en milímetros. */
   widthMm: number;
   heightMm: number;
   runs: PdfRun[];
   images?: PdfImage[];
+  rules?: PdfRule[];
   /** Sangrado que se añade a la hoja para la impresión. */
   bleedMm?: number;
   /** Marcas de corte y de registro. */
@@ -443,6 +454,19 @@ function pageContent(
 
   if (hasMarks) {
     parts.push(marksContent(page, trimXMm, trimYMm));
+  }
+
+  for (const rule of page.rules ?? []) {
+    const x1 = (trimXMm + rule.x1Mm) * MM_TO_POINTS;
+    const y1 = (mediaHeightMm - trimYMm - rule.y1Mm) * MM_TO_POINTS;
+    const x2 = (trimXMm + rule.x2Mm) * MM_TO_POINTS;
+    const y2 = (mediaHeightMm - trimYMm - rule.y2Mm) * MM_TO_POINTS;
+
+    parts.push(
+      "0 0 0 RG",
+      `${(rule.widthPt ?? 0.5).toFixed(2)} w`,
+      `${x1.toFixed(3)} ${y1.toFixed(3)} m ${x2.toFixed(3)} ${y2.toFixed(3)} l S`,
+    );
   }
 
   for (const image of page.images ?? []) {

@@ -58,12 +58,14 @@ presumen el comportamiento del despliegue de Render.
 - `pnpm bench:export`: medición reproducida; las cifras están en
   [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md).
 
-## Lo que sigue abierto
+## Lo que quedaba abierto al inicio de la mejora
 
-Estas ausencias impiden declarar 95 y no se compensan con una estimación:
+Estas ausencias impedían declarar 95 y no se compensan con una estimación. El
+Lote J cerró el punto 1; el resto sigue abierto.
 
-1. **Notas al pie.** No hay nodo de editor, numeración, composición al pie ni
-   exportación a PDF, EPUB y DOCX.
+1. **Notas al pie.** Cerrado en el Lote J: nodo de editor, numeración,
+   composición al pie y exportación a PDF, EPUB y DOCX. Quedan las limitaciones
+   de texto plano y notas muy largas.
 2. **PDF con Unicode completo.** El cuerpo sigue usando Times/WinAnsi. Los
    caracteres sin equivalente se sustituyen por `□` y se cuentan; no hay
    fuentes TTF incrustadas ni tabla de anchos real.
@@ -74,8 +76,7 @@ Estas ausencias impiden declarar 95 y no se compensan con una estimación:
 5. **Render y Neon reales.** El despliegue no es accesible desde esta red; las
    pruebas de carga y las cabeceras contra producción siguen pendientes.
 6. **Puntuación.** La última medición documentada es 87,4/100. No se emite una
-   puntuación nueva hasta cerrar los lotes de notas, Unicode y validación
-   externa.
+   puntuación nueva hasta cerrar los lotes de Unicode y validación externa.
 
 ## Bloqueos externos conocidos
 
@@ -87,4 +88,45 @@ Estas ausencias impiden declarar 95 y no se compensan con una estimación:
 - Render Free no es accesible desde aquí.
 
 Ningún bloqueo anterior se presenta como un éxito. La rama se considera una
-mejora verificada del lote de imágenes, no la versión 95 terminada.
+mejora verificada de los lotes de imágenes y notas, no la versión 95 terminada.
+
+## Actualización del Lote J: notas al pie
+
+Fecha: 21 de octubre de 2026.
+Base del lote: `4211bb6`.
+
+### Evidencia ejecutada
+
+| Comprobación        | Resultado                |
+| ------------------- | ------------------------ |
+| Pruebas unitarias   | 280 pruebas, 31 archivos |
+| Extremo a extremo   | 72 pruebas en Chromium   |
+| Formato, lint       | Sin errores              |
+| Tipos y compilación | Sin errores              |
+
+### Hallazgos corregidos
+
+| #   | Hallazgo comprobado                                                                | Corrección                                                                                                                     | Evidencia                                                       |
+| --- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| J-1 | El editor no tenía nodo ni comando para insertar una nota al pie.                  | Nodo Tiptap `footnote`, botón «†», diálogo de texto, edición al pulsar y borrado con texto vacío.                              | `editorial-footnote.ts`, E2E de inserción y persistencia        |
+| J-2 | Una nota no validada podía guardarse sin identidad o sin texto.                    | El esquema exige `id` seguro y `note` no vacío de hasta 2000 caracteres, sin contenido anidado.                                | `tiptap.test.ts` (4 casos)                                      |
+| J-3 | La numeración guardada en el JSON quedaría obsoleta al insertar una nota anterior. | La numeración se calcula por orden de aparición con un contador compartido entre secciones.                                    | `blocks.test.ts`, `inline.test.ts` indirectamente, exportadores |
+| J-4 | La maqueta no reservaba altura para la nota y podía solaparla con el cuerpo.       | Composición al 78 % del cuerpo, altura reservada, área en la vista previa y diagnóstico `FOOTNOTE_OVERFLOW`.                   | `pagination.test.ts` (2 casos), `paginated-preview.tsx`         |
+| J-5 | EPUB, DOCX y PDF no representaban las notas.                                       | EPUB con `noteref`/`footnote`; DOCX con `word/footnotes.xml` y referencias reales; PDF con línea separadora y notas al pie.    | `footnote-export.test.ts` (3 casos)                             |
+| J-6 | Las notas muy largas podían perderse o desplazar el texto sin aviso.               | Se conserva la nota completa, se reserva su altura y se emite un diagnóstico visible si no cabe. No se divide automáticamente. | `pagination.ts`, panel de diagnóstico                           |
+| J-7 | Copiar y pegar una llamada repetía el identificador y podía descartar una nota.    | La composición usa un identificador por aparición; el DOCX conserva el número y el EPUB genera anclas únicas.                  | `blocks.test.ts` (tercer caso)                                  |
+
+### Lo que sigue abierto
+
+1. **PDF con Unicode completo.** El cuerpo y las notas siguen usando Times y
+   WinAnsi, con aviso de caracteres perdidos. Faltan TTF incrustadas y tabla de
+   anchos real.
+2. **Validación externa.** No se ha pasado EPUBCheck, no se ha abierto el DOCX
+   en Word o LibreOffice y no se ha probado un EPUB en un lector comercial.
+3. **Cloudinary real.** No hay credenciales locales para probar una subida.
+4. **Render y Neon reales.** El despliegue no es accesible desde esta red.
+5. **Notas enriquecidas y división.** Las notas son texto plano; una nota
+   excepcionalmente larga no se reparte entre páginas.
+6. **Puntuación.** La última medición documentada sigue siendo 87,4/100. No se
+   emite una puntuación nueva sin cerrar los lotes de Unicode y validación
+   externa.

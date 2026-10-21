@@ -151,3 +151,42 @@ debe medirse antes de subir el límite.
 
 Las cifras de duración son de esta máquina y varían con la carga. No se
 presentan como un compromiso de rendimiento del despliegue.
+
+## Reejecución tras el Lote J (notas al pie)
+
+Comando: `pnpm bench:export`, ejecutado el 21 de octubre de 2026. El banco
+sigue sin incluir notas ni imágenes reales; sirve para comprobar que el camino
+sin notas no ha sufrido una regresión.
+
+| Palabras | Páginas | Paginación |   PDF |  EPUB |  DOCX | Memoria |
+| -------- | ------: | ---------: | ----: | ----: | ----: | ------: |
+| 10 000   |      28 |      31 ms |  9 ms |  9 ms |  7 ms | -2,7 MB |
+| 50 000   |     137 |      60 ms | 20 ms | 14 ms | 16 ms | 14,5 MB |
+| 100 000  |     273 |      98 ms | 46 ms | 30 ms | 32 ms | 26,8 MB |
+| 200 000  |     546 |     197 ms | 67 ms | 54 ms | 69 ms | -2,6 MB |
+
+La fila de memoria negativa es ruido del recolector: el mínimo observado quedó
+por encima del máximo final. No es consumo negativo. El máximo absoluto de esta
+pasada fue 26,8 MB, por debajo de los 512 MB de Render Free, pero el banco no
+descarga imágenes ni compone notas reales.
+
+### Coste de las notas
+
+La composición de una nota se calcula una sola vez por página y se reutiliza en
+la reserva de altura; la búsqueda de notas nuevas recorre únicamente los tramos
+de las líneas candidatas. No se ha ejecutado un banco específico con miles de
+notas: sería necesario para afirmar un límite de densidad. El peor caso
+aceptado por esquema es una nota de 2000 caracteres; una nota así puede activar
+`FOOTNOTE_OVERFLOW` si no cabe con su llamada. Esa condición se conserva y se
+avisa, no se elimina.
+
+## Suite de pruebas tras el Lote J
+
+| Suite                       | Duración | Resultado    |
+| --------------------------- | -------: | ------------ |
+| `pnpm test` (unitarias)     |     ~6 s | 280 en verde |
+| `pnpm build` (producción)   |    ~20 s | 30 rutas     |
+| `pnpm test:e2e` (navegador) |   ~2,9 m | 72 en verde  |
+
+Las cifras de duración son de esta máquina y varían con la carga. No se
+presentan como un compromiso de rendimiento del despliegue.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sectionToBlocks, type PreviewSection } from "./blocks";
+import { bookToBlocks, sectionToBlocks, type PreviewSection } from "./blocks";
 
 /** Sección mínima con el contenido indicado. */
 function seccion(content: unknown): PreviewSection {
@@ -143,6 +143,80 @@ describe("sectionToBlocks", () => {
     expect(bloques[0]?.kind).toBe("list");
     expect(bloques[0]?.text).toBe("1. Uno\n2. Dos");
     expect(bloques[0]?.runs?.[0]).toEqual({ text: "1. " });
+  });
+
+  it("convierte una nota al pie en una llamada con su texto", () => {
+    const bloques = sectionToBlocks(
+      seccion(
+        documento({
+          type: "paragraph",
+          content: [
+            { type: "text", text: "Una llamada" },
+            {
+              type: "footnote",
+              attrs: { id: "nota-1", note: "Texto de la nota." },
+            },
+          ],
+        }),
+      ),
+    );
+
+    expect(bloques[0]?.runs?.at(-1)).toEqual({
+      text: "1",
+      marks: { superscript: true },
+      footnote: { id: "nota-1-1", number: 1, note: "Texto de la nota." },
+    });
+  });
+
+  it("numera las notas de todo el libro en orden de lectura", () => {
+    const primera = seccion(
+      documento({
+        type: "paragraph",
+        content: [
+          { type: "text", text: "Primera" },
+          { type: "footnote", attrs: { id: "nota-1", note: "Uno." } },
+        ],
+      }),
+    );
+    const segunda: PreviewSection = {
+      ...primera,
+      id: "s2",
+      title: "Segundo",
+      content: documento({
+        type: "paragraph",
+        content: [
+          { type: "text", text: "Segunda" },
+          { type: "footnote", attrs: { id: "nota-2", note: "Dos." } },
+        ],
+      }),
+    };
+
+    const notas = bookToBlocks([primera, segunda])
+      .flatMap((bloque) => bloque.runs ?? [])
+      .flatMap((run) => (run.footnote ? [run.footnote] : []));
+
+    expect(notas.map((nota) => nota.number)).toEqual([1, 2]);
+  });
+
+  it("distingue dos llamadas copiadas con el mismo identificador guardado", () => {
+    const bloques = sectionToBlocks(
+      seccion(
+        documento({
+          type: "paragraph",
+          content: [
+            { type: "text", text: "Primera" },
+            { type: "footnote", attrs: { id: "repetida", note: "Uno." } },
+            { type: "text", text: " segunda" },
+            { type: "footnote", attrs: { id: "repetida", note: "Dos." } },
+          ],
+        }),
+      ),
+    );
+    const notas = (bloques[0]?.runs ?? []).flatMap((run) => (run.footnote ? [run.footnote] : []));
+
+    expect(notas.map((nota) => nota.number)).toEqual([1, 2]);
+    expect(new Set(notas.map((nota) => nota.id)).size).toBe(2);
+    expect(notas.map((nota) => nota.note)).toEqual(["Uno.", "Dos."]);
   });
 
   it("no inventa bloques con contenido inválido", () => {

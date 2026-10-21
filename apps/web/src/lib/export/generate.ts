@@ -11,6 +11,7 @@ import {
   type ImageTarget,
   type PdfImage,
   type PdfPage,
+  type PdfRule,
   type PdfRun,
 } from "@escribiendo/export-engine";
 import {
@@ -158,6 +159,7 @@ function toPdfPages(
 
     const runs: PdfRun[] = [];
     const pdfImages: PdfImage[] = [];
+    const rules: PdfRule[] = [];
     let y = profile.marginTopMm;
 
     for (const block of page.blocks) {
@@ -269,19 +271,33 @@ function toPdfPages(
             : "regular";
         const baseBold = baseFont === "bold";
         const baseItalic = baseFont === "italic";
-        const measure = (text: string, bold: boolean): number =>
+        const measureSegment = (
+          text: string,
+          sizePt: number,
+          bold: boolean,
+          letterSpacingPt = block.style.letterSpacingPt,
+        ): number =>
           measureTextMm(text, {
             fontFamily: block.style.fontFamily,
-            fontSizePt: block.style.fontSizePt,
-            letterSpacingPt: block.style.letterSpacingPt,
+            fontSizePt: sizePt,
+            letterSpacingPt,
             bold,
           }) || 0;
+        const segmentSize = (segment: (typeof segments)[number]): number =>
+          block.style.fontSizePt *
+          (segment.marks?.superscript || segment.marks?.subscript ? 0.72 : 1);
 
         const segments =
           line.segments && line.segments.length > 0 ? line.segments : [{ text: line.text }];
 
         const naturalWidth = segments.reduce(
-          (sum, segment) => sum + measure(segment.text, baseBold || segment.marks?.bold === true),
+          (sum, segment) =>
+            sum +
+            measureSegment(
+              segment.text,
+              segmentSize(segment),
+              baseBold || segment.marks?.bold === true,
+            ),
           0,
         );
 
@@ -318,10 +334,8 @@ function toPdfPages(
           const italic = baseItalic || segment.marks?.italic === true;
           const font: PdfRun["font"] =
             bold && italic ? "boldItalic" : bold ? "bold" : italic ? "italic" : "regular";
-          const segmentWidth = measure(segment.text, bold);
-          const sizePt =
-            block.style.fontSizePt *
-            (segment.marks?.superscript || segment.marks?.subscript ? 0.72 : 1);
+          const sizePt = segmentSize(segment);
+          const segmentWidth = measureSegment(segment.text, sizePt, bold);
           const risePt = segment.marks?.superscript
             ? block.style.fontSizePt * 0.38
             : segment.marks?.subscript
@@ -350,6 +364,40 @@ function toPdfPages(
       y += block.spaceAfterMm;
     }
 
+    // Las notas se componen al pie del área de texto, con una línea separadora.
+    // La paginación ya reservó su altura; aquí solo se dibujan.
+    if (page.footnotes.length > 0) {
+      const footnoteFontSizePt = typography.body.fontSizePt * 0.78;
+      const footnoteLineHeightMm = (footnoteFontSizePt * 1.3 * 25.4) / 72;
+      const footnoteAreaTopMm =
+        profile.pageHeightMm - profile.marginBottomMm - page.footnotesHeightMm;
+
+      rules.push({
+        x1Mm: leftMm,
+        y1Mm: footnoteAreaTopMm + 1,
+        x2Mm: leftMm + textWidthMm * 0.35,
+        y2Mm: footnoteAreaTopMm + 1,
+        widthPt: 0.5,
+      });
+
+      let footnoteY = footnoteAreaTopMm + 3;
+
+      for (const note of page.footnotes) {
+        for (const line of note.lines) {
+          runs.push({
+            text: line,
+            font: "regular",
+            sizePt: footnoteFontSizePt,
+            xMm: leftMm,
+            baselineMm: footnoteY + footnoteLineHeightMm * 0.8,
+          });
+          footnoteY += footnoteLineHeightMm;
+        }
+
+        footnoteY += 1.5;
+      }
+    }
+
     // El folio va al pie de la página. Se deja un mínimo de 4 mm para que un
     // perfil antiguo con distancia cero no lo deje pegado al borde de la hoja.
     if (profile.showPageNumbers) {
@@ -369,12 +417,11 @@ function toPdfPages(
       heightMm: profile.pageHeightMm,
       runs,
       ...(pdfImages.length > 0 ? { images: pdfImages } : {}),
+      ...(rules.length > 0 ? { rules } : {}),
       bleedMm: profile.bleedMm,
       cropMarks: false,
     };
   });
-
-  void typography;
 
   return { pdfPages, textWidthMm, imagenesIncrustadas, imagenesOmitidas };
 }
@@ -382,7 +429,8 @@ function toPdfPages(
 /** Genera el archivo en el formato pedido. */
 export async function generateFile(input: GenerateInput): Promise<GeneratedFile> {
   const info = FORMAT_INFO[input.format];
-  const sectionBlocks = input.sections.map((section) => sectionToBlocks(section));
+  const footnoteCounter = { next: 1 };
+  const sectionBlocks = input.sections.map((section) => sectionToBlocks(section, footnoteCounter));
   const wordCount = sectionBlocks.reduce(
     (total, blocks) =>
       total + blocks.reduce((sum, block) => sum + (block.text.match(/\S+/gu)?.length ?? 0), 0),

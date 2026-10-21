@@ -257,19 +257,20 @@ crea su propio libro, su sección y su perfil de página:
 - El PDF conserva la tipografía española.
 - Una descarga sin firma se rechaza.
 
-`tests/e2e/manuscrito.spec.ts` cubre la resiliencia del manuscrito y los
-controles de imagen; `tests/e2e/equipo.spec.ts` cubre equipo y gobernanza. Los
+`tests/e2e/manuscrito.spec.ts` cubre la resiliencia del manuscrito, los
+controles de imagen y la inserción, numeración, guardado y persistencia de una
+nota al pie. `tests/e2e/equipo.spec.ts` cubre equipo y gobernanza. Los
 escenarios están descritos en [RECOVERY_TESTS.md](RECOVERY_TESTS.md) y en el
 ROADMAP.
 
 ### 4.5 Resultados obtenidos
 
 ```text
-Running 71 tests using 1 worker
-71 passed (3.2m)
+Running 72 tests using 1 worker
+72 passed (2.9m)
 ```
 
-Las 71 pruebas incluyen la preparación de la cuenta de pruebas. La suite se ha
+Las 72 pruebas incluyen la preparación de la cuenta de pruebas. La suite se ha
 ejecutado de forma repetida con resultado completo en todas las ejecuciones,
 contra PostgreSQL 17.7 local y contra la **compilación de producción** (no el
 servidor de desarrollo). En producción, el mismo flujo de instalación, acceso y

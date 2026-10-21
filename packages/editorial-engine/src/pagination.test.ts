@@ -7,6 +7,7 @@ import {
   type LayoutBlock,
   type PageGeometry,
 } from "./pagination";
+import type { InlineRun } from "./rich-text";
 import type { TypographyConfig } from "./typography";
 
 /**
@@ -382,5 +383,56 @@ describe("paginate", () => {
     expect(lineas[0]?.segments?.find((segment) => segment.text === "oscura")?.marks?.italic).toBe(
       true,
     );
+  });
+
+  it("compone la nota al pie en la página de su llamada y reserva su altura", () => {
+    const runs: InlineRun[] = [
+      { text: "Una llamada" },
+      {
+        text: "1",
+        marks: { superscript: true },
+        footnote: {
+          id: "nota-1",
+          number: 1,
+          note: "Una nota breve que debe quedar al pie de la misma página.",
+        },
+      },
+      { text: " y el resto del párrafo." },
+    ];
+    const resultado = paginate(
+      [bloque("b1", "Una llamada1 y el resto del párrafo.", { runs })],
+      GEOMETRY,
+      TIPOGRAFIA,
+    );
+    const pagina = resultado.pages[0];
+
+    expect(pagina?.footnotes).toHaveLength(1);
+    expect(pagina?.footnotes[0]?.lines[0]).toMatch(/^1\. /u);
+    expect(pagina?.footnotesHeightMm).toBeGreaterThan(0);
+    expect(pagina?.usedHeightMm).toBeLessThanOrEqual(80.001);
+    expect(pagina?.blocks[0]?.lines[0]?.segments?.some((segment) => segment.footnote)).toBe(true);
+  });
+
+  it("descuenta la nota del espacio disponible para las líneas", () => {
+    const texto = palabras(300);
+    const runs: InlineRun[] = [
+      {
+        text: "1",
+        marks: { superscript: true },
+        footnote: {
+          id: "nota-1",
+          number: 1,
+          note: "Una nota que ocupa varias líneas y obliga a mover texto a la página siguiente para que no se solapen.",
+        },
+      },
+      { text: ` ${texto}` },
+    ];
+    const resultado = paginate([bloque("b1", `1 ${texto}`, { runs })], GEOMETRY, TIPOGRAFIA);
+    const lineasPrimera = resultado.pages[0]?.blocks[0]?.lines.length ?? 0;
+
+    expect(resultado.pages.length).toBeGreaterThan(1);
+    expect(lineasPrimera).toBeLessThan(LINEAS_POR_PAGINA);
+    expect(resultado.pages[0]?.footnotes).toHaveLength(1);
+    expect(resultado.pages[0]?.usedHeightMm).toBeLessThanOrEqual(80.001);
   });
 });

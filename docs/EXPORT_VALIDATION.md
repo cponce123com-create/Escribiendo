@@ -191,3 +191,50 @@ credenciales de Cloudinary para descargarlas.
 - No se ha probado la exportación con 80 imágenes reales en una instancia Free.
 
 Ninguna de estas ausencias se presenta como una validación aprobada.
+
+## Notas al pie (Lote J)
+
+Comprobado en `packages/export-engine/src/footnote-export.test.ts` y en la
+prueba de editor de `tests/e2e/manuscrito.spec.ts`.
+
+### PDF
+
+- La paginación compone cada nota al 78 % del cuerpo y reserva su altura en la
+  página de la llamada.
+- `toPdfPages` dibuja una línea separadora de 0,5 pt y las líneas de la nota
+  en la parte inferior del área de texto, antes del folio.
+- Las notas usan los mismos tipos estándar que el cuerpo. Los caracteres que
+  WinAnsi no representa se sustituyen y se cuentan en `caracteresPerdidos`,
+  igual que el resto del texto.
+- Si una nota no cabe con su llamada, se conserva completa, se emite
+  `FOOTNOTE_OVERFLOW` y la maqueta debe revisarse. No se divide entre páginas.
+
+### EPUB
+
+- La llamada se escribe como
+  `<a epub:type="noteref" href="#fn-ID"><sup>N</sup></a>`.
+- Al final del capítulo se agrupan las notas en
+  `<section epub:type="footnotes">`; cada nota es un `<li epub:type="footnote">`
+  con enlace de vuelta a la llamada.
+- El texto va escapado. Las notas son texto plano en esta versión.
+- No se ha validado con EPUBCheck; la estructura se comprueba byte a byte.
+
+### DOCX
+
+- Se añade `word/footnotes.xml` al paquete, el override de tipo de contenido y
+  la relación `footnotes` en `word/_rels/document.xml.rels`.
+- Cada llamada usa un `w:footnoteReference` real con el identificador global;
+  la nota contiene `w:footnoteRef` y el texto en el estilo `FootnoteText`.
+- Los estilos `FootnoteText` y `FootnoteReference` están declarados en
+  `word/styles.xml`.
+- No se ha abierto el archivo en Word ni en LibreOffice desde este entorno. La
+  estructura OOXML se comprueba en las pruebas, no la compatibilidad real de la
+  aplicación.
+
+### Evidencia
+
+| Suite           | Resultado                  |
+| --------------- | -------------------------- |
+| `pnpm test`     | 280 pruebas en 31 archivos |
+| `pnpm test:e2e` | 72 pruebas en Chromium     |
+| `pnpm build`    | Correcto                   |

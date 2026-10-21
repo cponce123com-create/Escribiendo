@@ -10,7 +10,7 @@ Esta auditoría combina dos fuentes, y distingue siempre cuál se usó:
 
 1. **Revisión del código** de autenticación, sesiones, permisos, validación de
    origen, cabeceras, descargas, auditoría y retención.
-2. **Pruebas ejecutadas** con la suite del repositorio: 268 unitarias y 71 de
+2. **Pruebas ejecutadas** con la suite del repositorio: 280 unitarias y 72 de
    extremo a extremo en Chromium, contra la compilación de producción.
 
 No se ha ejecutado una prueba de penetración externa, ni un escaneo
@@ -187,6 +187,23 @@ permanentes ni trabajadores en segundo plano.
   espacios de trabajo en la base, pero conviene limitarlo por carpeta en una
   fase posterior.
 
+### 3.11 Notas al pie
+
+- **Texto no confiable.** El texto de la nota se guarda en el atributo `note`
+  del nodo Tiptap. La vista previa lo pinta como texto de React, y EPUB, DOCX y
+  PDF lo escapan antes de escribir el archivo. No se interpreta como HTML.
+- **Identidad.** El `id` de la nota se valida contra
+  `[A-Za-z0-9_-]{1,64}` antes de guardar. En EPUB se usa con prefijo `fn-`
+  para que el identificador sea válido como `xml:id`/fragmento.
+- **Longitud.** El esquema limita la nota a 2000 caracteres y rechaza notas
+  vacías o con contenido anidado.
+- **Exportación.** Las notas no abren conexiones ni leen archivos: son texto
+  del manuscrito. La única red de exportación sigue siendo la allowlist de
+  Cloudinary descrita en 3.10.
+- **Riesgo residual.** Una nota excepcionalmente larga puede no caber en la
+  página; se conserva y se emite `FOOTNOTE_OVERFLOW`, pero la composición debe
+  revisarse. No es un riesgo de seguridad, sino de maqueta.
+
 ## 4. Hallazgos y riesgos abiertos
 
 | ID   | Severidad   | Hallazgo                                                                                                             | Estado                                                                                                                |
@@ -218,7 +235,7 @@ pentest ni escaneo de dependencias, el alcance es el que se ha descrito.
 | `equipo.spec.ts` (E2E)     | Roles, invitaciones de un solo uso y auditoría                                                                                                 | Verde     |
 | `images.test.ts`           | Allowlist de Cloudinary, rechazo de otros hosts y reutilización de imágenes ya resueltas                                                       | Verde     |
 | `manuscrito.spec.ts` (E2E) | Controles de imagen y biblioteca del libro                                                                                                     | Verde     |
-| Suite completa             | 268 unitarias y 71 E2E                                                                                                                         | Verde     |
+| Suite completa             | 280 unitarias y 72 E2E                                                                                                                         | Verde     |
 
 Los comandos son los del protocolo de `IMPLEMENTATION_PLAN.md`. Las pruebas
 E2E se ejecutan contra la compilación de producción en el puerto 3100 y una

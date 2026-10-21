@@ -12,6 +12,13 @@ import { buildZip, type ZipEntry } from "./zip";
 export type ExportBlockKind =
   "title" | "heading" | "body" | "quote" | "pageBreak" | "rule" | "image";
 
+/** Nota al pie dentro de un tramo en línea. */
+export interface ExportFootnote {
+  id: string;
+  number: number;
+  note: string;
+}
+
 /** Tramo de texto con formato en línea, para el EPUB y el DOCX. */
 export interface ExportInlineRun {
   text: string;
@@ -22,6 +29,7 @@ export interface ExportInlineRun {
   superscript?: boolean;
   subscript?: boolean;
   link?: string;
+  footnote?: ExportFootnote;
 }
 
 export interface ExportBlock {
@@ -79,10 +87,25 @@ figure.image.align-left { margin-left: 0; margin-right: auto; text-align: left; 
 figure.image.align-right { margin-left: auto; margin-right: 0; text-align: right; }
 figure.image img { max-width: 100%; height: auto; }
 figure.image figcaption, p.image-alt { font-size: 0.9em; font-style: italic; text-align: center; text-indent: 0; }
-div.pagebreak { page-break-after: always; }`;
+div.pagebreak { page-break-after: always; }
+a.footnote-ref { text-decoration: none; }
+section.footnotes { margin-top: 2em; font-size: 0.82em; line-height: 1.35; }
+section.footnotes hr { border: 0; border-top: 1px solid #777; width: 35%; margin: 0 0 1em; }
+section.footnotes ol { padding-left: 1.4em; }
+section.footnotes li { margin-bottom: 0.6em; }
+a.footnote-back { text-decoration: none; }`;
 
 /** Un tramo con sus etiquetas de formato. */
 function inlineHtml(run: ExportInlineRun): string {
+  if (run.footnote) {
+    const id = escapeXml(run.footnote.id);
+
+    return (
+      `<a class="footnote-ref" epub:type="noteref" href="#fn-${id}" id="fnref-${id}">` +
+      `<sup>${run.footnote.number}</sup></a>`
+    );
+  }
+
   let html = escapeXml(run.text);
 
   if (run.subscript) {
@@ -123,6 +146,23 @@ function inlineContent(block: ExportBlock): string {
   return block.runs.map(inlineHtml).join("");
 }
 
+/** Notas de un capítulo, en orden de aparición y sin repetir. */
+function chapterFootnotes(chapter: ExportChapter): ExportFootnote[] {
+  const notes: ExportFootnote[] = [];
+  const known = new Set<string>();
+
+  for (const block of chapter.blocks) {
+    for (const run of block.runs ?? []) {
+      if (run.footnote && !known.has(run.footnote.id)) {
+        known.add(run.footnote.id);
+        notes.push(run.footnote);
+      }
+    }
+  }
+
+  return notes;
+}
+
 /** Cuerpo de un capítulo en XHTML. */
 function chapterXhtml(
   chapter: ExportChapter,
@@ -130,6 +170,8 @@ function chapterXhtml(
   imageHrefs: ReadonlyMap<string, string>,
 ): string {
   const body: string[] = [];
+
+  const footnotes = chapterFootnotes(chapter);
 
   for (const block of chapter.blocks) {
     if (block.kind === "pageBreak") {
@@ -180,6 +222,23 @@ function chapterXhtml(
     }
 
     body.push(`<p>${inlineContent(block)}</p>`);
+  }
+
+  if (footnotes.length > 0) {
+    body.push('<section class="footnotes" epub:type="footnotes">');
+    body.push("<hr/>");
+    body.push("<ol>");
+
+    for (const note of footnotes) {
+      body.push(
+        `<li id="fn-${escapeXml(note.id)}" epub:type="footnote">` +
+          `<p><a class="footnote-back" href="#fnref-${escapeXml(note.id)}">${note.number}.</a> ` +
+          `${escapeXml(note.note)}</p></li>`,
+      );
+    }
+
+    body.push("</ol>");
+    body.push("</section>");
   }
 
   return (

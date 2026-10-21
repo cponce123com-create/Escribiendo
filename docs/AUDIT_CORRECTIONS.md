@@ -237,3 +237,71 @@ Pruebas nuevas de este lote:
   `□` y se cuenta.
 - No se ha medido el coste de descargar y normalizar 80 imágenes en Render
   Free; solo se ha acotado por código.
+
+---
+
+## Lote J — Notas al pie de extremo a extremo
+
+Fecha: 21 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+Base del lote: `4211bb6`.
+
+### Qué estaba mal
+
+1. El editor solo tenía `StarterKit`: no existía un nodo para insertar una
+   llamada a nota ni una forma de editar su texto.
+2. La maqueta no reservaba altura para las notas; una nota habría quedado
+   fuera del área de texto o habría desplazado el cuerpo sin avisar.
+3. PDF, EPUB y DOCX no tenían ninguna representación de notas al pie.
+4. La numeración no podía depender de un número guardado en el JSON: insertar
+   una nota antes de otra debía renumerar las siguientes.
+
+### Qué se ha cambiado
+
+| Área       | Archivos                                                                                                        | Cambio                                                                                                                                                          |
+| ---------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Esquema    | `packages/book-schema/src/tiptap.ts`                                                                            | Nodo `footnote` con `id` validado y `note` no vacío de hasta 2000 caracteres; texto plano y conteo incluyen la nota.                                            |
+| Editor     | `components/editor/editorial-footnote.ts`, `section-editor.tsx`, `globals.css`                                  | Nodo atómico en línea, numeración dinámica por decoraciones, botón «†», inserción con diálogo y edición o borrado al pulsar la llamada.                         |
+| Conversión | `lib/layout/inline.ts`, `lib/layout/blocks.ts`, `lib/export/manuscript.ts`                                      | La nota se convierte en un tramo superíndice con identidad, número y texto; un contador compartido numera todas las secciones en orden de lectura.              |
+| Maqueta    | `packages/editorial-engine/src/rich-text.ts`, `pagination.ts`, `paginated-preview.tsx`, `diagnostics-panel.tsx` | Medición real del superíndice, composición de la nota al 78 % del cuerpo, reserva de altura, área visible en la vista previa y diagnóstico `FOOTNOTE_OVERFLOW`. |
+| EPUB       | `packages/export-engine/src/epub.ts`                                                                            | `epub:type="noteref"` en la llamada y `aside`/`li` con `epub:type="footnote"` al final del capítulo, con enlace de vuelta.                                      |
+| DOCX       | `packages/export-engine/src/docx.ts`                                                                            | `word/footnotes.xml`, relación `footnotes`, override de tipo de contenido, estilos `FootnoteText`/`FootnoteReference` y `w:footnoteReference` reales.           |
+| PDF        | `packages/export-engine/src/pdf.ts`, `lib/export/generate.ts`                                                   | Línea separadora vectorial y notas compuestas al pie de cada página, con la altura que reservó la paginación.                                                   |
+
+### Pruebas ejecutadas
+
+| Suite               | Resultado                  |
+| ------------------- | -------------------------- |
+| `pnpm test`         | 280 pruebas en 31 archivos |
+| `pnpm test:e2e`     | 72 pruebas en Chromium     |
+| `pnpm format:check` | Correcto                   |
+| `pnpm lint`         | Sin errores                |
+| `pnpm typecheck`    | Sin errores                |
+| `pnpm build`        | Correcto                   |
+
+Pruebas nuevas de este lote:
+
+- `packages/book-schema/src/tiptap.test.ts`: 4 casos de aceptación y rechazo
+  de la estructura de una nota.
+- `apps/web/src/lib/layout/blocks.test.ts`: 3 casos de conversión, numeración
+  global entre secciones y llamadas copiadas con el mismo identificador
+  guardado.
+- `packages/editorial-engine/src/pagination.test.ts`: 2 casos de composición
+  al pie y descuento de altura.
+- `packages/export-engine/src/footnote-export.test.ts`: 3 casos de EPUB, DOCX
+  y PDF.
+- `tests/e2e/manuscrito.spec.ts`: inserción, numeración, guardado y
+  persistencia de una nota en el editor real.
+
+### Lo que sigue sin estar resuelto
+
+- La nota es texto plano: no admite cursiva, negrita ni enlaces dentro de la
+  nota.
+- Una nota excepcionalmente larga puede no caber con su llamada en una página.
+  En ese caso se conserva entera, se emite `FOOTNOTE_OVERFLOW` y la maqueta
+  debe revisarse; no se divide automáticamente entre páginas.
+- EPUBCheck, Word y LibreOffice siguen sin estar disponibles. La estructura
+  OOXML/EPUB se comprueba en las pruebas, no con esas aplicaciones.
+- El cuerpo del PDF sigue usando Times/WinAnsi. La nota se beneficia de la
+  misma sustitución avisada, pero el Unicode completo queda para el lote de
+  fuentes incrustadas.
