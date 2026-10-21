@@ -19,6 +19,7 @@ import {
   paginate,
   withTypographyDefaults,
   type LaidOutPage,
+  type MeasureText,
   type PageGeometry,
 } from "@escribiendo/editorial-engine";
 import { getBookEdition, getDefaultLayoutProfile } from "@/lib/layout/profiles";
@@ -27,6 +28,7 @@ import type { SessionContext } from "@/lib/auth/session";
 import type { ExportSection } from "./manuscript";
 import { sectionToBlocks } from "./manuscript";
 import { loadExportImages } from "./images";
+import { loadPdfFonts } from "./fonts";
 
 /**
  * Generación de los archivos de exportación.
@@ -60,6 +62,10 @@ export interface ExportMetadata {
   imagenesIncrustadas: number;
   /** Imágenes que no se han podido resolver y quedan marcadas o como texto. */
   imagenesOmitidas: number;
+  /** Fuentes TrueType incrustadas en el PDF. */
+  fuentesIncrustadas: number;
+  /** Fuentes que no se han podido interpretar y han caído a Times. */
+  fuentesOmitidas: number;
 }
 
 export interface GeneratedFile {
@@ -142,6 +148,7 @@ function toPdfPages(
   profile: NonNullable<GenerateInput["profile"]>,
   typography: ReturnType<typeof withTypographyDefaults>,
   images: ExportImageMap,
+  measure?: MeasureText,
 ): {
   pdfPages: PdfPage[];
   textWidthMm: number;
@@ -150,6 +157,11 @@ function toPdfPages(
 } {
   const textWidthMm =
     profile.pageWidthMm - profile.marginInnerMm - profile.marginOuterMm - profile.gutterMm;
+  const medir = (text: string, options: Parameters<typeof measureTextMm>[1]): number =>
+    measureTextMm(text, {
+      ...options,
+      ...(measure ? { measure } : {}),
+    });
   let imagenesIncrustadas = 0;
   let imagenesOmitidas = 0;
 
@@ -169,7 +181,7 @@ function toPdfPages(
       // Separador de escena: no tiene líneas de texto, pero ocupa su renglón.
       if (block.kind === "rule") {
         const marca = "* * *";
-        const ancho = measureTextMm(marca, {
+        const ancho = medir(marca, {
           fontFamily: block.style.fontFamily,
           fontSizePt: block.style.fontSizePt,
         });
@@ -177,6 +189,7 @@ function toPdfPages(
         runs.push({
           text: marca,
           font: "regular",
+          family: block.style.fontFamily,
           sizePt: block.style.fontSizePt,
           xMm: leftMm + Math.max(0, (textWidthMm - ancho) / 2),
           baselineMm: y + lineHeightMm * 0.8,
@@ -234,9 +247,10 @@ function toPdfPages(
           y += layout.captionGapMm;
 
           for (const captionLine of layout.captionLines) {
-            const ancho = measureTextMm(captionLine, {
+            const ancho = medir(captionLine, {
               fontFamily: block.style.fontFamily,
               fontSizePt: layout.captionFontSizePt,
+              italic: true,
             });
             const captionX =
               alignment === "center"
@@ -248,6 +262,7 @@ function toPdfPages(
             runs.push({
               text: captionLine,
               font: "italic",
+              family: block.style.fontFamily,
               sizePt: layout.captionFontSizePt,
               xMm: captionX,
               baselineMm: y + layout.captionLineHeightMm * 0.8,
@@ -275,13 +290,15 @@ function toPdfPages(
           text: string,
           sizePt: number,
           bold: boolean,
+          italic: boolean,
           letterSpacingPt = block.style.letterSpacingPt,
         ): number =>
-          measureTextMm(text, {
+          medir(text, {
             fontFamily: block.style.fontFamily,
             fontSizePt: sizePt,
             letterSpacingPt,
             bold,
+            italic,
           }) || 0;
         const segmentSize = (segment: (typeof segments)[number]): number =>
           block.style.fontSizePt *
@@ -297,6 +314,7 @@ function toPdfPages(
               segment.text,
               segmentSize(segment),
               baseBold || segment.marks?.bold === true,
+              baseItalic || segment.marks?.italic === true,
             ),
           0,
         );
@@ -335,7 +353,10 @@ function toPdfPages(
           const font: PdfRun["font"] =
             bold && italic ? "boldItalic" : bold ? "bold" : italic ? "italic" : "regular";
           const sizePt = segmentSize(segment);
-          const segmentWidth = measureSegment(segment.text, sizePt, bold);
+          const segmentWidth = measureSegment(segment.text, sizePt, bold, italic);
+          const espaciosSegmento = wordSpacing > 0 ? (segment.text.match(/ /gu)?.length ?? 0) : 0;
+          const extraMm = (wordSpacing * espaciosSegmento * 25.4) / 72;
+          const advanceMm = segmentWidth + extraMm;
           const risePt = segment.marks?.superscript
             ? block.style.fontSizePt * 0.38
             : segment.marks?.subscript
@@ -345,17 +366,18 @@ function toPdfPages(
           runs.push({
             text: segment.text,
             font,
+            family: block.style.fontFamily,
             sizePt,
             xMm: x,
             baselineMm,
-            widthMm: segmentWidth,
+            widthMm: advanceMm,
             ...(wordSpacing > 0 ? { wordSpacing } : {}),
             ...(segment.marks?.underline ? { underline: true } : {}),
             ...(segment.marks?.strike ? { strike: true } : {}),
             ...(risePt !== undefined ? { risePt } : {}),
           });
 
-          x += segmentWidth;
+          x += advanceMm;
         }
 
         y += lineHeightMm;
@@ -387,6 +409,7 @@ function toPdfPages(
           runs.push({
             text: line,
             font: "regular",
+            family: typography.body.fontFamily,
             sizePt: footnoteFontSizePt,
             xMm: leftMm,
             baselineMm: footnoteY + footnoteLineHeightMm * 0.8,
@@ -402,12 +425,18 @@ function toPdfPages(
     // perfil antiguo con distancia cero no lo deje pegado al borde de la hoja.
     if (profile.showPageNumbers) {
       const footerDistance = Math.max(profile.footerDistanceMm, 4);
+      const folio = String(page.folio);
+      const anchoFolio = medir(folio, {
+        fontFamily: typography.body.fontFamily,
+        fontSizePt: 9,
+      });
 
       runs.push({
-        text: String(page.folio),
+        text: folio,
         font: "regular",
+        family: typography.body.fontFamily,
         sizePt: 9,
-        xMm: leftMm + textWidthMm / 2 - 2,
+        xMm: leftMm + (textWidthMm - anchoFolio) / 2,
         baselineMm: profile.pageHeightMm - footerDistance,
       });
     }
@@ -469,6 +498,9 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
   let caracteresPerdidos: string[] = [];
   let imagenesIncrustadas = embeddedOccurrences;
   let imagenesOmitidas = Math.max(0, imageOccurrences - embeddedOccurrences);
+  let estimatedPagination = false;
+  let fuentesIncrustadas = 0;
+  let fuentesOmitidas = 0;
 
   if (input.format === "PDF_DIGITAL" || input.format === "PDF_PRINT") {
     if (!input.profile) {
@@ -488,13 +520,17 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
         startOnOddPage: false,
       })),
     );
+    const pdfFonts = await loadPdfFonts();
+    const measure = pdfFonts?.measure;
+    estimatedPagination = !pdfFonts;
 
-    const composition = paginate(blocks, geometryFromProfile(input.profile), typography);
+    const composition = paginate(blocks, geometryFromProfile(input.profile), typography, measure);
     const pdfComposition = toPdfPages(
       composition.pages,
       input.profile,
       typography,
       loadedImages.assets,
+      measure,
     );
     const pdfPages = pdfComposition.pdfPages;
 
@@ -510,12 +546,15 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
         input.format === "PDF_PRINT"
           ? pdfPages.map((page) => ({ ...page, cropMarks: true }))
           : pdfPages,
+      ...(pdfFonts ? { fonts: pdfFonts.programs } : {}),
     });
 
     bytes = pdf.bytes;
     caracteresPerdidos = pdf.caracteresPerdidos;
     imagenesIncrustadas = pdf.imagenesIncrustadas;
     imagenesOmitidas = pdf.imagenesOmitidas;
+    fuentesIncrustadas = pdf.fuentesIncrustadas;
+    fuentesOmitidas = pdf.fuentesOmitidas;
   } else {
     const chapters: ExportChapter[] = input.sections.map((section, index) => ({
       id: section.id,
@@ -557,10 +596,12 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
       wordCount,
       sectionCount: input.sections.length,
       generatedAt: input.createdAt.toISOString(),
-      estimatedPagination: input.format === "PDF_DIGITAL" || input.format === "PDF_PRINT",
+      estimatedPagination,
       caracteresPerdidos,
       imagenesIncrustadas,
       imagenesOmitidas,
+      fuentesIncrustadas,
+      fuentesOmitidas,
     },
   };
 }

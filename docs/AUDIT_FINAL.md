@@ -246,3 +246,59 @@ que se ha ejecutado.
 
 Ninguno de estos puntos se ha sustituido por una afirmación. El detalle está en
 [AUDIT_BASELINE_95.md](AUDIT_BASELINE_95.md).
+
+---
+
+## Actualización de la rama `improvement/escribiendo-95`: fuentes TTF y PDF Unicode
+
+Fecha: 21 de octubre de 2026.
+Base del lote: `dc7c6ea`.
+Alcance cerrado: fuentes TTF incrustadas, métricas reales y extracción de texto.
+
+La puntuación de 95 **sigue sin declararse alcanzada**. La última medición
+documentada continúa siendo 87,4/100. Esta actualización registra únicamente lo
+que se ha ejecutado.
+
+### Correcciones verificadas
+
+- El PDF incrusta las caras Liberation que usa el documento como
+  `Type0`/`CIDFontType2`, con `FontFile2`, `Identity-H`, `CIDToGIDMap
+/Identity`, tabla de anchos real y mapa `ToUnicode`.
+- La paginación, los pies de imagen, las notas, las reglas y los folios usan
+  `MeasureText`; ya no se decide el corte con un modelo de anchos medios cuando
+  las fuentes están disponibles.
+- La vista previa usa el mismo medidor real que el PDF, así que sus cortes de
+  línea coinciden con los del archivo exportado. Si las fuentes no se pueden
+  leer, la vista previa y la exportación lo declaran.
+- La cursiva se mide con su propia cara, no con los anchos de la redonda.
+- El justificado de dos bytes se reparte con `TJ` y el avance de cada tramo
+  incluye el espacio extra, de modo que el texto siguiente no se solapa.
+- Si las fuentes no se cargan, el PDF conserva Times/WinAnsi y el panel avisa
+  de que la paginación es estimada.
+- La prueba E2E extrae el texto del PDF con su `ToUnicode` y comprueba
+  comillas angulares, raya, puntos suspensivos, `niño`, `caía` y `miró`.
+
+### Evidencia
+
+| Comprobación        | Resultado                                                      |
+| ------------------- | -------------------------------------------------------------- |
+| `pnpm test`         | 289 pruebas, 32 archivos                                       |
+| `pnpm test:e2e`     | 72 pruebas en Chromium                                         |
+| `pnpm format:check` | Correcto                                                       |
+| `pnpm lint`         | Sin errores                                                    |
+| `pnpm typecheck`    | Sin errores                                                    |
+| `pnpm build`        | Correcto                                                       |
+| `pnpm bench:export` | 112 ms paginación y 227 ms PDF para 200 000 palabras; 5 387 KB |
+
+### Pendiente para 95
+
+1. Cobertura Unicode más allá de latín, griego y cirílico: CJK, emoji y shaping
+   complejo. No se ha añadido una cadena de fuentes de reserva por script.
+2. Subconjuntos de fuente para reducir el tamaño del PDF.
+3. EPUBCheck, Word/LibreOffice y un lector de EPUB real.
+4. Subida real a Cloudinary con credenciales.
+5. Pruebas contra Render y carga real.
+6. Auditoría externa de seguridad y escaneo de dependencias.
+
+Ninguno de estos puntos se ha sustituido por una afirmación. El detalle está en
+[AUDIT_BASELINE_95.md](AUDIT_BASELINE_95.md).

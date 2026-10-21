@@ -43,6 +43,12 @@ export interface ExportActionState extends ActionState {
     imagenesIncrustadas: number;
     /** Imágenes que no se han podido resolver. */
     imagenesOmitidas: number;
+    /** Caras tipográficas incrustadas en el PDF. */
+    fuentesIncrustadas: number;
+    /** Caras que no se han podido incrustar y han caído a Times. */
+    fuentesOmitidas: number;
+    /** La paginación se ha calculado sin métricas reales de fuente. */
+    estimatedPagination: boolean;
   };
 }
 
@@ -132,6 +138,9 @@ export async function requestExportAction(
           caracteresPerdidos: job.metadata.caracteresPerdidos ?? [],
           imagenesIncrustadas: job.metadata.imagenesIncrustadas ?? 0,
           imagenesOmitidas: job.metadata.imagenesOmitidas ?? 0,
+          fuentesIncrustadas: job.metadata.fuentesIncrustadas ?? 0,
+          fuentesOmitidas: job.metadata.fuentesOmitidas ?? 0,
+          estimatedPagination: job.metadata.estimatedPagination ?? false,
         }
       : undefined,
   };

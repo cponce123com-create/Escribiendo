@@ -13,6 +13,92 @@ test.describe.configure({ mode: "serial" });
 const BOOK_TITLE = "Libro exportable";
 const SECTION_TITLE = "Prólogo exportable";
 
+function unicodeFromHex(hex: string): string {
+  const puntos: number[] = [];
+
+  for (let index = 0; index < hex.length; index += 4) {
+    puntos.push(Number.parseInt(hex.slice(index, index + 4), 16));
+  }
+
+  return String.fromCodePoint(...puntos);
+}
+
+/**
+ * Extrae el texto de los flujos `Identity-H` usando los mapas `ToUnicode`
+ * incrustados. No es un lector PDF general: sirve para comprobar que los CIDs
+ * del archivo vuelven a ser el texto que escribió la autora.
+ */
+function extractPdfText(pdf: string): string {
+  const cmaps = new Map<string, Map<number, string>>();
+
+  for (const match of pdf.matchAll(
+    /(\d+) 0 obj\s*<< \/Length \d+ >>\s*stream\n([\s\S]*?)\nendstream/gu,
+  )) {
+    if (!match[2]!.includes("beginbfchar")) {
+      continue;
+    }
+
+    const map = new Map<number, string>();
+
+    for (const entry of match[2]!.matchAll(/<([0-9A-Fa-f]{4})>\s*<([0-9A-Fa-f]+)>/gu)) {
+      map.set(Number.parseInt(entry[1]!, 16), unicodeFromHex(entry[2]!));
+    }
+
+    cmaps.set(match[1]!, map);
+  }
+
+  const type0 = new Map<string, string>();
+
+  for (const match of pdf.matchAll(/(\d+) 0 obj\s*<<([\s\S]*?)>>\s*endobj/gu)) {
+    if (!match[2]!.includes("/Subtype /Type0")) {
+      continue;
+    }
+
+    const toUnicode = match[2]!.match(/\/ToUnicode (\d+) 0 R/u);
+
+    if (toUnicode) {
+      type0.set(match[1]!, toUnicode[1]!);
+    }
+  }
+
+  const resources = new Map<string, Map<number, string>>();
+
+  for (const match of pdf.matchAll(/\/(E\d+) (\d+) 0 R/gu)) {
+    const cmap = type0.get(match[2]!);
+
+    if (cmap && cmaps.has(cmap)) {
+      resources.set(match[1]!, cmaps.get(cmap)!);
+    }
+  }
+
+  let text = "";
+
+  for (const block of pdf.matchAll(/\bBT ([\s\S]*?) ET/gu)) {
+    const font = block[1]!.match(/^\/(E\d+) /u);
+
+    if (!font) {
+      continue;
+    }
+
+    const cmap = resources.get(font[1]!);
+
+    if (!cmap) {
+      continue;
+    }
+
+    const hexadecimales = [...block[1]!.matchAll(/<([0-9A-Fa-f]+)>/gu)].map((match) => match[1]!);
+
+    for (const hexadecimal of hexadecimales) {
+      for (let index = 0; index < hexadecimal.length; index += 4) {
+        const cid = Number.parseInt(hexadecimal.slice(index, index + 4), 16);
+        text += cmap.get(cid) ?? "?";
+      }
+    }
+  }
+
+  return text;
+}
+
 test.describe("Exportación", () => {
   test("se crea un libro con una sección para exportar", async ({ page }) => {
     await page.goto("/books/new");
@@ -108,13 +194,18 @@ test.describe("Exportación", () => {
     expect(bytes.subarray(0, 8).toString("utf8")).toBe("%PDF-1.4");
     expect(bytes.subarray(bytes.length - 6).toString("utf8")).toContain("%%EOF");
 
-    // La palabra en negrita se dibuja con la fuente negra, no con la redonda:
-    // el formato del manuscrito llega hasta el archivo final.
+    // La palabra en negrita se dibuja con una cara TTF incrustada, no con la
+    // fuente estándar ni con la redonda. El texto viaja como CIDs, por lo que
+    // ya no aparece como una cadena literal en el flujo.
     const texto = bytes.toString("latin1");
-    const posicion = texto.indexOf("Marta) Tj");
 
-    expect(posicion).toBeGreaterThan(0);
-    expect(texto.slice(Math.max(0, posicion - 160), posicion)).toContain("/F2 ");
+    expect(texto).toContain("/Subtype /Type0");
+    expect(texto).toContain("/Subtype /CIDFontType2");
+    expect(texto).toContain("/FontFile2");
+    expect(texto).toContain("/ToUnicode");
+    expect(texto).toContain("/BaseFont /LiberationSans-Bold");
+    expect(texto).toMatch(/BT \/E\d+ [\d.]+ Tf/u);
+    expect(texto).not.toContain("Marta) Tj");
   });
 
   test("el PDF de imprenta lleva sangrado y marcas de corte", async ({ page }) => {
@@ -320,14 +411,20 @@ test.describe("Exportación", () => {
 
     const contenido = readFileSync(ruta).toString("latin1");
 
-    // Las comillas angulares, la raya larga y los puntos suspensivos se
-    // guardan con sus códigos de Win1252.
-    expect(contenido).toContain("\xabCita\xbb");
-    expect(contenido).toContain("\x97");
-    expect(contenido).toContain("\x85");
-    // Las tildes y la eñe se conservan tal cual.
-    expect(contenido).toContain("niño");
-    expect(contenido).toContain("caía");
+    expect(contenido).toContain("/ToUnicode");
+
+    // Los CIDs se convierten de vuelta a Unicode con el mapa incrustado. Así
+    // se comprueba a la vez que el texto se conserva y que se puede buscar o
+    // copiar desde un lector PDF.
+    const extraido = extractPdfText(contenido);
+
+    expect(extraido).not.toBe("");
+    expect(extraido).toContain("«Cita»");
+    expect(extraido).toContain("—");
+    expect(extraido).toContain("…");
+    expect(extraido).toContain("niño");
+    expect(extraido).toContain("caía");
+    expect(extraido).toContain("miró");
   });
 
   test("una descarga sin firma se rechaza", async ({ page, request }) => {

@@ -4,7 +4,7 @@ import {
   type EditorialImage,
   type ImageLayout,
 } from "./image";
-import { breakIntoLines, measureTextMm, type LineBreak } from "./measure";
+import { breakIntoLines, measureTextMm, type LineBreak, type MeasureText } from "./measure";
 import { breakRunsIntoLines, type InlineFootnote, type InlineRun } from "./rich-text";
 import {
   DEFAULT_TYPOGRAPHY_CONFIG,
@@ -231,6 +231,7 @@ export function paginate(
   blocks: LayoutBlock[],
   geometry: PageGeometry,
   typographyInput: unknown,
+  measure?: MeasureText,
 ): PaginationResult {
   const typography = withTypographyDefaults(typographyInput ?? DEFAULT_TYPOGRAPHY_CONFIG);
   const diagnostics: LayoutDiagnostic[] = [];
@@ -290,6 +291,7 @@ export function paginate(
       letterSpacingPt: 0,
       lineWidthMm: widthMm,
       hyphenation: typography.body.hyphenation,
+      ...(measure ? { measure } : {}),
     });
 
     return {
@@ -414,6 +416,7 @@ export function paginate(
         textHeightMm: availableHeightMm,
         captionFontFamily: typography.body.fontFamily,
         captionFontSizePt: typography.body.fontSizePt * IMAGE_CAPTION_SCALE,
+        ...(measure ? { measure } : {}),
       });
       const height = spaceBeforeMm + imageLayout.totalHeightMm + spaceAfterMm;
 
@@ -462,6 +465,7 @@ export function paginate(
       // Los títulos se componen en negrita: si se midieran como redonda, la
       // línea cabría en el cálculo y se saldría en el papel.
       bold: block.kind.startsWith("heading"),
+      ...(measure ? { measure } : {}),
     };
 
     const lines: LaidOutLine[] =

@@ -28,6 +28,8 @@ export interface ImageLayoutInput {
   textHeightMm: number;
   captionFontFamily: MeasureOptions["fontFamily"];
   captionFontSizePt: number;
+  /** Medición real opcional para el pie; sin ella se usa el modelo. */
+  measure?: MeasureOptions["measure"];
 }
 
 export interface ImageLayout {
@@ -110,6 +112,7 @@ export function computeImageLayout(
           fontSizePt: captionFontSizePt,
           lineWidthMm: widthMm,
           hyphenation: false,
+          ...(input.measure ? { measure: input.measure } : {}),
         }).map((line) => line.text)
       : [];
 

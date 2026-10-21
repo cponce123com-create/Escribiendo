@@ -72,3 +72,12 @@ la promesa del producto.
   no se ha podido verificar desde la máquina de trabajo: la salida de red está
   filtrada y `https://escribiendo-6yep.onrender.com` no responde. Ninguna
   puntuación de este documento presume ese extremo.
+
+## Estado posterior
+
+Las cifras de 187 pruebas unitarias y 56 E2E son la fotografía histórica de la
+línea base. El estado vigente de la rama `improvement/escribiendo-95`, con
+imágenes, notas al pie, fuentes TTF incrustadas y sus límites, está en
+[AUDIT_BASELINE_95.md](AUDIT_BASELINE_95.md). La última ejecución registrada es
+de **289 pruebas unitarias en 32 archivos y 72 pruebas E2E en Chromium**. La
+puntuación de 95 no se ha declarado alcanzada.

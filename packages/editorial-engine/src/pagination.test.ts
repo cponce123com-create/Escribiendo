@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { measureTextMm } from "./measure";
+import { measureTextMm, type MeasureText } from "./measure";
 import {
   lineHeightMm,
   paginate,
@@ -101,6 +101,24 @@ describe("paginate", () => {
 
     expect(resultado.pages).toHaveLength(1);
     expect(resultado.pages[0]?.blocks).toHaveLength(1);
+  });
+
+  it("usa el medidor real para decidir los cortes de línea", () => {
+    let llamadas = 0;
+    const medir: MeasureText = (text) => {
+      llamadas += 1;
+
+      return text.length * 20;
+    };
+    const resultado = paginate(
+      [bloque("b1", "uno dos tres cuatro cinco")],
+      GEOMETRY,
+      TIPOGRAFIA,
+      medir,
+    );
+
+    expect(llamadas).toBeGreaterThan(0);
+    expect(resultado.pages[0]?.blocks[0]?.lines.length).toBeGreaterThan(1);
   });
 
   it("reparte un texto largo en varias páginas sin perder palabras", () => {

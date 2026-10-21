@@ -1,23 +1,45 @@
 /**
  * Escritor de PDF mínimo.
  *
- * Genera un PDF 1.4 con las fuentes estándar (Times-Roman, Times-Bold y
- * Times-Italic), que no hay que incrustar: el lector ya las tiene. Es
- * suficiente para un PDF de lectura y para un PDF de imprenta con marcas de
- * corte y sangrado.
+ * Genera un PDF 1.4. Si recibe fuentes TrueType, las incrusta como objetos
+ * `Type0`/`CIDFontType2` con codificación `Identity-H`, mapa `ToUnicode` y la
+ * tabla de anchos real de la fuente. Si no las recibe, conserva la alternativa
+ * de las fuentes estándar Times/WinAnsi para no romper los perfiles existentes.
  *
  * El texto se compone a partir de las líneas que ya decidió el motor de
  * paginación, de modo que el PDF y la vista previa coinciden.
  */
+
+import {
+  cidsToHex,
+  encodeTrueTypeText,
+  parseTrueTypeFont,
+  toUnicodeCMap,
+  type TrueTypeFont,
+} from "./truetype";
 
 /** Milímetros a puntos (1 pulgada = 72 puntos). */
 export const MM_TO_POINTS = 72 / 25.4;
 
 export type PdfFont = "regular" | "bold" | "italic" | "boldItalic";
 
+/** Familias que el escritor puede incrustar. */
+export type PdfFontFamily = "serif" | "sans-serif" | "monospace";
+
+export interface PdfFontProgram {
+  family: PdfFontFamily;
+  style: PdfFont;
+  /** Archivo TTF completo. */
+  data: Uint8Array;
+  /** Nombre PostScript de reserva si la tabla `name` no lo trae. */
+  name?: string;
+}
+
 export interface PdfRun {
   text: string;
   font: PdfFont;
+  /** Familia tipográfica; por defecto, serif. */
+  family?: PdfFontFamily;
   sizePt: number;
   /** Distancia horizontal desde el borde izquierdo, en milímetros. */
   xMm: number;
@@ -86,6 +108,11 @@ export interface PdfDocument {
   pages: PdfPage[];
   /** Idioma del documento, por ejemplo `es`. */
   language?: string;
+  /**
+   * Fuentes TrueType que se pueden incrustar. Solo se procesan las caras que
+   * usa el documento; las que falten caen a las fuentes estándar.
+   */
+  fonts?: PdfFontProgram[];
 }
 
 const FONTS: Record<PdfFont, string> = {
@@ -221,6 +248,122 @@ export interface PdfResult {
   imagenesIncrustadas: number;
   /** Imágenes que no se han podido incrustar y se han marcado en la página. */
   imagenesOmitidas: number;
+  /** Caras TrueType incrustadas realmente. */
+  fuentesIncrustadas: number;
+  /** Caras TrueType que no se han podido interpretar y han caído a Times. */
+  fuentesOmitidas: number;
+}
+
+interface EmbeddedFont {
+  font: TrueTypeFont;
+  resourceName: string;
+  type0Number: number;
+}
+
+function fontKey(family: PdfFontFamily | undefined, style: PdfFont): string {
+  return `${family ?? "serif"}:${style}`;
+}
+
+/** Nombre válido para un diccionario PDF. */
+function pdfName(name: string): string {
+  const limpio = name.replace(/[^A-Za-z0-9_.-]/gu, "");
+  return limpio.length > 0 ? limpio : "EmbeddedFont";
+}
+
+/** Flujo binario con su longitud declarada. */
+function streamObject(data: Uint8Array, extra = ""): Uint8Array {
+  return concatBytes([
+    latin1ToBytes(`<< /Length ${data.length}${extra} >>\nstream\n`),
+    data,
+    latin1ToBytes("\nendstream"),
+  ]);
+}
+
+/**
+ * Crea los objetos PDF de una fuente TrueType completa.
+ *
+ * No se generan subconjuntos: la fuente se incrusta tal cual. A cambio, el
+ * texto se puede extraer y buscar con `ToUnicode`, y el lector no depende de
+ * las fuentes instaladas en el sistema.
+ */
+function createEmbeddedFont(
+  font: TrueTypeFont,
+  resourceName: string,
+  family: PdfFontFamily,
+  style: PdfFont,
+  alloc: () => number,
+  objects: (Uint8Array | undefined)[],
+): EmbeddedFont {
+  const fontFileNumber = alloc();
+  objects[fontFileNumber] = streamObject(font.data, ` /Length1 ${font.data.length}`);
+
+  const toUnicodeNumber = alloc();
+  const cmap = toUnicodeCMap(font, pdfName(`ESCRIBIENDO-${resourceName}`));
+  objects[toUnicodeNumber] = streamObject(latin1ToBytes(cmap));
+
+  const descriptorNumber = alloc();
+  const cidNumber = alloc();
+  const type0Number = alloc();
+  const scale = (value: number): number => Math.round((value * 1000) / font.unitsPerEm);
+  const ascent = font.ascent || Math.round(font.unitsPerEm * 0.8);
+  const descent = font.descent || -Math.round(font.unitsPerEm * 0.2);
+  const capHeight = font.capHeight || Math.round(font.unitsPerEm * 0.7);
+  const widths = font.advances.map((advance) => Math.round((advance * 1000) / font.unitsPerEm));
+  let flags = 32;
+
+  if (family === "serif") {
+    flags |= 2;
+  }
+
+  if (family === "monospace" || font.fixedPitch) {
+    flags |= 1;
+  }
+
+  if (style === "italic" || style === "boldItalic" || font.italicAngle !== 0) {
+    flags |= 64;
+  }
+
+  const baseFont = pdfName(font.postScriptName);
+
+  objects[descriptorNumber] = latin1ToBytes(
+    `<< /Type /FontDescriptor /FontName /${baseFont} /Flags ${flags} ` +
+      `/FontBBox [${scale(font.bounds.xMin)} ${scale(font.bounds.yMin)} ` +
+      `${scale(font.bounds.xMax)} ${scale(font.bounds.yMax)}] ` +
+      `/ItalicAngle ${font.italicAngle.toFixed(3)} /Ascent ${scale(ascent)} ` +
+      `/Descent ${scale(descent)} /CapHeight ${scale(capHeight)} ` +
+      `/StemV ${style === "bold" || style === "boldItalic" ? 120 : 80} ` +
+      `/FontFile2 ${fontFileNumber} 0 R >>`,
+  );
+
+  objects[cidNumber] = latin1ToBytes(
+    `<< /Type /Font /Subtype /CIDFontType2 /BaseFont /${baseFont} ` +
+      `/CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> ` +
+      `/FontDescriptor ${descriptorNumber} 0 R /DW 1000 ` +
+      `/W [0 [${widths.join(" ")}]] /CIDToGIDMap /Identity >>`,
+  );
+
+  objects[type0Number] = latin1ToBytes(
+    `<< /Type /Font /Subtype /Type0 /BaseFont /${baseFont} /Encoding /Identity-H ` +
+      `/DescendantFonts [${cidNumber} 0 R] /ToUnicode ${toUnicodeNumber} 0 R >>`,
+  );
+
+  return { font, resourceName, type0Number };
+}
+
+function usedFontKeys(document: PdfDocument): Set<string> {
+  const keys = new Set<string>();
+
+  for (const page of document.pages) {
+    for (const run of page.runs) {
+      keys.add(fontKey(run.family, run.font));
+    }
+
+    if ((page.images?.length ?? 0) > 0) {
+      keys.add(fontKey("serif", "regular"));
+    }
+  }
+
+  return keys;
 }
 
 /**
@@ -250,6 +393,35 @@ export function buildPdf(document: PdfDocument): PdfResult {
   }
 
   const infoNumber = alloc();
+
+  const embeddedFonts = new Map<string, EmbeddedFont>();
+  const neededFonts = usedFontKeys(document);
+  let fuentesIncrustadas = 0;
+  let fuentesOmitidas = 0;
+  let embeddedIndex = 0;
+
+  for (const program of document.fonts ?? []) {
+    const family = program.family ?? "serif";
+    const key = fontKey(family, program.style);
+
+    if (!neededFonts.has(key) || embeddedFonts.has(key)) {
+      continue;
+    }
+
+    try {
+      const font = parseTrueTypeFont(program.data, program.name);
+      const resourceName = `E${embeddedIndex + 1}`;
+      embeddedIndex += 1;
+
+      embeddedFonts.set(
+        key,
+        createEmbeddedFont(font, resourceName, family, program.style, alloc, objects),
+      );
+      fuentesIncrustadas += 1;
+    } catch {
+      fuentesOmitidas += 1;
+    }
+  }
 
   const preparedByPage = new Map<number, Map<PdfImage, PreparedImage>>();
   let imagenesIncrustadas = 0;
@@ -315,6 +487,10 @@ export function buildPdf(document: PdfDocument): PdfResult {
       "/>>",
   );
 
+  const embeddedResources = [...embeddedFonts.values()]
+    .map((font) => `/${font.resourceName} ${font.type0Number} 0 R`)
+    .join(" ");
+
   document.pages.forEach((page, index) => {
     const pageNumber = pageNumbers[index] ?? 0;
     const contentNumber = contentNumbers[index] ?? 0;
@@ -325,7 +501,16 @@ export function buildPdf(document: PdfDocument): PdfResult {
     const trimX = (mediaWidth - page.widthMm) / 2;
     const trimY = (mediaHeight - page.heightMm) / 2;
     const prepared = preparedByPage.get(index) ?? new Map<PdfImage, PreparedImage>();
-    const content = pageContent(page, mediaHeight, trimX, trimY, hasMarks, perdidos, prepared);
+    const content = pageContent(
+      page,
+      mediaHeight,
+      trimX,
+      trimY,
+      hasMarks,
+      perdidos,
+      prepared,
+      embeddedFonts,
+    );
     const xObjects =
       prepared.size > 0
         ? ` /XObject << ${[...prepared.values()]
@@ -348,6 +533,7 @@ export function buildPdf(document: PdfDocument): PdfResult {
         FONT_KEYS.map(
           (font) => `/F${FONT_KEYS.indexOf(font) + 1} ${fontNumbers.get(font) ?? 0} 0 R`,
         ).join(" ") +
+        (embeddedResources ? ` ${embeddedResources}` : "") +
         ` >>${xObjects} >> /Contents ${contentNumber} 0 R >>`,
     );
 
@@ -412,6 +598,8 @@ export function buildPdf(document: PdfDocument): PdfResult {
     caracteresPerdidos: [...perdidos],
     imagenesIncrustadas,
     imagenesOmitidas,
+    fuentesIncrustadas,
+    fuentesOmitidas,
   };
 }
 
@@ -440,6 +628,45 @@ function toPoints(mm: number): string {
   return (mm * MM_TO_POINTS).toFixed(3);
 }
 
+/** Operador de texto para una fuente incrustada. */
+function embeddedTextOperator(
+  font: EmbeddedFont,
+  cids: readonly number[],
+  wordSpacing: number | undefined,
+  sizePt: number,
+): string {
+  if (!wordSpacing || wordSpacing <= 0 || sizePt <= 0) {
+    return `<${cidsToHex(cids)}> Tj`;
+  }
+
+  const space = font.font.cmap.get(0x20);
+
+  if (space === undefined) {
+    return `<${cidsToHex(cids)}> Tj`;
+  }
+
+  // `Tw` no se aplica de forma fiable a los códigos de dos bytes de
+  // Identity-H. El espacio extra se reparte con ajustes de `TJ`.
+  const adjustment = ((-wordSpacing * 1000) / sizePt).toFixed(3);
+  const chunks: string[] = [];
+  let current: number[] = [];
+
+  for (const cid of cids) {
+    current.push(cid);
+
+    if (cid === space) {
+      chunks.push(`<${cidsToHex(current)}> ${adjustment}`);
+      current = [];
+    }
+  }
+
+  if (current.length > 0) {
+    chunks.push(`<${cidsToHex(current)}>`);
+  }
+
+  return `[${chunks.join(" ")}] TJ`;
+}
+
 /** Flujo de contenido de una página. */
 function pageContent(
   page: PdfPage,
@@ -449,6 +676,7 @@ function pageContent(
   hasMarks: boolean,
   perdidos: Set<string>,
   prepared: ReadonlyMap<PdfImage, PreparedImage>,
+  embeddedFonts: ReadonlyMap<string, EmbeddedFont>,
 ): string {
   const parts: string[] = [];
 
@@ -494,18 +722,34 @@ function pageContent(
       "0.5 w",
       `${x.toFixed(3)} ${y.toFixed(3)} ${width.toFixed(3)} ${height.toFixed(3)} re S`,
     );
-    const label = toWinAnsi(image.alt?.trim() || "Imagen no disponible");
-
-    for (const perdido of label.caracteresPerdidos) {
-      perdidos.add(perdido);
-    }
-
+    const labelText = image.alt?.trim() || "Imagen no disponible";
+    const labelFont = embeddedFonts.get(fontKey("serif", "regular"));
     const labelSize = Math.min(9, Math.max(6, width / 24));
     const labelY = y + height / 2 - labelSize / 2;
 
-    parts.push(
-      `BT /F1 ${labelSize.toFixed(2)} Tf 0.25 g 1 0 0 1 ${(x + 4).toFixed(3)} ${labelY.toFixed(3)} Tm (${label.text}) Tj ET`,
-    );
+    if (labelFont) {
+      const label = encodeTrueTypeText(labelFont.font, labelText);
+
+      for (const perdido of label.perdidos) {
+        perdidos.add(perdido);
+      }
+
+      parts.push(
+        `BT /${labelFont.resourceName} ${labelSize.toFixed(2)} Tf 0.25 g ` +
+          `1 0 0 1 ${(x + 4).toFixed(3)} ${labelY.toFixed(3)} Tm ` +
+          `<${cidsToHex(label.cids)}> Tj ET`,
+      );
+    } else {
+      const label = toWinAnsi(labelText);
+
+      for (const perdido of label.caracteresPerdidos) {
+        perdidos.add(perdido);
+      }
+
+      parts.push(
+        `BT /F1 ${labelSize.toFixed(2)} Tf 0.25 g 1 0 0 1 ${(x + 4).toFixed(3)} ${labelY.toFixed(3)} Tm (${label.text}) Tj ET`,
+      );
+    }
   }
 
   for (const run of page.runs) {
@@ -513,22 +757,37 @@ function pageContent(
       continue;
     }
 
-    const fontIndex = FONT_KEYS.indexOf(run.font) + 1;
     const x = (trimXMm + run.xMm) * MM_TO_POINTS;
     const y = (mediaHeightMm - trimYMm - run.baselineMm) * MM_TO_POINTS;
-    const spacing =
-      run.wordSpacing && run.wordSpacing > 0 ? `${run.wordSpacing.toFixed(3)} Tw ` : "0 Tw ";
-    const preparado = toWinAnsi(run.text);
-
-    for (const perdido of preparado.caracteresPerdidos) {
-      perdidos.add(perdido);
-    }
-
     const rise = run.risePt !== undefined ? `${run.risePt.toFixed(3)} Ts ` : "";
+    const embedded = embeddedFonts.get(fontKey(run.family, run.font));
 
-    parts.push(
-      `BT /F${fontIndex} ${run.sizePt.toFixed(2)} Tf ${rise}${spacing}1 0 0 1 ${x.toFixed(3)} ${y.toFixed(3)} Tm (${preparado.text}) Tj ET`,
-    );
+    if (embedded) {
+      const preparado = encodeTrueTypeText(embedded.font, run.text);
+
+      for (const perdido of preparado.perdidos) {
+        perdidos.add(perdido);
+      }
+
+      parts.push(
+        `BT /${embedded.resourceName} ${run.sizePt.toFixed(2)} Tf ${rise}` +
+          `1 0 0 1 ${x.toFixed(3)} ${y.toFixed(3)} Tm ` +
+          `${embeddedTextOperator(embedded, preparado.cids, run.wordSpacing, run.sizePt)} ET`,
+      );
+    } else {
+      const fontIndex = FONT_KEYS.indexOf(run.font) + 1;
+      const spacing =
+        run.wordSpacing && run.wordSpacing > 0 ? `${run.wordSpacing.toFixed(3)} Tw ` : "0 Tw ";
+      const preparado = toWinAnsi(run.text);
+
+      for (const perdido of preparado.caracteresPerdidos) {
+        perdidos.add(perdido);
+      }
+
+      parts.push(
+        `BT /F${fontIndex} ${run.sizePt.toFixed(2)} Tf ${rise}${spacing}1 0 0 1 ${x.toFixed(3)} ${y.toFixed(3)} Tm (${preparado.text}) Tj ET`,
+      );
+    }
 
     // Subrayado y tachado se dibujan como una línea fina sobre el texto. Las
     // fuentes estándar no traen esos trazos, así que se trazan aparte.

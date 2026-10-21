@@ -38,6 +38,7 @@ pnpm test
 Vitest recorre `apps/**/*.test.ts`, `packages/**/*.test.ts` y
 `scripts/**/*.test.ts`. No necesita base de datos ni navegador.
 
+Resultado vigente: **289 pruebas en 32 archivos** (21 de octubre de 2026).
 Cobertura actual (Fases 1 a 3):
 
 | Archivo                                                   | Qué verifica                                                                                                                                                                                                |
@@ -59,9 +60,10 @@ Cobertura actual (Fases 1 a 3):
 | `packages/book-schema/src/tiptap.test.ts`                 | Normalización y validación del documento Tiptap.                                                                                                                                                            |
 | `packages/book-schema/src/diff.test.ts`                   | Comparación de revisiones por palabras: texto idéntico, palabras añadidas y eliminadas, reconstrucción del original y del nuevo, y sustitución completa por encima del límite.                              |
 | `packages/editorial-engine/src/measure.test.ts`           | Medición del texto: anchos por tipo de carácter, reparto en líneas, palabras que desbordan la caja y guionado por guion.                                                                                    |
-| `packages/editorial-engine/src/pagination.test.ts`        | Composición en páginas: reparto del texto, párrafos que ocupan más de una página, aperturas de capítulo en página par, viudas, huérfanas, folios y encabezados.                                             |
+| `packages/editorial-engine/src/pagination.test.ts`        | Composición en páginas: reparto del texto, medidor real, párrafos que ocupan más de una página, aperturas de capítulo en página par, viudas, huérfanas, folios y encabezados.                               |
 | `packages/editorial-engine/src/layout-validation.test.ts` | Validación de la geometría de página y de los formatos.                                                                                                                                                     |
-| `packages/export-engine/src/pdf.test.ts`                  | Escritura de PDF: cabecera, objetos, fuentes estándar, escapado del texto, metadatos, cajas de recorte y sangre, marcas de corte y reproducibilidad.                                                        |
+| `packages/export-engine/src/pdf.test.ts`                  | Escritura de PDF: cabecera, objetos, fuentes estándar de reserva, escapado del texto, metadatos, cajas de recorte y sangre, marcas de corte y reproducibilidad.                                             |
+| `packages/export-engine/src/pdf-fonts.test.ts`            | Fuentes TrueType: lectura de `cmap`/`hmtx`, signos del español, carácter ausente, objetos `Type0`/`FontFile2`/`ToUnicode`, caras usadas y determinismo.                                                     |
 | `packages/export-engine/src/zip.test.ts`                  | ZIP: firma, entradas sin comprimir, nombres, CRC-32 de referencia y la entrada `mimetype` colocada en primer lugar.                                                                                         |
 | `packages/export-engine/src/epub.test.ts`                 | EPUB 3 y DOCX: entradas del paquete, `mimetype` en primer lugar, manifiesto, spine, navegación, estilos, XML escapado y reproducibilidad.                                                                   |
 | `apps/web/src/lib/editor/sync.test.ts`                    | Máquina de estados de la sincronización: transiciones, espera de reintento creciente, cuándo toca sincronizar y la invariante «no se dice «guardado» mientras no lo está».                                  |
@@ -239,6 +241,7 @@ solitario:
 - El perfil creado se puede editar.
 - Se aplica la maqueta al libro.
 - La vista previa paginada compone las páginas del manuscrito.
+- La vista previa declara que usa las métricas reales de la fuente.
 - La vista previa muestra el folio y el encabezado de página.
 - La página se dibuja a escala real y respeta los márgenes.
 
@@ -254,7 +257,7 @@ crea su propio libro, su sección y su perfil de página:
 - El archivo descargado es un EPUB válido.
 - Pedir dos veces la misma exportación reutiliza el trabajo.
 - El DOCX generado es un paquete de Word.
-- El PDF conserva la tipografía española.
+- El PDF conserva la tipografía española y su texto se extrae con `ToUnicode`.
 - Una descarga sin firma se rechaza.
 
 `tests/e2e/manuscrito.spec.ts` cubre la resiliencia del manuscrito, los
@@ -267,7 +270,7 @@ ROADMAP.
 
 ```text
 Running 72 tests using 1 worker
-72 passed (2.9m)
+72 passed (3.0m)
 ```
 
 Las 72 pruebas incluyen la preparación de la cuenta de pruebas. La suite se ha

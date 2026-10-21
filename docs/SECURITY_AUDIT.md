@@ -133,7 +133,8 @@ permanentes ni trabajadores en segundo plano.
   antes de guardarse.
 - La vista previa pinta texto en nodos de React, no HTML crudo.
 - Las exportaciones escapan el texto y los atributos: `escapeXml` en EPUB y
-  DOCX, y la codificación WinAnsi con tabla en el PDF.
+  DOCX, y códigos CIDs con mapa `ToUnicode` en el PDF (con WinAnsi solo como
+  alternativa si faltan las fuentes).
 - Los enlaces se guardan como texto y se escapan al serializar; el editor no
   navega al hacer clic (`link: { openOnClick: false }`).
 
@@ -187,7 +188,25 @@ permanentes ni trabajadores en segundo plano.
   espacios de trabajo en la base, pero conviene limitarlo por carpeta en una
   fase posterior.
 
-### 3.11 Notas al pie
+### 3.11 Fuentes del PDF
+
+- **Origen fijo.** Las doce caras se leen de `public/fonts/liberation/` con una
+  lista constante de nombres. No se acepta una ruta, un nombre ni bytes de
+  fuente desde la petición.
+- **Sin red.** La carga es local; la exportación no descarga fuentes ni sigue
+  URL alguna para tipografía. La única red sigue siendo la allowlist de
+  Cloudinary.
+- **Lector acotado.** `truetype.ts` comprueba límites de tabla, rangos de
+  `cmap` y longitudes antes de leer; una fuente inválida lanza y el PDF cae a
+  Times/WinAnsi con `estimatedPagination`.
+- **Contenido.** La fuente se incrusta como datos binarios en `FontFile2`; no
+  se ejecuta ni se interpreta como código. El texto se escribe como CIDs y el
+  `ToUnicode` solo sirve para extraerlo.
+- **Riesgo residual.** No se ha auditado el parser TTF con fuzzing ni con
+  fuentes maliciosas de terceros. El modelo actual solo admite los activos
+  versionados en el repositorio.
+
+### 3.12 Notas al pie
 
 - **Texto no confiable.** El texto de la nota se guarda en el atributo `note`
   del nodo Tiptap. La vista previa lo pinta como texto de React, y EPUB, DOCX y
@@ -215,7 +234,7 @@ permanentes ni trabajadores en segundo plano.
 | S-05 | Media       | No se ha ejecutado un escaneo automatizado de dependencias ni una prueba de penetración                              | **Abierto**: no se afirma lo contrario                                                                                |
 | S-06 | Baja        | La subida real a Cloudinary no se ha probado con credenciales; solo la firma, la autorización y el rechazo de origen | **Abierto**: depende de configuración local                                                                           |
 | S-07 | Baja        | La verificación de cabeceras y CSP se hizo en local; el despliegue de Render no es alcanzable desde esta red         | **Abierto**: repetir contra el despliegue                                                                             |
-| S-08 | Informativo | El PDF usa fuentes estándar y no incrustadas; no es PDF/X                                                            | **Conocido y documentado** en `EXPORT_VALIDATION.md`                                                                  |
+| S-08 | Informativo | El PDF incrusta TTF completas y no genera subconjuntos; no se afirma PDF/X                                           | **Conocido y documentado** en `EXPORT_VALIDATION.md`                                                                  |
 | S-09 | Baja        | La allowlist de exportación acepta cualquier imagen pública de la cuenta configurada, no solo la carpeta del libro   | **Abierto**: acotar por carpeta en una fase posterior; no permite leer activos privados ni cruza espacios en la base  |
 
 No consta ninguna vulnerabilidad crítica abierta en el código revisado. La
@@ -235,7 +254,7 @@ pentest ni escaneo de dependencias, el alcance es el que se ha descrito.
 | `equipo.spec.ts` (E2E)     | Roles, invitaciones de un solo uso y auditoría                                                                                                 | Verde     |
 | `images.test.ts`           | Allowlist de Cloudinary, rechazo de otros hosts y reutilización de imágenes ya resueltas                                                       | Verde     |
 | `manuscrito.spec.ts` (E2E) | Controles de imagen y biblioteca del libro                                                                                                     | Verde     |
-| Suite completa             | 280 unitarias y 72 E2E                                                                                                                         | Verde     |
+| Suite completa             | 289 unitarias y 72 E2E                                                                                                                         | Verde     |
 
 Los comandos son los del protocolo de `IMPLEMENTATION_PLAN.md`. Las pruebas
 E2E se ejecutan contra la compilación de producción en el puerto 3100 y una

@@ -35,6 +35,10 @@ Después del lote de imágenes y de las pruebas nuevas de esta rama:
 Las cifras son de esta máquina y de la compilación de producción local. No
 presumen el comportamiento del despliegue de Render.
 
+La cifra vigente después del Lote K es **289 pruebas unitarias en 32 archivos**
+y **72 pruebas E2E en Chromium**. Las tablas siguientes conservan la historia de
+cada lote; no se reescriben los resultados anteriores.
+
 ## Hallazgos comprobados y corregidos en el lote de imágenes
 
 | #    | Hallazgo comprobado                                                                                                       | Corrección                                                                                                                                           | Evidencia                                                            |
@@ -66,9 +70,11 @@ Lote J cerró el punto 1; el resto sigue abierto.
 1. **Notas al pie.** Cerrado en el Lote J: nodo de editor, numeración,
    composición al pie y exportación a PDF, EPUB y DOCX. Quedan las limitaciones
    de texto plano y notas muy largas.
-2. **PDF con Unicode completo.** El cuerpo sigue usando Times/WinAnsi. Los
-   caracteres sin equivalente se sustituyen por `□` y se cuentan; no hay
-   fuentes TTF incrustadas ni tabla de anchos real.
+2. **PDF con fuentes incrustadas (cerrado parcialmente en el Lote K).** El
+   cuerpo ya usa TTF Liberation incrustadas, `Identity-H`, `ToUnicode` y anchos
+   reales; los signos del español se conservan y se pueden extraer. Sigue sin
+   cubrir CJK, emoji ni shaping complejo, y no se generan subconjuntos. Si las
+   fuentes no se cargan, se conserva la alternativa Times/WinAnsi y se avisa.
 3. **Validación externa.** No se ha pasado EPUBCheck, no se ha abierto el DOCX
    en Word o LibreOffice y no se ha probado un EPUB en un lector comercial.
 4. **Cloudinary real.** No hay credenciales locales: la subida se ha validado
@@ -130,3 +136,51 @@ Base del lote: `4211bb6`.
 6. **Puntuación.** La última medición documentada sigue siendo 87,4/100. No se
    emite una puntuación nueva sin cerrar los lotes de Unicode y validación
    externa.
+
+## Actualización del Lote K: fuentes TTF y PDF Unicode
+
+Fecha: 21 de octubre de 2026.
+Base del lote: `dc7c6ea`.
+
+### Evidencia ejecutada
+
+| Comprobación         | Resultado                |
+| -------------------- | ------------------------ |
+| Pruebas unitarias    | 289 pruebas, 32 archivos |
+| Extremo a extremo    | 72 pruebas en Chromium   |
+| Formato, lint        | Sin errores              |
+| Tipos y compilación  | Sin errores              |
+| Banco de exportación | Ejecutado con fuentes    |
+
+### Hallazgos corregidos
+
+| #   | Hallazgo comprobado                                                                                                            | Corrección                                                                                                                        | Evidencia                                          |
+| --- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| K-1 | El PDF solo declaraba Times-Roman, Times-Bold y Times-Italic; dependía del lector.                                             | Se incrustan TTF completas como `Type0`/`CIDFontType2`, con `FontFile2`, `Identity-H` y `CIDToGIDMap /Identity`.                  | `pdf-fonts.test.ts` (6 casos)                      |
+| K-2 | La paginación usaba anchos medios y no la fuente que después se imprimía.                                                      | `MeasureText` recorre paginación, pies de imagen, notas, reglas y folios; las métricas salen de `hmtx` y `cmap`.                  | `pagination.test.ts`, `measure.ts`                 |
+| K-3 | El texto no tenía mapa de extracción: buscar o copiar dependía del lector.                                                     | Cada fuente incrustada lleva `ToUnicode`; la prueba E2E extrae «Cita», raya, puntos suspensivos, `niño`, `caía` y `miró`.         | `exportacion.spec.ts`                              |
+| K-4 | El justificado con `Tw` no es fiable en códigos de dos bytes de `Identity-H`.                                                  | El espacio extra se reparte con ajustes `TJ`; el avance de los tramos incluye ese espacio para no solapar el texto siguiente.     | `pdf-fonts.test.ts`, `generate.ts`                 |
+| K-5 | Incrustar todas las caras aunque no se usaran aumentaría el archivo sin necesidad.                                             | Solo se procesan las caras que aparecen en los tramos; las demás se omiten.                                                       | `pdf-fonts.test.ts` («solo las caras usadas»)      |
+| K-6 | Una fuente ausente podía dejar la paginación como si fuera exacta.                                                             | Si no se cargan las fuentes, se usa Times/WinAnsi, `estimatedPagination` queda en `true` y el panel lo avisa.                     | `fonts.ts`, `export-panel.tsx`                     |
+| K-7 | Las fuentes debían ser redistribuibles y no depender de las instaladas en Windows.                                             | Se usan Liberation Fonts 2.1.5, licencia SIL OFL; se incluyen `OFL.txt` y las doce caras en `public/fonts/liberation/`.           | `apps/web/public/fonts/liberation/`                |
+| K-8 | La vista previa se componía con el modelo aproximado mientras el PDF usaba métricas reales: los cortes de línea no coincidían. | La vista previa inyecta el mismo medidor real; la página declara si la composición es exacta o estimada.                          | `preview.ts`, `maquetacion.spec.ts`                |
+| K-9 | La cursiva se medía con los anchos de la redonda, así que el PDF podía solapar un tramo en cursiva con el siguiente.           | El medidor elige la cara que se dibuja (`regular`, `bold`, `italic`, `boldItalic`) y la composición de tramos propaga la cursiva. | `rich-text.test.ts`, `measure.test.ts`, `fonts.ts` |
+
+### Cobertura y límites
+
+- La fuente se incrusta completa, sin subconjuntos. Para 200 000 palabras el
+  PDF medido ocupa 5 387 KB; no es un archivo pequeño, pero es autocontenido.
+- Liberation cubre latín, griego y cirílico. **No cubre CJK, emoji ni todos los
+  sistemas de escritura**, y no hay shaping complejo ni ligaduras automáticas.
+  Los caracteres sin glifo se sustituyen y se cuentan en `caracteresPerdidos`.
+- No se ha añadido una cadena de fuentes de reserva por script. «Unicode
+  completo» sigue sin estar demostrado para todos los idiomas.
+- EPUBCheck, Word/LibreOffice, Cloudinary real, Render y Neon por 5432 siguen
+  sin poder verificarse localmente.
+
+### Puntuación
+
+La puntuación documentada **no sube a 95**. Se mantiene la última medición
+conservadora de 87,4/100 hasta que la validación externa y la cobertura
+Unicode pendientes puedan demostrarse. El Lote K mejora el PDF, pero no
+autoriza a declarar terminado lo que no se ha probado.

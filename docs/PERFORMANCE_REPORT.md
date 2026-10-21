@@ -99,10 +99,10 @@ Medido con las sondas de salud durante la suite:
 
 ## Límites que no se pueden eliminar con optimización
 
-1. **La paginación es una estimación.** Sin las métricas reales de la fuente
-   incrustada, el reparto de líneas es aproximado. El coste de tener
-   paginación exacta es incrustar la fuente en el PDF, que es trabajo de la
-   producción final, no una optimización.
+1. **La paginación usa métricas reales cuando las fuentes están disponibles.**
+   Si no se cargan, vuelve a la estimación y lo declara. El coste de la
+   exactitud es incrustar la fuente completa en el PDF, porque no hay
+   subconjuntos; el tamaño resultante se mide más abajo.
 2. **La exportación usa memoria proporcional al manuscrito.** Con 200 000
    palabras son unos 56 MB. Un manuscrito de un millón de palabras rondaría
    los 300 MB y empezaría a apretar la instancia: ese es el techo real del
@@ -190,3 +190,60 @@ avisa, no se elimina.
 
 Las cifras de duración son de esta máquina y varían con la carga. No se
 presentan como un compromiso de rendimiento del despliegue.
+
+## Reejecución tras el Lote K (fuentes TTF y métricas reales)
+
+Comando: `pnpm bench:export`, ejecutado el 21 de octubre de 2026 con
+`LiberationSerif-Regular.ttf` cargada. El banco usa la medición real de
+`hmtx`/`cmap` y el PDF incrusta esa cara. Sigue sin incluir imágenes ni notas
+reales.
+
+| Palabras | Páginas | Paginación |    PDF | PDF KB |  EPUB |  DOCX | Memoria |
+| -------- | ------: | ---------: | -----: | -----: | ----: | ----: | ------: |
+| 10 000   |      28 |      15 ms |  31 ms |    677 |  8 ms |  7 ms |  3,8 MB |
+| 50 000   |     137 |      28 ms |  67 ms |  1 668 | 14 ms | 14 ms | 24,5 MB |
+| 100 000  |     273 |      61 ms | 175 ms |  2 907 | 32 ms | 51 ms | 10,2 MB |
+| 200 000  |     546 |     112 ms | 227 ms |  5 387 | 51 ms | 60 ms | -1,1 MB |
+
+Lectura:
+
+- La paginación con métricas reales fue más rápida que las pasadas anteriores
+  porque el banco cambió de modelo de medición; no se presenta como una mejora
+  del producto, sino como el resultado de esta ejecución concreta.
+- El PDF tarda más porque incrusta la fuente completa y escribe el mapa
+  `ToUnicode` y la tabla de anchos. A cambio, el archivo es autocontenido.
+- El tamaño del PDF crece con el manuscrito y con las caras usadas. La tabla
+  mide una sola cara regular; un libro con negrita, cursiva y negrita cursiva
+  puede añadir varias fuentes completas.
+- **La columna de memoria es ruido.** Es la diferencia entre el mínimo y el
+  máximo de la reserva del proceso, no el consumo absoluto: entre dos pasadas
+  de este mismo banco se han medido valores desde -1,1 MB hasta 51,1 MB. El
+  máximo absoluto observado sigue estando muy por debajo de los 512 MB de
+  Render Free, pero la cifra no es comparable entre ejecuciones. No incluye
+  imágenes reales ni notas.
+
+### Coste de las fuentes y de la vista previa
+
+Medido con el mismo lector que usa la aplicación:
+
+| Operación                                     | Coste |
+| --------------------------------------------- | ----- |
+| Leer y analizar las doce caras Liberation     | 33 ms |
+| 1 000 mediciones de texto con métricas reales | 5 ms  |
+
+Las fuentes se cargan una vez por proceso y se reutilizan en la exportación y
+en la vista previa. La vista previa paginada puede, por tanto, usar las
+métricas reales sin coste apreciable: el retraso de la primera carga es de 33
+ms y después solo hay que medir.
+
+### Suite tras el Lote K
+
+| Suite                       | Duración | Resultado    |
+| --------------------------- | -------: | ------------ |
+| `pnpm test` (unitarias)     |   ~7,8 s | 289 en verde |
+| `pnpm test:e2e` (navegador) |   ~3,0 m | 72 en verde  |
+| `pnpm build` (producción)   |        — | Correcto     |
+
+La duración de la suite E2E es la de esta máquina con un solo trabajador. El
+banco no mide el coste de descargar imágenes de Cloudinary ni de componer
+miles de notas; esas cifras siguen pendientes.

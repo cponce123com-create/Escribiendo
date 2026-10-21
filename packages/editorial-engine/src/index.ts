@@ -37,6 +37,7 @@ export {
   type BreakOptions,
   type LineBreak,
   type MeasureOptions,
+  type MeasureText,
 } from "./measure";
 export {
   breakRunsIntoLines,

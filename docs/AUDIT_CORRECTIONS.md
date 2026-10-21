@@ -302,6 +302,79 @@ Pruebas nuevas de este lote:
   debe revisarse; no se divide automáticamente entre páginas.
 - EPUBCheck, Word y LibreOffice siguen sin estar disponibles. La estructura
   OOXML/EPUB se comprueba en las pruebas, no con esas aplicaciones.
-- El cuerpo del PDF sigue usando Times/WinAnsi. La nota se beneficia de la
-  misma sustitución avisada, pero el Unicode completo queda para el lote de
-  fuentes incrustadas.
+- El cuerpo del PDF usaba Times/WinAnsi en este lote. El Lote K lo sustituye
+  por TTF Liberation incrustadas; la cobertura limitada se documenta más abajo.
+
+---
+
+## Lote K: fuentes TTF, métricas reales y Unicode en el PDF
+
+Fecha: 21 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+Base del lote: `dc7c6ea`.
+
+### Qué estaba mal
+
+1. El PDF solo usaba las fuentes estándar del lector. La paginación estimaba
+   los anchos y el texto fuera de WinAnsi se sustituía por un signo vacío.
+2. El justificado se apoyaba en `Tw`, que no funciona igual con códigos de dos
+   bytes de `Identity-H`.
+3. No había forma de extraer el texto de un PDF con fuentes incrustadas ni de
+   saber si la paginación era real o estimada.
+4. La vista previa paginada se componía con el modelo aproximado mientras el
+   PDF usaba métricas reales: sus cortes de línea no coincidían.
+5. La cursiva se medía con los anchos de la redonda, de modo que un tramo en
+   cursiva podía solaparse con el siguiente al colocarlo en el PDF.
+
+### Qué se ha cambiado
+
+| Área         | Archivos                                                                | Cambio                                                                                                                                                  |
+| ------------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lector TTF   | `packages/export-engine/src/truetype.ts`                                | Lectura de `head`, `maxp`, `hhea`, `hmtx`, `cmap` (formatos 0, 4, 6 y 12), `name`, `OS/2` y `post`; métricas, glifos y mapa inverso.                    |
+| Escritor PDF | `packages/export-engine/src/pdf.ts`                                     | Objetos `Type0`, `CIDFontType2`, `FontFile2`, `CIDToGIDMap /Identity`, `ToUnicode`, tabla `W` y fuentes solo para las caras usadas.                     |
+| Métricas     | `packages/editorial-engine/src/measure.ts`, `pagination.ts`, `image.ts` | `MeasureText` opcional propagado a líneas, notas, pies de imagen, reglas y folios.                                                                      |
+| Orquestación | `apps/web/src/lib/export/fonts.ts`, `generate.ts`                       | Carga y cachea las doce caras, pasa la medición real a la paginación y al PDF, añade `family` a los tramos y reparte el justificado con `TJ`.           |
+| Vista previa | `apps/web/src/lib/layout/preview.ts`, `books/[bookId]/preview/page.tsx` | La vista previa compone con el mismo medidor real que el PDF y declara si la composición es exacta o estimada.                                          |
+| Cursiva      | `packages/editorial-engine/src/rich-text.ts`, `measure.ts`, `fonts.ts`  | El tramo conserva su estilo al medirse: la cursiva usa su propia cara (`italic` o `boldItalic`) en la composición y en la colocación del PDF.           |
+| Interfaz     | `components/export/export-panel.tsx`, `lib/export/actions.ts`           | Muestra las fuentes incrustadas y avisa si la paginación es estimada; el aviso de caracteres perdidos ya no atribuye la pérdida a la «fuente estándar». |
+| Activos      | `apps/web/public/fonts/liberation/`                                     | Liberation Fonts 2.1.5, doce TTF, `OFL.txt` y nota de licencia.                                                                                         |
+
+### Pruebas ejecutadas
+
+| Suite               | Resultado                  |
+| ------------------- | -------------------------- |
+| `pnpm test`         | 289 pruebas en 32 archivos |
+| `pnpm test:e2e`     | 72 pruebas en Chromium     |
+| `pnpm format:check` | Correcto                   |
+| `pnpm lint`         | Sin errores                |
+| `pnpm typecheck`    | Sin errores                |
+| `pnpm build`        | Correcto                   |
+| `pnpm bench:export` | Ejecutado con fuentes      |
+
+Pruebas nuevas o ampliadas:
+
+- `packages/export-engine/src/pdf-fonts.test.ts`: seis casos de lectura de la
+  fuente, signos del español, carácter ausente, objetos PDF, caras usadas y
+  determinismo.
+- `packages/editorial-engine/src/pagination.test.ts`: un caso comprueba que
+  `paginate` usa el medidor real para decidir los cortes de línea.
+- `packages/editorial-engine/src/measure.test.ts` y `rich-text.test.ts`: dos
+  casos comprueban que el medidor real recibe el estilo del tramo, incluida la
+  cursiva.
+- `tests/e2e/maquetacion.spec.ts`: la vista previa declara que usa las métricas
+  reales de la fuente.
+- `tests/e2e/exportacion.spec.ts`: el PDF descargado declara `Type0`,
+  `CIDFontType2`, `FontFile2` y `ToUnicode`; el texto se extrae del mapa y se
+  comprueban comillas, raya, puntos suspensivos, eñe, tilde y diéresis.
+
+### Límites que permanecen
+
+- No se generan subconjuntos: se incrusta el TTF completo. El PDF de 200 000
+  palabras mide 5 387 KB.
+- Liberation cubre latín, griego y cirílico; no cubre CJK, emoji ni todos los
+  sistemas de escritura. No hay shaping complejo.
+- Los caracteres sin glifo se sustituyen y se cuentan; no se inventa una
+  representación.
+- EPUBCheck, Word/LibreOffice, Cloudinary real, Render y Neon por 5432 siguen
+  bloqueados.
+- La puntuación no se declara en 95.

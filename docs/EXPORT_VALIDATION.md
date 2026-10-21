@@ -21,29 +21,34 @@ probar sin red.
 
 ### Comprobaciones automáticas
 
-En `packages/export-engine/src/pdf.test.ts` (18 casos) y
+En `packages/export-engine/src/pdf.test.ts` (18 casos),
+`packages/export-engine/src/pdf-fonts.test.ts` (6 casos) y
 `packages/export-engine/src/image-export.test.ts` (6 casos):
 
-| Comprobación                                                                  | Resultado               |
-| ----------------------------------------------------------------------------- | ----------------------- |
-| La cabecera es `%PDF-1.4` y el archivo termina en `%%EOF`                     | Cumplido                |
-| El número de páginas declarado coincide con las composiciones                 | Cumplido                |
-| Las fuentes estándar están declaradas (Times-Roman, Times-Bold, Times-Italic) | Cumplido                |
-| El escapado de paréntesis y barras invertidas                                 | Cumplido                |
-| Los metadatos (título, autoría, asunto, fecha) están                          | Cumplido                |
-| Los metadatos Unicode se escriben como cadenas UTF-16BE                       | Cumplido                |
-| El objeto 0 no se usa como catálogo ni como objeto real                       | Cumplido                |
-| `CropBox` y `TrimBox` miden la hoja acabada                                   | Cumplido                |
-| `BleedBox` aparece cuando hay sangrado                                        | Cumplido                |
-| Las marcas de corte no dependen del sangrado                                  | Cumplido                |
-| El mismo documento produce el mismo archivo                                   | Cumplido (reproducible) |
-| La posición del texto en la línea base es exacta                              | Cumplido                |
-| Los signos tipográficos del español se conservan                              | Cumplido                |
-| Las tildes, la eñe y la diéresis se conservan                                 | Cumplido                |
-| Los caracteres sin representación se cuentan                                  | Cumplido                |
-| Un JPEG se incrusta como XObject `/Subtype /Image` con `/DCTDecode`           | Cumplido                |
-| La imagen se dibuja con `cm` y `/Im1 Do` en el flujo de la página             | Cumplido                |
-| Una imagen sin bytes deja un marco y su texto alternativo                     | Cumplido                |
+| Comprobación                                                                     | Resultado               |
+| -------------------------------------------------------------------------------- | ----------------------- |
+| La cabecera es `%PDF-1.4` y el archivo termina en `%%EOF`                        | Cumplido                |
+| El número de páginas declarado coincide con las composiciones                    | Cumplido                |
+| Las fuentes estándar siguen disponibles como alternativa                         | Cumplido                |
+| Una fuente TTF se incrusta como `/Subtype /Type0` y `/CIDFontType2`              | Cumplido                |
+| La fuente lleva `/FontFile2`, `/Encoding /Identity-H` y `/CIDToGIDMap /Identity` | Cumplido                |
+| La fuente lleva `/ToUnicode` y se puede extraer el texto                         | Cumplido                |
+| Solo se incrustan las caras que usa el documento                                 | Cumplido                |
+| El escapado de paréntesis y barras invertidas                                    | Cumplido                |
+| Los metadatos (título, autoría, asunto, fecha) están                             | Cumplido                |
+| Los metadatos Unicode se escriben como cadenas UTF-16BE                          | Cumplido                |
+| El objeto 0 no se usa como catálogo ni como objeto real                          | Cumplido                |
+| `CropBox` y `TrimBox` miden la hoja acabada                                      | Cumplido                |
+| `BleedBox` aparece cuando hay sangrado                                           | Cumplido                |
+| Las marcas de corte no dependen del sangrado                                     | Cumplido                |
+| El mismo documento produce el mismo archivo                                      | Cumplido (reproducible) |
+| La posición del texto en la línea base es exacta                                 | Cumplido                |
+| Los signos tipográficos del español se conservan                                 | Cumplido                |
+| Las tildes, la eñe y la diéresis se conservan                                    | Cumplido                |
+| Los caracteres sin representación se cuentan                                     | Cumplido                |
+| Un JPEG se incrusta como XObject `/Subtype /Image` con `/DCTDecode`              | Cumplido                |
+| La imagen se dibuja con `cm` y `/Im1 Do` en el flujo de la página                | Cumplido                |
+| Una imagen sin bytes deja un marco y su texto alternativo                        | Cumplido                |
 
 ### Imágenes
 
@@ -57,26 +62,34 @@ En `packages/export-engine/src/pdf.test.ts` (18 casos) y
   un marco gris con el texto alternativo y el resultado incrementa
   `imagenesOmitidas`.
 
-### Unicode
+### Fuentes y Unicode
 
-El **cuerpo** del PDF sigue usando `WinAnsiEncoding`, que no cubre todo
-Unicode. Hay una tabla de equivalencias a Win1252 para comillas tipográficas,
-raya larga, puntos suspensivos y otros signos del español. Lo que no tiene
-equivalente se sustituye por `□` y se devuelve en `caracteresPerdidos`; la
-interfaz avisa. Nada se pierde en silencio.
+El **cuerpo** del PDF ya no depende de `WinAnsiEncoding`. La aplicación carga
+las doce caras Liberation 2.1.5 desde `public/fonts/liberation/`; el escritor
+incrusta solo las que aparecen en el documento como `Type0`/`CIDFontType2`, con
+`FontFile2`, `Identity-H`, `CIDToGIDMap /Identity`, tabla `W` de anchos reales
+y mapa `ToUnicode`. La paginación usa la misma medición (`hmtx`/`cmap`) que
+después se imprime, y la vista previa paginada usa ese mismo medidor: sus
+cortes de línea son los del PDF. La cursiva se mide con su propia cara.
 
-Los **metadatos** (título, autoría y asunto) ya se escriben como cadenas
-UTF-16BE, de modo que un título con caracteres fuera de Latin-1 no se corrompe.
+La prueba E2E «el PDF conserva la tipografía española» extrae el texto del
+mapa `ToUnicode` del archivo descargado y comprueba `«Cita»`, la raya larga,
+los puntos suspensivos, `niño`, `caía` y `miró`; la interfaz no muestra aviso
+de caracteres perdidos.
 
-Comprobado en la prueba de extremo a extremo «el PDF conserva la tipografía
-española»: el archivo descargado contiene las comillas, la raya larga, los
-puntos suspensivos, `niño` y `caña`, y la interfaz no muestra aviso de
-caracteres perdidos.
+La cobertura de Liberation incluye latín, griego y cirílico, pero **no CJK,
+emoji ni todos los sistemas de escritura**, y no hay shaping complejo ni
+ligaduras automáticas. Los caracteres sin glifo se sustituyen y se cuentan en
+`caracteresPerdidos`. Si las fuentes no se cargan, se conserva Times/WinAnsi y
+`estimatedPagination` pasa a `true`; el panel lo avisa.
 
 ### Lo que no se ha hecho
 
-- **No hay incrustación de fuentes TTF ni tabla de anchos real.** La paginación
-  es una estimación con anchos medios. Es la limitación principal del PDF.
+- **No se generan subconjuntos de fuente.** Se incrusta el TTF completo; el PDF
+  de 200 000 palabras medido ocupa 5 387 KB. Es el precio de no implementar un
+  subsetter propio.
+- **No hay cadena de fuentes de reserva por script.** «Unicode completo» para
+  todos los idiomas no está demostrado.
 - **No se afirma compatibilidad PDF/X.** El PDF lleva `TrimBox`, `BleedBox`,
   `CropBox` y marcas de corte, pero no se ha validado con un preflight ni con
   una norma ISO.
@@ -166,21 +179,21 @@ inspeccionar, pero la compatibilidad real con Word no está comprobada.
 ## Rendimiento
 
 Medido con `pnpm bench:export` (véase
-[PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md)). La última ejecución, ya con el
-motor de imágenes cargado, dio 265 ms de paginación y 101 ms de PDF para
-200 000 palabras. Las imágenes reales no se incluyen en ese banco: no hay
-credenciales de Cloudinary para descargarlas.
+[PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md)). La última ejecución, con
+métricas reales de Liberation y una cara incrustada, dio 112 ms de paginación,
+227 ms de PDF y 5 387 KB para 200 000 palabras. Las imágenes reales no se
+incluyen en ese banco: no hay credenciales de Cloudinary para descargarlas.
 
 ## Evidencia ejecutada
 
 | Comprobación        | Resultado                  |
 | ------------------- | -------------------------- |
-| `pnpm test`         | 268 pruebas en 30 archivos |
-| `pnpm test:e2e`     | 71 pruebas en Chromium     |
+| `pnpm test`         | 289 pruebas en 32 archivos |
+| `pnpm test:e2e`     | 72 pruebas en Chromium     |
 | `pnpm typecheck`    | Sin errores                |
 | `pnpm lint`         | Sin errores                |
 | `pnpm build`        | Correcto                   |
-| `pnpm bench:export` | Ejecutado                  |
+| `pnpm bench:export` | Ejecutado con fuentes      |
 
 ## Bloqueos externos
 
@@ -203,9 +216,9 @@ prueba de editor de `tests/e2e/manuscrito.spec.ts`.
   página de la llamada.
 - `toPdfPages` dibuja una línea separadora de 0,5 pt y las líneas de la nota
   en la parte inferior del área de texto, antes del folio.
-- Las notas usan los mismos tipos estándar que el cuerpo. Los caracteres que
-  WinAnsi no representa se sustituyen y se cuentan en `caracteresPerdidos`,
-  igual que el resto del texto.
+- Las notas usan la misma familia y la misma medición real que el cuerpo. Si
+  las fuentes no se cargan, caen a Times/WinAnsi y los caracteres sin
+  representación se sustituyen y se cuentan en `caracteresPerdidos`.
 - Si una nota no cabe con su llamada, se conserva completa, se emite
   `FOOTNOTE_OVERFLOW` y la maqueta debe revisarse. No se divide entre páginas.
 
@@ -235,6 +248,28 @@ prueba de editor de `tests/e2e/manuscrito.spec.ts`.
 
 | Suite           | Resultado                  |
 | --------------- | -------------------------- |
-| `pnpm test`     | 280 pruebas en 31 archivos |
+| `pnpm test`     | 289 pruebas en 32 archivos |
 | `pnpm test:e2e` | 72 pruebas en Chromium     |
 | `pnpm build`    | Correcto                   |
+
+## Fuentes incrustadas (Lote K)
+
+Comprobado en `packages/export-engine/src/pdf-fonts.test.ts` (6 casos) y en la
+prueba E2E «el PDF conserva la tipografía española»:
+
+- El lector `truetype.ts` interpreta las tablas `head`, `maxp`, `hhea`, `hmtx`,
+  `cmap` (formatos 0, 4, 6 y 12), `name`, `OS/2` y `post`. Los anchos salen de
+  `hmtx`; el mapa inverso de `cmap` alimenta `ToUnicode`.
+- El PDF declara `Type0` + `CIDFontType2`, `FontFile2`, `Identity-H`,
+  `CIDToGIDMap /Identity`, `FontDescriptor`, tabla `W` y `ToUnicode`.
+- Solo se incrustan las caras que aparecen en los tramos. Si una cara no se
+  usa, no se escribe su programa.
+- La prueba E2E extrae el texto del PDF descargado y comprueba las comillas
+  angulares, la raya, los puntos suspensivos, `niño`, `caía` y `miró`.
+- Las doce caras son Liberation Fonts 2.1.5, licencia SIL OFL. Se incluyen
+  `OFL.txt` y la nota de origen en `apps/web/public/fonts/liberation/`.
+
+Límites: no hay subconjuntos, no hay cadena de reserva para CJK/emoji ni
+shaping complejo, y no se ha validado el PDF con un preflight PDF/X. Los
+caracteres sin glifo se sustituyen y se cuentan; no se presentan como
+conservados.

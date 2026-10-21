@@ -177,6 +177,7 @@ function wordWidth(word: RichWord, options: MeasureOptions): number {
       ...options,
       fontSizePt: segmentFontSizePt(segment, options),
       bold: options.bold === true || segment.marks?.bold === true,
+      italic: options.italic === true || segment.marks?.italic === true,
     });
   }
 
@@ -257,6 +258,7 @@ function measureSegments(segments: readonly InlineRun[], options: MeasureOptions
       ...options,
       fontSizePt: segmentFontSizePt(segment, options),
       bold: options.bold === true || segment.marks?.bold === true,
+      italic: options.italic === true || segment.marks?.italic === true,
     });
   }
 

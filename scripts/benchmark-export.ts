@@ -12,10 +12,22 @@
  * Uso:
  *   pnpm bench:export
  */
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { config as loadEnv } from "dotenv";
-import { paginate, withTypographyDefaults } from "../packages/editorial-engine/src/index";
-import { buildDocx, buildEpub, buildPdf } from "../packages/export-engine/src/index";
+import {
+  paginate,
+  withTypographyDefaults,
+  type MeasureText,
+} from "../packages/editorial-engine/src/index";
+import {
+  buildDocx,
+  buildEpub,
+  buildPdf,
+  measureTrueTypeTextPoints,
+  parseTrueTypeFont,
+  type PdfFontProgram,
+} from "../packages/export-engine/src/index";
 
 loadEnv({ path: path.resolve(process.cwd(), ".env"), quiet: true });
 
@@ -57,6 +69,28 @@ const GEOMETRIA = {
 };
 
 const TIPOGRAFIA = withTypographyDefaults({});
+
+const FUENTE = parseTrueTypeFont(
+  new Uint8Array(
+    readFileSync(
+      path.resolve(process.cwd(), "apps/web/public/fonts/liberation/LiberationSerif-Regular.ttf"),
+    ),
+  ),
+  "LiberationSerif-Regular",
+);
+const FUENTE_PDF: PdfFontProgram = {
+  family: "serif",
+  style: "regular",
+  data: FUENTE.data,
+  name: "LiberationSerif-Regular",
+};
+const MEDIR: MeasureText = (text, options) =>
+  measureTrueTypeTextPoints(
+    FUENTE,
+    options.uppercase ? text.toLocaleUpperCase("es") : text,
+    options.fontSizePt,
+    options.letterSpacingPt ?? 0,
+  );
 
 interface Bloque {
   id: string;
@@ -127,14 +161,18 @@ function cronometrar<T>(operacion: () => T): { resultado: T; ms: number } {
 const TAMANOS = [10_000, 50_000, 100_000, 200_000];
 
 console.log("Coste de composición y exportación");
-console.log("  Formato  Palabras   Páginas   Paginación   PDF      EPUB     DOCX    Memoria");
-console.log("  -------  --------  --------  ----------  -------  -------  ------  -------");
+console.log(
+  "  Formato  Palabras   Páginas   Paginación   PDF      PDF KB   EPUB     DOCX    Memoria",
+);
+console.log(
+  "  -------  --------  --------  ----------  -------  -------  -------  ------  -------",
+);
 
 for (const palabras of TAMANOS) {
   const antes = memoriaMb();
   const bloques = manuscrito(palabras);
 
-  const paginacion = cronometrar(() => paginate(bloques, GEOMETRIA, TIPOGRAFIA));
+  const paginacion = cronometrar(() => paginate(bloques, GEOMETRIA, TIPOGRAFIA, MEDIR));
   const paginas = paginacion.resultado.pages;
 
   const pdf = cronometrar(() =>
@@ -142,6 +180,7 @@ for (const palabras of TAMANOS) {
       title: "Manuscrito de prueba",
       author: "Prueba",
       createdAt: new Date("2026-10-20T10:00:00.000Z"),
+      fonts: [FUENTE_PDF],
       pages: paginas.map((page) => ({
         widthMm: GEOMETRIA.pageWidthMm,
         heightMm: GEOMETRIA.pageHeightMm,
@@ -149,6 +188,7 @@ for (const palabras of TAMANOS) {
           bloque.lines.map((linea, indice) => ({
             text: linea.text,
             font: "regular" as const,
+            family: "serif" as const,
             sizePt: 11,
             xMm: 18,
             baselineMm: 20 + indice * 5,
@@ -192,6 +232,7 @@ for (const palabras of TAMANOS) {
   console.log(
     `  PDF      ${String(palabras).padStart(8)}  ${String(paginas.length).padStart(8)}  ` +
       `${`${paginacion.ms.toFixed(0)} ms`.padStart(10)}  ${`${pdf.ms.toFixed(0)} ms`.padStart(7)}  ` +
+      `${`${(pdf.resultado.bytes.length / 1024).toFixed(0)} KB`.padStart(7)}  ` +
       `${`${epub.ms.toFixed(0)} ms`.padStart(7)}  ${`${docx.ms.toFixed(0)} ms`.padStart(6)}  ` +
       `${`${(despues - antes).toFixed(1)} MB`.padStart(7)}`,
   );

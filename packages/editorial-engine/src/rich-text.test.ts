@@ -99,6 +99,27 @@ describe("breakRunsIntoLines", () => {
     expect(negrita.length).toBeGreaterThanOrEqual(plano.length);
   });
 
+  it("pide al medidor real la cara que corresponde a cada tramo", () => {
+    const estilos: Array<{ bold: boolean; italic: boolean }> = [];
+    const runs: InlineRun[] = [
+      { text: "redonda " },
+      { text: "negrita", marks: { bold: true } },
+      { text: " cursiva", marks: { italic: true } },
+    ];
+
+    breakRunsIntoLines(runs, {
+      ...SERIF_11,
+      measure: (text, options) => {
+        estilos.push({ bold: options.bold === true, italic: options.italic === true });
+
+        return text.length * 10;
+      },
+    });
+
+    expect(estilos.some((estilo) => estilo.bold && !estilo.italic)).toBe(true);
+    expect(estilos.some((estilo) => estilo.italic && !estilo.bold)).toBe(true);
+  });
+
   it("parte por un guion existente y conserva el formato del fragmento", () => {
     const runs: InlineRun[] = [{ text: "extraordinariamente-larguísimo", marks: { italic: true } }];
 
