@@ -22,9 +22,16 @@ export interface BookAssetSummary {
   createdAt: string;
 }
 
+/**
+ * Imágenes de un libro.
+ *
+ * La lista se acota: la biblioteca de imágenes se carga al abrir cualquier
+ * sección y un libro con muchas fotos no puede traerlas todas.
+ */
 export async function listBookAssets(
   session: SessionContext,
   bookId: string,
+  limit = 200,
 ): Promise<BookAssetSummary[]> {
   const links = await prisma.bookAsset.findMany({
     where: {
@@ -34,6 +41,7 @@ export async function listBookAssets(
       asset: { deletedAt: null },
     },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    take: limit,
     select: {
       id: true,
       assetId: true,

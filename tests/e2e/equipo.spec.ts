@@ -21,7 +21,10 @@ test.describe("Equipo", () => {
     await page.goto("/team");
 
     await page.getByLabel("Correo de la persona").fill("invitada-2@ejemplo.local");
-    await page.getByLabel("Rol").selectOption("EDITOR");
+    await page
+      .getByRole("region", { name: "invitar a una persona" })
+      .getByLabel("Rol")
+      .selectOption("EDITOR");
     await page.getByRole("button", { name: "Crear invitación" }).click();
 
     await expect(page.getByText(/Invitación para invitada-2@ejemplo.local/)).toBeVisible();
@@ -106,5 +109,35 @@ test.describe("Equipo", () => {
 
     expect(contenido).toContain("fecha,accion,tipo");
     expect(contenido).toContain("TEAM_INVITATION_CREATED");
+  });
+
+  test("quien no administra el estudio no gestiona el equipo ni exporta la auditoría", async ({
+    browser,
+  }) => {
+    // La persona invitada en la prueba anterior existe y no administra el
+    // estudio: entra con su cuenta y comprueba que no puede hacer lo que
+    // puede hacer quien administra.
+    const contexto = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    const otra = await contexto.newPage();
+
+    await otra.goto("/login");
+    await otra.getByLabel("Correo electrónico").fill("invitada-b@ejemplo.local");
+    await otra.locator('input[name="password"]').fill("Libreria-de-prueba-2026");
+    await otra.getByRole("button", { name: "Entrar en el estudio" }).click();
+
+    await expect(otra).toHaveURL(/\/dashboard/u);
+
+    // La página del equipo se ve, pero sin los controles de gestión.
+    await otra.goto("/team");
+    await expect(otra.getByRole("heading", { name: "Personas con acceso" })).toBeVisible();
+    await expect(otra.getByLabel("Correo de la persona")).toHaveCount(0);
+    await expect(otra.getByRole("link", { name: /Exportar el registro/ })).toHaveCount(0);
+
+    // Y el servidor rechaza la descarga de la auditoría.
+    const auditoria = await otra.request.get("/api/audit/export");
+
+    expect(auditoria.status()).toBe(403);
+
+    await contexto.close();
   });
 });

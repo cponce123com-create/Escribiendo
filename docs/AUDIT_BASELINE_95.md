@@ -40,7 +40,7 @@ Las cifras son de esta máquina y de la compilación de producción local. No
 presumen el comportamiento del despliegue de Render.
 
 La cifra vigente despues del Lote S es **328 pruebas unitarias en 34 archivos**
-y **76 pruebas E2E en Chromium**. Las tablas siguientes conservan la historia de
+y **78 pruebas E2E en Chromium**. Las tablas siguientes conservan la historia de
 cada lote; no se reescriben los resultados anteriores.
 
 ## Hallazgos comprobados y corregidos en el lote de imágenes
@@ -113,7 +113,7 @@ Base del lote: `4211bb6`.
 | Comprobación        | Resultado                |
 | ------------------- | ------------------------ |
 | Pruebas unitarias   | 280 pruebas, 31 archivos |
-| Extremo a extremo   | 76 pruebas en Chromium   |
+| Extremo a extremo   | 78 pruebas en Chromium   |
 | Formato, lint       | Sin errores              |
 | Tipos y compilación | Sin errores              |
 
@@ -154,7 +154,7 @@ Base del lote: `dc7c6ea`.
 | Comprobación         | Resultado                |
 | -------------------- | ------------------------ |
 | Pruebas unitarias    | 328 pruebas, 34 archivos |
-| Extremo a extremo    | 76 pruebas en Chromium   |
+| Extremo a extremo    | 78 pruebas en Chromium   |
 | Formato, lint        | Sin errores              |
 | Tipos y compilación  | Sin errores              |
 | Banco de exportación | Ejecutado con fuentes    |
@@ -205,7 +205,7 @@ Base del lote: `86610b6`.
 | `pnpm audit --prod`  | Sin vulnerabilidades conocidas                                                       |
 | `pnpm audit`         | 1 aviso alto de desarrollo (`braces`), sin parche upstream                           |
 | `pnpm test`          | 328 pruebas en 34 archivos                                                           |
-| `pnpm test:e2e`      | 76 pruebas en Chromium                                                               |
+| `pnpm test:e2e`      | 78 pruebas en Chromium                                                               |
 
 Correcciones asociadas:
 
@@ -233,7 +233,7 @@ Base del lote: `c43ee27`.
 | `pnpm validate:epub` | 0 errores y 0 advertencias con EPUBCheck 5.1.0                        |
 | `pnpm validate:docx` | Mammoth 1.11.0 lee el documento                                       |
 | `pnpm test`          | 328 pruebas en 34 archivos                                            |
-| `pnpm test:e2e`      | 76 pruebas en Chromium                                                |
+| `pnpm test:e2e`      | 78 pruebas en Chromium                                                |
 | `pnpm bench:export`  | PDF de 671 KB, EPUB de 29 KB y DOCX de 8 KB para 200 000 palabras     |
 
 Correcciones:
@@ -263,7 +263,7 @@ Base del lote: `29dac65`.
 | `pnpm stress:export` | 200 000 palabras, 80 fotografias y 500 notas al pie en los tres formatos |
 | Memoria maxima       | 367 MB, con un margen de 145 MB sobre los 512 MB de Render Free          |
 | `pnpm test`          | 328 pruebas en 34 archivos                                               |
-| `pnpm test:e2e`      | 76 pruebas en Chromium                                                   |
+| `pnpm test:e2e`      | 78 pruebas en Chromium                                                   |
 
 Correcciones:
 

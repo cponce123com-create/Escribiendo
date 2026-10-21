@@ -269,11 +269,11 @@ ROADMAP.
 ### 4.5 Resultados obtenidos
 
 ```text
-Running 76 tests using 1 worker
-76 passed (4.1m)
+Running 78 tests using 1 worker
+78 passed (4.4m)
 ```
 
-Las 76 pruebas incluyen la preparación de la cuenta de pruebas. La suite se ha
+Las 78 pruebas incluyen la preparación de la cuenta de pruebas. La suite se ha
 ejecutado de forma repetida con resultado completo en todas las ejecuciones,
 contra PostgreSQL 17.7 local y contra la **compilación de producción** (no el
 servidor de desarrollo). En producción, el mismo flujo de instalación, acceso y

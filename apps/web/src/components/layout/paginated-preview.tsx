@@ -212,15 +212,64 @@ function PreviewBlock({ block }: { block: LaidOutBlock }) {
       {block.kind === "rule" ? (
         <div style={{ textAlign: "center", letterSpacing: "0.4em" }}>* * *</div>
       ) : block.kind === "image" ? (
-        <div
+        <figure
           style={{
-            textAlign: "center",
-            fontStyle: "italic",
-            opacity: 0.7,
+            margin: 0,
+            textAlign:
+              block.image?.alignment === "left"
+                ? "left"
+                : block.image?.alignment === "right"
+                  ? "right"
+                  : "center",
           }}
         >
-          {block.id && block.lines.length === 0 ? "▣" : null}
-        </div>
+          {block.image?.src ? (
+            /*
+             * La vista previa es un lienzo de impresión: la imagen se dibuja
+             * con su tamaño exacto en milímetros y con su alineación, como en
+             * el PDF. El optimizador de imágenes de Next redimensionaría y
+             * recortaría, que aquí no es lo que se quiere.
+             */
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={block.image.src}
+              alt={block.image.alt ?? ""}
+              style={{
+                width: block.imageLayout ? `${block.imageLayout.widthMm * PX_PER_MM}px` : "100%",
+                height: block.imageLayout ? `${block.imageLayout.heightMm * PX_PER_MM}px` : "auto",
+                objectFit: "contain",
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: block.imageLayout ? `${block.imageLayout.widthMm * PX_PER_MM}px` : "100%",
+                height: block.imageLayout ? `${block.imageLayout.heightMm * PX_PER_MM}px` : "auto",
+                border: "1px dashed var(--color-ink-muted, #888)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontStyle: "italic",
+                opacity: 0.7,
+              }}
+            >
+              {block.image?.alt ?? "Imagen"}
+            </div>
+          )}
+          {block.imageLayout && block.imageLayout.captionLines.length > 0 ? (
+            <figcaption
+              style={{
+                fontSize: `${block.imageLayout.captionFontSizePt}pt`,
+                lineHeight: `${block.imageLayout.captionLineHeightMm * PX_PER_MM}px`,
+                marginTop: `${block.imageLayout.captionGapMm * PX_PER_MM}px`,
+                fontStyle: "italic",
+                textAlign: "center",
+              }}
+            >
+              {block.imageLayout.captionLines.join(" ")}
+            </figcaption>
+          ) : null}
+        </figure>
       ) : (
         block.lines.map((line, index) => {
           const esUltima = index === block.lines.length - 1;
