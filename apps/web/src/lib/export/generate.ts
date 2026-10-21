@@ -304,7 +304,7 @@ export function generateFile(input: GenerateInput): GeneratedFile {
   if (input.format === "PDF_DIGITAL" || input.format === "PDF_PRINT") {
     if (!input.profile) {
       throw new Error(
-        "El libro necesita un perfil de página para exportar a PDF. Configura la maquetación antes de exportar.",
+        "El libro necesita una plantilla de maquetación para exportar a PDF. Configúrala antes de exportar.",
       );
     }
 

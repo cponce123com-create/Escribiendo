@@ -1,8 +1,8 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 /**
- * Maquetación: perfiles de página, plantillas, vista previa paginada y
- * diagnóstico de composición.
+ * Maquetación: plantillas con geometría predeterminada, perfiles avanzados,
+ * vista previa paginada y diagnóstico de composición.
  *
  * El archivo es autocontenido: crea su propio libro y su propia sección, de
  * modo que pueda ejecutarse en solitario. Se llama «maquetacion» y no
@@ -13,6 +13,28 @@ test.describe.configure({ mode: "serial" });
 
 const BOOK_TITLE = "Manual de maquetación";
 const SECTION_TITLE = "Capítulo de prueba";
+
+/** Abre la maquetación del libro creado por la primera prueba. */
+async function openLayout(page: Page): Promise<void> {
+  await page.goto("/books");
+  await page.getByRole("link", { name: BOOK_TITLE }).click();
+  await page
+    .getByRole("navigation", { name: "Acciones del libro" })
+    .getByRole("link", { name: "Maquetación" })
+    .click();
+  await expect(page.getByRole("heading", { name: "Maquetación" })).toBeVisible();
+}
+
+/** Abre el bloque de perfiles si está cerrado. */
+async function openAdvancedProfiles(page: Page): Promise<void> {
+  const details = page.locator("details");
+
+  if ((await details.getAttribute("open")) === null) {
+    await details.locator("summary").click();
+  }
+
+  await expect(page.getByRole("link", { name: "Nuevo perfil" })).toBeVisible();
+}
 
 test.describe("Maquetación", () => {
   test("se crea un libro y una sección para maquetar", async ({ page }) => {
@@ -31,25 +53,28 @@ test.describe("Maquetación", () => {
     await expect(page.getByRole("heading", { name: SECTION_TITLE })).toBeVisible();
   });
 
-  test("la maquetación ofrece crear un perfil de página", async ({ page }) => {
-    await page.goto("/books");
-    await page.getByRole("link", { name: BOOK_TITLE }).click();
-    await page
-      .getByRole("navigation", { name: "Acciones del libro" })
-      .getByRole("link", { name: "Maquetación" })
-      .click();
+  test("la maquetación se elige solo con la plantilla", async ({ page }) => {
+    await openLayout(page);
 
-    await expect(page.getByRole("heading", { name: "Maquetación" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Geometrías del estudio" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Elige una plantilla" })).toBeVisible();
+    await expect(page.getByRole("radio", { name: /Novela/ })).toBeVisible();
+    await expect(page.getByText("Márgenes (sup./inf./int./ext.): 20/20/18/14 mm")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Aplicar plantilla" })).toBeVisible();
+
+    // La geometría no se pide en el flujo principal.
+    await expect(page.getByLabel("Perfil de página")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Aplicar maqueta" })).toHaveCount(0);
+
+    // Los perfiles siguen disponibles, pero como ajuste avanzado cerrado.
+    await expect(page.getByText("Ajustes avanzados", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Nuevo perfil" })).not.toBeVisible();
   });
 
-  test("un perfil de página se crea con su geometría", async ({ page }) => {
-    await page.goto("/books");
-    await page.getByRole("link", { name: BOOK_TITLE }).click();
-    await page
-      .getByRole("navigation", { name: "Acciones del libro" })
-      .getByRole("link", { name: "Maquetación" })
-      .click();
+  test("un perfil de página se crea con su geometría en los ajustes avanzados", async ({
+    page,
+  }) => {
+    await openLayout(page);
+    await openAdvancedProfiles(page);
 
     await page.getByRole("link", { name: "Nuevo perfil" }).click();
 
@@ -66,16 +91,14 @@ test.describe("Maquetación", () => {
     await page.getByRole("button", { name: "Crear perfil" }).click();
 
     await expect(page.getByText("Perfil de página guardado.")).toBeVisible();
+
+    await openAdvancedProfiles(page);
     await expect(page.getByRole("heading", { name: "A5 de trabajo" })).toBeVisible();
   });
 
   test("una geometría imposible se rechaza con un motivo claro", async ({ page }) => {
-    await page.goto("/books");
-    await page.getByRole("link", { name: BOOK_TITLE }).click();
-    await page
-      .getByRole("navigation", { name: "Acciones del libro" })
-      .getByRole("link", { name: "Maquetación" })
-      .click();
+    await openLayout(page);
+    await openAdvancedProfiles(page);
 
     await page.getByRole("link", { name: "Nuevo perfil" }).click();
 
@@ -95,12 +118,8 @@ test.describe("Maquetación", () => {
   });
 
   test("el perfil creado se puede editar", async ({ page }) => {
-    await page.goto("/books");
-    await page.getByRole("link", { name: BOOK_TITLE }).click();
-    await page
-      .getByRole("navigation", { name: "Acciones del libro" })
-      .getByRole("link", { name: "Maquetación" })
-      .click();
+    await openLayout(page);
+    await openAdvancedProfiles(page);
 
     // La lista puede contener más de un perfil: se busca el propio.
     await page
@@ -117,18 +136,14 @@ test.describe("Maquetación", () => {
     await expect(page.getByText("Perfil de página actualizado.")).toBeVisible();
   });
 
-  test("se aplica la maqueta al libro", async ({ page }) => {
-    await page.goto("/books");
-    await page.getByRole("link", { name: BOOK_TITLE }).click();
-    await page
-      .getByRole("navigation", { name: "Acciones del libro" })
-      .getByRole("link", { name: "Maquetación" })
-      .click();
+  test("se aplica la plantilla al libro", async ({ page }) => {
+    await openLayout(page);
 
-    await page.getByLabel("Perfil de página").selectOption({ label: "A5 revisado (148 × 210 mm)" });
-    await page.getByRole("button", { name: "Aplicar maqueta" }).click();
+    await page.getByRole("radio", { name: /Novela/ }).check();
+    await page.getByRole("button", { name: "Aplicar plantilla" }).click();
 
-    await expect(page.getByText("Maqueta aplicada al libro.")).toBeVisible();
+    await expect(page.getByText("Plantilla aplicada al libro.")).toBeVisible();
+    await expect(page.getByText(/La edición actual usa la plantilla «Novela»/)).toBeVisible();
   });
 
   test("la vista previa paginada compone las páginas del manuscrito", async ({ page }) => {
@@ -145,26 +160,17 @@ test.describe("Maquetación", () => {
     await page.getByRole("button", { name: "Guardar manuscrito" }).click();
     await expect(page.getByText("Guardado en el servidor.")).toBeVisible();
 
-    await page.goto("/books");
-    await page.getByRole("link", { name: BOOK_TITLE }).click();
-    await page
-      .getByRole("navigation", { name: "Acciones del libro" })
-      .getByRole("link", { name: "Maquetación" })
-      .click();
+    await openLayout(page);
     await page.getByRole("link", { name: "Ver la vista previa paginada" }).click();
 
     await expect(page.getByRole("heading", { name: "Vista previa paginada" })).toBeVisible();
     await expect(page.getByText("página", { exact: false }).first()).toBeVisible();
+    await expect(page.getByText(/con la plantilla «Novela»/)).toBeVisible();
     await expect(page.getByRole("heading", { name: "Problemas de composición" })).toBeVisible();
   });
 
   test("la vista previa muestra el folio y el encabezado de página", async ({ page }) => {
-    await page.goto("/books");
-    await page.getByRole("link", { name: BOOK_TITLE }).click();
-    await page
-      .getByRole("navigation", { name: "Acciones del libro" })
-      .getByRole("link", { name: "Maquetación" })
-      .click();
+    await openLayout(page);
     await page.getByRole("link", { name: "Ver la vista previa paginada" }).click();
 
     await expect(page.getByRole("heading", { name: "Vista previa paginada" })).toBeVisible();
@@ -173,12 +179,7 @@ test.describe("Maquetación", () => {
   });
 
   test("la página se dibuja a escala real y respeta los márgenes", async ({ page }) => {
-    await page.goto("/books");
-    await page.getByRole("link", { name: BOOK_TITLE }).click();
-    await page
-      .getByRole("navigation", { name: "Acciones del libro" })
-      .getByRole("link", { name: "Maquetación" })
-      .click();
+    await openLayout(page);
     await page.getByRole("link", { name: "Ver la vista previa paginada" }).click();
 
     await expect(page.getByRole("heading", { name: "Vista previa paginada" })).toBeVisible();

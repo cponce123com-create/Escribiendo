@@ -62,7 +62,7 @@ export function ExportPanel({ bookId, hasLayout }: ExportPanelProps) {
                   <h3 className="font-serif text-lg text-ink">{formato.label}</h3>
                   <p className="mt-1 text-sm text-ink-muted">
                     {sinMaqueta
-                      ? "El libro necesita un perfil de página para componer el PDF. Configura la maquetación primero."
+                      ? "El libro necesita una plantilla de maquetación para componer el PDF. Elígela en Maquetación."
                       : formato.description}
                   </p>
                 </div>

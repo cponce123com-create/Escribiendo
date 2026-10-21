@@ -1,6 +1,8 @@
 import {
   DEFAULT_TYPOGRAPHY_CONFIG,
+  PAGE_FORMAT_PRESETS,
   typographyConfigSchema,
+  type PageFormatId,
   type TypographyConfig,
 } from "@escribiendo/editorial-engine";
 import { z } from "zod";
@@ -39,11 +41,58 @@ export const editorialTemplateConfigSchema = z
 
 export type EditorialTemplateConfig = z.infer<typeof editorialTemplateConfigSchema>;
 
+/**
+ * Geometría predeterminada de una plantilla.
+ *
+ * La plantilla es la única elección de la maquetación: además del estilo,
+ * lleva la página, los márgenes y las opciones de composición. La aplicación
+ * deriva de aquí el perfil que usan la vista previa y la exportación.
+ */
+export interface TemplatePagePreset {
+  format: PageFormatId;
+  pageWidthMm: number;
+  pageHeightMm: number;
+  marginTopMm: number;
+  marginBottomMm: number;
+  marginInnerMm: number;
+  marginOuterMm: number;
+  gutterMm: number;
+  bleedMm: number;
+  headerDistanceMm: number;
+  footerDistanceMm: number;
+  mirrorMargins: boolean;
+  showPageNumbers: boolean;
+  chapterStartsRecto: boolean;
+}
+
+const A5 = PAGE_FORMAT_PRESETS.A5;
+const A4 = PAGE_FORMAT_PRESETS.A4;
+const B5 = PAGE_FORMAT_PRESETS.B5;
+
+/** Geometría neutra para plantillas propias sin preset de sistema. */
+export const DEFAULT_TEMPLATE_PAGE_PRESET: TemplatePagePreset = {
+  format: "A5",
+  pageWidthMm: A5.widthMm,
+  pageHeightMm: A5.heightMm,
+  marginTopMm: 20,
+  marginBottomMm: 20,
+  marginInnerMm: 18,
+  marginOuterMm: 18,
+  gutterMm: 0,
+  bleedMm: 0,
+  headerDistanceMm: 10,
+  footerDistanceMm: 10,
+  mirrorMargins: true,
+  showPageNumbers: true,
+  chapterStartsRecto: true,
+};
+
 export interface SystemTemplate {
   slug: string;
   name: string;
   description: string;
   config: EditorialTemplateConfig;
+  page: TemplatePagePreset;
 }
 
 const NOVELA: EditorialTemplateConfig = {
@@ -191,6 +240,75 @@ const MANUAL: EditorialTemplateConfig = {
   firstParagraphNoIndent: true,
 };
 
+const NOVELA_PAGE: TemplatePagePreset = {
+  format: "A5",
+  pageWidthMm: A5.widthMm,
+  pageHeightMm: A5.heightMm,
+  marginTopMm: 20,
+  marginBottomMm: 20,
+  marginInnerMm: 18,
+  marginOuterMm: 14,
+  gutterMm: 0,
+  bleedMm: 0,
+  headerDistanceMm: 10,
+  footerDistanceMm: 10,
+  mirrorMargins: true,
+  showPageNumbers: true,
+  chapterStartsRecto: true,
+};
+
+const ENSAYO_PAGE: TemplatePagePreset = {
+  format: "A5",
+  pageWidthMm: A5.widthMm,
+  pageHeightMm: A5.heightMm,
+  marginTopMm: 22,
+  marginBottomMm: 22,
+  marginInnerMm: 20,
+  marginOuterMm: 18,
+  gutterMm: 0,
+  bleedMm: 0,
+  headerDistanceMm: 10,
+  footerDistanceMm: 10,
+  mirrorMargins: true,
+  showPageNumbers: true,
+  chapterStartsRecto: true,
+};
+
+const POESIA_PAGE: TemplatePagePreset = {
+  format: "B5",
+  pageWidthMm: B5.widthMm,
+  pageHeightMm: B5.heightMm,
+  marginTopMm: 24,
+  marginBottomMm: 24,
+  marginInnerMm: 22,
+  marginOuterMm: 20,
+  gutterMm: 0,
+  bleedMm: 0,
+  headerDistanceMm: 10,
+  footerDistanceMm: 10,
+  mirrorMargins: true,
+  showPageNumbers: true,
+  chapterStartsRecto: true,
+};
+
+const MANUAL_PAGE: TemplatePagePreset = {
+  format: "A4",
+  pageWidthMm: A4.widthMm,
+  pageHeightMm: A4.heightMm,
+  marginTopMm: 25,
+  marginBottomMm: 25,
+  marginInnerMm: 22,
+  marginOuterMm: 20,
+  gutterMm: 0,
+  // Un manual puede llevar figuras a sangre; el sangrado queda previsto.
+  bleedMm: 3,
+  headerDistanceMm: 12,
+  footerDistanceMm: 12,
+  mirrorMargins: false,
+  showPageNumbers: true,
+  chapterStartsRecto: false,
+};
+
 /**
  * Plantillas de sistema.
  *
@@ -205,30 +323,48 @@ export const SYSTEM_TEMPLATES: readonly SystemTemplate[] = [
     description:
       "Cuerpo de 11 pt con interlineado amplio, sangría de primera línea y capítulos en página par.",
     config: NOVELA,
+    page: NOVELA_PAGE,
   },
   {
     slug: "ensayo",
     name: "Ensayo",
     description: "Sin sangría, interlineado generoso y control de viudas y huérfanas más exigente.",
     config: ENSAYO,
+    page: ENSAYO_PAGE,
   },
   {
     slug: "poesia",
     name: "Poesía",
     description: "Verso sin justificar, sin guionado y con títulos discretos.",
     config: POESIA,
+    page: POESIA_PAGE,
   },
   {
     slug: "manual",
     name: "Manual",
     description: "Palo seco, texto alineado a la izquierda y folios en el margen exterior.",
     config: MANUAL,
+    page: MANUAL_PAGE,
   },
 ];
 
 /** Plantilla de sistema por su identificador. */
 export function getSystemTemplate(slug: string): SystemTemplate | undefined {
   return SYSTEM_TEMPLATES.find((template) => template.slug === slug);
+}
+
+/**
+ * Geometría que acompaña a una plantilla.
+ *
+ * Las plantillas de sistema traen su propia página. Las propias, que no
+ * tienen un preset asociado en el código, reciben una geometría neutra.
+ */
+export function templatePagePreset(slug: string, isSystem = true): TemplatePagePreset {
+  if (!isSystem) {
+    return DEFAULT_TEMPLATE_PAGE_PRESET;
+  }
+
+  return getSystemTemplate(slug)?.page ?? DEFAULT_TEMPLATE_PAGE_PRESET;
 }
 
 /**

@@ -33,8 +33,8 @@ export default async function BookPreviewPage({ params }: BookPreviewPageProps) 
       <div className="mx-auto max-w-2xl space-y-4">
         <h1 className="font-serif text-3xl text-ink">Todavía no hay maqueta</h1>
         <p className="text-sm leading-relaxed text-ink-soft">
-          Para ver la vista previa paginada hace falta un perfil de página: define el tamaño de la
-          hoja, los márgenes y el sangrado.
+          Para ver la vista previa paginada hace falta elegir una plantilla en la maquetación. La
+          plantilla define el tamaño de la hoja, los márgenes y la tipografía.
         </p>
         <Link className="btn btn-secondary" href={`/books/${book.id}/layout`}>
           Ir a la maquetación
@@ -43,7 +43,7 @@ export default async function BookPreviewPage({ params }: BookPreviewPageProps) 
     );
   }
 
-  const { pages, diagnostics, profile } = preview;
+  const { pages, diagnostics, profile, template } = preview;
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -57,8 +57,9 @@ export default async function BookPreviewPage({ params }: BookPreviewPageProps) 
           Vista previa paginada
         </h1>
         <p className="max-w-2xl text-sm leading-relaxed text-ink-soft">
-          {pages.length} {pages.length === 1 ? "página" : "páginas"} con el perfil «{profile.name}»
-          ({profile.pageWidthMm} × {profile.pageHeightMm} mm) y {formatNumber(preview.wordCount)}{" "}
+          {pages.length} {pages.length === 1 ? "página" : "páginas"}
+          {template ? ` con la plantilla «${template.name}»` : ` con el perfil «${profile.name}»`} (
+          {profile.pageWidthMm} × {profile.pageHeightMm} mm) y {formatNumber(preview.wordCount)}{" "}
           palabras en {preview.sectionCount} {preview.sectionCount === 1 ? "sección" : "secciones"}.
         </p>
         <p className="max-w-2xl text-xs leading-relaxed text-ink-muted">

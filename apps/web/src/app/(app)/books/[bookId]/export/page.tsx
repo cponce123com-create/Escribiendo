@@ -67,12 +67,14 @@ export default async function BookExportPage({ params }: BookExportPageProps) {
         </p>
         {edition?.profile ? (
           <p className="text-xs text-ink-muted">
-            Maqueta aplicada: «{edition.profile.name}» ({edition.profile.pageWidthMm} ×{" "}
-            {edition.profile.pageHeightMm} mm).
+            {edition.template
+              ? `Plantilla aplicada: «${edition.template.name}»`
+              : `Maqueta aplicada: «${edition.profile.name}»`}{" "}
+            ({edition.profile.pageWidthMm} × {edition.profile.pageHeightMm} mm).
           </p>
         ) : (
           <p className="text-xs text-ink-muted">
-            Este libro no tiene perfil de página: los PDF no se pueden componer todavía.
+            Este libro no tiene plantilla de maquetación: los PDF no se pueden componer todavía.
           </p>
         )}
       </header>

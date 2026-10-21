@@ -5,9 +5,8 @@ import { readFileSync } from "node:fs";
  * Exportación: generación de archivos, idempotencia de la cola y descarga
  * firmada.
  *
- * El archivo es autocontenido: crea su propio libro y su propia sección, de
- * modo que pueda ejecutarse en solitario. Se llama «exportacion» y va después
- * de «maquetacion» porque necesita un perfil de página, que se crea allí.
+ * El archivo es autocontenido: crea su propio libro, su propia sección y
+ * aplica su propia plantilla, de modo que pueda ejecutarse en solitario.
  */
 test.describe.configure({ mode: "serial" });
 
@@ -57,10 +56,10 @@ test.describe("Exportación", () => {
       .getByRole("button", { name: "Generar" });
 
     await expect(generar).toBeDisabled();
-    await expect(page.getByText(/necesita un perfil de página/).first()).toBeVisible();
+    await expect(page.getByText(/necesita una plantilla de maquetación/).first()).toBeVisible();
   });
 
-  test("se crea un perfil de página para poder componer el PDF", async ({ page }) => {
+  test("se aplica una plantilla para poder componer el PDF", async ({ page }) => {
     await page.goto("/books");
     await page.getByRole("link", { name: BOOK_TITLE }).click();
     await page
@@ -68,25 +67,11 @@ test.describe("Exportación", () => {
       .getByRole("link", { name: "Maquetación" })
       .click();
 
-    await page.getByRole("link", { name: "Nuevo perfil" }).click();
+    // Manual trae 3 mm de sangrado, que la prueba del PDF de imprenta necesita.
+    await page.getByRole("radio", { name: /Manual/ }).check();
+    await page.getByRole("button", { name: "Aplicar plantilla" }).click();
 
-    await page.getByLabel("Nombre del perfil").fill("A5 de exportación");
-    await page.getByLabel("Formato").selectOption("A5");
-    await page.getByLabel("Margen superior").fill("20");
-    await page.getByLabel("Margen inferior").fill("20");
-    await page.getByLabel("Margen interior").fill("18");
-    await page.getByLabel("Margen exterior").fill("14");
-    await page.getByLabel("Sangrado").fill("3");
-    await page.getByRole("button", { name: "Crear perfil" }).click();
-
-    await expect(page.getByText("Perfil de página guardado.")).toBeVisible();
-
-    await page
-      .getByLabel("Perfil de página")
-      .selectOption({ label: "A5 de exportación (148 × 210 mm)" });
-    await page.getByRole("button", { name: "Aplicar maqueta" }).click();
-
-    await expect(page.getByText("Maqueta aplicada al libro.")).toBeVisible();
+    await expect(page.getByText("Plantilla aplicada al libro.")).toBeVisible();
   });
 
   test("el PDF digital se genera y se descarga", async ({ page }) => {

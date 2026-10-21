@@ -11,6 +11,7 @@ import { logger } from "@/lib/logger";
 import { errorState, formValue, successState } from "@/lib/form-helpers";
 import type { ActionState } from "@/lib/action-state";
 import { assertCanPerform } from "@/lib/books/permissions";
+import { ensureTemplateProfile, getTemplate } from "@/lib/layout/profiles";
 import { validateLayoutGeometry } from "@escribiendo/editorial-engine";
 
 /**
@@ -442,7 +443,11 @@ export async function setDefaultLayoutProfileAction(
 }
 
 /**
- * Aplica la maqueta elegida a un libro: perfil de página y plantilla.
+ * Aplica una plantilla a un libro.
+ *
+ * La plantilla lleva su geometría predeterminada: el perfil de página se
+ * crea o se reutiliza a partir de ella, sin pedir medidas en el flujo
+ * principal.
  */
 export async function updateEditionAction(
   _previousState: ActionState,
@@ -474,34 +479,13 @@ export async function updateEditionAction(
     return errorState("El libro no es válido.");
   }
 
-  const profileId = uuidSchema.safeParse(formValue(formData, "profileId"));
   const templateId = uuidSchema.safeParse(formValue(formData, "templateId"));
-
-  if (!profileId.success) {
-    return errorState("Elige un perfil de página.");
-  }
 
   if (!templateId.success) {
     return errorState("Elige una plantilla editorial.");
   }
 
-  const profile = await prisma.layoutProfile.findFirst({
-    where: { id: profileId.data, workspaceId: session.workspace.id, deletedAt: null },
-    select: { id: true, format: true },
-  });
-
-  if (!profile) {
-    return errorState("El perfil de página no existe en este espacio de trabajo.");
-  }
-
-  const template = await prisma.editorialTemplate.findFirst({
-    where: {
-      id: templateId.data,
-      deletedAt: null,
-      OR: [{ workspaceId: null }, { workspaceId: session.workspace.id }],
-    },
-    select: { id: true },
-  });
+  const template = await getTemplate(session, templateId.data);
 
   if (!template) {
     return errorState("La plantilla editorial no existe en este espacio de trabajo.");
@@ -514,6 +498,15 @@ export async function updateEditionAction(
 
   if (!book) {
     return errorState("El libro no existe en este espacio de trabajo.");
+  }
+
+  let profile: Awaited<ReturnType<typeof ensureTemplateProfile>>;
+
+  try {
+    profile = await ensureTemplateProfile(session, template);
+  } catch (error) {
+    logActionError("layout.template_profile_error", context, error);
+    return errorState("No se ha podido preparar la maqueta de la plantilla.");
   }
 
   try {
@@ -546,7 +539,7 @@ export async function updateEditionAction(
     }
   } catch (error) {
     logActionError("layout.edition_update_error", context, error);
-    return errorState("No se ha podido aplicar la maqueta al libro.");
+    return errorState("No se ha podido aplicar la plantilla al libro.");
   }
 
   await writeAuditLog(
@@ -556,7 +549,11 @@ export async function updateEditionAction(
       entityId: book.id,
       workspaceId: session.workspace.id,
       actorId: session.user.id,
-      metadata: { profileId: profile.id, templateId: template.id },
+      metadata: {
+        templateId: template.id,
+        templateSlug: template.slug,
+        profileId: profile.id,
+      },
     },
     context,
   );
@@ -565,5 +562,5 @@ export async function updateEditionAction(
   revalidatePath(`/books/${book.id}/layout`);
   revalidatePath(`/books/${book.id}/preview`);
 
-  return successState("Maqueta aplicada al libro.");
+  return successState("Plantilla aplicada al libro.");
 }

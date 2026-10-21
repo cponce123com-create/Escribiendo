@@ -37,6 +37,15 @@ reflowables: no pasan por la maqueta, pero conservan el mismo formato en línea.
   perfil guardado antes de que existiera un campo sigue siendo válido.
 - Los formatos de página (A5, A6, 6 × 9 pulgadas, etc.) viven en
   `page-formats.ts`; la validación de geometría en `layout-validation.ts`.
+- Cada plantilla de sistema lleva además un `TemplatePagePreset` con la
+  página, los márgenes, el sangrado, los folios y la apertura de capítulo.
+  Al aplicar una plantilla, `ensureTemplateProfile()` crea o reutiliza un
+  perfil del estudio con esos valores y lo vincula a la edición. El flujo
+  principal solo pide la plantilla; los perfiles quedan en «Ajustes
+  avanzados» y, al volver a aplicar la plantilla, recuperan el preset.
+- La plantilla sigue primando para la tipografía y el perfil para la
+  geometría. El perfil automático se llama `Plantilla: <nombre>` y no se
+  elige a mano.
 
 ## 3. Medición del texto
 
@@ -150,6 +159,7 @@ de líneas: un título de 20 pt y un cuerpo de 11 pt conviven en la misma págin
 | `rich-text.test.ts`                  | Marcas, negrita más ancha, guionado, camino rápido, sangría  |
 | `pagination.test.ts`                 | Altura, viudas y huérfanas, capítulos, tramos conservados    |
 | `layout-validation.test.ts`          | Geometría imposible o fuera de límites                       |
+| `system-templates.test.ts`           | Geometría predeterminada y válida de las plantillas          |
 | `export-engine/epub.test.ts`         | Estructura EPUB, formato en línea, enlaces, reglas, imágenes |
 | `export-engine/pdf.test.ts`          | Cabecera, fuentes, WinAnsi, subrayado, superíndices          |
 | `apps/web/lib/layout/blocks.test.ts` | Tiptap → tramos, reglas, imágenes, listas                    |

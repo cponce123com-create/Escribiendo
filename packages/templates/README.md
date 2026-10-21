@@ -15,6 +15,18 @@ Este paquete ya contiene código. Lo que vive aquí:
   por defecto, de modo que una plantilla escrita antes de una versión nueva
   siga funcionando.
 
+## Geometría predeterminada
+
+Cada plantilla de sistema lleva un `page: TemplatePagePreset` con la página,
+los márgenes, el sangrado y las opciones de composición. La aplicación usa ese
+preset para crear o reutilizar el perfil de página que necesitan la vista
+previa y la exportación: quien escribe solo elige la plantilla.
+
+`templatePagePreset(slug, isSystem)` devuelve el preset de una plantilla de
+sistema o la geometría neutra (`DEFAULT_TEMPLATE_PAGE_PRESET`) para una
+plantilla propia. Las plantillas propias no tienen un preset asociado en el
+código y reciben esa geometría neutra.
+
 ## Plantillas de sistema y propias
 
 El modelo de datos ya distingue las dos: `EditorialTemplate` usa `workspaceId`

@@ -46,6 +46,7 @@ export default async function BookLayoutPage({ params, searchParams }: BookLayou
 
   const canManage = canPerform(session.workspace.role, "layout:manage");
   const mensaje = aviso ? (AVISOS[aviso] ?? null) : null;
+  const currentProfile = edition?.profile ?? null;
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
@@ -59,8 +60,8 @@ export default async function BookLayoutPage({ params, searchParams }: BookLayou
           Maquetación
         </h1>
         <p className="max-w-2xl text-sm leading-relaxed text-ink-soft">
-          El perfil de página define la geometría: tamaño, márgenes, medianil y sangrado. La
-          plantilla editorial define el estilo: cuerpo, títulos y control de viudas y huérfanas.
+          Elige la plantilla editorial del libro. Cada plantilla trae su geometría y su tipografía
+          predeterminadas: tamaño de página, márgenes, cuerpo y control de viudas y huérfanas.
         </p>
       </header>
 
@@ -70,17 +71,15 @@ export default async function BookLayoutPage({ params, searchParams }: BookLayou
         </p>
       ) : null}
 
-      <section className="panel p-6" aria-label="maqueta del libro">
-        <p className="meta-label">Maqueta del libro</p>
-        <h2 className="mt-1.5 font-serif text-2xl text-ink">Qué se imprime</h2>
+      <section className="panel p-6" aria-label="plantilla del libro">
+        <p className="meta-label">Plantilla del libro</p>
+        <h2 className="mt-1.5 font-serif text-2xl text-ink">Elige una plantilla</h2>
 
         <div className="mt-5">
           {canManage ? (
             <EditionSelector
               bookId={book.id}
-              profiles={profiles}
               templates={templates}
-              selectedProfileId={edition?.profile?.id ?? null}
               selectedTemplateId={edition?.template?.id ?? null}
             />
           ) : (
@@ -90,15 +89,19 @@ export default async function BookLayoutPage({ params, searchParams }: BookLayou
           )}
         </div>
 
-        {edition?.profile ? (
+        {edition ? (
           <p className="mt-5 text-xs text-ink-muted">
-            La edición actual usa «{edition.profile.name}» con la plantilla «
-            {edition.template?.name ?? "sin plantilla"}».
+            {edition.template
+              ? `La edición actual usa la plantilla «${edition.template.name}»`
+              : "La edición actual no tiene plantilla"}
+            {currentProfile
+              ? ` con página ${currentProfile.pageWidthMm} × ${currentProfile.pageHeightMm} mm y márgenes ${currentProfile.marginTopMm}/${currentProfile.marginBottomMm}/${currentProfile.marginInnerMm}/${currentProfile.marginOuterMm} mm.`
+              : "."}
           </p>
         ) : (
           <p className="mt-5 text-xs text-ink-muted">
-            Este libro todavía no tiene maqueta aplicada. La vista previa usará el perfil
-            predeterminado del estudio.
+            Este libro todavía no tiene plantilla aplicada. Elige una para definir la geometría y la
+            tipografía.
           </p>
         )}
 
@@ -109,46 +112,37 @@ export default async function BookLayoutPage({ params, searchParams }: BookLayou
         </div>
       </section>
 
-      <section className="panel p-6" aria-label="perfiles de página">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="meta-label">Perfiles de página</p>
-            <h2 className="mt-1.5 font-serif text-2xl text-ink">Geometrías del estudio</h2>
-          </div>
-          {canManage ? (
-            <Link className="btn btn-secondary" href={`/books/${book.id}/layout/profiles/new`}>
-              Nuevo perfil
-            </Link>
-          ) : null}
-        </div>
+      <details className="panel p-6">
+        <summary className="cursor-pointer">
+          <span className="meta-label">Ajustes avanzados</span>
+          <h2 className="mt-1.5 font-serif text-xl text-ink">Perfiles de página</h2>
+          <span className="mt-1 block text-sm leading-relaxed text-ink-muted">
+            Solo si necesitas una geometría propia. La plantilla ya define una maqueta completa;
+            estos perfiles quedan como ajuste opcional.
+          </span>
+        </summary>
 
-        <div className="mt-5">
+        <div className="mt-5 space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <p className="max-w-xl text-sm leading-relaxed text-ink-muted">
+              Los perfiles son geometrías del estudio. Puedes crear uno propio o ajustar el que
+              genera una plantilla; si vuelves a aplicar esa plantilla, el perfil recupera sus
+              valores predeterminados.
+            </p>
+            {canManage ? (
+              <Link className="btn btn-secondary" href={`/books/${book.id}/layout/profiles/new`}>
+                Nuevo perfil
+              </Link>
+            ) : null}
+          </div>
+
           <ProfileList
             bookId={book.id}
             profiles={profiles}
             activeProfileId={edition?.profile?.id ?? null}
           />
         </div>
-      </section>
-
-      <section className="panel p-6" aria-label="plantillas editoriales">
-        <p className="meta-label">Plantillas</p>
-        <h2 className="mt-1.5 font-serif text-2xl text-ink">Estilos editoriales</h2>
-
-        <ul className="mt-4 space-y-2">
-          {templates.map((template) => (
-            <li key={template.id} className="text-sm">
-              <span className="font-medium text-ink">{template.name}</span>
-              {template.isSystem ? (
-                <span className="ml-2 text-xs text-ink-muted">del sistema</span>
-              ) : null}
-              {template.description ? (
-                <span className="block text-ink-muted">{template.description}</span>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      </section>
+      </details>
     </div>
   );
 }

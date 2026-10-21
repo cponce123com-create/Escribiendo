@@ -10,7 +10,12 @@ import {
   type TypographyConfig,
 } from "@escribiendo/editorial-engine";
 import { bookToBlocks, isChapterType, type PreviewSection } from "./blocks";
-import { getBookEdition, getDefaultLayoutProfile, type LayoutProfileSummary } from "./profiles";
+import {
+  getBookEdition,
+  getDefaultLayoutProfile,
+  type LayoutProfileSummary,
+  type TemplateSummary,
+} from "./profiles";
 
 /**
  * Vista previa paginada.
@@ -29,6 +34,7 @@ export interface PreviewResult {
   pages: PreviewPage[];
   diagnostics: LayoutDiagnostic[];
   profile: LayoutProfileSummary;
+  template: TemplateSummary | null;
   typography: TypographyConfig;
   /** Secciones que se han compuesto. */
   sectionCount: number;
@@ -150,6 +156,7 @@ export async function buildPreview(
     pages,
     diagnostics: result.diagnostics,
     profile,
+    template: edition?.template ?? null,
     typography,
     sectionCount: sections.length,
     wordCount: blocks.reduce((total, block) => total + (block.text.match(/\S+/gu)?.length ?? 0), 0),

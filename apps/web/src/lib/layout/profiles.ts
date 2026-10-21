@@ -3,7 +3,13 @@ import { prisma } from "@/lib/db";
 import type { SessionContext } from "@/lib/auth/session";
 import type { BookFormat } from "@escribiendo/database";
 import { withTypographyDefaults, type TypographyConfig } from "@escribiendo/editorial-engine";
-import { withTemplateDefaults, type EditorialTemplateConfig } from "@escribiendo/templates";
+import {
+  SYSTEM_TEMPLATES,
+  templatePagePreset,
+  withTemplateDefaults,
+  type EditorialTemplateConfig,
+  type TemplatePagePreset,
+} from "@escribiendo/templates";
 
 /**
  * Perfiles de página, plantillas editoriales y ediciones.
@@ -43,6 +49,8 @@ export interface TemplateSummary {
   description: string | null;
   isSystem: boolean;
   config: EditorialTemplateConfig;
+  /** Geometría predeterminada que la aplicación deriva al aplicar la plantilla. */
+  page: TemplatePagePreset;
 }
 
 export interface EditionSummary {
@@ -126,6 +134,59 @@ const PROFILE_SELECT = {
   _count: { select: { editions: true } },
 } as const;
 
+const TEMPLATE_SELECT = {
+  id: true,
+  name: true,
+  slug: true,
+  description: true,
+  isSystem: true,
+  config: true,
+} as const;
+
+const SYSTEM_TEMPLATE_ORDER = new Map(
+  SYSTEM_TEMPLATES.map((template, index) => [template.slug, index]),
+);
+
+function mapTemplate(template: {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  isSystem: boolean;
+  config: unknown;
+}): TemplateSummary {
+  return {
+    id: template.id,
+    name: template.name,
+    slug: template.slug,
+    description: template.description,
+    isSystem: template.isSystem,
+    config: withTemplateDefaults(template.config),
+    page: templatePagePreset(template.slug, template.isSystem),
+  };
+}
+
+/**
+ * Orden de presentación: primero las plantillas de sistema en el orden del
+ * catálogo (Novela, Ensayo, Poesía, Manual) y después las propias por nombre.
+ */
+function compareTemplates(a: TemplateSummary, b: TemplateSummary): number {
+  if (a.isSystem !== b.isSystem) {
+    return a.isSystem ? -1 : 1;
+  }
+
+  if (a.isSystem) {
+    const aOrder = SYSTEM_TEMPLATE_ORDER.get(a.slug) ?? Number.MAX_SAFE_INTEGER;
+    const bOrder = SYSTEM_TEMPLATE_ORDER.get(b.slug) ?? Number.MAX_SAFE_INTEGER;
+
+    if (aOrder !== bOrder) {
+      return aOrder - bOrder;
+    }
+  }
+
+  return a.name.localeCompare(b.name, "es");
+}
+
 /** Perfiles de página del espacio de trabajo. */
 export async function listLayoutProfiles(session: SessionContext): Promise<LayoutProfileSummary[]> {
   const profiles = await prisma.layoutProfile.findMany({
@@ -169,18 +230,10 @@ export async function listTemplates(session: SessionContext): Promise<TemplateSu
       deletedAt: null,
       OR: [{ workspaceId: null }, { workspaceId: session.workspace.id }],
     },
-    orderBy: [{ isSystem: "desc" }, { name: "asc" }],
-    select: { id: true, name: true, slug: true, description: true, isSystem: true, config: true },
+    select: TEMPLATE_SELECT,
   });
 
-  return templates.map((template) => ({
-    id: template.id,
-    name: template.name,
-    slug: template.slug,
-    description: template.description,
-    isSystem: template.isSystem,
-    config: withTemplateDefaults(template.config),
-  }));
+  return templates.map(mapTemplate).sort(compareTemplates);
 }
 
 /** Una plantilla por su identificador, sea de sistema o del espacio. */
@@ -194,21 +247,10 @@ export async function getTemplate(
       deletedAt: null,
       OR: [{ workspaceId: null }, { workspaceId: session.workspace.id }],
     },
-    select: { id: true, name: true, slug: true, description: true, isSystem: true, config: true },
+    select: TEMPLATE_SELECT,
   });
 
-  if (!template) {
-    return null;
-  }
-
-  return {
-    id: template.id,
-    name: template.name,
-    slug: template.slug,
-    description: template.description,
-    isSystem: template.isSystem,
-    config: withTemplateDefaults(template.config),
-  };
+  return template ? mapTemplate(template) : null;
 }
 
 /** La edición por defecto de un libro. */
@@ -227,16 +269,7 @@ export async function getBookEdition(
       isDefault: true,
       pageCount: true,
       layoutProfile: { select: PROFILE_SELECT },
-      editorialTemplate: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          description: true,
-          isSystem: true,
-          config: true,
-        },
-      },
+      editorialTemplate: { select: TEMPLATE_SELECT },
     },
   });
 
@@ -252,15 +285,71 @@ export async function getBookEdition(
     isDefault: edition.isDefault,
     pageCount: edition.pageCount,
     profile: edition.layoutProfile ? mapProfile(edition.layoutProfile) : null,
-    template: edition.editorialTemplate
-      ? {
-          id: edition.editorialTemplate.id,
-          name: edition.editorialTemplate.name,
-          slug: edition.editorialTemplate.slug,
-          description: edition.editorialTemplate.description,
-          isSystem: edition.editorialTemplate.isSystem,
-          config: withTemplateDefaults(edition.editorialTemplate.config),
-        }
-      : null,
+    template: edition.editorialTemplate ? mapTemplate(edition.editorialTemplate) : null,
   };
+}
+
+const TEMPLATE_PROFILE_PREFIX = "Plantilla: ";
+
+/** Nombre determinista del perfil que acompaña a una plantilla. */
+export function templateProfileName(templateName: string): string {
+  return `${TEMPLATE_PROFILE_PREFIX}${templateName}`.slice(0, 160);
+}
+
+export interface EnsuredTemplateProfile {
+  id: string;
+  name: string;
+  format: BookFormat;
+}
+
+/**
+ * Crea o actualiza el perfil de página que acompaña a una plantilla.
+ *
+ * La plantilla es la única elección del flujo principal. Este perfil existe
+ * para que la vista previa y la exportación sigan teniendo una geometría
+ * persistida; se deriva de la plantilla y no se pide a mano. Si el perfil ya
+ * existía, se vuelve a sincronizar con el preset: aplicar una plantilla
+ * devuelve la maqueta a sus valores predeterminados.
+ */
+export async function ensureTemplateProfile(
+  session: SessionContext,
+  template: TemplateSummary,
+): Promise<EnsuredTemplateProfile> {
+  const name = templateProfileName(template.name);
+  const page = {
+    format: template.page.format as BookFormat,
+    pageWidthMm: template.page.pageWidthMm,
+    pageHeightMm: template.page.pageHeightMm,
+    marginTopMm: template.page.marginTopMm,
+    marginBottomMm: template.page.marginBottomMm,
+    marginInnerMm: template.page.marginInnerMm,
+    marginOuterMm: template.page.marginOuterMm,
+    gutterMm: template.page.gutterMm,
+    bleedMm: template.page.bleedMm,
+    headerDistanceMm: template.page.headerDistanceMm,
+    footerDistanceMm: template.page.footerDistanceMm,
+    mirrorMargins: template.page.mirrorMargins,
+    showPageNumbers: template.page.showPageNumbers,
+    chapterStartsRecto: template.page.chapterStartsRecto,
+    typographyConfig: template.config.typography,
+  };
+
+  return prisma.layoutProfile.upsert({
+    where: {
+      workspaceId_name: {
+        workspaceId: session.workspace.id,
+        name,
+      },
+    },
+    create: {
+      workspaceId: session.workspace.id,
+      name,
+      ...page,
+    },
+    update: {
+      ...page,
+      deletedAt: null,
+    },
+    select: { id: true, name: true, format: true },
+  });
 }
