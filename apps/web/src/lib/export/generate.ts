@@ -510,6 +510,9 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
     }
 
     const typography = withTypographyDefaults(input.typography);
+    // La maqueta del PDF es la misma que la de la vista previa: si aquí se
+    // ignorara el salto de página o la apertura en recto, los dos archivos
+    // dirían cosas distintas.
     const blocks = bookToBlocks(
       input.sections.map((section) => ({
         id: section.id,
@@ -517,7 +520,9 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
         type: section.type,
         content: section.content,
         isChapter: isChapterType(section.type),
-        startOnOddPage: false,
+        startOnOddPage: section.startOnOddPage,
+        pageBreakBefore: section.pageBreakBefore,
+        includeInExport: section.includeInExport,
       })),
     );
     const pdfFonts = await loadPdfFonts();

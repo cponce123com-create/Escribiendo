@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bookToBlocks, sectionToBlocks, type PreviewSection } from "./blocks";
+import { bookToBlocks, seccionesExportables, sectionToBlocks, type PreviewSection } from "./blocks";
 
 /** Sección mínima con el contenido indicado. */
 function seccion(content: unknown): PreviewSection {
@@ -10,6 +10,8 @@ function seccion(content: unknown): PreviewSection {
     content,
     isChapter: true,
     startOnOddPage: false,
+    pageBreakBefore: false,
+    includeInExport: true,
   };
 }
 
@@ -221,5 +223,51 @@ describe("sectionToBlocks", () => {
 
   it("no inventa bloques con contenido inválido", () => {
     expect(sectionToBlocks(seccion({ type: "doc", content: "no es un arreglo" }))).toEqual([]);
+  });
+});
+
+describe("bookToBlocks", () => {
+  it("marca el salto de página propio de la sección", () => {
+    const conSalto: PreviewSection = {
+      ...seccion(documento({ type: "paragraph", content: [{ type: "text", text: "Texto." }] })),
+      pageBreakBefore: true,
+    };
+
+    const bloques = bookToBlocks([conSalto]);
+
+    expect(bloques[0]?.breaksBefore).toBe(true);
+  });
+
+  it("no marca salto de página cuando la sección no lo pide", () => {
+    const bloques = bookToBlocks([
+      seccion(documento({ type: "paragraph", content: [{ type: "text", text: "Texto." }] })),
+    ]);
+
+    expect(bloques[0]?.breaksBefore).toBe(false);
+  });
+});
+
+describe("seccionesExportables", () => {
+  it("deja fuera la sección que no se quiere exportar", () => {
+    const incluida = seccion(
+      documento({ type: "paragraph", content: [{ type: "text", text: "Sí." }] }),
+    );
+    const excluida: PreviewSection = {
+      ...incluida,
+      id: "s2",
+      includeInExport: false,
+    };
+
+    const exportables = seccionesExportables([incluida, excluida]);
+
+    expect(exportables.map((section) => section.id)).toEqual(["s1"]);
+  });
+
+  it("una sección sin el dato se exporta", () => {
+    const exportables = seccionesExportables([
+      { id: "s1", title: "Sección", type: "CHAPTER", content: null, isChapter: true },
+    ]);
+
+    expect(exportables).toHaveLength(1);
   });
 });

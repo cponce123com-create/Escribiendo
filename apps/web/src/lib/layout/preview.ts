@@ -9,7 +9,7 @@ import {
   type PageGeometry,
   type TypographyConfig,
 } from "@escribiendo/editorial-engine";
-import { bookToBlocks, isChapterType, type PreviewSection } from "./blocks";
+import { bookToBlocks, isChapterType, seccionesExportables, type PreviewSection } from "./blocks";
 import { loadPdfFonts } from "@/lib/export/fonts";
 import {
   getBookEdition,
@@ -69,16 +69,22 @@ export async function loadPreviewSections(
       content: true,
       parentId: true,
       startOnOddPage: true,
+      pageBreakBefore: true,
+      includeInExport: true,
     },
   });
 
-  return sections.map((section) => ({
+  // Una sección excluida del libro no se compone: la vista previa tiene que
+  // parecerse al PDF, que tampoco la incluye.
+  return seccionesExportables(sections).map((section) => ({
     id: section.id,
     title: section.title,
     type: section.type,
     content: section.content,
     isChapter: isChapterType(section.type),
     startOnOddPage: section.startOnOddPage,
+    pageBreakBefore: section.pageBreakBefore,
+    includeInExport: section.includeInExport,
   }));
 }
 

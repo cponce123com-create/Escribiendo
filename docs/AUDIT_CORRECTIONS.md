@@ -535,3 +535,58 @@ Base del lote: `29dac65`.
 - La prueba no descarga imagenes de Cloudinary: las genera con `sharp`, igual
   que la aplicacion las normaliza.
 - La puntuacion no se declara en 95.
+
+---
+
+## Lote O: integridad de la maqueta (pagina en blanco, capitulos y secciones excluidas)
+
+Fecha: 21 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+Base del lote: `27fe353`.
+
+### Que estaba mal
+
+1. Al abrir un capitulo, la pagina en curso se marcaba como en blanco **con su
+   contenido** (`flushPage(true)` conservaba los bloques). La vista previa
+   oculta las paginas en blanco, asi que el final del capitulo anterior
+   desaparecia de la vista previa mientras el PDF si lo dibujaba.
+2. Un capitulo no empezaba en pagina nueva: continuaba en la pagina en curso,
+   de modo que la regla de abrir en recto no se cumplia.
+3. La exportacion pasaba `startOnOddPage: false` a proposito, mientras la vista
+   previa leia el valor real: los dos archivos podian paginarse distinto.
+4. `includeInExport` y `pageBreakBefore` eran columnas muertas: una seccion
+   marcada como "no exportar" se exportaba igual, y el salto de pagina propio
+   de la seccion no se aplicaba.
+
+### Que se ha cambiado
+
+| Area        | Archivo                                       | Cambio                                                                                                                                                               |
+| ----------- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Motor       | `packages/editorial-engine/src/pagination.ts` | La pagina en curso se cierra **con su contenido**; la pagina en blanco insertada no tiene bloques. Un capitulo o un bloque con salto propio empieza en pagina nueva. |
+| Motor       | `packages/editorial-engine/src/pagination.ts` | `LayoutBlock` gana `breaksBefore` para el salto propio de la seccion.                                                                                                |
+| Maquetacion | `apps/web/src/lib/layout/blocks.ts`           | `PreviewSection` gana `pageBreakBefore` e `includeInExport`; `bookToBlocks` marca el salto; helper `seccionesExportables`.                                           |
+| Maquetacion | `apps/web/src/lib/layout/preview.ts`          | La vista previa lee las columnas nuevas y deja fuera las secciones excluidas.                                                                                        |
+| Exportacion | `apps/web/src/lib/export/manuscript.ts`       | `ExportSection` gana los mismos campos; `loadManuscript` excluye las secciones que no se exportan.                                                                   |
+| Exportacion | `apps/web/src/lib/export/generate.ts`         | El PDF usa la maqueta real: `startOnOddPage` y `pageBreakBefore` dejan de estar fijados a falso.                                                                     |
+
+### Pruebas ejecutadas
+
+| Comprobacion                                       | Resultado                                                                                                                                                                    |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/editorial-engine/src/pagination.test.ts` | 6 casos nuevos: capitulo en pagina nueva, pagina con contenido nunca en blanco, pagina en blanco sin bloques, salto propio, apertura en recto y aviso de la pagina insertada |
+| `apps/web/src/lib/layout/blocks.test.ts`           | 4 casos nuevos: salto de la seccion y filtro de secciones exportables                                                                                                        |
+| `tests/e2e/maquetacion.spec.ts`                    | Un caso nuevo: dos capitulos y el final del primero visible en la vista previa                                                                                               |
+| `pnpm test`                                        | 300 pruebas en 32 archivos                                                                                                                                                   |
+| `pnpm test:e2e`                                    | 73 pruebas en Chromium                                                                                                                                                       |
+
+Los seis casos unitarios del motor **fallan con el comportamiento anterior**
+(comprobado ejecutando la suite contra el codigo previo), asi que son un
+detector determinista del defecto. La prueba de extremo a extremo comprueba el
+flujo completo, pero el defecto dependia de la paridad de las paginas y no
+falla siempre; por eso el detector es la prueba unitaria.
+
+### Limites que permanecen
+
+- La paridad de la maqueta depende de la geometria del perfil y del tipo de
+  letra del perfil de pagina.
+- La puntuacion no se declara en 95.

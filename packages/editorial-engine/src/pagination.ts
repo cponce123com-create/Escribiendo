@@ -56,6 +56,11 @@ export interface LayoutBlock {
   startsChapter?: boolean;
   /** El bloque es el primero de su sección. */
   firstOfSection?: boolean;
+  /**
+   * El bloque tiene que empezar en una página nueva. Se usa para los saltos
+   * de página que pide la sección.
+   */
+  breaksBefore?: boolean;
   /** Referencia de la imagen, cuando `kind` es `image`. */
   image?: EditorialImage;
 }
@@ -356,13 +361,25 @@ export function paginate(
   };
 
   for (const block of blocks) {
-    if (block.startsChapter && chapterStartsRecto) {
-      // El capítulo debe abrir en página par (la derecha). Si la página
-      // actual es izquierda, se inserta una en blanco.
-      const nextSide = pageSide(pageIndex + 1);
+    const abreCapitulo = block.startsChapter === true;
+    const cortaPagina = block.breaksBefore === true;
 
-      if (nextSide === "verso") {
+    if (abreCapitulo || cortaPagina) {
+      // Un capítulo o un bloque con salto propio empieza en página nueva. Si
+      // la página en curso ya tiene contenido, se cierra **con su contenido**:
+      // marcar como en blanco una página compuesta esconde texto que sí va en
+      // el archivo final.
+      if (currentBlocks.length > 0) {
+        flushPage();
+      }
+    }
+
+    if (abreCapitulo && chapterStartsRecto) {
+      // Se insertan páginas vacías hasta que la siguiente sea un recto. La
+      // página insertada no tiene bloques: está realmente en blanco.
+      while (pageSide(pageIndex + 1) !== "recto") {
         flushPage(true);
+
         diagnostics.push({
           code: "CHAPTER_NOT_ON_RECTO",
           severity: "info",

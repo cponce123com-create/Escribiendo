@@ -172,6 +172,40 @@ test.describe("Maquetación", () => {
     await expect(page.getByText(/métricas reales de la fuente/)).toBeVisible();
   });
 
+  test("la vista previa no esconde el final del capítulo anterior", async ({ page }) => {
+    // Un capítulo que llena varias páginas: al abrir el capítulo siguiente
+    // hay que cerrar la página en curso **con su contenido**. Antes esa
+    // página se marcaba en blanco y la vista previa ocultaba el texto, aunque
+    // el PDF lo dibujara.
+    await page.goto("/books");
+    await page.getByRole("link", { name: BOOK_TITLE }).click();
+    await page.getByRole("link", { name: SECTION_TITLE }).click();
+
+    const editor = page.locator(".ProseMirror");
+    await editor.click();
+    await page.keyboard.insertText(
+      `${"El velo de la tarde caía sobre la plaza mientras el reloj marcaba las siete. ".repeat(120)}FINALDELCAPITULO`,
+    );
+    await page.getByRole("button", { name: "Guardar manuscrito" }).click();
+    await expect(page.getByText("Guardado en el servidor.")).toBeVisible();
+
+    // Un segundo capítulo, que obliga a cerrar la página en curso.
+    await page.goto("/books");
+    await page.getByRole("link", { name: BOOK_TITLE }).click();
+    await page.getByLabel("Título de la sección").fill("Segundo capítulo");
+    await page.getByLabel("Tipo").selectOption("CHAPTER");
+    await page.getByRole("button", { name: "Añadir sección" }).click();
+    await expect(page.getByRole("heading", { name: "Segundo capítulo" })).toBeVisible();
+
+    await openLayout(page);
+    await page.getByRole("link", { name: "Ver la vista previa paginada" }).click();
+
+    await expect(page.getByRole("heading", { name: "Vista previa paginada" })).toBeVisible();
+    // El final del primer capítulo se ve: es el texto de la página que se
+    // cierra al abrir el capítulo siguiente.
+    await expect(page.getByText("FINALDELCAPITULO").first()).toBeVisible();
+  });
+
   test("la vista previa muestra el folio y el encabezado de página", async ({ page }) => {
     await openLayout(page);
     await page.getByRole("link", { name: "Ver la vista previa paginada" }).click();
