@@ -4,6 +4,6 @@
   "type": "module",
   "description": "Validador externo del PDF, con el lector de PDF de Mozilla (pdf.js).",
   "dependencies": {
-    "pdfjs-dist": "4.10.38"
+    "pdfjs-dist": "6.4.299"
   }
 }
