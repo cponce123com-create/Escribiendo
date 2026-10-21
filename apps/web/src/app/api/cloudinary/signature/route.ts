@@ -81,13 +81,6 @@ export async function POST(request: Request): Promise<NextResponse> {
       return NextResponse.json({ error: "Falta el libro de destino." }, { status: 400 });
     }
 
-    if (!canPerform(session.workspace.role, "section:update")) {
-      return NextResponse.json(
-        { error: "No tienes permisos para subir imágenes." },
-        { status: 403 },
-      );
-    }
-
     const book = await getBook(session, parsed.data.bookId);
 
     if (!book) {
@@ -96,6 +89,12 @@ export async function POST(request: Request): Promise<NextResponse> {
         { status: 404 },
       );
     }
+  }
+
+  // Firmar una subida es escribir en el espacio de trabajo: lo que se puede
+  // subir depende del rol, también para las portadas.
+  if (!canPerform(session.workspace.role, "section:update")) {
+    return NextResponse.json({ error: "No tienes permisos para subir imágenes." }, { status: 403 });
   }
 
   const timestamp = Math.floor(Date.now() / 1_000).toString();

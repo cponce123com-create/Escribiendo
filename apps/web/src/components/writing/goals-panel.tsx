@@ -8,6 +8,7 @@ import { deleteGoalAction, setGoalAction } from "@/lib/writing/actions";
 import { initialActionState } from "@/lib/action-state";
 import { formatDate } from "@/lib/ui/format";
 import type { GoalSummary } from "@/lib/writing/goals";
+import { ConfirmButton } from "@/components/forms/confirm-button";
 
 interface GoalsPanelProps {
   books: Array<{ id: string; title: string }>;
@@ -135,9 +136,11 @@ function DeleteGoalButton({
   return (
     <form action={action}>
       <input type="hidden" name="goalId" value={goalId} />
-      <button type="submit" className="btn btn-ghost btn-sm">
-        Eliminar
-      </button>
+      <ConfirmButton
+        label="Eliminar"
+        confirmLabel="Sí, eliminar"
+        description="Eliminar el objetivo de palabras"
+      />
     </form>
   );
 }

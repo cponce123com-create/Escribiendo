@@ -6,25 +6,31 @@ import { AppError } from "../errors";
  * autorización aquí, además de filtrar por el espacio de trabajo de la
  * sesión: el filtrado por `workspaceId` evita el acceso cruzado entre
  * estudios, pero no impide que alguien de un estudio sin permisos escriba.
+ *
+ * La lista es la fuente: el tipo sale de ella, de modo que una acción nueva
+ * no puede quedar fuera de la comprobación.
  */
-export type LibraryAction =
-  | "book:create"
-  | "book:update"
-  | "book:delete"
-  | "book:changeStatus"
-  | "book:submitForReview"
-  | "book:approve"
-  | "section:create"
-  | "section:update"
-  | "section:move"
-  | "section:delete"
-  | "revision:restore"
-  | "comment:create"
-  | "comment:resolve"
-  | "layout:manage"
-  | "export:create"
-  | "team:manage"
-  | "audit:export";
+export const ACCIONES = [
+  "book:create",
+  "book:update",
+  "book:delete",
+  "book:changeStatus",
+  "book:submitForReview",
+  "book:approve",
+  "section:create",
+  "section:update",
+  "section:move",
+  "section:delete",
+  "revision:restore",
+  "comment:create",
+  "comment:resolve",
+  "layout:manage",
+  "export:create",
+  "team:manage",
+  "audit:export",
+] as const;
+
+export type LibraryAction = (typeof ACCIONES)[number];
 
 /** Quien puede crear y editar libros y su estructura. */
 const WRITE_ROLES: ReadonlySet<WorkspaceRole> = new Set(["OWNER", "ADMIN", "EDITOR", "AUTHOR"]);
@@ -38,6 +44,20 @@ const RESTORE_ROLES: ReadonlySet<WorkspaceRole> = new Set(["OWNER", "ADMIN", "ED
 /** Quien puede aprobar un libro y darlo por terminado. */
 const APPROVE_ROLES: ReadonlySet<WorkspaceRole> = new Set(["OWNER", "ADMIN", "EDITOR"]);
 
+/**
+ * Quién puede comentar.
+ *
+ * Quien revisa no escribe el manuscrito, pero sí deja comentarios: es lo que
+ * la propia interfaz promete al invitar a alguien con ese rol.
+ */
+const COMMENT_ROLES: ReadonlySet<WorkspaceRole> = new Set([
+  "OWNER",
+  "ADMIN",
+  "EDITOR",
+  "AUTHOR",
+  "REVIEWER",
+]);
+
 /** Quien puede invitar a personas, cambiar roles y expulsar del estudio. */
 const TEAM_ROLES: ReadonlySet<WorkspaceRole> = new Set(["OWNER", "ADMIN"]);
 
@@ -50,10 +70,16 @@ export function canPerform(role: WorkspaceRole, action: LibraryAction): boolean 
     case "section:create":
     case "section:update":
     case "section:move":
-    case "comment:create":
-    case "comment:resolve":
     case "layout:manage":
     case "export:create":
+      return WRITE_ROLES.has(role);
+
+    case "comment:create":
+      // Quien revisa no escribe el manuscrito, pero sí deja comentarios: es
+      // lo que la propia interfaz promete al invitar a alguien con ese rol.
+      return COMMENT_ROLES.has(role);
+
+    case "comment:resolve":
       return WRITE_ROLES.has(role);
 
     case "book:approve":

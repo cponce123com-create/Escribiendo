@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { deleteLayoutProfileAction, setDefaultLayoutProfileAction } from "@/lib/layout/actions";
 import { initialActionState } from "@/lib/action-state";
 import type { LayoutProfileSummary } from "@/lib/layout/profiles";
+import { ConfirmButton } from "@/components/forms/confirm-button";
 
 interface ProfileListProps {
   bookId: string;
@@ -103,9 +104,11 @@ function DeleteButton({ profileId }: { profileId: string }) {
   return (
     <form action={formAction} className="flex flex-col items-end gap-1">
       <input type="hidden" name="profileId" value={profileId} />
-      <button type="submit" className="btn btn-ghost btn-sm">
-        Eliminar
-      </button>
+      <ConfirmButton
+        label="Eliminar"
+        confirmLabel="Sí, eliminar"
+        description="Eliminar el perfil de página"
+      />
       {state.status === "error" && state.message ? (
         <span className="text-xs text-danger" role="alert">
           {state.message}

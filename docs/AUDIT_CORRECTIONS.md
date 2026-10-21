@@ -590,3 +590,81 @@ falla siempre; por eso el detector es la prueba unitaria.
 - La paridad de la maqueta depende de la geometria del perfil y del tipo de
   letra del perfil de pagina.
 - La puntuacion no se declara en 95.
+
+---
+
+## Lote P: el motor deja de producir archivos rotos
+
+Fecha: 21 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+Base del lote: `f5d818e`.
+
+### Que estaba mal
+
+1. Un solo caracter de control en el manuscrito (U+0007, por ejemplo) hacia que
+   EPUBCheck declarase el EPUB entero como invalido: `FATAL(RSC-016) An invalid
+XML character`. Comprobado con EPUBCheck 5.1.0.
+2. El atributo `href` de un enlace no se validaba: un `javascript:` enviado a
+   proposito sobrevivia en el XHTML del EPUB y en la relacion externa del
+   DOCX. El editor lo filtra, pero el servidor no.
+3. El diff comparaba palabra a palabra con una matriz que crecia con el
+   cuadrado del texto, y el limite contaba tokens (espacios incluidos). Un
+   capitulo normal reservaba cientos de megabytes **en el navegador**, porque
+   el panel de conflicto es un componente de cliente.
+4. El espacio inseparable (U+00A0) si partia palabras, en contra de lo que
+   decia el codigo: en espanol, «no se rompe» no puede partirse.
+5. La opcion `uppercase` se media en mayusculas y se dibujaba en minusculas;
+   `smallCaps` no se aplicaba en ningun sitio.
+
+### Que se ha cambiado
+
+| Area       | Archivo                                      | Cambio                                                                                                        |
+| ---------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Esquema    | `packages/book-schema/src/tiptap.ts`         | El texto y las notas se rechazan si llevan caracteres de control; el `href` tiene que usar un esquema seguro. |
+| Compartido | `packages/shared/src/{xml-chars,enlaces}.ts` | Utilidad unica para limpiar caracteres y para decidir que enlaces son seguros.                                |
+| Escritores | `packages/export-engine/src/xml.ts`          | `escapeXml` compartido que limpia los controles antes de escapar.                                             |
+| Escritores | `packages/export-engine/src/{epub,docx}.ts`  | No se escribe un enlace con un esquema peligroso ni en el XHTML ni en la relacion del DOCX.                   |
+| Comparador | `packages/book-schema/src/diff.ts`           | El limite cuenta palabras y ademas hay un tope de celdas: la memoria queda acotada.                           |
+| Medicion   | `packages/editorial-engine/src/measure.ts`   | El espacio inseparable ya no parte palabras; `smallCaps` queda declarado como reservado.                      |
+| PDF        | `apps/web/src/lib/export/generate.ts`        | El PDF dibuja el texto en mayusculas cuando el estilo lo pide, igual que la vista previa.                     |
+
+### Pruebas ejecutadas
+
+| Comprobacion                                    | Resultado                                                                       |
+| ----------------------------------------------- | ------------------------------------------------------------------------------- |
+| EPUBCheck 5.1.0 sobre un EPUB con un control    | 0 errores y 0 advertencias (antes: error fatal)                                 |
+| `packages/book-schema/src/tiptap.test.ts`       | 4 casos nuevos: controles en texto y en nota, esquema peligroso y enlace valido |
+| `packages/export-engine/src/epub.test.ts`       | 4 casos nuevos: controles y enlaces peligrosos en EPUB y DOCX                   |
+| `packages/book-schema/src/diff.test.ts`         | Un caso nuevo: la comparacion enorme degrada a sustitucion completa             |
+| `packages/editorial-engine/src/measure.test.ts` | Un caso nuevo: el espacio inseparable no parte palabras                         |
+| `pnpm test`                                     | 328 pruebas en 34 archivos                                                      |
+| `pnpm test:e2e`                                 | 73 pruebas en Chromium                                                          |
+
+### Lote Q: el trabajo de quien escribe no se pierde ni se cuelga
+
+| Que estaba mal                                                                                                                           | Correccion                                                                               |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Un borrador local con una version distinta de la del servidor se descartaba **en silencio** y el siguiente autoguardado lo sobrescribia. | Se abre el comparador con las dos versiones y decide quien escribe.                      |
+| Un trabajo de exportacion que se quedaba «en proceso» para siempre se mostraba como si estuviera en marcha.                              | Se marca como fallido al pedirlo de nuevo (`EXPORT_JOB_TIMEOUT_MINUTES`).                |
+| La descarga regeneraba el archivo entero en cada clic y servia tambien trabajos fallidos.                                                | Solo se sirven trabajos terminados (409 en los demas).                                   |
+| A la interfaz le llegaban errores internos de Prisma (nombres de indices y columnas).                                                    | El detalle va al registro; a la interfaz solo llega un mensaje claro.                    |
+| Las dos barreras que protegen la base de pruebas de la E2E compartian anulacion.                                                         | Cada barrera tiene la suya: `E2E_ALLOW_NON_TEST_DATABASE` y `E2E_ALLOW_REMOTE_DATABASE`. |
+| Los JSON del borrador y del servidor se parseaban sin proteccion.                                                                        | Se parsean con try/catch: un borrador danado avisa en vez de romper la pagina.           |
+
+Pruebas: `apps/web/src/lib/export/job-estado.test.ts` (3 casos) y
+`scripts/lib/e2e-database.test.ts` (6 casos, incluidas las dos anulaciones
+independientes). 328 unitarias en 34 archivos y 73 E2E en Chromium.
+
+### Lote R: la aplicacion no se cuelga ni se aburre
+
+| Que estaba mal                                                                                                                        | Correccion                                                                                                     |
+| ------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| La pagina de estadisticas cargaba **todo** el historial de revisiones del estudio, dos veces.                                         | Solo se cargan las revisiones del periodo, con la revision anterior como referencia, y una cache de un minuto. |
+| La prueba de permisos «exhaustiva» solo comprobaba que la funcion devolvia un booleano y dejaba fuera `team:manage` y `audit:export`. | La lista de acciones es la fuente del tipo y la comparacion es real: hay casos para los roles delicados.       |
+| Quien revisa no podia comentar, en contra de lo que promete la interfaz al invitarlo.                                                 | `comment:create` incluye al rol de revision.                                                                   |
+| Firmar una subida a Cloudinary no comprobaba el rol para las portadas.                                                                | La comprobacion de rol se aplica a los dos propositos.                                                         |
+| Las paginas con manuscrito no llevaban `Cache-Control: no-store` explicito.                                                           | `/books`, `/notes`, `/stats` y `/team` se marcan como privadas y sin cache.                                    |
+| Retirar a alguien, revocar una invitacion, borrar una nota, un objetivo o un perfil: un solo clic.                                    | Piden confirmacion en el sitio, sin ventanas del navegador.                                                    |
+
+Pruebas: 328 unitarias en 34 archivos y 73 E2E en Chromium (la de escritura
+comprueba ahora la confirmacion).

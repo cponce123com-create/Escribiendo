@@ -56,6 +56,21 @@ describe("computeWordsPerDay", () => {
     expect(days).toEqual([{ date: "2026-10-20", words: 350 }]);
   });
 
+  it("cuenta solo la diferencia cuando la sección ya tenía texto antes del periodo", () => {
+    // La revisión anterior al periodo se carga como referencia: sin ella, las
+    // 900 palabras de la sección se contarían como escritas dentro del
+    // periodo.
+    const days = computeWordsPerDay([
+      sample("s1", 2, 900, "2026-10-01T10:00:00.000Z"),
+      sample("s1", 3, 950, "2026-10-20T10:00:00.000Z"),
+    ]);
+
+    expect(days).toEqual([
+      { date: "2026-10-01", words: 900 },
+      { date: "2026-10-20", words: 50 },
+    ]);
+  });
+
   it("devuelve días ordenados", () => {
     const days = computeWordsPerDay([
       sample("s1", 2, 100, "2026-10-22T10:00:00.000Z"),

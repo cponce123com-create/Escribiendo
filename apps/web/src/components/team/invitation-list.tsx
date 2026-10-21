@@ -5,6 +5,7 @@ import { revokeInvitationAction } from "@/lib/team/actions";
 import { initialActionState } from "@/lib/action-state";
 import { WORKSPACE_ROLE_LABELS, formatDate } from "@/lib/ui/format";
 import type { InvitationSummary } from "@/lib/team/members";
+import { ConfirmButton } from "@/components/forms/confirm-button";
 
 const STATE_LABELS: Record<InvitationSummary["state"], string> = {
   pending: "Pendiente",
@@ -52,9 +53,11 @@ function RevokeButton({ invitationId }: { invitationId: string }) {
   return (
     <form action={formAction} className="flex items-center gap-2">
       <input type="hidden" name="invitationId" value={invitationId} />
-      <button type="submit" className="btn btn-ghost btn-sm">
-        Revocar
-      </button>
+      <ConfirmButton
+        label="Revocar"
+        confirmLabel="Sí, revocar"
+        description="Revocar la invitación"
+      />
       {state.status === "error" && state.message ? (
         <span className="text-xs text-danger" role="alert">
           {state.message}

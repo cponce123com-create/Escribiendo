@@ -8,6 +8,7 @@ import { createNoteAction, deleteNoteAction, toggleNotePinAction } from "@/lib/w
 import { initialActionState } from "@/lib/action-state";
 import type { NoteSummary } from "@/lib/writing/notes";
 import { formatDateTime } from "@/lib/ui/format";
+import { ConfirmButton } from "@/components/forms/confirm-button";
 
 interface NotesPanelProps {
   bookId: string;
@@ -146,9 +147,11 @@ function DeleteButton({
   return (
     <form action={action}>
       <input type="hidden" name="noteId" value={note.id} />
-      <button type="submit" className="btn btn-ghost btn-sm">
-        Eliminar
-      </button>
+      <ConfirmButton
+        label="Eliminar"
+        confirmLabel="Sí, eliminar"
+        description="Eliminar la nota de trabajo"
+      />
     </form>
   );
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WorkspaceRole } from "@escribiendo/database";
-import { assertCanPerform, canPerform, type LibraryAction } from "./permissions";
+import { ACCIONES, assertCanPerform, canPerform, type LibraryAction } from "./permissions";
 
 const ROLES: WorkspaceRole[] = ["OWNER", "ADMIN", "EDITOR", "AUTHOR", "REVIEWER"];
 
@@ -55,23 +55,38 @@ describe("canPerform", () => {
   });
 
   it("es exhaustivo: ningún rol queda sin decidir", () => {
-    const actions: LibraryAction[] = [
-      "book:create",
-      "book:update",
-      "book:delete",
-      "book:changeStatus",
-      "section:create",
-      "section:update",
-      "section:move",
-      "section:delete",
-      "revision:restore",
-    ];
+    const actions: LibraryAction[] = [...ACCIONES];
 
     for (const role of ROLES) {
       for (const action of actions) {
-        expect(typeof canPerform(role, action)).toBe("boolean");
+        expect(canPerform(role, action)).toBeTypeOf("boolean");
       }
     }
+
+    // Y la lista no se queda atrás: todas las acciones del tipo están aquí.
+    expect(actions.sort()).toEqual([...ACCIONES].sort());
+  });
+
+  it("solo quien administra el equipo puede gestionarlo", () => {
+    expect(canPerform("OWNER", "team:manage")).toBe(true);
+    expect(canPerform("ADMIN", "team:manage")).toBe(true);
+    expect(canPerform("EDITOR", "team:manage")).toBe(false);
+    expect(canPerform("AUTHOR", "team:manage")).toBe(false);
+    expect(canPerform("REVIEWER", "team:manage")).toBe(false);
+  });
+
+  it("solo quien administra el equipo puede exportar la auditoría", () => {
+    expect(canPerform("OWNER", "audit:export")).toBe(true);
+    expect(canPerform("ADMIN", "audit:export")).toBe(true);
+    expect(canPerform("EDITOR", "audit:export")).toBe(false);
+    expect(canPerform("AUTHOR", "audit:export")).toBe(false);
+    expect(canPerform("REVIEWER", "audit:export")).toBe(false);
+  });
+
+  it("quien solo revisa no puede escribir ni exportar", () => {
+    expect(canPerform("REVIEWER", "section:update")).toBe(false);
+    expect(canPerform("REVIEWER", "export:create")).toBe(false);
+    expect(canPerform("REVIEWER", "comment:create")).toBe(true);
   });
 });
 

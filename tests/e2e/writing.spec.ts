@@ -46,7 +46,10 @@ test.describe("Escritura asistida", () => {
     await expect(page.getByText("Nota guardada.")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Pendiente: revisar el cierre" })).toBeVisible();
 
+    // Borrar una nota pide confirmación: un clic de más no debería bastar.
     await page.getByRole("button", { name: "Eliminar" }).first().click();
+    await expect(page.getByRole("button", { name: "Sí, eliminar" })).toBeVisible();
+    await page.getByRole("button", { name: "Sí, eliminar" }).click();
     await expect(page.getByText("Nota eliminada.")).toBeVisible();
   });
 
