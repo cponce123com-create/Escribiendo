@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildZip, crc32 } from "./zip";
+import { zipEntries } from "./test-utils";
 
 /** Compara dos arreglos de bytes sin depender de los tipos de Node. */
 function equals(left: Uint8Array, right: Uint8Array): boolean {
@@ -17,49 +18,6 @@ function equals(left: Uint8Array, right: Uint8Array): boolean {
 }
 
 /** Lector de ZIP mínimo, para comprobar que lo que se genera es legible. */
-interface ReadEntry {
-  name: string;
-  data: Uint8Array;
-  method: number;
-  offset: number;
-}
-
-function readZip(bytes: Uint8Array): ReadEntry[] {
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const entries: ReadEntry[] = [];
-
-  // Local file header: 0x04034b50.
-  let position = 0;
-
-  while (position + 4 <= bytes.length) {
-    const signature = view.getUint32(position, true);
-
-    if (signature !== 0x04034b50) {
-      break;
-    }
-
-    const method = view.getUint16(position + 8, true);
-    const size = view.getUint32(position + 18, true);
-    const nameLength = view.getUint16(position + 26, true);
-    const extraLength = view.getUint16(position + 28, true);
-    const nameStart = position + 30;
-    const dataStart = nameStart + nameLength + extraLength;
-
-    const name = new TextDecoder().decode(bytes.slice(nameStart, nameStart + nameLength));
-
-    entries.push({
-      name,
-      data: bytes.slice(dataStart, dataStart + size),
-      method,
-      offset: position,
-    });
-
-    position = dataStart + size;
-  }
-
-  return entries;
-}
-
 describe("crc32", () => {
   it("devuelve el valor conocido de la cadena de prueba", () => {
     // Valor de referencia de la especificación ZIP.
@@ -86,12 +44,37 @@ describe("buildZip", () => {
     expect(bytes[3]).toBe(0x04);
   });
 
-  it("guarda las entradas sin comprimir", () => {
+  it("comprime las entradas y conserva su contenido", () => {
     const bytes = buildZip([entrada], new Date("2026-10-20T10:00:00.000Z"));
-    const [leida] = readZip(bytes);
+    const [leida] = [...zipEntries(bytes).values()];
 
-    expect(leida?.method).toBe(0);
+    expect(leida?.method).toBe(8);
     expect(new TextDecoder().decode(leida?.data)).toBe("<container/>");
+  });
+
+  it("deja la entrada marcada como primera sin comprimir", () => {
+    const bytes = buildZip(
+      [
+        { name: "mimetype", data: new TextEncoder().encode("application/epub+zip"), first: true },
+        entrada,
+      ],
+      new Date("2026-10-20T10:00:00.000Z"),
+    );
+    const [primera] = [...zipEntries(bytes).values()];
+
+    expect(primera?.name).toBe("mimetype");
+    expect(primera?.method).toBe(0);
+    expect(new TextDecoder().decode(primera?.data)).toBe("application/epub+zip");
+  });
+
+  it("reduce el tamaño del archivo cuando el contenido se repite", () => {
+    const largo = new TextEncoder().encode("<container/>".repeat(200));
+    const bytes = buildZip(
+      [{ name: "EPUB/text/largo.xhtml", data: largo }],
+      new Date("2026-10-20T10:00:00.000Z"),
+    );
+
+    expect(bytes.length).toBeLessThan(largo.length);
   });
 
   it("conserva el nombre y el contenido de cada entrada", () => {
@@ -100,7 +83,7 @@ describe("buildZip", () => {
       new Date("2026-10-20T10:00:00.000Z"),
     );
 
-    const leidas = readZip(bytes);
+    const leidas = [...zipEntries(bytes).values()];
 
     expect(leidas.map((item) => item.name)).toEqual(["META-INF/container.xml", "EPUB/package.opf"]);
     expect(new TextDecoder().decode(leidas[1]?.data)).toBe("<package/>");
@@ -115,7 +98,7 @@ describe("buildZip", () => {
       new Date("2026-10-20T10:00:00.000Z"),
     );
 
-    const leidas = readZip(bytes);
+    const leidas = [...zipEntries(bytes).values()];
 
     expect(leidas[0]?.name).toBe("mimetype");
     expect(leidas[0]?.offset).toBe(0);

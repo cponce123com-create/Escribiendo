@@ -159,6 +159,9 @@ modelo aproximado.
 - Los títulos se miden en negrita, que es como se dibujan.
 - Los caracteres sin glifo en la fuente incrustada se sustituyen y se
   **cuentan** en `caracteresPerdidos`; la interfaz lo avisa.
+- Los flujos (contenido, programa de la fuente y mapa `ToUnicode`) van
+  comprimidos con `FlateDecode`. El PDF de 200 000 palabras pasa de 5 387 KB a
+  671 KB.
 
 ### EPUB
 
@@ -169,6 +172,8 @@ modelo aproximado.
 - Imágenes: `<figure><img src="…">`. Cuando la capa web ha resuelto los bytes,
   la imagen va incrustada en el EPUB; si no, se deja la URL remota y el
   manifiesto declara `properties="remote-resources"`.
+- Las entradas del ZIP van comprimidas con Deflate, salvo `mimetype`, que la
+  especificación exige sin comprimir y en primer lugar.
 
 ### DOCX
 
@@ -180,6 +185,7 @@ modelo aproximado.
 - Los separadores se dibujan como borde inferior de párrafo.
 - Las imágenes con bytes resueltos van incrustadas en `word/media` con su
   relación y su texto alternativo.
+- Las entradas del paquete OOXML van comprimidas con Deflate.
 
 ## 7. Pruebas
 
@@ -210,10 +216,10 @@ modelo aproximado.
   resuelto sus bytes. La subida real a Cloudinary no se ha probado con
   credenciales, así que ese camino sigue sin verificarse de extremo a extremo.
 - **Validación externa.** El EPUB se ha validado con EPUBCheck 5.1.0 (0 errores,
-  0 advertencias) y el DOCX lo lee un lector OOXML independiente. No se ha
-  abierto el DOCX en Word o LibreOffice, porque no están instalados en esta
-  máquina, ni se ha probado la lectura en un lector de EPUB comercial. No se
-  afirma nada que no se haya ejecutado.
+  0 advertencias), el PDF lo abre pdf.js 4.10.38 y el DOCX lo lee un lector
+  OOXML independiente. No se ha abierto el DOCX en Word o LibreOffice, porque no
+  están instalados en esta máquina, ni se ha probado la lectura en un lector de
+  EPUB comercial. No se afirma nada que no se haya ejecutado.
 - **Navegadores.** Las pruebas E2E solo se ejecutan en Chromium.
 
 ## 9. Invariantes que no se deben romper

@@ -162,10 +162,10 @@ const TAMANOS = [10_000, 50_000, 100_000, 200_000];
 
 console.log("Coste de composición y exportación");
 console.log(
-  "  Formato  Palabras   Páginas   Paginación   PDF      PDF KB   EPUB     DOCX    Memoria",
+  "  Formato  Palabras   Páginas   Paginación   PDF      PDF KB   EPUB     EPUB KB   DOCX     DOCX KB   Memoria",
 );
 console.log(
-  "  -------  --------  --------  ----------  -------  -------  -------  ------  -------",
+  "  -------  --------  --------  ----------  -------  -------  -------  --------  -------  --------  -------",
 );
 
 for (const palabras of TAMANOS) {
@@ -233,7 +233,10 @@ for (const palabras of TAMANOS) {
     `  PDF      ${String(palabras).padStart(8)}  ${String(paginas.length).padStart(8)}  ` +
       `${`${paginacion.ms.toFixed(0)} ms`.padStart(10)}  ${`${pdf.ms.toFixed(0)} ms`.padStart(7)}  ` +
       `${`${(pdf.resultado.bytes.length / 1024).toFixed(0)} KB`.padStart(7)}  ` +
-      `${`${epub.ms.toFixed(0)} ms`.padStart(7)}  ${`${docx.ms.toFixed(0)} ms`.padStart(6)}  ` +
+      `${`${epub.ms.toFixed(0)} ms`.padStart(7)}  ` +
+      `${`${(epub.resultado.length / 1024).toFixed(0)} KB`.padStart(8)}  ` +
+      `${`${docx.ms.toFixed(0)} ms`.padStart(7)}  ` +
+      `${`${(docx.resultado.length / 1024).toFixed(0)} KB`.padStart(8)}  ` +
       `${`${(despues - antes).toFixed(1)} MB`.padStart(7)}`,
   );
 }

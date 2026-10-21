@@ -343,7 +343,7 @@ Base del lote: `dc7c6ea`.
 
 | Suite               | Resultado                  |
 | ------------------- | -------------------------- |
-| `pnpm test`         | 289 pruebas en 32 archivos |
+| `pnpm test`         | 291 pruebas en 32 archivos |
 | `pnpm test:e2e`     | 72 pruebas en Chromium     |
 | `pnpm format:check` | Correcto                   |
 | `pnpm lint`         | Sin errores                |
@@ -415,7 +415,7 @@ Base del lote: `86610b6`.
 | `pnpm validate:docx` | Mammoth 1.11.0 lee el documento: texto, negrita, cursiva, enlace, nota al pie e imagen incrustada |
 | `pnpm audit --prod`  | Sin vulnerabilidades conocidas                                                                    |
 | `pnpm audit`         | 1 aviso alto de desarrollo (`braces`), sin version corregida publicada                            |
-| `pnpm test`          | 289 pruebas en 32 archivos                                                                        |
+| `pnpm test`          | 291 pruebas en 32 archivos                                                                        |
 | `pnpm test:e2e`      | 72 pruebas en Chromium                                                                            |
 
 ### Limites que permanecen
@@ -426,4 +426,63 @@ Base del lote: `86610b6`.
 - El aviso de `braces` no tiene parche upstream y solo afecta al lint. Se
   documenta en vez de ocultarse: `pnpm audit` sigue informandolo.
 - Cloudinary real, Render y Neon por 5432 siguen bloqueados.
+- La puntuacion no se declara en 95.
+
+---
+
+## Lote M: compresion de los archivos exportados y validacion del PDF con pdf.js
+
+Fecha: 21 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+Base del lote: `c43ee27`.
+
+### Que estaba mal
+
+1. El PDF no comprimia nada: los flujos de las paginas, el programa de la
+   fuente y los mapas `ToUnicode` se guardaban sin comprimir. Un manuscrito de
+   200 000 palabras pesaba 5 387 KB, casi todo texto que se podia comprimir.
+2. El ZIP de EPUB y DOCX solo admitia entradas sin comprimir, con lo que el
+   EPUB y el DOCX crecian sin necesidad.
+3. El PDF no lo habia abierto ninguna herramienta externa. EPUB y DOCX ya los
+   leian EPUBCheck y Mammoth; el PDF se quedaba en las pruebas propias.
+
+### Que se ha cambiado
+
+| Area      | Archivo                                     | Cambio                                                                                                                  |
+| --------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| PDF       | `packages/export-engine/src/pdf.ts`         | Los flujos van con `/Filter /FlateDecode`: contenido, programa de la fuente y mapa `ToUnicode`.                         |
+| ZIP       | `packages/export-engine/src/zip.ts`         | Las entradas van comprimidas con Deflate; `mimetype` sigue sin comprimir y en primer lugar, como exige el EPUB.         |
+| Pruebas   | `packages/export-engine/src/test-utils.ts`  | Utilidades compartidas que despliegan los flujos del PDF y las entradas del ZIP para poder comprobar el contenido real. |
+| Validador | `scripts/pdfjs/`, `scripts/validate-pdf.ts` | Validador externo del PDF con pdf.js (Mozilla) y script que genera un PDF de prueba y lo abre con el.                   |
+| Banco     | `scripts/benchmark-export.ts`               | El banco mide tambien el tamano del EPUB y del DOCX.                                                                    |
+
+### Pruebas ejecutadas
+
+| Comprobacion         | Resultado                                                                           |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| `pnpm validate:pdf`  | pdf.js 4.10.38 abre el PDF y devuelve el texto con la fuente incrustada             |
+| PDF de la aplicacion | `node scripts/pdfjs/valida-pdf.mjs test-results\pdf-generado.pdf` devuelve el texto |
+| `pnpm validate:epub` | 0 errores y 0 advertencias con EPUBCheck 5.1.0                                      |
+| `pnpm validate:docx` | Mammoth 1.11.0 lee el documento                                                     |
+| `pnpm test`          | 291 pruebas en 32 archivos                                                          |
+| `pnpm test:e2e`      | 72 pruebas en Chromium                                                              |
+| `pnpm bench:export`  | PDF de 671 KB, EPUB de 29 KB y DOCX de 8 KB para 200 000 palabras                   |
+
+### Tamano medido
+
+| Formato | Antes    | Ahora  |
+| ------- | -------- | ------ |
+| PDF     | 5 387 KB | 671 KB |
+| EPUB    | -        | 29 KB  |
+| DOCX    | -        | 8 KB   |
+
+El PDF pesa ocho veces menos. El coste es de CPU: escribirlo pasa de 227 ms a
+310 ms para 200 000 palabras. No cambia ni lo que se ve ni lo que se extrae:
+las tres herramientas externas leen el archivo igual que antes.
+
+### Limites que permanecen
+
+- No se generan subconjuntos de fuente: la fuente completa sigue incrustada.
+- Word y LibreOffice no estan instalados: la compatibilidad con esas
+  aplicaciones no esta comprobada.
 - La puntuacion no se declara en 95.

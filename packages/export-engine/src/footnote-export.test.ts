@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDocx } from "./docx";
 import { buildEpub, type ExportDocumentModel } from "./epub";
 import { buildPdf, type PdfResult } from "./pdf";
+import { pdfContent, zipEntries as leerZip, type ZipEntryLeida } from "./test-utils";
 
 const FECHA = new Date("2026-10-21T10:00:00.000Z");
 
@@ -37,40 +38,25 @@ const DOCUMENTO: ExportDocumentModel = {
   ],
 };
 
-function zipEntries(bytes: Uint8Array): Map<string, Uint8Array> {
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const entries = new Map<string, Uint8Array>();
-  let position = 0;
-
-  while (position + 4 <= bytes.length && view.getUint32(position, true) === 0x04034b50) {
-    const size = view.getUint32(position + 18, true);
-    const nameLength = view.getUint16(position + 26, true);
-    const extraLength = view.getUint16(position + 28, true);
-    const nameStart = position + 30;
-    const dataStart = nameStart + nameLength + extraLength;
-    const name = new TextDecoder().decode(bytes.slice(nameStart, nameStart + nameLength));
-
-    entries.set(name, bytes.slice(dataStart, dataStart + size));
-    position = dataStart + size;
-  }
-
-  return entries;
+function zipEntries(bytes: Uint8Array): Map<string, ZipEntryLeida> {
+  return leerZip(bytes);
 }
 
-function textEntry(entries: Map<string, Uint8Array>, name: string): string {
-  const data = entries.get(name);
+function textEntry(entries: Map<string, ZipEntryLeida>, name: string): string {
+  const entry = entries.get(name);
 
-  if (!data) {
+  if (!entry) {
     throw new Error(`Falta la entrada ${name}`);
   }
 
-  return new TextDecoder().decode(data);
+  return new TextDecoder().decode(entry.data);
 }
 
-function latin1(result: PdfResult | Uint8Array): string {
+/** PDF con los flujos desplegados: las pruebas miran el contenido real. */
+function contenido(result: PdfResult | Uint8Array): string {
   const bytes = result instanceof Uint8Array ? result : result.bytes;
 
-  return Array.from(bytes, (byte) => String.fromCharCode(byte)).join("");
+  return pdfContent(bytes);
 }
 
 describe("notas al pie en EPUB", () => {
@@ -127,7 +113,7 @@ describe("notas al pie en PDF", () => {
         },
       ],
     });
-    const text = latin1(result);
+    const text = contenido(result);
 
     expect(text).toContain("(1. Texto de la nota al pie.)");
     expect(text).toMatch(/\d+\.\d+ \d+\.\d+ m \d+\.\d+ \d+\.\d+ l S/u);

@@ -10,6 +10,7 @@
  * paginación, de modo que el PDF y la vista previa coinciden.
  */
 
+import { deflateSync } from "node:zlib";
 import {
   cidsToHex,
   encodeTrueTypeText,
@@ -270,11 +271,19 @@ function pdfName(name: string): string {
   return limpio.length > 0 ? limpio : "EmbeddedFont";
 }
 
-/** Flujo binario con su longitud declarada. */
+/**
+ * Flujo comprimido con su longitud declarada.
+ *
+ * Los flujos van con `FlateDecode`, que es lo que hacen todos los lectores de
+ * PDF. Comprimir el contenido, los mapas `ToUnicode` y las fuentes reduce el
+ * archivo a la mitad o menos sin cambiar lo que se ve ni lo que se extrae.
+ */
 function streamObject(data: Uint8Array, extra = ""): Uint8Array {
+  const comprimido = deflateSync(data, { level: 9 });
+
   return concatBytes([
-    latin1ToBytes(`<< /Length ${data.length}${extra} >>\nstream\n`),
-    data,
+    latin1ToBytes(`<< /Length ${comprimido.length}${extra} /Filter /FlateDecode >>\nstream\n`),
+    new Uint8Array(comprimido),
     latin1ToBytes("\nendstream"),
   ]);
 }
@@ -537,9 +546,13 @@ export function buildPdf(document: PdfDocument): PdfResult {
         ` >>${xObjects} >> /Contents ${contentNumber} 0 R >>`,
     );
 
+    // El flujo de la página también va comprimido: es lo que más pesa en un
+    // manuscrito largo.
+    const comprimido = deflateSync(latin1ToBytes(content), { level: 9 });
+
     objects[contentNumber] = concatBytes([
-      latin1ToBytes("stream\n"),
-      latin1ToBytes(content),
+      latin1ToBytes(`<< /Length ${comprimido.length} /Filter /FlateDecode >>\nstream\n`),
+      new Uint8Array(comprimido),
       latin1ToBytes("\nendstream"),
     ]);
   });

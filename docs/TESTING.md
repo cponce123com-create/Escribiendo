@@ -38,7 +38,7 @@ pnpm test
 Vitest recorre `apps/**/*.test.ts`, `packages/**/*.test.ts` y
 `scripts/**/*.test.ts`. No necesita base de datos ni navegador.
 
-Resultado vigente: **289 pruebas en 32 archivos** (21 de octubre de 2026).
+Resultado vigente: **291 pruebas en 32 archivos** (21 de octubre de 2026).
 Cobertura actual (Fases 1 a 3):
 
 | Archivo                                                   | Qué verifica                                                                                                                                                                                                |
@@ -342,24 +342,27 @@ pnpm build          # Compilación de producción
 pnpm bench:export   # Banco de composición y exportación
 pnpm validate:epub  # EPUB con EPUBCheck (necesita EPUBCHECK_JAR)
 pnpm validate:docx  # DOCX con un lector externo (necesita DOCX_VALIDATOR)
+pnpm validate:pdf   # PDF con un lector externo (necesita PDF_VALIDATOR)
 pnpm audit          # Escaneo de dependencias
 ```
 
 ### Validación externa de los archivos exportados
 
-Las dos órdenes anteriores solo validan si se les indica la herramienta:
+Las tres órdenes anteriores solo validan si se les indica la herramienta:
 
 ```bash
 EPUBCHECK_JAR=ruta\epubcheck.jar JAVA=ruta\java.exe pnpm validate:epub
 DOCX_VALIDATOR="pnpm dlx mammoth@1.11.0" pnpm validate:docx
+pnpm --dir scripts/pdfjs install
+PDF_VALIDATOR="node scripts/pdfjs/valida-pdf.mjs" pnpm validate:pdf
 ```
 
-Ambas devuelven el código 0 cuando la validación pasa, 1 cuando falla y 2
+Todas devuelven el código 0 cuando la validación pasa, 1 cuando falla y 2
 cuando la herramienta no está configurada (en ese caso no se ha validado
 nada y el script lo dice). La prueba de extremo a extremo «el archivo
 descargado es un EPUB válido» valida además el EPUB que descarga la
-aplicación cuando `EPUBCHECK_JAR` está definido, y deja el DOCX en
-`test-results/docx-generado.docx` para abrirlo con la misma herramienta.
+aplicación cuando `EPUBCHECK_JAR` está definido, y deja el PDF y el DOCX en
+`test-results/` para abrirlos con las mismas herramientas.
 
 ---
 

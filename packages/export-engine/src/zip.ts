@@ -1,14 +1,13 @@
 /**
  * Escritor de ZIP mínimo.
  *
- * Lo necesitan el EPUB (que es un ZIP) y el DOCX (que también). Solo admite
- * entradas **sin comprimir**: es una limitación conocida y aceptable, porque
- * ambos formatos se leen igual de bien y evita añadir una dependencia de
- * compresión al proyecto.
- *
- * El EPUB exige además que la entrada `mimetype` sea la primera del
- * archivo y esté sin comprimir; `addFirst` lo garantiza.
+ * Lo necesitan el EPUB (que es un ZIP) y el DOCX (que también). Las entradas
+ * van comprimidas con Deflate, que es lo que espera cualquier lector, salvo
+ * la entrada `mimetype` del EPUB: la especificación exige que sea la primera
+ * del archivo y **sin comprimir**; `addFirst` lo garantiza.
  */
+
+import { deflateRawSync } from "node:zlib";
 
 export interface ZipEntry {
   name: string;
@@ -76,7 +75,7 @@ function writeBytes(target: number[], data: number[] | Uint8Array): void {
  * Construye un archivo ZIP con las entradas indicadas.
  *
  * Las entradas marcadas con `first` se colocan al principio, en el orden en
- * que aparecen, y sin comprimir.
+ * que aparecen, y sin comprimir. Las demás van comprimidas con Deflate.
  */
 export function buildZip(entries: ZipEntry[], modifiedAt: Date): Uint8Array {
   const output: number[] = [];
@@ -92,32 +91,35 @@ export function buildZip(entries: ZipEntry[], modifiedAt: Date): Uint8Array {
     const nameBytes = Array.from(new TextEncoder().encode(entry.name));
     const checksum = crc32(entry.data);
     const offset = output.length;
+    const comprimido = entry.first ? null : deflateRawSync(entry.data, { level: 9 });
+    const guardada = comprimido ?? entry.data;
+    const method = comprimido ? 8 : 0;
 
     // Cabecera local.
     writeUint32(output, 0x04034b50);
     writeUint16(output, 10); // versión necesaria
     writeUint16(output, 0); // flags
-    writeUint16(output, 0); // sin comprimir
+    writeUint16(output, method);
     writeUint16(output, stamp.time);
     writeUint16(output, stamp.date);
     writeUint32(output, checksum);
-    writeUint32(output, entry.data.length);
+    writeUint32(output, guardada.length);
     writeUint32(output, entry.data.length);
     writeUint16(output, nameBytes.length);
     writeUint16(output, 0); // sin campos extra
     writeBytes(output, nameBytes);
-    writeBytes(output, entry.data);
+    writeBytes(output, guardada);
 
     // Registro central.
     writeUint32(central, 0x02014b50);
     writeUint16(central, 0x031e); // versión creada por UNIX, ZIP 3.0
     writeUint16(central, 10);
     writeUint16(central, 0);
-    writeUint16(central, 0);
+    writeUint16(central, method);
     writeUint16(central, stamp.time);
     writeUint16(central, stamp.date);
     writeUint32(central, checksum);
-    writeUint32(central, entry.data.length);
+    writeUint32(central, guardada.length);
     writeUint32(central, entry.data.length);
     writeUint16(central, nameBytes.length);
     writeUint16(central, 0); // extra

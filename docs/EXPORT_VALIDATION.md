@@ -49,6 +49,8 @@ En `packages/export-engine/src/pdf.test.ts` (18 casos),
 | Un JPEG se incrusta como XObject `/Subtype /Image` con `/DCTDecode`              | Cumplido                |
 | La imagen se dibuja con `cm` y `/Im1 Do` en el flujo de la página                | Cumplido                |
 | Una imagen sin bytes deja un marco y su texto alternativo                        | Cumplido                |
+| Los flujos van comprimidos con `/Filter /FlateDecode`                            | Cumplido                |
+| La tabla de anchos y el mapa `ToUnicode` se pueden desplegar y leer              | Cumplido                |
 
 ### Imágenes
 
@@ -83,11 +85,47 @@ ligaduras automáticas. Los caracteres sin glifo se sustituyen y se cuentan en
 `caracteresPerdidos`. Si las fuentes no se cargan, se conserva Times/WinAnsi y
 `estimatedPagination` pasa a `true`; el panel lo avisa.
 
+### Compresión
+
+Los flujos del PDF (contenido de las páginas, programas de la fuente y mapas
+`ToUnicode`) van comprimidos con `FlateDecode`, que es lo que hacen todos los
+lectores. Las entradas del EPUB y del DOCX van comprimidas con Deflate,
+salvo `mimetype`, que la especificación exige sin comprimir.
+
+Tamaño medido con `pnpm bench:export` para 200 000 palabras con una cara
+incrustada:
+
+| Formato | Antes    | Ahora  |
+| ------- | -------- | ------ |
+| PDF     | 5 387 KB | 671 KB |
+| EPUB    | —        | 29 KB  |
+| DOCX    | —        | 8 KB   |
+
+El PDF pasa de 5 387 KB a 671 KB: el archivo pasa a estar dominado por la
+fuente incrustada y no por el texto. El coste es de CPU (310 ms de escritura
+en lugar de 227 ms para 200 000 palabras) y ningún cambio en lo que se ve ni en
+lo que se extrae.
+
+**Validación externa (Lote M).** El PDF lo abre **pdf.js 4.10.38**, el lector
+de PDF de Mozilla, que es independiente del motor de escritura:
+
+- `pnpm validate:pdf` genera un PDF de prueba con el mismo motor y lo abre con
+  el lector indicado en `PDF_VALIDATOR`. Resultado: pdf.js devuelve el texto
+  con la fuente incrustada y el mapa `ToUnicode`, incluidos `«Cita»`, la raya
+  larga, los puntos suspensivos y las eñes.
+- La prueba de extremo a extremo deja el archivo que descarga la aplicación en
+  `test-results/pdf-generado.pdf`, y el validador de `scripts/pdfjs` lo abre:
+
+```bash
+pnpm --dir scripts/pdfjs install
+PDF_VALIDATOR="node scripts/pdfjs/valida-pdf.mjs" pnpm validate:pdf
+node scripts\pdfjs\valida-pdf.mjs test-results\pdf-generado.pdf
+```
+
 ### Lo que no se ha hecho
 
-- **No se generan subconjuntos de fuente.** Se incrusta el TTF completo; el PDF
-  de 200 000 palabras medido ocupa 5 387 KB. Es el precio de no implementar un
-  subsetter propio.
+- **No se generan subconjuntos de fuente.** Se incrusta el TTF completo, aunque
+  comprimido. Para 200 000 palabras el PDF ocupa 671 KB.
 - **No hay cadena de fuentes de reserva por script.** «Unicode completo» para
   todos los idiomas no está demostrado.
 - **No se afirma compatibilidad PDF/X.** El PDF lleva `TrimBox`, `BleedBox`,
@@ -220,7 +258,7 @@ incluyen en ese banco: no hay credenciales de Cloudinary para descargarlas.
 
 | Comprobación         | Resultado                     |
 | -------------------- | ----------------------------- |
-| `pnpm test`          | 289 pruebas en 32 archivos    |
+| `pnpm test`          | 291 pruebas en 32 archivos    |
 | `pnpm test:e2e`      | 72 pruebas en Chromium        |
 | `pnpm typecheck`     | Sin errores                   |
 | `pnpm lint`          | Sin errores                   |
@@ -228,6 +266,7 @@ incluyen en ese banco: no hay credenciales de Cloudinary para descargarlas.
 | `pnpm bench:export`  | Ejecutado con fuentes         |
 | `pnpm validate:epub` | 0 errores con EPUBCheck 5.1.0 |
 | `pnpm validate:docx` | Leído con Mammoth 1.11.0      |
+| `pnpm validate:pdf`  | Leído con pdf.js 4.10.38      |
 
 ## Bloqueos externos
 
@@ -283,7 +322,7 @@ prueba de editor de `tests/e2e/manuscrito.spec.ts`.
 
 | Suite           | Resultado                  |
 | --------------- | -------------------------- |
-| `pnpm test`     | 289 pruebas en 32 archivos |
+| `pnpm test`     | 291 pruebas en 32 archivos |
 | `pnpm test:e2e` | 72 pruebas en Chromium     |
 | `pnpm build`    | Correcto                   |
 

@@ -4,6 +4,7 @@ import type { ExportImageAsset } from "./assets";
 import { buildDocx } from "./docx";
 import { buildEpub, type ExportDocumentModel } from "./epub";
 import { buildPdf } from "./pdf";
+import { pdfContent, zipEntries as leerZip, type ZipEntryLeida } from "./test-utils";
 
 const FECHA = new Date("2026-10-20T10:00:00.000Z");
 const SRC = "https://res.cloudinary.com/demo/image/upload/v1/plaza.jpg";
@@ -62,38 +63,23 @@ async function asset(width = 120, height = 80): Promise<ExportImageAsset> {
   };
 }
 
-function zipEntries(bytes: Uint8Array): Map<string, Uint8Array> {
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const entries = new Map<string, Uint8Array>();
-  let position = 0;
-
-  while (position + 4 <= bytes.length && view.getUint32(position, true) === 0x04034b50) {
-    const size = view.getUint32(position + 18, true);
-    const nameLength = view.getUint16(position + 26, true);
-    const extraLength = view.getUint16(position + 28, true);
-    const nameStart = position + 30;
-    const dataStart = nameStart + nameLength + extraLength;
-    const name = new TextDecoder().decode(bytes.slice(nameStart, nameStart + nameLength));
-
-    entries.set(name, bytes.slice(dataStart, dataStart + size));
-    position = dataStart + size;
-  }
-
-  return entries;
+function zipEntries(bytes: Uint8Array): Map<string, ZipEntryLeida> {
+  return leerZip(bytes);
 }
 
-function textEntry(entries: Map<string, Uint8Array>, name: string): string {
-  const data = entries.get(name);
+function textEntry(entries: Map<string, ZipEntryLeida>, name: string): string {
+  const entry = entries.get(name);
 
-  if (!data) {
+  if (!entry) {
     throw new Error(`Falta la entrada ${name}`);
   }
 
-  return new TextDecoder().decode(data);
+  return new TextDecoder().decode(entry.data);
 }
 
-function latin1(bytes: Uint8Array): string {
-  return Array.from(bytes, (byte) => String.fromCharCode(byte)).join("");
+/** PDF con los flujos desplegados: las pruebas miran el contenido real. */
+function contenido(bytes: Uint8Array): string {
+  return pdfContent(bytes);
 }
 
 describe("imágenes en PDF", () => {
@@ -123,7 +109,7 @@ describe("imágenes en PDF", () => {
         },
       ],
     });
-    const text = latin1(result.bytes);
+    const text = contenido(result.bytes);
 
     expect(result.imagenesIncrustadas).toBe(1);
     expect(result.imagenesOmitidas).toBe(0);
@@ -157,7 +143,7 @@ describe("imágenes en PDF", () => {
         },
       ],
     });
-    const text = latin1(result.bytes);
+    const text = contenido(result.bytes);
 
     expect(result.imagenesIncrustadas).toBe(0);
     expect(result.imagenesOmitidas).toBe(1);

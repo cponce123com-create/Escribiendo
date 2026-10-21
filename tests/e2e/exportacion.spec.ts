@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { inflateSync } from "node:zlib";
 
 /**
  * Exportación: generación de archivos, idempotencia de la cola y descarga
@@ -28,6 +29,39 @@ function unicodeFromHex(hex: string): string {
 }
 
 /**
+ * Despliega los flujos comprimidos del PDF.
+ *
+ * Los flujos van con `FlateDecode`. La prueba analiza el contenido real del
+ * archivo, así que primero los despliega. El programa de la fuente se
+ * descarta: es binario y no aporta nada a la comprobación.
+ */
+function descomprimirFlujos(pdf: string): string {
+  const patron = /(\d+) 0 obj\s*<<([^>]*?)\/Filter \/FlateDecode([^>]*?)>>\s*stream\n/gu;
+  let salida = "";
+  let ultimo = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = patron.exec(pdf)) !== null) {
+    const inicio = match.index + match[0].length;
+    const fin = pdf.indexOf("\nendstream", inicio);
+
+    if (fin < 0) {
+      break;
+    }
+
+    const esFuente = match[2]!.includes("/Length1");
+    const plano = esFuente
+      ? ""
+      : inflateSync(Buffer.from(pdf.slice(inicio, fin), "latin1")).toString("latin1");
+
+    salida += pdf.slice(ultimo, match.index) + match[0] + plano;
+    ultimo = fin;
+  }
+
+  return salida + pdf.slice(ultimo);
+}
+
+/**
  * Extrae el texto de los flujos `Identity-H` usando los mapas `ToUnicode`
  * incrustados. No es un lector PDF general: sirve para comprobar que los CIDs
  * del archivo vuelven a ser el texto que escribió la autora.
@@ -36,15 +70,15 @@ function extractPdfText(pdf: string): string {
   const cmaps = new Map<string, Map<number, string>>();
 
   for (const match of pdf.matchAll(
-    /(\d+) 0 obj\s*<< \/Length \d+ >>\s*stream\n([\s\S]*?)\nendstream/gu,
+    /(\d+) 0 obj\s*<< \/Length \d+( \/Filter \/FlateDecode)? >>\s*stream\n([\s\S]*?)\nendstream/gu,
   )) {
-    if (!match[2]!.includes("beginbfchar")) {
+    if (!match[3]!.includes("beginbfchar")) {
       continue;
     }
 
     const map = new Map<number, string>();
 
-    for (const entry of match[2]!.matchAll(/<([0-9A-Fa-f]{4})>\s*<([0-9A-Fa-f]+)>/gu)) {
+    for (const entry of match[3]!.matchAll(/<([0-9A-Fa-f]{4})>\s*<([0-9A-Fa-f]+)>/gu)) {
       map.set(Number.parseInt(entry[1]!, 16), unicodeFromHex(entry[2]!));
     }
 
@@ -246,18 +280,24 @@ test.describe("Exportación", () => {
     expect(bytes.subarray(0, 8).toString("utf8")).toBe("%PDF-1.4");
     expect(bytes.subarray(bytes.length - 6).toString("utf8")).toContain("%%EOF");
 
+    // El archivo se guarda para poder abrirlo con un lector externo
+    // (por ejemplo, `node scripts/pdfjs/valida-pdf.mjs`) fuera del proceso de
+    // pruebas.
+    await guardarParaValidacion(download, "pdf-generado.pdf");
+
     // La palabra en negrita se dibuja con una cara TTF incrustada, no con la
     // fuente estándar ni con la redonda. El texto viaja como CIDs, por lo que
     // ya no aparece como una cadena literal en el flujo.
     const texto = bytes.toString("latin1");
+    const pagina = descomprimirFlujos(texto);
 
     expect(texto).toContain("/Subtype /Type0");
     expect(texto).toContain("/Subtype /CIDFontType2");
     expect(texto).toContain("/FontFile2");
     expect(texto).toContain("/ToUnicode");
     expect(texto).toContain("/BaseFont /LiberationSans-Bold");
-    expect(texto).toMatch(/BT \/E\d+ [\d.]+ Tf/u);
-    expect(texto).not.toContain("Marta) Tj");
+    expect(pagina).toMatch(/BT \/E\d+ [\d.]+ Tf/u);
+    expect(pagina).not.toContain("Marta) Tj");
   });
 
   test("el PDF de imprenta lleva sangrado y marcas de corte", async ({ page }) => {
@@ -292,9 +332,12 @@ test.describe("Exportación", () => {
     expect(contenido).toContain("/CropBox");
     expect(contenido).toContain("/BleedBox");
     expect(contenido).toContain("/TrimBox");
-    // Las marcas de corte son líneas dibujadas fuera de la caja acabada.
-    expect(contenido).toContain(" m ");
-    expect(contenido).toContain(" l S");
+    // Las marcas de corte son líneas dibujadas fuera de la caja acabada. Van
+    // en el flujo de la página, que está comprimido.
+    const pagina = descomprimirFlujos(contenido);
+
+    expect(pagina).toContain(" m ");
+    expect(pagina).toContain(" l S");
   });
 
   test("el EPUB se genera y se descarga", async ({ page }) => {
@@ -493,7 +536,7 @@ test.describe("Exportación", () => {
     // Los CIDs se convierten de vuelta a Unicode con el mapa incrustado. Así
     // se comprueba a la vez que el texto se conserva y que se puede buscar o
     // copiar desde un lector PDF.
-    const extraido = extractPdfText(contenido);
+    const extraido = extractPdfText(descomprimirFlujos(contenido));
 
     expect(extraido).not.toBe("");
     expect(extraido).toContain("«Cita»");

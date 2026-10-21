@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildPdf, toWinAnsi, type PdfDocument, type PdfResult } from "./pdf";
+import { pdfContent } from "./test-utils";
 
 const DOCUMENT: PdfDocument = {
   title: "El velo de la tarde",
@@ -47,6 +48,16 @@ function asText(resultado: PdfResult | Uint8Array): string {
   return result;
 }
 
+/**
+ * Devuelve el PDF con los flujos comprimidos desplegados.
+ *
+ * Los flujos van con `FlateDecode`. Las pruebas comprueban el contenido real
+ * del archivo, no sus bytes comprimidos, así que primero los despliegan.
+ */
+function contenido(resultado: PdfResult | Uint8Array): string {
+  return pdfContent(bytes(resultado));
+}
+
 /** Compara dos arreglos de bytes sin depender de los tipos de Node. */
 function equals(left: PdfResult | Uint8Array, right: PdfResult | Uint8Array): boolean {
   const a = bytes(left);
@@ -90,7 +101,7 @@ describe("buildPdf", () => {
   });
 
   it("escribe el texto de cada página", () => {
-    const text = asText(buildPdf(DOCUMENT));
+    const text = contenido(buildPdf(DOCUMENT));
 
     expect(text).toContain("(El velo de la tarde)");
     expect(text).toContain("(Caía la tarde sobre la plaza.)");
@@ -98,7 +109,7 @@ describe("buildPdf", () => {
   });
 
   it("escapa los paréntesis y las barras invertidas del texto", () => {
-    const text = asText(
+    const text = contenido(
       buildPdf({
         ...DOCUMENT,
         pages: [
@@ -179,7 +190,7 @@ describe("buildPdf", () => {
   });
 
   it("posiciona el texto en la línea base indicada", () => {
-    const text = asText(buildPdf(DOCUMENT));
+    const text = contenido(buildPdf(DOCUMENT));
 
     // 18 mm desde el borde izquierdo son 51,024 puntos; 210 mm de alto menos
     // 60 mm de línea base son 150 mm: 425,197 puntos.
@@ -241,9 +252,9 @@ describe("toWinAnsi", () => {
     });
 
     expect(resultado.caracteresPerdidos).toEqual([]);
-    expect(asText(resultado)).toContain("caía");
-    expect(asText(resultado)).toContain("niño");
-    expect(asText(resultado)).toContain("miró");
+    expect(contenido(resultado)).toContain("caía");
+    expect(contenido(resultado)).toContain("niño");
+    expect(contenido(resultado)).toContain("miró");
   });
 });
 
@@ -276,7 +287,7 @@ describe("formato en línea en el PDF", () => {
     ],
   };
 
-  const text = asText(buildPdf(CON_FORMATO));
+  const text = contenido(buildPdf(CON_FORMATO));
 
   it("declara la negrita cursiva además de las tres fuentes anteriores", () => {
     expect(text).toContain("/BaseFont /Times-Bold");

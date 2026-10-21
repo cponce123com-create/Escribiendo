@@ -222,6 +222,32 @@ Lectura:
   Render Free, pero la cifra no es comparable entre ejecuciones. No incluye
   imágenes reales ni notas.
 
+### Reejecución tras el Lote M (compresión de los archivos)
+
+Comando: `pnpm bench:export`, ejecutado el 21 de octubre de 2026 con
+`LiberationSerif-Regular.ttf` cargada, medición real y flujos comprimidos.
+
+| Palabras | Páginas | Paginación |    PDF | PDF KB |  EPUB | EPUB KB |  DOCX | DOCX KB | Memoria |
+| -------- | ------: | ---------: | -----: | -----: | ----: | ------: | ----: | ------: | ------: |
+| 10 000   |      28 |      21 ms |  52 ms |    253 |  6 ms |    3 KB |  6 ms |    4 KB | -3,1 MB |
+| 50 000   |     137 |      29 ms | 102 ms |    341 |  7 ms |    9 KB |  6 ms |    5 KB | 16,1 MB |
+| 100 000  |     273 |      46 ms | 175 ms |    451 | 12 ms |   15 KB | 10 ms |    6 KB |  5,3 MB |
+| 200 000  |     546 |     102 ms | 310 ms |    671 | 21 ms |   29 KB | 18 ms |    8 KB | 20,0 MB |
+
+Lectura:
+
+- **El tamaño del PDF baja ocho veces**: de 5 387 KB a 671 KB para 200 000
+  palabras. El archivo pasa a estar dominado por la fuente incrustada, no por
+  el texto.
+- El coste es de CPU: escribir el PDF pasa de 227 ms a 310 ms, porque comprime
+  el contenido, el programa de la fuente y el mapa `ToUnicode`. La
+  paginación no cambia.
+- El EPUB y el DOCX también van comprimidos (29 KB y 8 KB para 200 000
+  palabras).
+- La columna de memoria sigue siendo ruido: es la diferencia entre el mínimo y
+  el máximo de la reserva del proceso, no el consumo absoluto. El máximo
+  observado en esta pasada fue 20 MB.
+
 ### Coste de las fuentes y de la vista previa
 
 Medido con el mismo lector que usa la aplicación:
@@ -236,12 +262,12 @@ en la vista previa. La vista previa paginada puede, por tanto, usar las
 métricas reales sin coste apreciable: el retraso de la primera carga es de 33
 ms y después solo hay que medir.
 
-### Suite tras el Lote K
+### Suite tras el Lote M
 
 | Suite                       | Duración | Resultado    |
 | --------------------------- | -------: | ------------ |
-| `pnpm test` (unitarias)     |   ~7,8 s | 289 en verde |
-| `pnpm test:e2e` (navegador) |   ~3,0 m | 72 en verde  |
+| `pnpm test` (unitarias)     |   ~9,5 s | 291 en verde |
+| `pnpm test:e2e` (navegador) |   ~3,6 m | 72 en verde  |
 | `pnpm build` (producción)   |        — | Correcto     |
 
 La duración de la suite E2E es la de esta máquina con un solo trabajador. El
