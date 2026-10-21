@@ -10,6 +10,7 @@ import {
   type SectionVersion,
 } from "./manuscript";
 import { trabajoInterrumpido } from "./job-estado";
+import { liberarHuecoDeExportacion, reservarHuecoDeExportacion } from "./slot";
 
 /**
  * Cola de trabajos de exportación.
@@ -200,6 +201,29 @@ export async function processExportJob(
   session: SessionContext,
   jobId: string,
 ): Promise<ExportJobSummary> {
+  // Una exportación cada vez por instancia: dos a la vez dejarían a Render
+  // Free sin memoria.
+  if (!reservarHuecoDeExportacion()) {
+    throw new Error(
+      "Ya hay una exportación en marcha en este estudio. Espera a que termine antes de pedir otra.",
+    );
+  }
+
+  try {
+    return await generarExportJob(session, jobId);
+  } finally {
+    liberarHuecoDeExportacion();
+  }
+}
+
+/**
+ * Genera el archivo del trabajo y guarda sus metadatos.
+ *
+ * La generación es reproducible: usa las versiones de las secciones que
+ * guardó el trabajo, de modo que el archivo es el mismo aunque el manuscrito
+ * haya cambiado después.
+ */
+async function generarExportJob(session: SessionContext, jobId: string): Promise<ExportJobSummary> {
   const job = await prisma.exportJob.findFirst({
     where: { id: jobId, book: { workspaceId: session.workspace.id, deletedAt: null } },
     select: {

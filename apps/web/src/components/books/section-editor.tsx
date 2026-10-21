@@ -5,6 +5,8 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import type { TiptapDocument } from "@escribiendo/book-schema";
 import { countWordsInDocument, MAX_FOOTNOTE_LENGTH } from "@escribiendo/book-schema";
+import { esEnlaceSeguro } from "@escribiendo/shared";
+import { Dialog } from "@/components/forms/dialog";
 import { saveSectionAction } from "@/lib/books/actions";
 import { formatNumber } from "@/lib/ui/format";
 import {
@@ -75,6 +77,19 @@ export function SectionEditor({
 }: SectionEditorProps) {
   const [machine, setMachine] = useState<SyncMachine>(() => initialSyncMachine(version));
   const [conflict, setConflict] = useState<SectionConflict | null>(null);
+  /**
+   * Diálogo abierto: el enlace o la nota al pie que se está escribiendo.
+   *
+   * Antes se pedían con `window.prompt`, que bloquea la interfaz y no se
+   * puede validar mientras se escribe.
+   */
+  const [dialogo, setDialogo] = useState<{
+    tipo: "enlace" | "nota";
+    valor: string;
+    /** Selección en el momento de abrir el diálogo, para poder volver a ella. */
+    desde: number;
+    hasta: number;
+  } | null>(null);
   /**
    * Contenido del borrador local cuando el servidor tiene otra versión.
    *
@@ -510,23 +525,13 @@ export function SectionEditor({
           isActive: () => editor.isActive("link"),
           run: () => {
             const anterior = editor.getAttributes("link").href;
-            const href = window.prompt(
-              "Dirección del enlace (vacía para quitarlo)",
-              typeof anterior === "string" ? anterior : "https://",
-            );
 
-            if (href === null) {
-              return;
-            }
-
-            const limpio = href.trim();
-
-            if (limpio.length === 0) {
-              editor.chain().focus().extendMarkRange("link").unsetLink().run();
-              return;
-            }
-
-            editor.chain().focus().extendMarkRange("link").setLink({ href: limpio }).run();
+            setDialogo({
+              tipo: "enlace",
+              valor: typeof anterior === "string" ? anterior : "",
+              desde: editor.state.selection.from,
+              hasta: editor.state.selection.to,
+            });
           },
         },
         {
@@ -570,27 +575,12 @@ export function SectionEditor({
           title: "Nota al pie",
           isActive: () => editor.isActive("footnote"),
           run: () => {
-            const note = window.prompt("Texto de la nota al pie");
-
-            if (note === null || note.trim().length === 0) {
-              return;
-            }
-
-            if (note.trim().length > MAX_FOOTNOTE_LENGTH) {
-              window.alert(`La nota no puede superar los ${MAX_FOOTNOTE_LENGTH} caracteres.`);
-              return;
-            }
-
-            const id = globalThis.crypto.randomUUID();
-
-            editor
-              .chain()
-              .focus()
-              .insertContentAt(editor.state.selection.to, {
-                type: "footnote",
-                attrs: { id, note: note.trim() },
-              })
-              .run();
+            setDialogo({
+              tipo: "nota",
+              valor: "",
+              desde: editor.state.selection.from,
+              hasta: editor.state.selection.to,
+            });
           },
         },
         {
@@ -642,6 +632,164 @@ export function SectionEditor({
             );
           }}
         />
+      ) : null}
+
+      {dialogo?.tipo === "enlace" ? (
+        <Dialog
+          abierto
+          titulo="Enlace"
+          descripcion="Se puede apuntar a una página web, a un correo o a un teléfono. Un esquema distinto no se guarda, porque el archivo exportado se abre en el equipo de quien lo recibe."
+          onCerrar={() => setDialogo(null)}
+        >
+          <form
+            className="space-y-4"
+            onSubmit={(evento) => {
+              evento.preventDefault();
+
+              if (!editor) {
+                return;
+              }
+
+              const limpio = dialogo.valor.trim();
+
+              if (limpio.length === 0) {
+                editor
+                  .chain()
+                  .focus()
+                  .setTextSelection({ from: dialogo.desde, to: dialogo.hasta })
+                  .extendMarkRange("link")
+                  .unsetLink()
+                  .run();
+                setDialogo(null);
+                return;
+              }
+
+              if (!esEnlaceSeguro(limpio)) {
+                return;
+              }
+
+              editor
+                .chain()
+                .focus()
+                .setTextSelection({ from: dialogo.desde, to: dialogo.hasta })
+                .extendMarkRange("link")
+                .setLink({ href: limpio })
+                .run();
+              setDialogo(null);
+            }}
+          >
+            <div>
+              <label className="field-label" htmlFor="campo-enlace">
+                Dirección del enlace
+              </label>
+              <input
+                id="campo-enlace"
+                name="href"
+                className="field-input"
+                value={dialogo.valor}
+                placeholder="https://ejemplo.test/libro"
+                onChange={(evento) => setDialogo({ ...dialogo, valor: evento.target.value })}
+              />
+              {dialogo.valor.trim().length > 0 && !esEnlaceSeguro(dialogo.valor.trim()) ? (
+                <p className="field-error" role="alert">
+                  Ese esquema no se admite. Usa http, https, mailto, tel o una ruta interna.
+                </p>
+              ) : null}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setDialogo(null)}
+              >
+                Cancelar
+              </button>
+              <button type="submit" className="btn btn-primary btn-sm">
+                Guardar enlace
+              </button>
+            </div>
+          </form>
+        </Dialog>
+      ) : null}
+
+      {dialogo?.tipo === "nota" ? (
+        <Dialog
+          abierto
+          titulo="Nota al pie"
+          descripcion="La nota aparece al pie de la página y se numera sola, en orden de lectura."
+          onCerrar={() => setDialogo(null)}
+        >
+          <form
+            className="space-y-4"
+            onSubmit={(evento) => {
+              evento.preventDefault();
+
+              if (!editor) {
+                return;
+              }
+
+              const nota = dialogo.valor.trim();
+
+              if (nota.length === 0 || nota.length > MAX_FOOTNOTE_LENGTH) {
+                return;
+              }
+
+              const id = globalThis.crypto.randomUUID();
+
+              editor
+                .chain()
+                .focus()
+                .setTextSelection({ from: dialogo.desde, to: dialogo.hasta })
+                .insertContentAt(dialogo.hasta, {
+                  type: "footnote",
+                  attrs: { id, note: nota },
+                })
+                .run();
+              setDialogo(null);
+            }}
+          >
+            <div>
+              <label className="field-label" htmlFor="campo-nota">
+                Texto de la nota
+              </label>
+              <textarea
+                id="campo-nota"
+                name="note"
+                className="field-input min-h-28"
+                maxLength={MAX_FOOTNOTE_LENGTH}
+                value={dialogo.valor}
+                onChange={(evento) => setDialogo({ ...dialogo, valor: evento.target.value })}
+              />
+              <p className="field-hint">
+                {dialogo.valor.length} de {MAX_FOOTNOTE_LENGTH} caracteres.
+              </p>
+              {dialogo.valor.trim().length > MAX_FOOTNOTE_LENGTH ? (
+                <p className="field-error" role="alert">
+                  La nota no puede superar los {MAX_FOOTNOTE_LENGTH} caracteres.
+                </p>
+              ) : null}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setDialogo(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary btn-sm"
+                disabled={
+                  dialogo.valor.trim().length === 0 ||
+                  dialogo.valor.trim().length > MAX_FOOTNOTE_LENGTH
+                }
+              >
+                Insertar nota
+              </button>
+            </div>
+          </form>
+        </Dialog>
       ) : null}
 
       <div

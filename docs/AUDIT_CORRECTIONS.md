@@ -277,7 +277,7 @@ Base del lote: `4211bb6`.
 | Suite               | Resultado                  |
 | ------------------- | -------------------------- |
 | `pnpm test`         | 280 pruebas en 31 archivos |
-| `pnpm test:e2e`     | 79 pruebas en Chromium     |
+| `pnpm test:e2e`     | 80 pruebas en Chromium     |
 | `pnpm format:check` | Correcto                   |
 | `pnpm lint`         | Sin errores                |
 | `pnpm typecheck`    | Sin errores                |
@@ -348,7 +348,7 @@ Base del lote: `dc7c6ea`.
 | Suite               | Resultado                  |
 | ------------------- | -------------------------- |
 | `pnpm test`         | 328 pruebas en 34 archivos |
-| `pnpm test:e2e`     | 79 pruebas en Chromium     |
+| `pnpm test:e2e`     | 80 pruebas en Chromium     |
 | `pnpm format:check` | Correcto                   |
 | `pnpm lint`         | Sin errores                |
 | `pnpm typecheck`    | Sin errores                |
@@ -420,7 +420,7 @@ Base del lote: `86610b6`.
 | `pnpm audit --prod`  | Sin vulnerabilidades conocidas                                                                    |
 | `pnpm audit`         | 1 aviso alto de desarrollo (`braces`), sin version corregida publicada                            |
 | `pnpm test`          | 328 pruebas en 34 archivos                                                                        |
-| `pnpm test:e2e`      | 79 pruebas en Chromium                                                                            |
+| `pnpm test:e2e`      | 80 pruebas en Chromium                                                                            |
 
 ### Limites que permanecen
 
@@ -469,7 +469,7 @@ Base del lote: `c43ee27`.
 | `pnpm validate:epub` | 0 errores y 0 advertencias con EPUBCheck 5.1.0                                      |
 | `pnpm validate:docx` | Mammoth 1.11.0 lee el documento                                                     |
 | `pnpm test`          | 328 pruebas en 34 archivos                                                          |
-| `pnpm test:e2e`      | 79 pruebas en Chromium                                                              |
+| `pnpm test:e2e`      | 80 pruebas en Chromium                                                              |
 | `pnpm bench:export`  | PDF de 671 KB, EPUB de 29 KB y DOCX de 8 KB para 200 000 palabras                   |
 
 ### Tamano medido
@@ -527,7 +527,7 @@ Base del lote: `29dac65`.
 | Memoria maxima       | 367 MB, con un margen de 145 MB sobre los 512 MB de Render Free       |
 | Antes del arreglo    | La misma prueba daba 1 647 MB: la exportacion no cabia en Render Free |
 | `pnpm test`          | 328 pruebas en 34 archivos                                            |
-| `pnpm test:e2e`      | 79 pruebas en Chromium                                                |
+| `pnpm test:e2e`      | 80 pruebas en Chromium                                                |
 | `pnpm validate:epub` | 0 errores y 0 advertencias con EPUBCheck 5.1.0                        |
 
 ### Limites que permanecen
@@ -718,7 +718,7 @@ Base del lote: `b26c522`.
 | Comprobacion         | Resultado                                                                        |
 | -------------------- | -------------------------------------------------------------------------------- |
 | `pnpm check:size`    | 1 240 KB de JavaScript (presupuesto 1 953 KB) y 4 265 KB de estaticos (5 859 KB) |
-| E2E de accesibilidad | 79 pruebas en Chromium, sin infracciones graves ni criticas                      |
+| E2E de accesibilidad | 80 pruebas en Chromium, sin infracciones graves ni criticas                      |
 | `pnpm test`          | 328 pruebas en 34 archivos                                                       |
 
 ---
@@ -758,7 +758,7 @@ Base del lote: `58b130d`.
 | Comprobacion        | Resultado                           |
 | ------------------- | ----------------------------------- |
 | `pnpm test`         | 328 pruebas en 34 archivos          |
-| `pnpm test:e2e`     | 79 pruebas en Chromium (dos nuevas) |
+| `pnpm test:e2e`     | 80 pruebas en Chromium (dos nuevas) |
 | `pnpm format:check` | Correcto                            |
 | `pnpm lint`         | Sin errores                         |
 | `pnpm typecheck`    | Sin errores                         |
@@ -805,7 +805,7 @@ La migracion es aditiva (`ALTER TABLE ... ADD COLUMN`), sin tocar datos.
 | `pnpm db:migrate`                           | Migracion aplicada en la base de pruebas               |
 | E2E de equipo                               | Un caso nuevo: cambiar de estudio y volver al original |
 | `pnpm test`                                 | 328 pruebas en 34 archivos                             |
-| `pnpm test:e2e`                             | 79 pruebas en Chromium                                 |
+| `pnpm test:e2e`                             | 80 pruebas en Chromium                                 |
 | `pnpm lint`, `pnpm typecheck`, `pnpm build` | Sin errores                                            |
 
 ### Lotes que quedan anotados y no cerrados
@@ -816,3 +816,47 @@ La migracion es aditiva (`ALTER TABLE ... ADD COLUMN`), sin tocar datos.
 - La exportacion sigue generandose dentro de la peticion: un libro muy grande
   bloquea el event loop de Render Free. La mitigacion pendiente es un tope
   explicito de tamano con un aviso claro.
+
+---
+
+## Lote W: el editor deja de usar ventanas del navegador y la exportacion no se solapa
+
+Fecha: 21 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+Base del lote: `b0a1949`.
+
+### Que estaba mal
+
+1. El enlace y la nota al pie se pedian con `window.prompt` y `window.alert`:
+   modales del navegador que bloquean la interfaz, no se pueden validar
+   mientras se escribe, no los anuncia bien un lector de pantalla y, en el
+   caso del enlace, no rechazaban los esquemas peligrosos (solo lo hacia
+   Tiptap, en el cliente).
+2. Al abrir el diálogo se perdia la seleccion del editor, de modo que el
+   enlace no se aplicaba al texto escolhido.
+3. Dos exportaciones a la vez en la misma instancia de Render Free se quedan
+   sin memoria: la medida del banco de esfuerzo da 367 MB para un libro de
+   200 000 palabras con 80 fotografias, y el plan da 512 MB.
+4. Una prueba de seguridad leia el cuerpo de la respuesta despues de que el
+   cliente hubiera navegado: fallaba de forma intermitente.
+
+### Que se ha cambiado
+
+| Area        | Archivo                                                      | Cambio                                                                                                              |
+| ----------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| Editor      | `apps/web/src/components/forms/dialog.tsx`                   | Dialogo modal propio: foco dentro, Escape cierra y el titulo lo anuncia el lector de pantalla.                      |
+| Editor      | `apps/web/src/components/books/section-editor.tsx`           | El enlace y la nota se escriben en el dialogo, con aviso de esquema, contador de caracteres y seleccion recuperada. |
+| Exportacion | `apps/web/src/lib/export/slot.ts`                            | Un hueco de exportacion por instancia, con caducidad de diez minutos para no dejar el hueco tomado.                 |
+| Exportacion | `apps/web/src/lib/export/jobs.ts`, `api/exports/…/download`  | La peticion y la descarga reservan el hueco; si hay otra en marcha, la respuesta lo explica (429).                  |
+| Pruebas     | `tests/e2e/manuscrito.spec.ts`, `tests/e2e/security.spec.ts` | Un caso nuevo del dialogo de enlace; la prueba de seguridad lee el HTML sin ejecutar JavaScript.                    |
+
+### Pruebas ejecutadas
+
+| Comprobacion        | Resultado                  |
+| ------------------- | -------------------------- |
+| `pnpm test`         | 328 pruebas en 34 archivos |
+| `pnpm test:e2e`     | 80 pruebas en Chromium     |
+| `pnpm format:check` | Correcto                   |
+| `pnpm lint`         | Sin errores                |
+| `pnpm typecheck`    | Sin errores                |
+| `pnpm build`        | Correcto                   |

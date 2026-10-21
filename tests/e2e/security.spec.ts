@@ -59,15 +59,18 @@ test.describe("Capa de seguridad", () => {
     expect(await robots.text()).toContain("Disallow: /");
   });
 
-  test("una ruta privada sin sesión no muestra contenido privado", async ({ page }) => {
-    const response = await page.goto("/dashboard");
-    const html = (await response?.text()) ?? "";
+  test("una ruta privada sin sesión no muestra contenido privado", async ({ page, request }) => {
+    // El HTML se pide sin ejecutar JavaScript: así no depende de que la
+    // redirección del cliente llegue antes o después de leer el cuerpo.
+    const respuesta = await request.get("/dashboard");
+    const html = await respuesta.text();
 
     // La redirección se resuelve en el cliente porque el shell se emite antes
     // de resolver la sesión. El contenido privado nunca llega al navegador.
     expect(html).not.toContain("Manuscritos recientes");
     expect(html).not.toContain("Actividad reciente");
 
+    await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/login$/u);
   });
 
