@@ -9,6 +9,7 @@ import {
   manuscriptHash,
   type SectionVersion,
 } from "./manuscript";
+import { trabajoInterrumpido } from "./job-estado";
 
 /**
  * Cola de trabajos de exportación.
@@ -81,6 +82,7 @@ const JOB_SELECT = {
   errorMessage: true,
   resultMetadata: true,
   createdAt: true,
+  startedAt: true,
   completedAt: true,
   options: true,
 } as const;
@@ -149,6 +151,23 @@ export async function requestExport(
 
   if (existing && existing.status === "COMPLETED") {
     return toSummary(existing);
+  }
+
+  // Un trabajo que se quedó en «procesando» (un despliegue que se cayó a
+  // medias, por ejemplo) no se puede volver a pedir: se marca como fallido
+  // para que la interfaz no lo muestre como si estuviera en marcha.
+  if (existing && trabajoInterrumpido(existing)) {
+    await prisma.exportJob.update({
+      where: { id: existing.id },
+      data: {
+        status: "FAILED",
+        progress: 0,
+        errorCode: "EXPORT_TIMEOUT",
+        errorMessage: "La generación se interrumpió y hay que volver a pedirla.",
+        completedAt: new Date(),
+      },
+      select: JOB_SELECT,
+    });
   }
 
   const job =

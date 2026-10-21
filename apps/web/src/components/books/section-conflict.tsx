@@ -31,14 +31,20 @@ export function SectionConflictPanel({
       return null;
     }
 
-    const local = extractPlainText(localContent);
-    const servidor = extractPlainText(parseTiptapDocument(JSON.parse(conflict.serverContent)));
+    try {
+      const local = extractPlainText(localContent);
+      const servidor = extractPlainText(parseTiptapDocument(JSON.parse(conflict.serverContent)));
 
-    return {
-      segmentos: diffWords(servidor, local),
-      palabrasLocales: local.split(/\s+/u).filter(Boolean).length,
-      palabrasServidor: servidor.split(/\s+/u).filter(Boolean).length,
-    };
+      return {
+        segmentos: diffWords(servidor, local),
+        palabrasLocales: local.split(/\s+/u).filter(Boolean).length,
+        palabrasServidor: servidor.split(/\s+/u).filter(Boolean).length,
+      };
+    } catch {
+      // Un contenido corrupto no debe romper el panel: se comparan las
+      // palabras sin más detalle.
+      return null;
+    }
   }, [conflict.serverContent, localContent]);
 
   return (

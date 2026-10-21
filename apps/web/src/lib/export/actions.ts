@@ -8,6 +8,7 @@ import { writeAuditLog } from "@/lib/auth/audit";
 import { assertServerActionOrigin, type RequestContext } from "@/lib/security/request-context";
 import { logger } from "@/lib/logger";
 import { errorState, formValue } from "@/lib/form-helpers";
+import { toSafeErrorMessage } from "@/lib/errors";
 import type { ActionState } from "@/lib/action-state";
 import { assertCanPerform } from "@/lib/books/permissions";
 import { requestExport } from "@/lib/export/jobs";
@@ -95,10 +96,12 @@ export async function requestExportAction(
     logger.error("export.request_error", {
       requestId: context?.requestId,
       errorName: error instanceof Error ? error.name : "UnknownError",
+      // El detalle va al registro; a la interfaz solo llega un mensaje claro.
+      errorMessage: error instanceof Error ? error.message : undefined,
     });
 
     return errorState(
-      error instanceof Error ? error.message : "No se ha podido generar el archivo de exportación.",
+      toSafeErrorMessage(error, "No se ha podido generar el archivo de exportación."),
     );
   }
 

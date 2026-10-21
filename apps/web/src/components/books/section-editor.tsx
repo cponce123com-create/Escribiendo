@@ -75,6 +75,14 @@ export function SectionEditor({
 }: SectionEditorProps) {
   const [machine, setMachine] = useState<SyncMachine>(() => initialSyncMachine(version));
   const [conflict, setConflict] = useState<SectionConflict | null>(null);
+  /**
+   * Contenido del borrador local cuando el servidor tiene otra versión.
+   *
+   * El comparador necesita las dos versiones: la del servidor y la del
+   * equipo. Sin guardar la del equipo, el trabajo sin confirmar se perdía
+   * en silencio.
+   */
+  const [borradorLocal, setBorradorLocal] = useState<string | null>(null);
   const [online, setOnline] = useState(true);
   const [recovered, setRecovered] = useState(false);
   const [assets, setAssets] = useState<BookAssetSummary[]>(() => bookAssets);
@@ -138,9 +146,19 @@ export function SectionEditor({
       }
 
       // El borrador solo se recupera si es más reciente que lo que hay en el
-      // servidor. Si el servidor ya está en otra versión, se deja el
-      // conflicto para que la persona decida.
+      // servidor. Si el servidor ya está en otra versión, no se descarta
+      // ninguna de las dos: se abre el comparador para que la persona
+      // decida. Antes el borrador se perdía en silencio y el siguiente
+      // autoguardado lo sobrescribía.
       if (borrador.baseVersion !== versionRef.current) {
+        setBorradorLocal(borrador.content);
+        setConflict({
+          serverVersion: versionRef.current,
+          serverContent: JSON.stringify(editor.getJSON() as TiptapDocument),
+          serverTitle: sectionTitle,
+          serverAuthor: null,
+        });
+        dispatch({ type: "sync-conflict" });
         return;
       }
 
@@ -149,7 +167,16 @@ export function SectionEditor({
         return;
       }
 
-      editor.commands.setContent(JSON.parse(borrador.content) as TiptapDocument);
+      // Un borrador corrupto no rompe la página: se avisa y se sigue con la
+      // versión del servidor.
+      try {
+        editor.commands.setContent(JSON.parse(borrador.content) as TiptapDocument);
+      } catch {
+        setRecovered(false);
+        dispatch({ type: "sync-error", message: "El borrador de este equipo está dañado." });
+        return;
+      }
+
       localVersionRef.current = Math.max(localVersionRef.current, borrador.localVersion);
       dispatch({ type: "recovered" });
       setRecovered(true);
@@ -160,7 +187,7 @@ export function SectionEditor({
     return () => {
       vivo = false;
     };
-  }, [bookId, canEdit, dispatch, editor, sectionId, userId]);
+  }, [bookId, canEdit, dispatch, editor, sectionId, sectionTitle, userId]);
 
   // --- Guardado local ------------------------------------------------------
 
@@ -648,18 +675,39 @@ export function SectionEditor({
       {conflict ? (
         <SectionConflictPanel
           conflict={conflict}
-          localContent={editor ? (editor.getJSON() as TiptapDocument) : null}
+          localContent={
+            borradorLocal !== null
+              ? (JSON.parse(borradorLocal) as TiptapDocument)
+              : editor
+                ? (editor.getJSON() as TiptapDocument)
+                : null
+          }
           onKeepLocal={() => {
+            // Si el conflicto viene del borrador local, se carga en el editor
+            // antes de enviarlo: el servidor no puede recibir lo que el
+            // editor todavía no tiene.
+            if (borradorLocal !== null && editor) {
+              editor.commands.setContent(JSON.parse(borradorLocal) as TiptapDocument);
+              localVersionRef.current += 1;
+            }
+
+            setBorradorLocal(null);
             setConflict(null);
             void sincronizar("manual", true);
           }}
           onTakeServer={() => {
             if (editor) {
-              editor.commands.setContent(JSON.parse(conflict.serverContent) as TiptapDocument);
+              try {
+                editor.commands.setContent(JSON.parse(conflict.serverContent) as TiptapDocument);
+              } catch {
+                // Si el contenido del servidor está dañado, se deja el editor
+                // como está: el borrador local sigue a salvo.
+              }
             }
 
             versionRef.current = conflict.serverVersion;
             localVersionRef.current = 0;
+            setBorradorLocal(null);
             setConflict(null);
             dispatch({ type: "sync-ok", version: conflict.serverVersion });
             void deleteDraft(userId, bookId, sectionId);

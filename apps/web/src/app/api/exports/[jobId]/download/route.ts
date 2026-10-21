@@ -86,6 +86,16 @@ export async function GET(request: Request, context: RouteContext): Promise<Next
     return NextResponse.json({ error: "El trabajo no existe." }, { status: 404 });
   }
 
+  // Solo se descarga un trabajo terminado. Un trabajo fallido o a medias
+  // regeneraría el archivo con el contenido actual, que no es lo que se le
+  // pidió a la persona.
+  if (job.status !== "COMPLETED") {
+    return NextResponse.json(
+      { error: "Este trabajo de exportación no está terminado." },
+      { status: 409 },
+    );
+  }
+
   try {
     const book = await prisma.book.findFirst({
       where: { id: job.bookId, workspaceId: session.workspace.id, deletedAt: null },
