@@ -20,9 +20,25 @@ export interface DiffSegment {
  */
 const MAX_DIFF_WORDS = 4_000;
 
+/**
+ * Tope de celdas de la matriz de longitudes comunes.
+ *
+ * La matriz tiene `una fila por token de la izquierda` por `una columna por
+ * token de la derecha`. Con 4 000 palabras son unos 8 000 tokens por lado y la
+ * matriz se lleva unos cientos de megabytes: en el navegador eso es la
+ * diferencia entre un aviso y una pestaña muerta. Con este tope la memoria
+ * queda acotada y, si no alcanza, se degrada a sustitución completa.
+ */
+const MAX_DIFF_CELLS = 2_000_000;
+
 /** Trocea el texto en palabras, conservando los espacios como separadores. */
 function splitWords(text: string): string[] {
   return text.split(/(\s+)/u).filter((part) => part.length > 0);
+}
+
+/** Número de palabras de un texto, sin contar los espacios. */
+function cuentaPalabras(tokens: readonly string[]): number {
+  return tokens.filter((token) => !/^\s+$/u.test(token)).length;
 }
 
 /** Compara dos secuencias y devuelve la matriz de longitudes comunes. */
@@ -82,7 +98,13 @@ export function diffWords(before: string, after: string): DiffSegment[] {
   const left = splitWords(before);
   const right = splitWords(after);
 
-  if (left.length > MAX_DIFF_WORDS || right.length > MAX_DIFF_WORDS) {
+  // El límite se cuenta en palabras, no en tokens: los espacios también son
+  // tokens y multiplicaban la matriz por dos.
+  if (
+    cuentaPalabras(left) > MAX_DIFF_WORDS ||
+    cuentaPalabras(right) > MAX_DIFF_WORDS ||
+    left.length * right.length > MAX_DIFF_CELLS
+  ) {
     return [
       { type: "delete", text: before },
       { type: "insert", text: after },

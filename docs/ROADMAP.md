@@ -183,12 +183,14 @@ Implementado:
   propias de cada estudio. Una plantilla define el estilo: cuerpo, títulos,
   cita, sangría de primera línea y control de viudas y huérfanas. Se instalan
   de forma idempotente la primera vez que se abre la maquetación.
-- **Motor de paginación** en `editorial-engine`: mide el texto con un modelo
-  de anchos medios por tipo de carácter, parte los párrafos en líneas y
-  compone las páginas **por altura**, de modo que conviven en la misma página
-  un cuerpo de 11 pt y un título de 20 pt.
-- **Aperturas de capítulo en página par**: si el capítulo caería en una página
-  impar, se inserta una página en blanco y se avisa en el diagnóstico.
+- **Motor de paginación** en `editorial-engine`: mide el texto con las métricas
+  reales de la fuente cuando está disponible (y con un modelo de anchos medios
+  como reserva), parte los párrafos en líneas y compone las páginas **por
+  altura**, de modo que conviven en la misma página un cuerpo de 11 pt y un
+  título de 20 pt.
+- **Aperturas de capítulo en página par**: el capítulo empieza en página
+  nueva y, si el perfil lo pide, en un recto; si hace falta, se inserta una
+  página en blanco y se avisa en el diagnóstico.
 - **Folios y encabezados de página**: el folio numerado correlativamente (con
   número inicial configurable) y el encabezado con el título de la sección o
   con el texto que fije la plantilla, que admite los marcadores `{libro}` y
@@ -201,9 +203,11 @@ Implementado:
   anchas que la caja de texto y páginas en blanco insertadas, cada uno con su
   página y su explicación.
 
-Fuera del alcance y pendiente para fases posteriores: paginación con métricas
-reales de la fuente, que corresponde a la exportación, generación de PDF,
-cubiertas y contraportadas, y ajustes de línea por sección.
+Fuera del alcance y pendiente para fases posteriores: cubiertas y contraportadas
+y ajustes de línea por sección. La paginación con métricas reales de la fuente
+y la generación de PDF con fuentes incrustadas son tareas ya cerradas: están
+descritas en [EXPORT_VALIDATION.md](EXPORT_VALIDATION.md) y en
+[AUDIT_CORRECTIONS.md](AUDIT_CORRECTIONS.md).
 
 Verificación registrada:
 
@@ -236,8 +240,9 @@ preparó en la Fase 1.
 Implementado:
 
 - **PDF digital y PDF de imprenta** escritos sin dependencias externas, con las
-  fuentes estándar (Times-Roman, Times-Bold y Times-Italic), que no hay que
-  incrustar. El PDF de imprenta lleva la caja acabada (`TrimBox`), la caja de
+  fuentes tipográficas incrustadas (Liberation Fonts, licencia SIL OFL) como
+  `Type0`/`CIDFontType2`, con `ToUnicode` para que el texto se pueda buscar y
+  copiar. El PDF de imprenta lleva la caja acabada (`TrimBox`), la caja de
   sangre (`BleedBox`), la caja de recorte (`CropBox`) y las marcas de corte y
   de registro fuera de la hoja acabada. El texto se compone con el mismo motor
   de paginación que la vista previa, de modo que el archivo y la pantalla
@@ -262,10 +267,11 @@ Implementado:
   `EXPORT_SIGNING_SECRET`; si no se define, se deriva de las credenciales de
   la base de datos, que ya son un secreto.
 
-Fuera del alcance y pendiente para fases posteriores: incrustación de fuentes
-reales en el PDF, que daría una paginación exacta y un justificado fiel;
-PDF/X con salida preflight; control de color y perfil de imprenta; y
-exportaciones por lotes de varios libros.
+Fuera del alcance y pendiente para fases posteriores: PDF/X con salida preflight,
+control de color y perfil de imprenta; y exportaciones por lotes de varios
+libros. La incrustación de fuentes reales en el PDF ya está hecha: da una
+paginación exacta y un justificado fiel, y se puede comprobar en
+[EXPORT_VALIDATION.md](EXPORT_VALIDATION.md).
 
 Verificación registrada:
 
@@ -336,14 +342,14 @@ automático de un espacio de trabajo completo.
 
 Verificación registrada:
 
-| Punto del criterio                                  | Estado                                                                                                                                               |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Build, lint, typecheck y pruebas unitarias en verde | Cumplido                                                                                                                                             |
-| Invitación y alta de cuentas                        | Cumplido: seis pruebas E2E cubren la creación, la aceptación con cuenta nueva, el rechazo de reutilizar una invitación y la exportación de auditoría |
-| Roles comprobados en servidor                       | Cumplido: `OWNER` y `ADMIN` gestionan; el resto no. La comprobación está en la acción, no en la interfaz                                             |
-| Asignación de trabajo                               | Cumplido: secciones y comentarios se asignan a personas del estudio                                                                                  |
-| Migración                                           | Cumplido: `20261020190000_add_team_governance`, aditiva, aplicada en local y en Neon con sus dos restricciones                                       |
-| Retención                                           | Cumplido: `pnpm retention:clean --dry-run` informa sin borrar; la rutina de borrado está en una transacción                                          |
+| Punto del criterio                                  | Estado                                                                                                                                                |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Build, lint, typecheck y pruebas unitarias en verde | Cumplido                                                                                                                                              |
+| Invitación y alta de cuentas                        | Cumplido: cinco pruebas E2E cubren la creación, la aceptación con cuenta nueva, el rechazo de reutilizar una invitación y la exportación de auditoría |
+| Roles comprobados en servidor                       | Cumplido: `OWNER` y `ADMIN` gestionan; el resto no. La comprobación está en la acción, no en la interfaz                                              |
+| Asignación de trabajo                               | Cumplido: secciones y comentarios se asignan a personas del estudio                                                                                   |
+| Migración                                           | Cumplido: `20261020190000_add_team_governance`, aditiva, aplicada en local y en Neon con sus dos restricciones                                        |
+| Retención                                           | Cumplido: `pnpm retention:clean --dry-run` informa sin borrar; la rutina de borrado está en una transacción                                           |
 
 ## Fase 7 — Operación editorial
 

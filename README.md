@@ -1,9 +1,5 @@
 # ESCRIBIENDO
 
-packages/templates contiene las plantillas editoriales y
-posterior: la exportación de la Fase 5 es bajo demanda y no necesita ningún
-proceso permanente. Ninguno de los dos contiene funciones simuladas.
-
 Plataforma editorial privada de **EDITORIAL NO PARA TODOS**.
 
 ESCRIBIENDO reúne escritura, edición, maquetación y preparación de archivos de
@@ -11,7 +7,7 @@ imprenta en un único espacio de trabajo. Este repositorio contiene las
 **Fases 1 a 6**: cimientos técnicos, acceso privado, modelo de datos editorial,
 integración firmada con Cloudinary, preparación de despliegue en Render,
 biblioteca y manuscrito, herramientas de escritura asistida, maquetación con
-vista previa paginada, exportación a PDF, EPUB y DOCX y gobierno del`n equipo.
+vista previa paginada, exportación a PDF, EPUB y DOCX y gobierno del equipo.
 
 > No hay registro público. El acceso se crea una sola vez mediante `/setup` y
 > un token de instalación de alta entropía. Después, solo un administrador
@@ -241,4 +237,4 @@ Los detalles y las limitaciones conocidas están en
 ## Licencia
 
 Código privado y no licenciado. © EDITORIAL NO PARA TODOS. Todos los derechos
-packages/templates contiene las plantillas editoriales y
+reservados.

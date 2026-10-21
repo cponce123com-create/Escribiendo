@@ -1,0 +1,56 @@
+name: Verificación
+
+on:
+  push:
+    branches: [main, improvement/**]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: verificacion-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Formato, análisis, tipos y pruebas
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Repositorio
+        uses: actions/checkout@v5
+
+      - name: Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+
+      - name: pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.14.0
+
+      - name: Dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Generar el cliente de Prisma
+        run: pnpm db:generate
+
+      - name: Formato
+        run: pnpm format:check
+
+      - name: Análisis estático
+        run: pnpm lint
+
+      - name: Tipos
+        run: pnpm typecheck
+
+      - name: Pruebas unitarias
+        run: pnpm test
+
+      - name: Tamaño de los estáticos
+        run: pnpm check:size
+
+      - name: Compilación de producción
+        run: pnpm build

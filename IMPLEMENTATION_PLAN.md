@@ -68,46 +68,51 @@ probados en `tests/e2e/manuscrito.spec.ts` y documentados en
 
 ### P1 — Fidelidad editorial
 
-#### 1. Imágenes en el editor y en todos los formatos
+> **Estado a 21 de octubre de 2026.** Los puntos 1, 2 y 3 están **cerrados**
+> (lotes I, J y K) y verificados con evidencia ejecutada; el punto 4 sigue
+> abierto. El detalle de cada corrección está en
+> [docs/AUDIT_CORRECTIONS.md](docs/AUDIT_CORRECTIONS.md).
 
-- **Qué falta.** El esquema Tiptap admite `image` y el modelo la conserva; el
-  EPUB la incluye como recurso remoto. Pero el editor no permite insertarlas,
-  y el PDF y el DOCX no las dibujan.
-- **Por qué importa.** Un libro ilustrado no se puede producir hoy.
-- **Archivos.** `section-editor.tsx` (extensión de imagen y subida),
-  `lib/cloudinary/signature.ts` (carpeta de ilustraciones),
-  `packages/export-engine/src/pdf.ts` (XObject de imagen),
-  `packages/export-engine/src/docx.ts` (medios y `<w:drawing>`).
-- **Criterio de aceptación.** Insertar una imagen en el editor, verla en la
-  vista previa, descargarla en PDF, EPUB y DOCX, y que una imagen inaccesible
-  produzca un aviso, no una pérdida silenciosa.
-- **Dependencia.** Cloudinary configurado en el entorno de pruebas. Sin
-  credenciales locales, la subida no se puede probar de extremo a extremo y
-  así se declarará.
+#### 1. Imágenes en el editor y en todos los formatos — Cerrado
 
-#### 2. Notas al pie y al final
+- **Qué faltaba.** El esquema Tiptap admitía `image` y el modelo la conservaba;
+  el EPUB la incluía como recurso remoto. Pero el editor no permitía insertarlas,
+  y el PDF y el DOCX no las dibujaban.
+- **Qué se ha hecho.** El editor inserta imágenes de la biblioteca, la vista
+  previa las dibuja con su tamaño y su pie, y PDF, EPUB y DOCX las incrustan. Una
+  imagen inaccesible produce un aviso y un marcador, no una pérdida silenciosa.
+- **Evidencia.** `packages/export-engine/src/image-export.test.ts`,
+  `apps/web/src/lib/export/images.test.ts` y la prueba de extremo a extremo de
+  exportación.
+- **Lo que sigue abierto.** La subida real a Cloudinary: sin credenciales, el
+  camino se valida por código y por pruebas de autorización, no con una cuenta
+  real.
 
-- **Qué falta.** El esquema las admite, pero no hay extensión de editor ni
+#### 2. Notas al pie y al final — Cerrado
+
+- **Qué faltaba.** El esquema las admitía, pero no había extensión de editor ni
   composición en la paginación.
-- **Por qué importa.** Es un requisito de ensayo y de traducción.
-- **Archivos.** `book-schema` (nodo), `section-editor.tsx`, `pagination.ts`
-  (reserva al pie de la página), `pdf.ts`, `epub.ts`, `docx.ts`.
-- **Criterio de aceptación.** Una nota insertada en el capítulo aparece en la
-  misma página del PDF, como `epub:type="footnote"` en EPUB y como nota real
-  en DOCX, sin desplazar el cuerpo de forma incorrecta.
+- **Qué se ha hecho.** Nodo de editor con numeración por orden de lectura,
+  reserva de altura al pie de la página y exportación a PDF, EPUB (`epub:type`)
+  y DOCX (nota real).
+- **Evidencia.** `packages/export-engine/src/footnote-export.test.ts` y las
+  pruebas de extremo a extremo del manuscrito.
+- **Lo que sigue abierto.** Las notas muy largas (más de 2 000 caracteres) y la
+  versión de texto plano.
 
-#### 3. Fuentes incrustadas en el PDF
+#### 3. Fuentes incrustadas en el PDF — Cerrado
 
-- **Qué falta.** El PDF usa Times-Roman/Bold/Italic/BoldItalic estándar y mide
-  con un modelo de anchos medios.
-- **Por qué importa.** La paginación es una estimación; con la fuente real
-  sería exacta, y la imprenta exige fuentes incrustadas.
-- **Archivos.** `packages/export-engine/src/pdf.ts` (objetos de fuente,
-  `FontFile2`, `CIDFontType2`, subconjunto), `measure.ts` (tabla de anchos).
-- **Criterio de aceptación.** Un PDF con una fuente libre incrustada, texto
-  extraíble y paginación idéntica a la vista previa.
-- **Riesgo.** El subconjunto de glifos y `ToUnicode` es trabajo fino; no se
-  debe afirmar PDF/X sin preflight real.
+- **Qué faltaba.** El PDF usaba Times-Roman/Bold/Italic/BoldItalic estándar y
+  medía con un modelo de anchos medios.
+- **Qué se ha hecho.** Las caras de Liberation Fonts (SIL OFL) se incrustan como
+  `Type0`/`CIDFontType2` con `FontFile2`, `Identity-H`, `ToUnicode` y la tabla
+  de anchos real; la paginación usa las métricas de la fuente y coincide con
+  la vista previa.
+- **Evidencia.** `packages/export-engine/src/pdf-fonts.test.ts`, la prueba de
+  extremo a extremo que extrae el texto del PDF y la validación externa con
+  pdf.js.
+- **Lo que sigue abierto.** No se generan subconjuntos (la fuente completa va
+  incrustada) y la cobertura Unicode se limita a latín, griego y cirílico.
 
 #### 4. Portada y contraportada
 
@@ -127,6 +132,12 @@ probados en `tests/e2e/manuscrito.spec.ts` y documentados en
   errores, y el DOCX abierto en Word o LibreOffice sin reparaciones.
 - **Regla.** Hasta entonces, la documentación dice «estructura verificada»,
   nunca «EPUB validado» ni «DOCX compatible con Word».
+- **Estado a 21 de octubre de 2026.** El EPUB **sí** está validado por
+  EPUBCheck 5.1.0 (0 errores, 0 advertencias) y el DOCX lo abre un lector
+  OOXML independiente (Mammoth 1.11.0); además, el PDF lo abre pdf.js
+  4.10.38. Los tres formatos tienen validación externa con evidencia
+  ejecutada, salvo la apertura real en Word y LibreOffice, que no se ha hecho
+  porque no están instalados. Ver `docs/EXPORT_VALIDATION.md`.
 
 #### 6. Importadores
 
@@ -198,12 +209,19 @@ el nombre de la base contenga `test`.
 
 La puntuación no se declara por deseo. Se exige:
 
-1. Las brechas P0 y P1 cerradas con pruebas ejecutadas.
-2. EPUBCheck y Word/LibreOffice ejecutados sobre archivos reales.
-3. Despliegue en Render verificado desde una red sin filtro.
-4. Secretos rotados y `SETUP_TOKEN` retirado.
-5. Copia de seguridad restaurada en una base desechable.
+1. Las brechas P0 y P1 cerradas con pruebas ejecutadas. **Cumplido** salvo la
+   portada y contraportada (Punto 4) y la cobertura Unicode más allá de
+   latín, griego y cirílico.
+2. EPUBCheck y Word/LibreOffice ejecutados sobre archivos reales. **A medias**:
+   EPUBCheck se ejecuta y aprueba el EPUB; el PDF lo abre pdf.js y el DOCX lo
+   abre Mammoth. Word y LibreOffice no están instalados en la máquina.
+3. Despliegue en Render verificado desde una red sin filtro. **Pendiente**: la
+   red de esta máquina está filtrada.
+4. Secretos rotados y `SETUP_TOKEN` retirado. **Pendiente**: son acciones de
+   operación, de coste casi nulo y de impacto alto.
+5. Copia de seguridad restaurada en una base desechable. **Pendiente**.
 6. Todas las afirmaciones de la documentación con evidencia reproducible.
+   **Cumplido** tras el Lote T, que reparó el README y el ROADMAP.
 
 Mientras falte cualquiera de estos puntos, la puntuación se queda por debajo
 y se explica por qué. La honestidad del informe es parte del producto.

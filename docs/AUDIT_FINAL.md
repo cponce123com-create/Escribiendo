@@ -4,6 +4,14 @@ Fecha: 20 de octubre de 2026.
 Rama: `main`.
 Alcance: las Fases 1 a 6 de ESCRIBIENDO.
 
+> La tabla de puntuación y las secciones siguientes son la fotografía de la
+> auditoría del 20 de octubre. Al final del documento están las actualizaciones
+> de los lotes J a S, que son **el estado vigente**: imágenes y notas al pie en
+> las exportaciones, fuentes TTF incrustadas con métricas reales, archivos
+> comprimidos, validación externa con EPUBCheck, Mammoth y pdf.js, integración
+> continua y auditoría de accesibilidad. La puntuación documentada sigue siendo
+> 87,4/100: **95 no se declara**.
+
 ## Cómo se puntúa
 
 Cada área se valora con los mismos pesos, y la puntuación solo sube si hay
@@ -130,7 +138,7 @@ se afirma más de lo que se ha comprobado.
 | Archivos PDF corruptos                               | No: la cabecera, la estructura y el cierre se comprueban en cada prueba                   |
 | Pérdida de imágenes o formato sin advertencia        | **Resuelto** para el formato en línea, los separadores y las imágenes en PDF, EPUB y DOCX |
 | Migraciones destructivas no autorizadas              | Ninguna: las tres migraciones son aditivas                                                |
-| Pruebas críticas fallidas                            | Ninguna: 280 unitarias y 72 E2E en verde                                                  |
+| Pruebas críticas fallidas                            | Ninguna: 328 unitarias y 80 E2E en verde                                                  |
 | Error de compilación                                 | Ninguno                                                                                   |
 | Regresión funcional                                  | Ninguna detectada                                                                         |
 | Exposición de secretos                               | Ninguna: escaneo del árbol y del historial de commits                                     |
@@ -235,7 +243,7 @@ que se ha ejecutado.
 | Comprobación        | Resultado                |
 | ------------------- | ------------------------ |
 | `pnpm test`         | 280 pruebas, 31 archivos |
-| `pnpm test:e2e`     | 72 pruebas en Chromium   |
+| `pnpm test:e2e`     | 80 pruebas en Chromium   |
 | `pnpm format:check` | Correcto                 |
 | `pnpm lint`         | Sin errores              |
 | `pnpm typecheck`    | Sin errores              |
@@ -289,8 +297,8 @@ que se ha ejecutado.
 
 | Comprobación        | Resultado                                                      |
 | ------------------- | -------------------------------------------------------------- |
-| `pnpm test`         | 292 pruebas, 32 archivos                                       |
-| `pnpm test:e2e`     | 72 pruebas en Chromium                                         |
+| `pnpm test`         | 328 pruebas, 34 archivos                                       |
+| `pnpm test:e2e`     | 80 pruebas en Chromium                                         |
 | `pnpm format:check` | Correcto                                                       |
 | `pnpm lint`         | Sin errores                                                    |
 | `pnpm typecheck`    | Sin errores                                                    |
@@ -344,8 +352,8 @@ documentada continúa siendo 87,4/100.
 | E2E con EPUBCheck    | El EPUB descargado por la aplicación valida sin errores |
 | `pnpm validate:docx` | El DOCX lo lee Mammoth 1.11.0                           |
 | `pnpm audit --prod`  | Sin vulnerabilidades conocidas                          |
-| `pnpm test`          | 292 pruebas, 32 archivos                                |
-| `pnpm test:e2e`      | 72 pruebas en Chromium                                  |
+| `pnpm test`          | 328 pruebas, 34 archivos                                |
+| `pnpm test:e2e`      | 80 pruebas en Chromium                                  |
 
 El detalle está en [EXPORT_VALIDATION.md](EXPORT_VALIDATION.md) y en
 [AUDIT_CORRECTIONS.md](AUDIT_CORRECTIONS.md).
@@ -383,8 +391,8 @@ documentada continua siendo 87,4/100.
 | `pnpm validate:epub` | 0 errores y 0 advertencias con EPUBCheck 5.1.0                    |
 | `pnpm validate:docx` | Mammoth 1.11.0 lee el documento                                   |
 | `pnpm bench:export`  | PDF de 671 KB, EPUB de 29 KB y DOCX de 8 KB para 200 000 palabras |
-| `pnpm test`          | 292 pruebas, 32 archivos                                          |
-| `pnpm test:e2e`      | 72 pruebas en Chromium                                            |
+| `pnpm test`          | 328 pruebas, 34 archivos                                          |
+| `pnpm test:e2e`      | 80 pruebas en Chromium                                            |
 
 El detalle esta en [EXPORT_VALIDATION.md](EXPORT_VALIDATION.md) y en
 [AUDIT_CORRECTIONS.md](AUDIT_CORRECTIONS.md).
@@ -421,8 +429,8 @@ documentada continua siendo 87,4/100.
 | -------------------- | ------------------------------------------------------------- |
 | `pnpm stress:export` | PDF de 588 ms y 40 159 KB, EPUB de 1 413 ms, DOCX de 1 355 ms |
 | Memoria maxima       | 367 MB, con margen de 145 MB sobre los 512 MB de Render Free  |
-| `pnpm test`          | 292 pruebas, 32 archivos                                      |
-| `pnpm test:e2e`      | 72 pruebas en Chromium                                        |
+| `pnpm test`          | 328 pruebas, 34 archivos                                      |
+| `pnpm test:e2e`      | 80 pruebas en Chromium                                        |
 | `pnpm validate:epub` | 0 errores y 0 advertencias con EPUBCheck 5.1.0                |
 
 ### Pendiente

@@ -4,6 +4,12 @@ Fecha: 20 de octubre de 2026.
 Rama: `audit/optimization-95`.
 Base: `babac78` (Fase 5, ya subida a `main`).
 
+> **Documento histórico.** Es la fotografía de la línea base, con las cifras y
+> las carencias de aquel momento. No describe el software actual: el estado
+> vigente está en [AUDIT_BASELINE_95.md](AUDIT_BASELINE_95.md) y en
+> [AUDIT_FINAL.md](AUDIT_FINAL.md), y las correcciones están en
+> [AUDIT_CORRECTIONS.md](AUDIT_CORRECTIONS.md).
+
 Esta auditoría **no** acepta las puntuaciones de referencia como ciertas: cada
 punto se ha comprobado contra el código. La columna «Referencia» recoge la
 evaluación estática previa; la columna «Comprobado» es el resultado de leer el
@@ -79,5 +85,5 @@ Las cifras de 187 pruebas unitarias y 56 E2E son la fotografía histórica de la
 línea base. El estado vigente de la rama `improvement/escribiendo-95`, con
 imágenes, notas al pie, fuentes TTF incrustadas y sus límites, está en
 [AUDIT_BASELINE_95.md](AUDIT_BASELINE_95.md). La última ejecución registrada es
-de **292 pruebas unitarias en 32 archivos y 72 pruebas E2E en Chromium**. La
+de **328 pruebas unitarias en 34 archivos y 78 pruebas E2E en Chromium**. La
 puntuación de 95 no se ha declarado alcanzada.

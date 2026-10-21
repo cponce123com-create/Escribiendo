@@ -227,6 +227,9 @@ export async function getSection(
   const section = await prisma.bookSection.findFirst({
     where: {
       id: sectionId,
+      // La sección tiene que ser del libro de la dirección: si no, se abriría
+      // el contenido de un libro bajo la cabecera de otro.
+      bookId,
       deletedAt: null,
       book: { workspaceId: session.workspace.id, deletedAt: null },
     },
@@ -274,7 +277,8 @@ export async function listRevisions(
       sectionId,
       section: {
         deletedAt: null,
-        book: { workspaceId: session.workspace.id, deletedAt: null },
+        // La sección tiene que ser del libro de la dirección.
+        book: { id: bookId, workspaceId: session.workspace.id, deletedAt: null },
       },
     },
     orderBy: { version: "desc" },
@@ -303,7 +307,8 @@ export async function getRevisionContent(
       id: revisionId,
       section: {
         deletedAt: null,
-        book: { workspaceId: session.workspace.id, deletedAt: null },
+        // La revisión tiene que ser de una sección del libro de la dirección.
+        book: { id: bookId, workspaceId: session.workspace.id, deletedAt: null },
       },
     },
     select: { id: true, version: true, content: true },

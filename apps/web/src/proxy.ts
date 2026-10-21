@@ -50,7 +50,13 @@ export function proxy(request: NextRequest): NextResponse {
     request.nextUrl.pathname.startsWith("/account") ||
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/setup") ||
-    request.nextUrl.pathname.startsWith("/reset-password")
+    request.nextUrl.pathname.startsWith("/reset-password") ||
+    // Las páginas con manuscrito, comentarios y datos del equipo no pueden
+    // quedar en una caché intermedia: son privadas por definición.
+    request.nextUrl.pathname.startsWith("/books") ||
+    request.nextUrl.pathname.startsWith("/notes") ||
+    request.nextUrl.pathname.startsWith("/stats") ||
+    request.nextUrl.pathname.startsWith("/team")
   ) {
     response.headers.set("Cache-Control", "private, no-store, max-age=0");
   }

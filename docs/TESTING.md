@@ -38,7 +38,7 @@ pnpm test
 Vitest recorre `apps/**/*.test.ts`, `packages/**/*.test.ts` y
 `scripts/**/*.test.ts`. No necesita base de datos ni navegador.
 
-Resultado vigente: **292 pruebas en 32 archivos** (21 de octubre de 2026).
+Resultado vigente: **328 pruebas en 34 archivos** (21 de octubre de 2026).
 Cobertura actual (Fases 1 a 3):
 
 | Archivo                                                   | Qué verifica                                                                                                                                                                                                |
@@ -269,11 +269,11 @@ ROADMAP.
 ### 4.5 Resultados obtenidos
 
 ```text
-Running 72 tests using 1 worker
-72 passed (3.0m)
+Running 80 tests using 1 worker
+80 passed (4.6m)
 ```
 
-Las 72 pruebas incluyen la preparación de la cuenta de pruebas. La suite se ha
+Las 80 pruebas incluyen la preparación de la cuenta de pruebas. La suite se ha
 ejecutado de forma repetida con resultado completo en todas las ejecuciones,
 contra PostgreSQL 17.7 local y contra la **compilación de producción** (no el
 servidor de desarrollo). En producción, el mismo flujo de instalación, acceso y
@@ -285,7 +285,20 @@ la biblioteca se llama `biblioteca.spec.ts` y va antes que los demás: la
 biblioteca necesita empezar vacía. Los nombres siguen el orden de las fases,
 para que añadir una fase nueva no rompa el orden por sorpresa.
 
-### 4.6 Recuperación de contraseña por CLI
+### 4.6 Accesibilidad
+
+`tests/e2e/accesibilidad.spec.ts` pasa axe-core por las páginas principales
+(login, panel, biblioteca, alta de libro, notas, estadísticas, equipo y cuenta)
+y `tests/e2e/manuscrito.spec.ts` y `tests/e2e/maquetacion.spec.ts` lo pasan por
+el editor, la ficha del libro y la vista previa paginada. La suite **falla** si
+aparece una infracción grave o crítica; los avisos se anotan en el informe sin
+romper la ejecución.
+
+La auditoría encontró tres fallos reales que ya están corregidos: el editor no
+tenía nombre accesible, los campos de imagen ocultos no tenían etiqueta y el
+encabezado de página de la vista previa no cumplía el contraste.
+
+### 4.7 Recuperación de contraseña por CLI
 
 `pnpm admin:password-reset` escribe en la base de datos, así que se verifica
 por separado contra una base de pruebas:
@@ -341,6 +354,7 @@ pnpm test:e2e       # Playwright (requiere base de datos desechable)
 pnpm build          # Compilación de producción
 pnpm bench:export   # Banco de composición y exportación
 pnpm stress:export  # Banco de esfuerzo: 200 000 palabras, 80 imágenes y 500 notas
+pnpm check:size      # Presupuesto de JavaScript del cliente y estáticos públicos
 pnpm validate:epub  # EPUB con EPUBCheck (necesita EPUBCHECK_JAR)
 pnpm validate:docx  # DOCX con un lector externo (necesita DOCX_VALIDATOR)
 pnpm validate:pdf   # PDF con un lector externo (necesita PDF_VALIDATOR)

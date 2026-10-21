@@ -121,6 +121,85 @@ describe("parseTiptapDocument", () => {
       }),
     ).toThrow(TiptapValidationError);
   });
+
+  it("rechaza un texto con caracteres de control que romperían el EPUB", () => {
+    expect(() =>
+      parseTiptapDocument({
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: "Texto con un control\u0007 dentro" }],
+          },
+        ],
+      }),
+    ).toThrow(TiptapValidationError);
+  });
+
+  it("rechaza una nota al pie con caracteres de control", () => {
+    expect(() =>
+      parseTiptapDocument({
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [
+              {
+                type: "footnote",
+                attrs: { id: "nota-1", note: "Nota con un control\u0007 dentro" },
+              },
+            ],
+          },
+        ],
+      }),
+    ).toThrow(TiptapValidationError);
+  });
+
+  it("rechaza un enlace con un esquema que ejecuta código", () => {
+    expect(() =>
+      parseTiptapDocument({
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [
+              {
+                type: "text",
+                text: "clic",
+                marks: [{ type: "link", attrs: { href: "javascript:alert(1)" } }],
+              },
+            ],
+          },
+        ],
+      }),
+    ).toThrow(TiptapValidationError);
+  });
+
+  it("acepta un enlace normal y uno interno", () => {
+    const documento = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            {
+              type: "text",
+              text: "externo",
+              marks: [{ type: "link", attrs: { href: "https://ejemplo.test/libro" } }],
+            },
+            { type: "text", text: " " },
+            {
+              type: "text",
+              text: "interno",
+              marks: [{ type: "link", attrs: { href: "/books/1" } }],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(parseTiptapDocument(documento).type).toBe("doc");
+  });
 });
 
 describe("extractPlainText", () => {

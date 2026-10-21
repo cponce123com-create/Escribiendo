@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { exportContext, generateFile } from "@/lib/export/generate";
 import { loadManuscript, type SectionVersion } from "@/lib/export/manuscript";
 import { verifyDownload } from "@/lib/export/signature";
+import { liberarHuecoDeExportacion, reservarHuecoDeExportacion } from "@/lib/export/slot";
 
 /**
  * Descarga de un archivo de exportación.
@@ -86,6 +87,25 @@ export async function GET(request: Request, context: RouteContext): Promise<Next
     return NextResponse.json({ error: "El trabajo no existe." }, { status: 404 });
   }
 
+  // Solo se descarga un trabajo terminado. Un trabajo fallido o a medias
+  // regeneraría el archivo con el contenido actual, que no es lo que se le
+  // pidió a la persona.
+  if (job.status !== "COMPLETED") {
+    return NextResponse.json(
+      { error: "Este trabajo de exportación no está terminado." },
+      { status: 409 },
+    );
+  }
+
+  // La descarga vuelve a generar el archivo: también necesita el hueco, para
+  // que dos descargas de libros grandes no se queden sin memoria a la vez.
+  if (!reservarHuecoDeExportacion()) {
+    return NextResponse.json(
+      { error: "Ya hay una exportación en marcha. Espera a que termine." },
+      { status: 429 },
+    );
+  }
+
   try {
     const book = await prisma.book.findFirst({
       where: { id: job.bookId, workspaceId: session.workspace.id, deletedAt: null },
@@ -133,5 +153,7 @@ export async function GET(request: Request, context: RouteContext): Promise<Next
       { error: "No se ha podido generar el archivo de exportación." },
       { status: 500 },
     );
+  } finally {
+    liberarHuecoDeExportacion();
   }
 }

@@ -31,11 +31,18 @@ export interface RevisionComparison {
   summary: ReturnType<typeof summarizeDiff>;
 }
 
-/** Revisiones de una sección, de la más reciente a la más antigua. */
+/**
+ * Revisiones de una sección, de la más reciente a la más antigua.
+ *
+ * Las revisiones son inmutables y no se podan, así que una sección muy editada
+ * acumula cientos de versiones. La lista se acota para que la página no crezca
+ * sin límite; el comparador sigue pudiendo abrir cualquier versión concreta.
+ */
 export async function listSectionRevisions(
   session: SessionContext,
   bookId: string,
   sectionId: string,
+  limit = 50,
 ): Promise<RevisionRef[]> {
   const revisions = await prisma.sectionRevision.findMany({
     where: {
@@ -46,6 +53,7 @@ export async function listSectionRevisions(
       },
     },
     orderBy: { version: "desc" },
+    take: limit,
     select: {
       id: true,
       version: true,

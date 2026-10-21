@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { esEnlaceSeguro, tieneControlesIlegales } from "@escribiendo/shared";
 
 export const MAX_DOCUMENT_BYTES = 2 * 1024 * 1024;
 export const MAX_NODE_COUNT = 20_000;
@@ -31,7 +32,22 @@ const markSchema = z
     type: z.string().min(1).max(64),
     attrs: z.record(z.string(), z.unknown()).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((mark, context) => {
+    if (mark.type !== "link") {
+      return;
+    }
+
+    const href = mark.attrs?.href;
+
+    if (typeof href !== "string" || !esEnlaceSeguro(href)) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "Un enlace tiene que apuntar a http, https, mailto, tel o a una ruta interna; el resto de esquemas no se admiten.",
+      });
+    }
+  });
 
 /** Longitud máxima del texto de una nota al pie. */
 export const MAX_FOOTNOTE_LENGTH = 2_000;
@@ -61,6 +77,14 @@ const nodeSchema: z.ZodType<TiptapNode> = z.lazy(() =>
         });
       }
 
+      if (typeof node.text === "string" && tieneControlesIlegales(node.text)) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "El texto tiene caracteres de control que no se pueden exportar: el EPUB y el DOCX quedarían corruptos.",
+        });
+      }
+
       if (node.type === "footnote") {
         const id = node.attrs?.id;
         const note = node.attrs?.note;
@@ -81,6 +105,12 @@ const nodeSchema: z.ZodType<TiptapNode> = z.lazy(() =>
           context.addIssue({
             code: "custom",
             message: `Una nota al pie no puede superar los ${MAX_FOOTNOTE_LENGTH} caracteres.`,
+          });
+        } else if (tieneControlesIlegales(note)) {
+          context.addIssue({
+            code: "custom",
+            message:
+              "La nota al pie tiene caracteres de control que no se pueden exportar: el EPUB y el DOCX quedarían corruptos.",
           });
         }
 

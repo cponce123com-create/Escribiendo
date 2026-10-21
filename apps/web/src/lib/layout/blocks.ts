@@ -30,6 +30,22 @@ export interface PreviewSection {
   isChapter: boolean;
   /** La sección debe empezar en página par. */
   startOnOddPage: boolean;
+  /** La sección empieza en página nueva, aunque no abra capítulo. */
+  pageBreakBefore: boolean;
+  /** La sección entra en la maqueta y en la exportación. */
+  includeInExport: boolean;
+}
+
+/**
+ * Secciones que entran en la maqueta y en los archivos exportados.
+ *
+ * Una sección puede quedar excluida del libro; entonces no se compone ni se
+ * exporta, y la vista previa tiene que reflejarlo igual que el PDF.
+ */
+export function seccionesExportables<T extends { id: string; includeInExport?: boolean }>(
+  sections: readonly T[],
+): T[] {
+  return sections.filter((section) => section.includeInExport !== false);
 }
 
 function headingKind(node: TiptapNode): LayoutBlockKind {
@@ -197,6 +213,9 @@ export function bookToBlocks(sections: PreviewSection[]): LayoutBlock[] {
         ...block,
         startsChapter: opensChapter && index === 0,
         firstOfSection: index === 0,
+        // Un salto propio de la sección abre página nueva, aunque la sección
+        // no sea un capítulo.
+        breaksBefore: index === 0 && section.pageBreakBefore === true,
       });
     });
   }

@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { changeMemberRoleAction, removeMemberAction } from "@/lib/team/actions";
 import { initialActionState } from "@/lib/action-state";
+import { ConfirmButton } from "@/components/forms/confirm-button";
 import { WORKSPACE_ROLE_LABELS } from "@/lib/ui/format";
 import { formatDate } from "@/lib/ui/format";
 import type { MemberSummary } from "@/lib/team/members";
@@ -119,9 +120,11 @@ function RemoveButton({ userId, name }: { userId: string; name: string }) {
   return (
     <form action={formAction} className="flex flex-col items-end gap-1">
       <input type="hidden" name="userId" value={userId} />
-      <button type="submit" className="btn btn-ghost btn-sm" title={`Retirar a ${name}`}>
-        Retirar
-      </button>
+      <ConfirmButton
+        label="Retirar"
+        confirmLabel="Sí, retirar"
+        description={`Retirar a ${name} del espacio de trabajo`}
+      />
       {state.status === "error" && state.message ? (
         <span className="text-xs text-danger" role="alert">
           {state.message}

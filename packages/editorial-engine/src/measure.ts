@@ -41,7 +41,13 @@ export interface MeasureOptions {
   fontFamily: FontFamilyId;
   fontSizePt: number;
   letterSpacingPt?: number;
+  /** El texto se dibuja en mayúsculas. */
   uppercase?: boolean;
+  /**
+   * Reservado. Ningún renderizador aplica versalitas: la opción se conserva
+   * en la configuración para no romper los perfiles ya guardados, pero no
+   * cambia ni la medida ni el dibujo.
+   */
   smallCaps?: boolean;
   /**
    * La negrita ocupa algo más que la redonda. No se simula engordando la
@@ -104,7 +110,7 @@ function characterWidth(character: string, options: MeasureOptions): number {
   }
 
   if (/[\p{Lu}]/u.test(character)) {
-    return options.smallCaps ? UPPER * 0.86 : UPPER;
+    return UPPER;
   }
 
   if (/[mwMW@%&]/.test(character)) {
@@ -120,13 +126,24 @@ export function measureTextMm(text: string, options: MeasureOptions): number {
 }
 
 /**
+ * Espacios que sí pueden acabar en fin de línea.
+ *
+ * Se excluyen a propósito el espacio inseparable (U+00A0), el estrecho
+ * inseparable (U+202F) y el de cifras (U+2007): en español, «no se rompe» no
+ * puede partirse en dos renglones. `\s` de ECMAScript sí los incluye, así que
+ * no se puede usar.
+ */
+const ESPACIOS_PARTIBLES = /[\t\n\v\f\r \u1680\u2000-\u2006\u2008-\u200a\u2028\u2029\u205f\u3000]/u;
+const ESPACIOS_PARTIBLES_GLOBAL = new RegExp(ESPACIOS_PARTIBLES, "gu");
+
+/**
  * Parte un texto en palabras, conservando los espacios como separadores.
  *
- * Un espacio no separable (por ejemplo dentro de «no se rompe») se trata
+ * Un espacio no separable (por ejemplo dentro de «no se rompe») se trata
  * como si fuera una palabra, porque no puede acabar en fin de línea.
  */
 export function splitWords(text: string): string[] {
-  const normalized = text.replace(/\s+/gu, " ").trim();
+  const normalized = text.replace(ESPACIOS_PARTIBLES_GLOBAL, " ").replace(/^ +| +$/gu, "");
 
   if (normalized.length === 0) {
     return [];

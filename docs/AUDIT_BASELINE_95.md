@@ -9,6 +9,10 @@ hallazgo se ha comprobado contra el código de esta rama y cada corrección se
 ha sometido a las pruebas del repositorio. La puntuación de 95 **no se declara
 alcanzada**: este documento registra la línea base y lo que queda abierto.
 
+Las secciones de la línea base y de los lotes anteriores son un registro
+cronológico; **el estado vigente** está en las actualizaciones del final
+(lotes J a S) y en [EXPORT_VALIDATION.md](EXPORT_VALIDATION.md).
+
 ## Línea base ejecutada
 
 Antes de tocar el código se ejecutaron los mismos comandos que se usan para
@@ -35,8 +39,8 @@ Después del lote de imágenes y de las pruebas nuevas de esta rama:
 Las cifras son de esta máquina y de la compilación de producción local. No
 presumen el comportamiento del despliegue de Render.
 
-La cifra vigente después del Lote K es **292 pruebas unitarias en 32 archivos**
-y **72 pruebas E2E en Chromium**. Las tablas siguientes conservan la historia de
+La cifra vigente despues del Lote S es **328 pruebas unitarias en 34 archivos**
+y **80 pruebas E2E en Chromium**. Las tablas siguientes conservan la historia de
 cada lote; no se reescriben los resultados anteriores.
 
 ## Hallazgos comprobados y corregidos en el lote de imágenes
@@ -75,8 +79,10 @@ Lote J cerró el punto 1; el resto sigue abierto.
    reales; los signos del español se conservan y se pueden extraer. Sigue sin
    cubrir CJK, emoji ni shaping complejo, y no se generan subconjuntos. Si las
    fuentes no se cargan, se conserva la alternativa Times/WinAnsi y se avisa.
-3. **Validación externa.** No se ha pasado EPUBCheck, no se ha abierto el DOCX
-   en Word o LibreOffice y no se ha probado un EPUB en un lector comercial.
+3. **Validación externa (cerrada en parte en el Lote L).** El EPUB lo aprueba
+   EPUBCheck 5.1.0 (0 errores, 0 advertencias) y el DOCX lo lee Mammoth 1.11.0;
+   en el Lote M el PDF lo abre pdf.js 4.10.38. Sigue sin abrirse el DOCX en Word
+   o LibreOffice ni probarse el EPUB en un lector comercial.
 4. **Cloudinary real.** No hay credenciales locales: la subida se ha validado
    por código y por las pruebas de autorización, no con una cuenta real.
 5. **Render y Neon reales.** El despliegue no es accesible desde esta red; las
@@ -86,7 +92,8 @@ Lote J cerró el punto 1; el resto sigue abierto.
 
 ## Bloqueos externos conocidos
 
-- EPUBCheck no está instalado y requiere Java.
+- EPUBCheck ya se usa (Lote L): requiere Java, que no viene con el sistema y
+  se instala aparte.
 - Word y LibreOffice no están disponibles en la máquina.
 - Cloudinary no está configurado en el entorno local.
 - El puerto 5432 de Neon está filtrado; las comprobaciones de base usan la API
@@ -106,7 +113,7 @@ Base del lote: `4211bb6`.
 | Comprobación        | Resultado                |
 | ------------------- | ------------------------ |
 | Pruebas unitarias   | 280 pruebas, 31 archivos |
-| Extremo a extremo   | 72 pruebas en Chromium   |
+| Extremo a extremo   | 80 pruebas en Chromium   |
 | Formato, lint       | Sin errores              |
 | Tipos y compilación | Sin errores              |
 
@@ -146,8 +153,8 @@ Base del lote: `dc7c6ea`.
 
 | Comprobación         | Resultado                |
 | -------------------- | ------------------------ |
-| Pruebas unitarias    | 292 pruebas, 32 archivos |
-| Extremo a extremo    | 72 pruebas en Chromium   |
+| Pruebas unitarias    | 328 pruebas, 34 archivos |
+| Extremo a extremo    | 80 pruebas en Chromium   |
 | Formato, lint        | Sin errores              |
 | Tipos y compilación  | Sin errores              |
 | Banco de exportación | Ejecutado con fuentes    |
@@ -197,8 +204,8 @@ Base del lote: `86610b6`.
 | `pnpm validate:docx` | El DOCX lo lee Mammoth 1.11.0: texto, negrita, cursiva, enlace, nota al pie e imagen |
 | `pnpm audit --prod`  | Sin vulnerabilidades conocidas                                                       |
 | `pnpm audit`         | 1 aviso alto de desarrollo (`braces`), sin parche upstream                           |
-| `pnpm test`          | 292 pruebas en 32 archivos                                                           |
-| `pnpm test:e2e`      | 72 pruebas en Chromium                                                               |
+| `pnpm test`          | 328 pruebas en 34 archivos                                                           |
+| `pnpm test:e2e`      | 80 pruebas en Chromium                                                               |
 
 Correcciones asociadas:
 
@@ -225,8 +232,8 @@ Base del lote: `c43ee27`.
 | `pnpm validate:pdf`  | pdf.js 4.10.38 abre el PDF y extrae el texto con la fuente incrustada |
 | `pnpm validate:epub` | 0 errores y 0 advertencias con EPUBCheck 5.1.0                        |
 | `pnpm validate:docx` | Mammoth 1.11.0 lee el documento                                       |
-| `pnpm test`          | 292 pruebas en 32 archivos                                            |
-| `pnpm test:e2e`      | 72 pruebas en Chromium                                                |
+| `pnpm test`          | 328 pruebas en 34 archivos                                            |
+| `pnpm test:e2e`      | 80 pruebas en Chromium                                                |
 | `pnpm bench:export`  | PDF de 671 KB, EPUB de 29 KB y DOCX de 8 KB para 200 000 palabras     |
 
 Correcciones:
@@ -255,8 +262,8 @@ Base del lote: `29dac65`.
 | -------------------- | ------------------------------------------------------------------------ |
 | `pnpm stress:export` | 200 000 palabras, 80 fotografias y 500 notas al pie en los tres formatos |
 | Memoria maxima       | 367 MB, con un margen de 145 MB sobre los 512 MB de Render Free          |
-| `pnpm test`          | 292 pruebas en 32 archivos                                               |
-| `pnpm test:e2e`      | 72 pruebas en Chromium                                                   |
+| `pnpm test`          | 328 pruebas en 34 archivos                                               |
+| `pnpm test:e2e`      | 80 pruebas en Chromium                                                   |
 
 Correcciones:
 

@@ -1,5 +1,6 @@
 import type { ExportImageAsset, ExportImageMap } from "./assets";
 import { buildZip, type ZipEntry } from "./zip";
+import { escapeXml, esEnlaceSeguro } from "./xml";
 import type { ExportBlock, ExportDocumentModel, ExportFootnote, ExportInlineRun } from "./epub";
 
 /**
@@ -9,15 +10,6 @@ import type { ExportBlock, ExportDocumentModel, ExportFootnote, ExportInlineRun 
  * mínima que Word necesita: tipos de contenido, relaciones, estilos,
  * propiedades y el documento en sí.
  */
-
-function escapeXml(text: string): string {
-  return text
-    .replace(/&/gu, "&amp;")
-    .replace(/</gu, "&lt;")
-    .replace(/>/gu, "&gt;")
-    .replace(/"/gu, "&quot;")
-    .replace(/'/gu, "&apos;");
-}
 
 const CONTENT_TYPES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
@@ -158,7 +150,7 @@ function inlineXml(block: ExportBlock, links: string[]): string {
       break;
     }
 
-    if (run.link) {
+    if (run.link && esEnlaceSeguro(run.link)) {
       const href = run.link;
       const group: ExportInlineRun[] = [];
 

@@ -85,6 +85,25 @@ describe("splitWords", () => {
   });
 });
 
+describe("splitWords", () => {
+  it("parte un texto en palabras", () => {
+    expect(splitWords("el velo de la tarde")).toEqual(["el", "velo", "de", "la", "tarde"]);
+  });
+
+  it("no parte una palabra que lleva un espacio inseparable", () => {
+    // En español, «no se rompe» no puede acabar en dos renglones.
+    expect(splitWords("no se rompe")).toEqual(["no se", "rompe"]);
+  });
+
+  it("colapsa los espacios repetidos", () => {
+    expect(splitWords("el   velo\n\tde la tarde")).toEqual(["el", "velo", "de", "la", "tarde"]);
+  });
+
+  it("devuelve una lista vacía para un texto en blanco", () => {
+    expect(splitWords("   \n  ")).toEqual([]);
+  });
+});
+
 describe("breakIntoLines", () => {
   const opciones = {
     ...SERIF_11,

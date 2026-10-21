@@ -1,0 +1,37 @@
+name: Auditoría de dependencias
+
+on:
+  schedule:
+    # Los avisos de seguridad se revisan cada lunes por la mañana.
+    - cron: "17 7 * * 1"
+  workflow_dispatch:
+
+jobs:
+  audit:
+    name: Avisos de seguridad
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Repositorio
+        uses: actions/checkout@v5
+
+      - name: Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+
+      - name: pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.14.0
+
+      - name: Dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Auditoría
+        run: pnpm audit --audit-level=high
+
+      - name: Versiones anticuadas
+        run: pnpm outdated || true

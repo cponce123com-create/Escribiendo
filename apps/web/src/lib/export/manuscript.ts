@@ -10,6 +10,7 @@ import {
 } from "@escribiendo/editorial-engine";
 import { editorialImageFromNode } from "@/lib/layout/image";
 import { inlineRuns, trimRuns, type FootnoteCounter } from "@/lib/layout/inline";
+import { seccionesExportables } from "@/lib/layout/blocks";
 import { createHash } from "node:crypto";
 
 /**
@@ -27,6 +28,12 @@ export interface ExportSection {
   type: string;
   content: unknown;
   version: number;
+  /** La sección debe empezar en página par. */
+  startOnOddPage: boolean;
+  /** La sección empieza en página nueva, aunque no abra capítulo. */
+  pageBreakBefore: boolean;
+  /** La sección entra en los archivos exportados. */
+  includeInExport: boolean;
 }
 
 export interface SectionVersion {
@@ -94,21 +101,37 @@ export async function loadManuscript(
       book: { workspaceId: session.workspace.id, deletedAt: null },
     },
     orderBy: [{ sortOrder: "asc" }, { title: "asc" }],
-    select: { id: true, title: true, type: true, content: true, version: true },
+    select: {
+      id: true,
+      title: true,
+      type: true,
+      content: true,
+      version: true,
+      startOnOddPage: true,
+      pageBreakBefore: true,
+      includeInExport: true,
+    },
   });
 
+  // Una sección excluida del libro no se exporta. La vista previa aplica el
+  // mismo filtro, de modo que ambas cosas cuentan la misma historia.
+  const exportables = seccionesExportables(sections);
+
   if (!versions || versions.length === 0) {
-    return sections.map((section) => ({
+    return exportables.map((section) => ({
       id: section.id,
       title: section.title,
       type: section.type,
       content: section.content,
       version: section.version,
+      startOnOddPage: section.startOnOddPage,
+      pageBreakBefore: section.pageBreakBefore,
+      includeInExport: section.includeInExport,
     }));
   }
 
   const desired = new Map(versions.map((version) => [version.id, version.version]));
-  const necesitaRevision = sections.filter(
+  const necesitaRevision = exportables.filter(
     (section) => desired.has(section.id) && desired.get(section.id) !== section.version,
   );
 
@@ -124,7 +147,7 @@ export async function loadManuscript(
     revisiones.map((revision) => [`${revision.sectionId}:${revision.version}`, revision]),
   );
 
-  return sections
+  return exportables
     .filter((section) => desired.has(section.id))
     .map((section) => {
       const version = desired.get(section.id) ?? section.version;
@@ -136,6 +159,9 @@ export async function loadManuscript(
           type: section.type,
           content: section.content,
           version: section.version,
+          startOnOddPage: section.startOnOddPage,
+          pageBreakBefore: section.pageBreakBefore,
+          includeInExport: section.includeInExport,
         };
       }
 
@@ -153,6 +179,9 @@ export async function loadManuscript(
         type: section.type,
         content: revision.content,
         version,
+        startOnOddPage: section.startOnOddPage,
+        pageBreakBefore: section.pageBreakBefore,
+        includeInExport: section.includeInExport,
       };
     });
 }

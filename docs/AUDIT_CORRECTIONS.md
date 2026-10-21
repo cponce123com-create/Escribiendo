@@ -3,6 +3,10 @@
 Registro cronológico de lo que se ha corregido, con su evidencia. Cada
 corrección va acompañada de las pruebas que la sostienen.
 
+> Los lotes van del más antiguo al más reciente. Al final están las últimas
+> correcciones (integridad de la maqueta, archivos que no se rompen, el trabajo
+> de quien escribe, la aplicación y la operación).
+
 ---
 
 ## Lote 1 — Integridad de manuscritos
@@ -273,7 +277,7 @@ Base del lote: `4211bb6`.
 | Suite               | Resultado                  |
 | ------------------- | -------------------------- |
 | `pnpm test`         | 280 pruebas en 31 archivos |
-| `pnpm test:e2e`     | 72 pruebas en Chromium     |
+| `pnpm test:e2e`     | 80 pruebas en Chromium     |
 | `pnpm format:check` | Correcto                   |
 | `pnpm lint`         | Sin errores                |
 | `pnpm typecheck`    | Sin errores                |
@@ -343,8 +347,8 @@ Base del lote: `dc7c6ea`.
 
 | Suite               | Resultado                  |
 | ------------------- | -------------------------- |
-| `pnpm test`         | 292 pruebas en 32 archivos |
-| `pnpm test:e2e`     | 72 pruebas en Chromium     |
+| `pnpm test`         | 328 pruebas en 34 archivos |
+| `pnpm test:e2e`     | 80 pruebas en Chromium     |
 | `pnpm format:check` | Correcto                   |
 | `pnpm lint`         | Sin errores                |
 | `pnpm typecheck`    | Sin errores                |
@@ -415,8 +419,8 @@ Base del lote: `86610b6`.
 | `pnpm validate:docx` | Mammoth 1.11.0 lee el documento: texto, negrita, cursiva, enlace, nota al pie e imagen incrustada |
 | `pnpm audit --prod`  | Sin vulnerabilidades conocidas                                                                    |
 | `pnpm audit`         | 1 aviso alto de desarrollo (`braces`), sin version corregida publicada                            |
-| `pnpm test`          | 292 pruebas en 32 archivos                                                                        |
-| `pnpm test:e2e`      | 72 pruebas en Chromium                                                                            |
+| `pnpm test`          | 328 pruebas en 34 archivos                                                                        |
+| `pnpm test:e2e`      | 80 pruebas en Chromium                                                                            |
 
 ### Limites que permanecen
 
@@ -464,8 +468,8 @@ Base del lote: `c43ee27`.
 | PDF de la aplicacion | `node scripts/pdfjs/valida-pdf.mjs test-results\pdf-generado.pdf` devuelve el texto |
 | `pnpm validate:epub` | 0 errores y 0 advertencias con EPUBCheck 5.1.0                                      |
 | `pnpm validate:docx` | Mammoth 1.11.0 lee el documento                                                     |
-| `pnpm test`          | 292 pruebas en 32 archivos                                                          |
-| `pnpm test:e2e`      | 72 pruebas en Chromium                                                              |
+| `pnpm test`          | 328 pruebas en 34 archivos                                                          |
+| `pnpm test:e2e`      | 80 pruebas en Chromium                                                              |
 | `pnpm bench:export`  | PDF de 671 KB, EPUB de 29 KB y DOCX de 8 KB para 200 000 palabras                   |
 
 ### Tamano medido
@@ -522,8 +526,8 @@ Base del lote: `29dac65`.
 | `pnpm stress:export` | PDF de 588 ms y 40 159 KB, EPUB de 1 413 ms, DOCX de 1 355 ms         |
 | Memoria maxima       | 367 MB, con un margen de 145 MB sobre los 512 MB de Render Free       |
 | Antes del arreglo    | La misma prueba daba 1 647 MB: la exportacion no cabia en Render Free |
-| `pnpm test`          | 292 pruebas en 32 archivos                                            |
-| `pnpm test:e2e`      | 72 pruebas en Chromium                                                |
+| `pnpm test`          | 328 pruebas en 34 archivos                                            |
+| `pnpm test:e2e`      | 80 pruebas en Chromium                                                |
 | `pnpm validate:epub` | 0 errores y 0 advertencias con EPUBCheck 5.1.0                        |
 
 ### Limites que permanecen
@@ -535,3 +539,367 @@ Base del lote: `29dac65`.
 - La prueba no descarga imagenes de Cloudinary: las genera con `sharp`, igual
   que la aplicacion las normaliza.
 - La puntuacion no se declara en 95.
+
+---
+
+## Lote O: integridad de la maqueta (pagina en blanco, capitulos y secciones excluidas)
+
+Fecha: 21 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+Base del lote: `27fe353`.
+
+### Que estaba mal
+
+1. Al abrir un capitulo, la pagina en curso se marcaba como en blanco **con su
+   contenido** (`flushPage(true)` conservaba los bloques). La vista previa
+   oculta las paginas en blanco, asi que el final del capitulo anterior
+   desaparecia de la vista previa mientras el PDF si lo dibujaba.
+2. Un capitulo no empezaba en pagina nueva: continuaba en la pagina en curso,
+   de modo que la regla de abrir en recto no se cumplia.
+3. La exportacion pasaba `startOnOddPage: false` a proposito, mientras la vista
+   previa leia el valor real: los dos archivos podian paginarse distinto.
+4. `includeInExport` y `pageBreakBefore` eran columnas muertas: una seccion
+   marcada como "no exportar" se exportaba igual, y el salto de pagina propio
+   de la seccion no se aplicaba.
+
+### Que se ha cambiado
+
+| Area        | Archivo                                       | Cambio                                                                                                                                                               |
+| ----------- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Motor       | `packages/editorial-engine/src/pagination.ts` | La pagina en curso se cierra **con su contenido**; la pagina en blanco insertada no tiene bloques. Un capitulo o un bloque con salto propio empieza en pagina nueva. |
+| Motor       | `packages/editorial-engine/src/pagination.ts` | `LayoutBlock` gana `breaksBefore` para el salto propio de la seccion.                                                                                                |
+| Maquetacion | `apps/web/src/lib/layout/blocks.ts`           | `PreviewSection` gana `pageBreakBefore` e `includeInExport`; `bookToBlocks` marca el salto; helper `seccionesExportables`.                                           |
+| Maquetacion | `apps/web/src/lib/layout/preview.ts`          | La vista previa lee las columnas nuevas y deja fuera las secciones excluidas.                                                                                        |
+| Exportacion | `apps/web/src/lib/export/manuscript.ts`       | `ExportSection` gana los mismos campos; `loadManuscript` excluye las secciones que no se exportan.                                                                   |
+| Exportacion | `apps/web/src/lib/export/generate.ts`         | El PDF usa la maqueta real: `startOnOddPage` y `pageBreakBefore` dejan de estar fijados a falso.                                                                     |
+
+### Pruebas ejecutadas
+
+| Comprobacion                                       | Resultado                                                                                                                                                                    |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/editorial-engine/src/pagination.test.ts` | 6 casos nuevos: capitulo en pagina nueva, pagina con contenido nunca en blanco, pagina en blanco sin bloques, salto propio, apertura en recto y aviso de la pagina insertada |
+| `apps/web/src/lib/layout/blocks.test.ts`           | 4 casos nuevos: salto de la seccion y filtro de secciones exportables                                                                                                        |
+| `tests/e2e/maquetacion.spec.ts`                    | Un caso nuevo: dos capitulos y el final del primero visible en la vista previa                                                                                               |
+| `pnpm test`                                        | 300 pruebas en 32 archivos                                                                                                                                                   |
+| `pnpm test:e2e`                                    | 73 pruebas en Chromium                                                                                                                                                       |
+
+Los seis casos unitarios del motor **fallan con el comportamiento anterior**
+(comprobado ejecutando la suite contra el codigo previo), asi que son un
+detector determinista del defecto. La prueba de extremo a extremo comprueba el
+flujo completo, pero el defecto dependia de la paridad de las paginas y no
+falla siempre; por eso el detector es la prueba unitaria.
+
+### Limites que permanecen
+
+- La paridad de la maqueta depende de la geometria del perfil y del tipo de
+  letra del perfil de pagina.
+- La puntuacion no se declara en 95.
+
+---
+
+## Lote P: el motor deja de producir archivos rotos
+
+Fecha: 21 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+Base del lote: `f5d818e`.
+
+### Que estaba mal
+
+1. Un solo caracter de control en el manuscrito (U+0007, por ejemplo) hacia que
+   EPUBCheck declarase el EPUB entero como invalido: `FATAL(RSC-016) An invalid
+XML character`. Comprobado con EPUBCheck 5.1.0.
+2. El atributo `href` de un enlace no se validaba: un `javascript:` enviado a
+   proposito sobrevivia en el XHTML del EPUB y en la relacion externa del
+   DOCX. El editor lo filtra, pero el servidor no.
+3. El diff comparaba palabra a palabra con una matriz que crecia con el
+   cuadrado del texto, y el limite contaba tokens (espacios incluidos). Un
+   capitulo normal reservaba cientos de megabytes **en el navegador**, porque
+   el panel de conflicto es un componente de cliente.
+4. El espacio inseparable (U+00A0) si partia palabras, en contra de lo que
+   decia el codigo: en espanol, «no se rompe» no puede partirse.
+5. La opcion `uppercase` se media en mayusculas y se dibujaba en minusculas;
+   `smallCaps` no se aplicaba en ningun sitio.
+
+### Que se ha cambiado
+
+| Area       | Archivo                                      | Cambio                                                                                                        |
+| ---------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Esquema    | `packages/book-schema/src/tiptap.ts`         | El texto y las notas se rechazan si llevan caracteres de control; el `href` tiene que usar un esquema seguro. |
+| Compartido | `packages/shared/src/{xml-chars,enlaces}.ts` | Utilidad unica para limpiar caracteres y para decidir que enlaces son seguros.                                |
+| Escritores | `packages/export-engine/src/xml.ts`          | `escapeXml` compartido que limpia los controles antes de escapar.                                             |
+| Escritores | `packages/export-engine/src/{epub,docx}.ts`  | No se escribe un enlace con un esquema peligroso ni en el XHTML ni en la relacion del DOCX.                   |
+| Comparador | `packages/book-schema/src/diff.ts`           | El limite cuenta palabras y ademas hay un tope de celdas: la memoria queda acotada.                           |
+| Medicion   | `packages/editorial-engine/src/measure.ts`   | El espacio inseparable ya no parte palabras; `smallCaps` queda declarado como reservado.                      |
+| PDF        | `apps/web/src/lib/export/generate.ts`        | El PDF dibuja el texto en mayusculas cuando el estilo lo pide, igual que la vista previa.                     |
+
+### Pruebas ejecutadas
+
+| Comprobacion                                    | Resultado                                                                       |
+| ----------------------------------------------- | ------------------------------------------------------------------------------- |
+| EPUBCheck 5.1.0 sobre un EPUB con un control    | 0 errores y 0 advertencias (antes: error fatal)                                 |
+| `packages/book-schema/src/tiptap.test.ts`       | 4 casos nuevos: controles en texto y en nota, esquema peligroso y enlace valido |
+| `packages/export-engine/src/epub.test.ts`       | 4 casos nuevos: controles y enlaces peligrosos en EPUB y DOCX                   |
+| `packages/book-schema/src/diff.test.ts`         | Un caso nuevo: la comparacion enorme degrada a sustitucion completa             |
+| `packages/editorial-engine/src/measure.test.ts` | Un caso nuevo: el espacio inseparable no parte palabras                         |
+| `pnpm test`                                     | 328 pruebas en 34 archivos                                                      |
+| `pnpm test:e2e`                                 | 73 pruebas en Chromium                                                          |
+
+### Lote Q: el trabajo de quien escribe no se pierde ni se cuelga
+
+| Que estaba mal                                                                                                                           | Correccion                                                                               |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Un borrador local con una version distinta de la del servidor se descartaba **en silencio** y el siguiente autoguardado lo sobrescribia. | Se abre el comparador con las dos versiones y decide quien escribe.                      |
+| Un trabajo de exportacion que se quedaba «en proceso» para siempre se mostraba como si estuviera en marcha.                              | Se marca como fallido al pedirlo de nuevo (`EXPORT_JOB_TIMEOUT_MINUTES`).                |
+| La descarga regeneraba el archivo entero en cada clic y servia tambien trabajos fallidos.                                                | Solo se sirven trabajos terminados (409 en los demas).                                   |
+| A la interfaz le llegaban errores internos de Prisma (nombres de indices y columnas).                                                    | El detalle va al registro; a la interfaz solo llega un mensaje claro.                    |
+| Las dos barreras que protegen la base de pruebas de la E2E compartian anulacion.                                                         | Cada barrera tiene la suya: `E2E_ALLOW_NON_TEST_DATABASE` y `E2E_ALLOW_REMOTE_DATABASE`. |
+| Los JSON del borrador y del servidor se parseaban sin proteccion.                                                                        | Se parsean con try/catch: un borrador danado avisa en vez de romper la pagina.           |
+
+Pruebas: `apps/web/src/lib/export/job-estado.test.ts` (3 casos) y
+`scripts/lib/e2e-database.test.ts` (6 casos, incluidas las dos anulaciones
+independientes). 328 unitarias en 34 archivos y 73 E2E en Chromium.
+
+### Lote R: la aplicacion no se cuelga ni se aburre
+
+| Que estaba mal                                                                                                                        | Correccion                                                                                                     |
+| ------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| La pagina de estadisticas cargaba **todo** el historial de revisiones del estudio, dos veces.                                         | Solo se cargan las revisiones del periodo, con la revision anterior como referencia, y una cache de un minuto. |
+| La prueba de permisos «exhaustiva» solo comprobaba que la funcion devolvia un booleano y dejaba fuera `team:manage` y `audit:export`. | La lista de acciones es la fuente del tipo y la comparacion es real: hay casos para los roles delicados.       |
+| Quien revisa no podia comentar, en contra de lo que promete la interfaz al invitarlo.                                                 | `comment:create` incluye al rol de revision.                                                                   |
+| Firmar una subida a Cloudinary no comprobaba el rol para las portadas.                                                                | La comprobacion de rol se aplica a los dos propositos.                                                         |
+| Las paginas con manuscrito no llevaban `Cache-Control: no-store` explicito.                                                           | `/books`, `/notes`, `/stats` y `/team` se marcan como privadas y sin cache.                                    |
+| Retirar a alguien, revocar una invitacion, borrar una nota, un objetivo o un perfil: un solo clic.                                    | Piden confirmacion en el sitio, sin ventanas del navegador.                                                    |
+
+Pruebas: 328 unitarias en 34 archivos y 73 E2E en Chromium (la de escritura
+comprueba ahora la confirmacion).
+
+---
+
+## Lote S: integracion continua, control de tamano y accesibilidad automatica
+
+Fecha: 21 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+Base del lote: `b26c522`.
+
+### Que estaba mal
+
+1. No habia integracion continua: nada se ejecutaba al abrir una PR, y el
+   despliegue automatico de Render iba a `main` sin ninguna prueba que lo
+   frenara.
+2. No habia forma de detectar que el JavaScript del cliente o las fuentes
+   publicas crecian sin avisar.
+3. La accesibilidad era una limitacion documentada, sin ninguna comprobacion
+   automatica.
+4. No habia revision periodica de dependencias: el unico aviso de seguridad
+   conocido se habia encontrado a mano.
+
+### Que se ha cambiado
+
+| Area          | Archivo                           | Cambio                                                                                                      |
+| ------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| CI            | `.github/workflows/ci.yml`        | Formato, analisis, tipos, pruebas, tamano y compilacion en Node 24.20.0.                                    |
+| CI            | `.github/workflows/e2e.yml`       | Extremo a extremo contra la compilacion de produccion, con PostgreSQL 17 como servicio.                     |
+| CI            | `.github/workflows/audit.yml`     | Auditoria de dependencias cada lunes y listado de versiones anticuadas.                                     |
+| Dependencias  | `.github/dependabot.yml`          | Actualizaciones semanales de npm y de las acciones.                                                         |
+| Tamano        | `scripts/check-size.ts`           | `pnpm check:size` mide el JavaScript del cliente y los estaticos publicos y falla si pasan del presupuesto. |
+| Accesibilidad | `tests/e2e/accesibilidad.spec.ts` | Auditoria con axe-core de las paginas principales: falla ante infracciones graves o criticas.               |
+| Accesibilidad | `tests/e2e/support/axe.ts`        | Utilidad compartida por los archivos de prueba.                                                             |
+
+### Fallos encontrados y corregidos por la auditoria
+
+| Hallazgo                                                                    | Correccion                                                                      |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| El editor de ProseMirror no tenia nombre accesible (infraccion grave).      | `editorProps.attributes` con `role="textbox"`, `aria-multiline` y `aria-label`. |
+| Los campos de imagen ocultos no tenian etiqueta (infraccion critica).       | `aria-label` en los dos `input type="file"`.                                    |
+| El encabezado de pagina de la vista previa no cumplia el contraste (grave). | Se usa un tono de tinta mas oscuro sobre el papel blanco.                       |
+
+### Pruebas ejecutadas
+
+| Comprobacion         | Resultado                                                                        |
+| -------------------- | -------------------------------------------------------------------------------- |
+| `pnpm check:size`    | 1 240 KB de JavaScript (presupuesto 1 953 KB) y 4 265 KB de estaticos (5 859 KB) |
+| E2E de accesibilidad | 80 pruebas en Chromium, sin infracciones graves ni criticas                      |
+| `pnpm test`          | 328 pruebas en 34 archivos                                                       |
+
+---
+
+## Lote U: la vista previa se parece al PDF y las listas estan acotadas
+
+Fecha: 21 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+Base del lote: `58b130d`.
+
+### Que estaba mal
+
+1. La vista previa paginada **no dibujaba las imagenes**: ponia un simbolo
+   como marcador. El PDF, el EPUB y el DOCX si lasonian, asi que la vista
+   previa no era representativa del archivo final.
+2. `getSection`, `listRevisions` y `getRevisionContent` recibian el `bookId` de
+   la direccion pero **no lo usaban** en el filtro: `/books/A/secciones/B`
+   mostraba el contenido de B bajo la cabecera de A, sin dar un 404.
+3. Tres listados crecian sin limite: el historial de una seccion (cargaba
+   **todas** sus revisiones, y las revisiones son inmutables), los comentarios de
+   un libro y las imagenes de un libro.
+4. Dos flujos sin ninguna prueba automatica: la recuperacion de contrasena y
+   los permisos por rol (que no administra el estudio y exporta la auditoria).
+
+### Que se ha cambiado
+
+| Area         | Archivo                                                                       | Cambio                                                                                                           |
+| ------------ | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Vista previa | `apps/web/src/components/layout/paginated-preview.tsx`                        | Dibuja la imagen con su tamano en milimetros, su alineacion y su pie, como en el PDF.                            |
+| Consultas    | `apps/web/src/lib/books/queries.ts`                                           | La seccion y sus revisiones tienen que ser del libro de la direccion.                                            |
+| Listados     | `apps/web/src/lib/review/compare.ts`, `review/comments.ts`, `books/assets.ts` | Cada lista tiene un limite (`take`) y lo documenta.                                                              |
+| Pruebas      | `tests/e2e/auth.spec.ts`                                                      | Recuperacion de contrasena con enlace de un solo uso: cambia la contrasena, invalida el enlace y permite entrar. |
+| Pruebas      | `tests/e2e/equipo.spec.ts`                                                    | Quien no administra el estudio no gestiona el equipo ni exporta la auditoria (403).                              |
+
+### Pruebas ejecutadas
+
+| Comprobacion        | Resultado                           |
+| ------------------- | ----------------------------------- |
+| `pnpm test`         | 328 pruebas en 34 archivos          |
+| `pnpm test:e2e`     | 80 pruebas en Chromium (dos nuevas) |
+| `pnpm format:check` | Correcto                            |
+| `pnpm lint`         | Sin errores                         |
+| `pnpm typecheck`    | Sin errores                         |
+| `pnpm build`        | Correcto                            |
+
+La prueba de recuperacion deja la cuenta de pruebas intacta: usa una cuenta
+propia, creada con una invitacion, para no invalidar la sesion compartida.
+
+---
+
+## Lote V: se puede trabajar en varios estudios
+
+Fecha: 21 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+Base del lote: `318b400`.
+
+### Que estaba mal
+
+1. La sesion resolvia siempre el estudio **mas antiguo** al que pertenecia la
+   persona (`take: 1` por antiguedad). Quien aceptaba una invitacion a otro
+   estudio se encontra con la pantalla del equipo del estudio viejo y no
+   veia el nuevo: el acceso existia, pero era invisible.
+2. No habia forma de cambiar de estudio.
+3. Aceptar una invitacion con sesion abierta podia **rebajar el rol** de la
+   persona (`update: { role: invitation.role }` sobre un `upsert`).
+
+### Que se ha cambiado
+
+| Area     | Archivo                                              | Cambio                                                                                                                                   |
+| -------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Esquema  | `packages/database/prisma/schema.prisma`             | La sesion guarda el estudio con el que se trabaja (`workspaceId`, indice incluido). Migracion aditiva.                                   |
+| Sesion   | `apps/web/src/lib/auth/session.ts`                   | El estudio activo es el de la sesion; si la persona deja de pertenecer a el, se recurre al primero. La sesion expone todos sus estudios. |
+| Sesion   | `apps/web/src/lib/auth/session.ts`                   | `switchWorkspace()`: solo cambia a un estudio del que la persona forma parte.                                                            |
+| Equipo   | `apps/web/src/lib/team/actions.ts`                   | Aceptar una invitacion deja la sesion en el estudio invitado y **no toca el rol** de quien ya era miembro.                               |
+| Interfaz | `apps/web/src/components/app/workspace-switcher.tsx` | Selector de estudio en la barra lateral, con el cambio anotado en la auditoria.                                                          |
+
+La migracion es aditiva (`ALTER TABLE ... ADD COLUMN`), sin tocar datos.
+
+### Pruebas ejecutadas
+
+| Comprobacion                                | Resultado                                              |
+| ------------------------------------------- | ------------------------------------------------------ |
+| `pnpm db:validate`                          | El esquema es valido                                   |
+| `pnpm db:migrate`                           | Migracion aplicada en la base de pruebas               |
+| E2E de equipo                               | Un caso nuevo: cambiar de estudio y volver al original |
+| `pnpm test`                                 | 328 pruebas en 34 archivos                             |
+| `pnpm test:e2e`                             | 80 pruebas en Chromium                                 |
+| `pnpm lint`, `pnpm typecheck`, `pnpm build` | Sin errores                                            |
+
+### Lotes que quedan anotados y no cerrados
+
+- El historial de una seccion, los comentarios de un libro y las imagenes de un
+  libro ya tienen limite, pero no hay paginacion con «ver mas»: cuando se
+  supera el limite, lo que queda fuera no se ve.
+- La exportacion sigue generandose dentro de la peticion: un libro muy grande
+  bloquea el event loop de Render Free. La mitigacion pendiente es un tope
+  explicito de tamano con un aviso claro.
+
+---
+
+## Lote W: el editor deja de usar ventanas del navegador y la exportacion no se solapa
+
+Fecha: 21 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+Base del lote: `b0a1949`.
+
+### Que estaba mal
+
+1. El enlace y la nota al pie se pedian con `window.prompt` y `window.alert`:
+   modales del navegador que bloquean la interfaz, no se pueden validar
+   mientras se escribe, no los anuncia bien un lector de pantalla y, en el
+   caso del enlace, no rechazaban los esquemas peligrosos (solo lo hacia
+   Tiptap, en el cliente).
+2. Al abrir el diálogo se perdia la seleccion del editor, de modo que el
+   enlace no se aplicaba al texto escolhido.
+3. Dos exportaciones a la vez en la misma instancia de Render Free se quedan
+   sin memoria: la medida del banco de esfuerzo da 367 MB para un libro de
+   200 000 palabras con 80 fotografias, y el plan da 512 MB.
+4. Una prueba de seguridad leia el cuerpo de la respuesta despues de que el
+   cliente hubiera navegado: fallaba de forma intermitente.
+
+### Que se ha cambiado
+
+| Area        | Archivo                                                      | Cambio                                                                                                              |
+| ----------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| Editor      | `apps/web/src/components/forms/dialog.tsx`                   | Dialogo modal propio: foco dentro, Escape cierra y el titulo lo anuncia el lector de pantalla.                      |
+| Editor      | `apps/web/src/components/books/section-editor.tsx`           | El enlace y la nota se escriben en el dialogo, con aviso de esquema, contador de caracteres y seleccion recuperada. |
+| Exportacion | `apps/web/src/lib/export/slot.ts`                            | Un hueco de exportacion por instancia, con caducidad de diez minutos para no dejar el hueco tomado.                 |
+| Exportacion | `apps/web/src/lib/export/jobs.ts`, `api/exports/…/download`  | La peticion y la descarga reservan el hueco; si hay otra en marcha, la respuesta lo explica (429).                  |
+| Pruebas     | `tests/e2e/manuscrito.spec.ts`, `tests/e2e/security.spec.ts` | Un caso nuevo del dialogo de enlace; la prueba de seguridad lee el HTML sin ejecutar JavaScript.                    |
+
+### Pruebas ejecutadas
+
+| Comprobacion        | Resultado                  |
+| ------------------- | -------------------------- |
+| `pnpm test`         | 328 pruebas en 34 archivos |
+| `pnpm test:e2e`     | 80 pruebas en Chromium     |
+| `pnpm format:check` | Correcto                   |
+| `pnpm lint`         | Sin errores                |
+| `pnpm typecheck`    | Sin errores                |
+| `pnpm build`        | Correcto                   |
+
+---
+
+## Lote X: operacion y plan al dia
+
+Fecha: 21 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+Base del lote: `4281847`.
+
+### Que estaba mal
+
+1. `pnpm db:status` no decía cuanto ocupaban las tablas. Las revisiones y la
+   auditoria crecen con el uso y son las que pueden llenar el almacenamiento del
+   plan gratuito, sin que nadie lo viera.
+2. Los indices parciales de unicidad (una edicion predeterminada por libro, un
+   perfil predeterminado por estudio, un slug por plantilla de sistema) solo
+   existen en las migraciones: una migracion futura los recompone y se
+   perderian en silencio.
+3. La vista previa renderizaba **todas** las paginas de un libro largo, con
+   miles de nodos en el documento.
+4. `IMPLEMENTATION_PLAN.md` daba por pendientes las imagenes, las notas al pie
+   y las fuentes incrustadas, que hace dias estan cerradas y verificadas.
+
+### Que se ha cambiado
+
+| Area      | Archivo                                                | Cambio                                                                                                                  |
+| --------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| Operacion | `scripts/db-status.ts`                                 | Informa del tamano de las ocho tablas mas grandes y comprueba que siguen los tres indices parciales de unicidad.        |
+| Operacion | `docs/DATABASE.md`                                     | Explica la columna `sessions.workspaceId` y el aviso sobre los indices parciales.                                       |
+| Interfaz  | `apps/web/src/components/layout/paginated-preview.tsx` | La vista previa usa `content-visibility`, de modo que el navegador no dibuja las paginas que no se ven.                 |
+| Plan      | `IMPLEMENTATION_PLAN.md`                               | Los puntos 1, 2 y 3 pasan a **cerrados** con su evidencia; el punto 5, a medias; las condiciones del 95, con su estado. |
+
+### Pruebas ejecutadas
+
+| Comprobacion        | Resultado                                          |
+| ------------------- | -------------------------------------------------- |
+| `pnpm db:status`    | Tamano de tablas y 3 indices parciales comprobados |
+| `pnpm test`         | 328 pruebas en 34 archivos                         |
+| `pnpm test:e2e`     | 80 pruebas en Chromium                             |
+| `pnpm format:check` | Correcto                                           |
+| `pnpm lint`         | Sin errores                                        |
+| `pnpm typecheck`    | Sin errores                                        |
+| `pnpm build`        | Correcto                                           |

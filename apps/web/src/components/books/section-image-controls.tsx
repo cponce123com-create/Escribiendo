@@ -238,6 +238,7 @@ export function SectionImageControls({
           type="file"
           accept={ACCEPTED_TYPES.join(",")}
           className="sr-only"
+          aria-label="Elegir una imagen de la biblioteca para insertarla"
           onChange={(event) => {
             const file = event.target.files?.[0];
 
@@ -362,6 +363,7 @@ export function SectionImageControls({
               type="file"
               accept={ACCEPTED_TYPES.join(",")}
               className="sr-only"
+              aria-label="Elegir una imagen para sustituir la actual"
               onChange={(event) => {
                 const file = event.target.files?.[0];
 

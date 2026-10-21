@@ -6,7 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { writeAuditLog } from "@/lib/auth/audit";
-import { createSession } from "@/lib/auth/session";
+import { createSession, switchWorkspace } from "@/lib/auth/session";
 import { hashPassword } from "@/lib/auth/password";
 import { generateToken, hashToken } from "@/lib/auth/tokens";
 import { assertServerActionOrigin, type RequestContext } from "@/lib/security/request-context";
@@ -44,6 +44,59 @@ function logActionError(event: string, context: RequestContext | undefined, erro
     requestId: context?.requestId,
     errorName: error instanceof Error ? error.name : "UnknownError",
   });
+}
+
+/**
+ * Cambia el estudio con el que se trabaja.
+ *
+ * Solo se acepta un estudio del que la persona forma parte: la comprobación
+ * está en el servidor, no en el formulario.
+ */
+export async function switchWorkspaceAction(
+  _previousState: TeamActionState,
+  formData: FormData,
+): Promise<TeamActionState> {
+  let context: RequestContext | undefined;
+
+  try {
+    context = await assertServerActionOrigin();
+  } catch {
+    return errorState("No se ha podido validar la solicitud.");
+  }
+
+  const session = await getSession();
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  const workspaceId = uuidSchema.safeParse(formValue(formData, "workspaceId"));
+
+  if (!workspaceId.success) {
+    return errorState("El estudio no es válido.");
+  }
+
+  const cambiado = await switchWorkspace(session, workspaceId.data);
+
+  if (!cambiado) {
+    return errorState("No perteneces a ese estudio.");
+  }
+
+  await writeAuditLog(
+    {
+      action: "TEAM_WORKSPACE_SWITCHED",
+      entityType: "Workspace",
+      entityId: workspaceId.data,
+      workspaceId: workspaceId.data,
+      actorId: session.user.id,
+      metadata: { from: session.workspace.id, to: workspaceId.data },
+    },
+    context,
+  );
+
+  revalidatePath("/", "layout");
+
+  return { status: "success", message: "Has cambiado de estudio." };
 }
 
 export async function createInvitationAction(
@@ -430,13 +483,18 @@ export async function acceptInvitationAction(
           userId: session.user.id,
           role: invitation.role,
         },
-        update: { role: invitation.role },
+        // Si la persona ya era miembro, se respeta su rol: una invitación no
+        // puede rebajar a nadie.
+        update: {},
       }),
       prisma.workspaceInvitation.update({
         where: { id: invitation.id },
         data: { acceptedAt: new Date() },
       }),
     ]);
+
+    // La sesión pasa al estudio al que se acaba de entrar.
+    await switchWorkspace(session, invitation.workspaceId);
 
     await writeAuditLog(
       {
@@ -507,7 +565,9 @@ export async function acceptInvitationAction(
     return creado.id;
   });
 
-  await createSession(userId, context);
+  // La sesión nace en el estudio al que se ha invitado: si no, la persona
+  // landing en el estudio más antiguo y no vería el nuevo.
+  await createSession(userId, context, invitation.workspaceId);
 
   await writeAuditLog(
     {

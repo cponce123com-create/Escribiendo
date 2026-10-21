@@ -9,6 +9,8 @@ import {
   manuscriptHash,
   type SectionVersion,
 } from "./manuscript";
+import { trabajoInterrumpido } from "./job-estado";
+import { liberarHuecoDeExportacion, reservarHuecoDeExportacion } from "./slot";
 
 /**
  * Cola de trabajos de exportación.
@@ -81,6 +83,7 @@ const JOB_SELECT = {
   errorMessage: true,
   resultMetadata: true,
   createdAt: true,
+  startedAt: true,
   completedAt: true,
   options: true,
 } as const;
@@ -151,6 +154,23 @@ export async function requestExport(
     return toSummary(existing);
   }
 
+  // Un trabajo que se quedó en «procesando» (un despliegue que se cayó a
+  // medias, por ejemplo) no se puede volver a pedir: se marca como fallido
+  // para que la interfaz no lo muestre como si estuviera en marcha.
+  if (existing && trabajoInterrumpido(existing)) {
+    await prisma.exportJob.update({
+      where: { id: existing.id },
+      data: {
+        status: "FAILED",
+        progress: 0,
+        errorCode: "EXPORT_TIMEOUT",
+        errorMessage: "La generación se interrumpió y hay que volver a pedirla.",
+        completedAt: new Date(),
+      },
+      select: JOB_SELECT,
+    });
+  }
+
   const job =
     existing ??
     (await prisma.exportJob.create({
@@ -181,6 +201,29 @@ export async function processExportJob(
   session: SessionContext,
   jobId: string,
 ): Promise<ExportJobSummary> {
+  // Una exportación cada vez por instancia: dos a la vez dejarían a Render
+  // Free sin memoria.
+  if (!reservarHuecoDeExportacion()) {
+    throw new Error(
+      "Ya hay una exportación en marcha en este estudio. Espera a que termine antes de pedir otra.",
+    );
+  }
+
+  try {
+    return await generarExportJob(session, jobId);
+  } finally {
+    liberarHuecoDeExportacion();
+  }
+}
+
+/**
+ * Genera el archivo del trabajo y guarda sus metadatos.
+ *
+ * La generación es reproducible: usa las versiones de las secciones que
+ * guardó el trabajo, de modo que el archivo es el mismo aunque el manuscrito
+ * haya cambiado después.
+ */
+async function generarExportJob(session: SessionContext, jobId: string): Promise<ExportJobSummary> {
   const job = await prisma.exportJob.findFirst({
     where: { id: jobId, book: { workspaceId: session.workspace.id, deletedAt: null } },
     select: {

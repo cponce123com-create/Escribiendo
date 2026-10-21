@@ -24,6 +24,20 @@ describe("diffWords", () => {
     expect(summarizeDiff(segments).removed).toBe(1);
   });
 
+  it("se degrada a sustitución completa cuando la comparación sería enorme", () => {
+    // Un capítulo largo de un lado y otro: la matriz de longitudes comunes
+    // ocuparía cientos de megabytes, así que se devuelve el texto entero.
+    const antes = "palabra ".repeat(3_000);
+    const despues = "palabra ".repeat(3_000).replace("palabra", "término");
+
+    const segments = diffWords(antes, despues);
+
+    expect(segments).toEqual([
+      { type: "delete", text: antes },
+      { type: "insert", text: despues },
+    ]);
+  });
+
   it("reconstruye el texto original a partir de los segmentos", () => {
     const before = "la capa de la noche era silenciosa";
     const after = "la capa de la mañana era ruidosa";

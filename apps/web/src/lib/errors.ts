@@ -34,10 +34,10 @@ export function isAppError(error: unknown): error is AppError {
   return error instanceof AppError;
 }
 
-export function toSafeErrorMessage(error: unknown): string {
+export function toSafeErrorMessage(error: unknown, porDefecto?: string): string {
   if (isAppError(error)) {
     return error.exposeMessage;
   }
 
-  return "No se ha podido completar la operación. Inténtalo de nuevo.";
+  return porDefecto ?? "No se ha podido completar la operación. Inténtalo de nuevo.";
 }

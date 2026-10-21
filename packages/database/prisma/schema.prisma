@@ -148,11 +148,20 @@ model Session {
   ipHash    String?   @db.VarChar(64)
   userAgent String?   @db.VarChar(512)
   createdAt DateTime  @default(now())
+  /**
+   * Espacio de trabajo con el que se está trabajando.
+   *
+   * Una persona puede pertenecer a varios estudios. Sin este dato, la sesión
+   * siempre caía en el más antiguo y quien aceptaba una invitación a otro
+   * estudio no llegaba a verlo.
+   */
+  workspaceId String? @db.Uuid
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, expiresAt])
   @@index([expiresAt])
+  @@index([workspaceId])
   @@map("sessions")
 }
 

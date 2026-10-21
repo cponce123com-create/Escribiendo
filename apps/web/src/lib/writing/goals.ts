@@ -27,37 +27,113 @@ export interface GoalSummary {
   progress: number;
 }
 
-/** Revisiones del espacio de trabajo, ordenadas por sección y versión. */
+/**
+ * Revisiones del espacio de trabajo, ordenadas por sección y versión.
+ *
+ * Solo se cargan las revisiones del periodo que hace falta: el histórico
+ * completo de un estudio crece sin parar —cada guardado crea una revisión— y
+ * cargarlo entero convertía la página de estadísticas en la más lenta de la
+ * aplicación.
+ *
+ * Para que la primera revisión de cada sección dentro del periodo no cuente
+ * todas sus palabras como recién escritas, se añade la última revisión
+ * anterior al periodo, que es la referencia del cálculo.
+ */
 async function loadRevisionSamples(
   session: SessionContext,
   bookId?: string,
+  desde?: Date,
 ): Promise<RevisionSample[]> {
-  const revisions = await prisma.sectionRevision.findMany({
+  const secciones = await prisma.bookSection.findMany({
     where: {
-      section: {
+      deletedAt: null,
+      book: {
+        workspaceId: session.workspace.id,
         deletedAt: null,
-        book: {
-          workspaceId: session.workspace.id,
-          deletedAt: null,
-          ...(bookId ? { id: bookId } : {}),
-        },
+        ...(bookId ? { id: bookId } : {}),
       },
+    },
+    select: { id: true },
+  });
+
+  if (secciones.length === 0) {
+    return [];
+  }
+
+  const ids = secciones.map((seccion) => seccion.id);
+
+  // La última revisión de cada sección antes del periodo: es el punto de
+  // partida del recuento de palabras.
+  const anteriores = desde
+    ? await prisma.$queryRaw<
+        Array<{ sectionId: string; version: number; wordCount: number; createdAt: Date }>
+      >`
+        SELECT DISTINCT ON ("sectionId") "sectionId", version, "wordCount", "createdAt"
+        FROM section_revisions
+        WHERE "sectionId" = ANY(${ids}::uuid[]) AND "createdAt" < ${desde}
+        ORDER BY "sectionId", version DESC
+      `
+    : [];
+
+  const revisiones = await prisma.sectionRevision.findMany({
+    where: {
+      sectionId: { in: ids },
+      ...(desde ? { createdAt: { gte: desde } } : {}),
     },
     orderBy: [{ sectionId: "asc" }, { version: "asc" }],
     select: {
+      sectionId: true,
       version: true,
       wordCount: true,
       createdAt: true,
-      section: { select: { id: true } },
     },
   });
 
-  return revisions.map((revision) => ({
-    sectionId: revision.section.id,
+  return [...anteriores, ...revisiones].map((revision) => ({
+    sectionId: revision.sectionId,
     version: revision.version,
     wordCount: revision.wordCount,
     createdAt: revision.createdAt,
   }));
+}
+
+/**
+ * Caché corta de las revisiones ya cargadas.
+ *
+ * La página de estadísticas necesita las mismas revisiones para los objetivos
+ * y para el resumen: sin caché, se cargaban dos veces. Se guarda un minuto,
+ * lo justo para que las dos llamadas de la misma página no repitan el trabajo.
+ */
+const CACHE_TTL_MS = 60_000;
+const CACHE_MAX_ENTRADAS = 50;
+const cache = new Map<string, { expira: number; muestras: RevisionSample[] }>();
+
+/** Revisiones del periodo, con una caché muy corta. */
+async function muestrasDelPeriodo(
+  session: SessionContext,
+  bookId: string | undefined,
+  desde: Date,
+): Promise<RevisionSample[]> {
+  const clave = `${session.workspace.id}:${bookId ?? "*"}:${desde.getTime()}`;
+  const guardado = cache.get(clave);
+
+  if (guardado && guardado.expira > Date.now()) {
+    return guardado.muestras;
+  }
+
+  const muestras = await loadRevisionSamples(session, bookId, desde);
+
+  if (cache.size >= CACHE_MAX_ENTRADAS) {
+    const masAntiguo = cache.keys().next().value;
+
+    if (masAntiguo !== undefined) {
+      cache.delete(masAntiguo);
+    }
+  }
+
+  cache.set(clave, { expira: Date.now() + CACHE_TTL_MS, muestras });
+
+  return muestras;
 }
 
 /** Palabras escritas en cada uno de los periodos indicados. */
@@ -69,7 +145,9 @@ export async function wordsWrittenInPeriod(
     return [];
   }
 
-  const daily = computeWordsPerDay(await loadRevisionSamples(session));
+  // Solo se cargan las revisiones del periodo más amplio que hace falta.
+  const desde = new Date(Math.min(...periods.map((period) => period.start.getTime())));
+  const daily = computeWordsPerDay(await muestrasDelPeriodo(session, undefined, desde));
 
   return periods.map((period) => {
     const start = dayKey(period.start);
@@ -132,9 +210,10 @@ export async function getBookStats(
   bookId: string,
   days: number,
 ): Promise<PeriodStat> {
-  const samples = await loadRevisionSamples(session, bookId);
+  const desde = new Date(Date.now() - days * 24 * 60 * 60 * 1_000);
+  const samples = await muestrasDelPeriodo(session, bookId, desde);
   const daily = computeWordsPerDay(samples);
-  const since = dayKey(new Date(Date.now() - days * 24 * 60 * 60 * 1_000));
+  const since = dayKey(desde);
 
   return summarizePeriod(daily.filter((day) => day.date >= since));
 }
@@ -144,9 +223,10 @@ export async function getWorkspaceStats(
   session: SessionContext,
   days: number,
 ): Promise<PeriodStat> {
-  const samples = await loadRevisionSamples(session);
+  const desde = new Date(Date.now() - days * 24 * 60 * 60 * 1_000);
+  const samples = await muestrasDelPeriodo(session, undefined, desde);
   const daily = computeWordsPerDay(samples);
-  const since = dayKey(new Date(Date.now() - days * 24 * 60 * 60 * 1_000));
+  const since = dayKey(desde);
 
   return summarizePeriod(daily.filter((day) => day.date >= since));
 }

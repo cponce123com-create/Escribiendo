@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { auditar, resume } from "./support/axe";
 
 /**
  * Resiliencia del manuscrito.
@@ -50,18 +51,42 @@ test.describe("Resiliencia del manuscrito", () => {
     await expect(page.getByText("Todavía no hay imágenes en este libro.")).toBeVisible();
   });
 
+  test("el editor y la ficha del libro no tienen infracciones de accesibilidad graves", async ({
+    page,
+  }) => {
+    await abrirSeccion(page, SECTION_TITLE);
+
+    const editor = await auditar(page);
+    const graves = [...resume(editor.graves, "editor")];
+
+    // La ficha del libro, con su resumen y sus acciones.
+    await page.goto("/books");
+    await page.getByRole("link", { name: BOOK_TITLE }).click();
+    await expect(page.getByRole("heading", { name: BOOK_TITLE })).toBeVisible();
+
+    const ficha = await auditar(page);
+
+    graves.push(...resume(ficha.graves, "ficha del libro"));
+
+    expect(graves).toEqual([]);
+  });
+
   test("inserta y conserva una nota al pie", async ({ page }) => {
     await abrirSeccion(page, SECTION_TITLE);
 
     await page.locator(".ProseMirror").click();
     await page.keyboard.type("Una llamada a nota.");
 
-    page.once("dialog", async (dialog) => {
-      expect(dialog.type()).toBe("prompt");
-      await dialog.accept("Texto comprobado de la nota al pie.");
-    });
-
+    // La nota se escribe en un diálogo propio, no en una ventana del navegador.
     await page.getByRole("button", { name: "Nota al pie" }).click();
+
+    const dialogo = page.getByRole("dialog", { name: "Nota al pie" });
+
+    await expect(dialogo).toBeVisible();
+    await dialogo.getByLabel("Texto de la nota").fill("Texto comprobado de la nota al pie.");
+    await dialogo.getByRole("button", { name: "Insertar nota" }).click();
+
+    await expect(page.getByRole("dialog", { name: "Nota al pie" })).toHaveCount(0);
 
     const llamada = page.locator("sup.footnote-ref");
     await expect(llamada).toHaveCount(1);
@@ -74,6 +99,31 @@ test.describe("Resiliencia del manuscrito", () => {
     await page.reload();
     await expect(page.locator("sup.footnote-ref")).toHaveCount(1);
     await expect(page.locator("sup.footnote-ref")).toHaveAttribute("data-number", "1");
+  });
+
+  test("inserta un enlace y rechaza un esquema peligroso", async ({ page }) => {
+    await abrirSeccion(page, SECTION_TITLE);
+
+    await page.locator(".ProseMirror").click();
+    await page.keyboard.type("Texto con enlace");
+    // Un enlace se aplica a lo que está seleccionado.
+    await page.keyboard.press("Shift+Home");
+
+    await page.getByRole("button", { name: "Enlace" }).click();
+
+    const dialogo = page.getByRole("dialog", { name: "Enlace" });
+
+    await expect(dialogo).toBeVisible();
+
+    // Un esquema que ejecuta código no se guarda: el aviso lo explica.
+    await dialogo.getByLabel("Dirección del enlace").fill("javascript:alert(1)");
+    await expect(dialogo.getByRole("alert")).toContainText(/no se admite/u);
+
+    await dialogo.getByLabel("Dirección del enlace").fill("https://ejemplo.test/libro");
+    await dialogo.getByRole("button", { name: "Guardar enlace" }).click();
+
+    await expect(page.getByRole("dialog", { name: "Enlace" })).toHaveCount(0);
+    await expect(page.locator('a[href="https://ejemplo.test/libro"]')).toHaveCount(1);
   });
 
   test("el texto se guarda en el equipo al momento de escribir", async ({ page }) => {

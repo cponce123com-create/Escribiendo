@@ -31,10 +31,17 @@ export interface CommentFilters {
   onlyOpen?: boolean;
 }
 
-/** Comentarios de un libro, primero los abiertos. */
+/**
+ * Comentarios de un libro, primero los abiertos.
+ *
+ * La lista se acota: un libro con cientos de comentarios no puede cargar
+ * todos en cada visita. Los abiertos, que son los que hay que resolver,
+ * siempre están dentro del límite.
+ */
 export async function listComments(
   session: SessionContext,
   filters: CommentFilters,
+  limit = 200,
 ): Promise<EditorialCommentSummary[]> {
   const comments = await prisma.editorialComment.findMany({
     where: {
@@ -45,6 +52,7 @@ export async function listComments(
       book: { workspaceId: session.workspace.id, deletedAt: null },
     },
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+    take: limit,
     select: {
       id: true,
       body: true,

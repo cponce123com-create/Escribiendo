@@ -1,5 +1,6 @@
 import type { ExportImage, ExportImageAsset, ExportImageMap } from "./assets";
 import { buildZip, type ZipEntry } from "./zip";
+import { escapeXml, esEnlaceSeguro } from "./xml";
 
 /**
  * EPUB 3.
@@ -54,15 +55,6 @@ export interface ExportDocumentModel {
   /** Identificador único y estable de la obra. */
   identifier: string;
   chapters: ExportChapter[];
-}
-
-function escapeXml(text: string): string {
-  return text
-    .replace(/&/gu, "&amp;")
-    .replace(/</gu, "&lt;")
-    .replace(/>/gu, "&gt;")
-    .replace(/"/gu, "&quot;")
-    .replace(/'/gu, "&apos;");
 }
 
 /** Fecha de modificación en el formato que exige EPUB 3 (`CCYY-MM-DDThh:mm:ssZ`). */
@@ -130,7 +122,7 @@ function inlineHtml(run: ExportInlineRun): string {
     html = `<strong>${html}</strong>`;
   }
 
-  if (run.link) {
+  if (run.link && esEnlaceSeguro(run.link)) {
     html = `<a href="${escapeXml(run.link)}">${html}</a>`;
   }
 

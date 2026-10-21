@@ -283,6 +283,11 @@ de la tabla al listar por responsable.
 
 ## Sesiones y limpieza
 
+La sesión guarda el espacio de trabajo con el que se está trabajando
+(`sessions.workspaceId`). Quien pertenece a varios estudios cambia de uno a
+otro desde la barra lateral; si deja de pertenecer al que tenía guardado, la
+sesión recurre al primero que le quede.
+
 Las sesiones caducadas no se eliminan automáticamente. En una sola instancia
 Free no suponen un problema inmediato, pero conviene limpiarlas de forma
 periódica desde un equipo de confianza:
@@ -297,6 +302,12 @@ WHERE expires_at < now() - interval '30 days';
 
 No ejecutes estas consultas desde la aplicación en cada petición. Si en el
 futuro se añade un cron, debe ser externo y explícito, no un worker permanente.
+
+`pnpm db:status` informa del tamaño de las tablas más grandes y comprueba que
+siguen existiendo los índices parciales de unicidad (una edición predeterminada
+por libro, un perfil predeterminado por estudio y un slug único por plantilla
+de sistema). Estos índices solo existen en las migraciones: si una migración
+futura los recompone, se perderían en silencio, y el script avisa.
 
 ## Recuperación de contraseña por CLI
 

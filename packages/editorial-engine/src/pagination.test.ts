@@ -177,7 +177,9 @@ describe("paginate", () => {
     // caería en una página verso y hay que insertar una en blanco.
     const resultado = paginate(
       [
-        bloque("b1", palabras(300), { sectionTitle: "Primero" }),
+        bloque("b1", palabrasiguales(LINEAS_POR_PAGINA * PALABRAS_POR_LINEA), {
+          sectionTitle: "Primero",
+        }),
         bloque("b2", "abre el capítulo", { startsChapter: true, sectionTitle: "Segundo" }),
       ],
       GEOMETRY,
@@ -198,7 +200,9 @@ describe("paginate", () => {
   it("avisa de la página en blanco que se inserta", () => {
     const resultado = paginate(
       [
-        bloque("b1", palabras(300), { sectionTitle: "Primero" }),
+        bloque("b1", palabrasiguales(LINEAS_POR_PAGINA * PALABRAS_POR_LINEA), {
+          sectionTitle: "Primero",
+        }),
         bloque("b2", "abre el capítulo", { startsChapter: true, sectionTitle: "Segundo" }),
       ],
       GEOMETRY,
@@ -218,6 +222,75 @@ describe("paginate", () => {
     );
 
     expect(resultado.pages.filter((page) => page.blank)).toHaveLength(0);
+  });
+
+  it("el capítulo empieza en una página nueva", () => {
+    const resultado = paginate(
+      [
+        bloque("b1", "texto del capítulo primero", { sectionTitle: "Primero" }),
+        bloque("b2", "abre el capítulo", { startsChapter: true, sectionTitle: "Segundo" }),
+      ],
+      GEOMETRY,
+      TIPOGRAFIA,
+    );
+
+    const paginaDelCapitulo = resultado.pages.find((page) =>
+      page.blocks.some((compuesto) => compuesto.startsChapter),
+    );
+
+    expect(paginaDelCapitulo).toBeDefined();
+    // El capítulo es lo primero de su página: no comparte página con el
+    // capítulo anterior.
+    expect(paginaDelCapitulo?.blocks[0]?.startsChapter).toBe(true);
+  });
+
+  it("nunca marca como en blanco una página que tiene contenido", () => {
+    // El texto deja la página a medias y el capítulo siguiente obliga a
+    // cerrar la página: esa página tiene contenido y no puede estar en blanco.
+    const resultado = paginate(
+      [
+        bloque("b1", palabras(120), { sectionTitle: "Primero" }),
+        bloque("b2", "abre el capítulo", { startsChapter: true, sectionTitle: "Segundo" }),
+      ],
+      GEOMETRY,
+      TIPOGRAFIA,
+    );
+
+    const conContenido = resultado.pages.filter((page) => page.blank && page.blocks.length > 0);
+
+    expect(conContenido).toHaveLength(0);
+  });
+
+  it("la página en blanco insertada no tiene bloques", () => {
+    const resultado = paginate(
+      [
+        bloque("b1", palabrasiguales(LINEAS_POR_PAGINA * PALABRAS_POR_LINEA), {
+          sectionTitle: "Primero",
+        }),
+        bloque("b2", "abre el capítulo", { startsChapter: true, sectionTitle: "Segundo" }),
+      ],
+      GEOMETRY,
+      TIPOGRAFIA,
+    );
+
+    const enBlanco = resultado.pages.filter((page) => page.blank);
+
+    expect(enBlanco.length).toBeGreaterThan(0);
+
+    for (const page of enBlanco) {
+      expect(page.blocks).toHaveLength(0);
+    }
+  });
+
+  it("un bloque con salto propio empieza en una página nueva", () => {
+    const resultado = paginate(
+      [bloque("b1", "primera parte"), bloque("b2", "segunda parte", { breaksBefore: true })],
+      GEOMETRY,
+      TIPOGRAFIA,
+    );
+
+    expect(resultado.pages.length).toBeGreaterThan(1);
+    expect(resultado.pages[1]?.blocks[0]?.id).toBe("b2");
   });
 
   it("avisa de una viuda cuando la continuación quedaría con muy pocas líneas", () => {

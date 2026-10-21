@@ -5,6 +5,8 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import type { TiptapDocument } from "@escribiendo/book-schema";
 import { countWordsInDocument, MAX_FOOTNOTE_LENGTH } from "@escribiendo/book-schema";
+import { esEnlaceSeguro } from "@escribiendo/shared";
+import { Dialog } from "@/components/forms/dialog";
 import { saveSectionAction } from "@/lib/books/actions";
 import { formatNumber } from "@/lib/ui/format";
 import {
@@ -75,6 +77,27 @@ export function SectionEditor({
 }: SectionEditorProps) {
   const [machine, setMachine] = useState<SyncMachine>(() => initialSyncMachine(version));
   const [conflict, setConflict] = useState<SectionConflict | null>(null);
+  /**
+   * Diálogo abierto: el enlace o la nota al pie que se está escribiendo.
+   *
+   * Antes se pedían con `window.prompt`, que bloquea la interfaz y no se
+   * puede validar mientras se escribe.
+   */
+  const [dialogo, setDialogo] = useState<{
+    tipo: "enlace" | "nota";
+    valor: string;
+    /** Selección en el momento de abrir el diálogo, para poder volver a ella. */
+    desde: number;
+    hasta: number;
+  } | null>(null);
+  /**
+   * Contenido del borrador local cuando el servidor tiene otra versión.
+   *
+   * El comparador necesita las dos versiones: la del servidor y la del
+   * equipo. Sin guardar la del equipo, el trabajo sin confirmar se perdía
+   * en silencio.
+   */
+  const [borradorLocal, setBorradorLocal] = useState<string | null>(null);
   const [online, setOnline] = useState(true);
   const [recovered, setRecovered] = useState(false);
   const [assets, setAssets] = useState<BookAssetSummary[]>(() => bookAssets);
@@ -111,6 +134,16 @@ export function SectionEditor({
     // intentaría renderizarlo en el servidor y la hidratación no coincidiría.
     immediatelyRender: false,
     editable: canEdit,
+    editorProps: {
+      attributes: {
+        // ProseMirror es un campo de texto editable: sin nombre accesible, un
+        // lector de pantalla anuncia «grupo editable» y no dice qué es.
+        role: "textbox",
+        "aria-multiline": "true",
+        "aria-label": `Manuscrito de la sección «${sectionTitle}»`,
+        ...(canEdit ? {} : { "aria-readonly": "true" }),
+      },
+    },
     onUpdate: () => {
       if (!canEdit) {
         return;
@@ -138,9 +171,19 @@ export function SectionEditor({
       }
 
       // El borrador solo se recupera si es más reciente que lo que hay en el
-      // servidor. Si el servidor ya está en otra versión, se deja el
-      // conflicto para que la persona decida.
+      // servidor. Si el servidor ya está en otra versión, no se descarta
+      // ninguna de las dos: se abre el comparador para que la persona
+      // decida. Antes el borrador se perdía en silencio y el siguiente
+      // autoguardado lo sobrescribía.
       if (borrador.baseVersion !== versionRef.current) {
+        setBorradorLocal(borrador.content);
+        setConflict({
+          serverVersion: versionRef.current,
+          serverContent: JSON.stringify(editor.getJSON() as TiptapDocument),
+          serverTitle: sectionTitle,
+          serverAuthor: null,
+        });
+        dispatch({ type: "sync-conflict" });
         return;
       }
 
@@ -149,7 +192,16 @@ export function SectionEditor({
         return;
       }
 
-      editor.commands.setContent(JSON.parse(borrador.content) as TiptapDocument);
+      // Un borrador corrupto no rompe la página: se avisa y se sigue con la
+      // versión del servidor.
+      try {
+        editor.commands.setContent(JSON.parse(borrador.content) as TiptapDocument);
+      } catch {
+        setRecovered(false);
+        dispatch({ type: "sync-error", message: "El borrador de este equipo está dañado." });
+        return;
+      }
+
       localVersionRef.current = Math.max(localVersionRef.current, borrador.localVersion);
       dispatch({ type: "recovered" });
       setRecovered(true);
@@ -160,7 +212,7 @@ export function SectionEditor({
     return () => {
       vivo = false;
     };
-  }, [bookId, canEdit, dispatch, editor, sectionId, userId]);
+  }, [bookId, canEdit, dispatch, editor, sectionId, sectionTitle, userId]);
 
   // --- Guardado local ------------------------------------------------------
 
@@ -473,23 +525,13 @@ export function SectionEditor({
           isActive: () => editor.isActive("link"),
           run: () => {
             const anterior = editor.getAttributes("link").href;
-            const href = window.prompt(
-              "Dirección del enlace (vacía para quitarlo)",
-              typeof anterior === "string" ? anterior : "https://",
-            );
 
-            if (href === null) {
-              return;
-            }
-
-            const limpio = href.trim();
-
-            if (limpio.length === 0) {
-              editor.chain().focus().extendMarkRange("link").unsetLink().run();
-              return;
-            }
-
-            editor.chain().focus().extendMarkRange("link").setLink({ href: limpio }).run();
+            setDialogo({
+              tipo: "enlace",
+              valor: typeof anterior === "string" ? anterior : "",
+              desde: editor.state.selection.from,
+              hasta: editor.state.selection.to,
+            });
           },
         },
         {
@@ -533,27 +575,12 @@ export function SectionEditor({
           title: "Nota al pie",
           isActive: () => editor.isActive("footnote"),
           run: () => {
-            const note = window.prompt("Texto de la nota al pie");
-
-            if (note === null || note.trim().length === 0) {
-              return;
-            }
-
-            if (note.trim().length > MAX_FOOTNOTE_LENGTH) {
-              window.alert(`La nota no puede superar los ${MAX_FOOTNOTE_LENGTH} caracteres.`);
-              return;
-            }
-
-            const id = globalThis.crypto.randomUUID();
-
-            editor
-              .chain()
-              .focus()
-              .insertContentAt(editor.state.selection.to, {
-                type: "footnote",
-                attrs: { id, note: note.trim() },
-              })
-              .run();
+            setDialogo({
+              tipo: "nota",
+              valor: "",
+              desde: editor.state.selection.from,
+              hasta: editor.state.selection.to,
+            });
           },
         },
         {
@@ -607,6 +634,164 @@ export function SectionEditor({
         />
       ) : null}
 
+      {dialogo?.tipo === "enlace" ? (
+        <Dialog
+          abierto
+          titulo="Enlace"
+          descripcion="Se puede apuntar a una página web, a un correo o a un teléfono. Un esquema distinto no se guarda, porque el archivo exportado se abre en el equipo de quien lo recibe."
+          onCerrar={() => setDialogo(null)}
+        >
+          <form
+            className="space-y-4"
+            onSubmit={(evento) => {
+              evento.preventDefault();
+
+              if (!editor) {
+                return;
+              }
+
+              const limpio = dialogo.valor.trim();
+
+              if (limpio.length === 0) {
+                editor
+                  .chain()
+                  .focus()
+                  .setTextSelection({ from: dialogo.desde, to: dialogo.hasta })
+                  .extendMarkRange("link")
+                  .unsetLink()
+                  .run();
+                setDialogo(null);
+                return;
+              }
+
+              if (!esEnlaceSeguro(limpio)) {
+                return;
+              }
+
+              editor
+                .chain()
+                .focus()
+                .setTextSelection({ from: dialogo.desde, to: dialogo.hasta })
+                .extendMarkRange("link")
+                .setLink({ href: limpio })
+                .run();
+              setDialogo(null);
+            }}
+          >
+            <div>
+              <label className="field-label" htmlFor="campo-enlace">
+                Dirección del enlace
+              </label>
+              <input
+                id="campo-enlace"
+                name="href"
+                className="field-input"
+                value={dialogo.valor}
+                placeholder="https://ejemplo.test/libro"
+                onChange={(evento) => setDialogo({ ...dialogo, valor: evento.target.value })}
+              />
+              {dialogo.valor.trim().length > 0 && !esEnlaceSeguro(dialogo.valor.trim()) ? (
+                <p className="field-error" role="alert">
+                  Ese esquema no se admite. Usa http, https, mailto, tel o una ruta interna.
+                </p>
+              ) : null}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setDialogo(null)}
+              >
+                Cancelar
+              </button>
+              <button type="submit" className="btn btn-primary btn-sm">
+                Guardar enlace
+              </button>
+            </div>
+          </form>
+        </Dialog>
+      ) : null}
+
+      {dialogo?.tipo === "nota" ? (
+        <Dialog
+          abierto
+          titulo="Nota al pie"
+          descripcion="La nota aparece al pie de la página y se numera sola, en orden de lectura."
+          onCerrar={() => setDialogo(null)}
+        >
+          <form
+            className="space-y-4"
+            onSubmit={(evento) => {
+              evento.preventDefault();
+
+              if (!editor) {
+                return;
+              }
+
+              const nota = dialogo.valor.trim();
+
+              if (nota.length === 0 || nota.length > MAX_FOOTNOTE_LENGTH) {
+                return;
+              }
+
+              const id = globalThis.crypto.randomUUID();
+
+              editor
+                .chain()
+                .focus()
+                .setTextSelection({ from: dialogo.desde, to: dialogo.hasta })
+                .insertContentAt(dialogo.hasta, {
+                  type: "footnote",
+                  attrs: { id, note: nota },
+                })
+                .run();
+              setDialogo(null);
+            }}
+          >
+            <div>
+              <label className="field-label" htmlFor="campo-nota">
+                Texto de la nota
+              </label>
+              <textarea
+                id="campo-nota"
+                name="note"
+                className="field-input min-h-28"
+                maxLength={MAX_FOOTNOTE_LENGTH}
+                value={dialogo.valor}
+                onChange={(evento) => setDialogo({ ...dialogo, valor: evento.target.value })}
+              />
+              <p className="field-hint">
+                {dialogo.valor.length} de {MAX_FOOTNOTE_LENGTH} caracteres.
+              </p>
+              {dialogo.valor.trim().length > MAX_FOOTNOTE_LENGTH ? (
+                <p className="field-error" role="alert">
+                  La nota no puede superar los {MAX_FOOTNOTE_LENGTH} caracteres.
+                </p>
+              ) : null}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setDialogo(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary btn-sm"
+                disabled={
+                  dialogo.valor.trim().length === 0 ||
+                  dialogo.valor.trim().length > MAX_FOOTNOTE_LENGTH
+                }
+              >
+                Insertar nota
+              </button>
+            </div>
+          </form>
+        </Dialog>
+      ) : null}
+
       <div
         className={`panel manuscript-editor ${canEdit ? "" : "manuscript-editor--readonly"}`}
         data-dirty={hasUnsavedWork(machine) ? "true" : "false"}
@@ -648,18 +833,39 @@ export function SectionEditor({
       {conflict ? (
         <SectionConflictPanel
           conflict={conflict}
-          localContent={editor ? (editor.getJSON() as TiptapDocument) : null}
+          localContent={
+            borradorLocal !== null
+              ? (JSON.parse(borradorLocal) as TiptapDocument)
+              : editor
+                ? (editor.getJSON() as TiptapDocument)
+                : null
+          }
           onKeepLocal={() => {
+            // Si el conflicto viene del borrador local, se carga en el editor
+            // antes de enviarlo: el servidor no puede recibir lo que el
+            // editor todavía no tiene.
+            if (borradorLocal !== null && editor) {
+              editor.commands.setContent(JSON.parse(borradorLocal) as TiptapDocument);
+              localVersionRef.current += 1;
+            }
+
+            setBorradorLocal(null);
             setConflict(null);
             void sincronizar("manual", true);
           }}
           onTakeServer={() => {
             if (editor) {
-              editor.commands.setContent(JSON.parse(conflict.serverContent) as TiptapDocument);
+              try {
+                editor.commands.setContent(JSON.parse(conflict.serverContent) as TiptapDocument);
+              } catch {
+                // Si el contenido del servidor está dañado, se deja el editor
+                // como está: el borrador local sigue a salvo.
+              }
             }
 
             versionRef.current = conflict.serverVersion;
             localVersionRef.current = 0;
+            setBorradorLocal(null);
             setConflict(null);
             dispatch({ type: "sync-ok", version: conflict.serverVersion });
             void deleteDraft(userId, bookId, sectionId);

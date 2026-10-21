@@ -353,7 +353,11 @@ function toPdfPages(
           const font: PdfRun["font"] =
             bold && italic ? "boldItalic" : bold ? "bold" : italic ? "italic" : "regular";
           const sizePt = segmentSize(segment);
-          const segmentWidth = measureSegment(segment.text, sizePt, bold, italic);
+          // El texto se dibuja en mayúsculas si el estilo lo pide: la
+          // medición ya cuenta con esa transformación, así que el ancho y el
+          // dibujo tienen que ir juntos.
+          const texto = block.style.uppercase ? segment.text.toLocaleUpperCase("es") : segment.text;
+          const segmentWidth = measureSegment(texto, sizePt, bold, italic);
           const espaciosSegmento = wordSpacing > 0 ? (segment.text.match(/ /gu)?.length ?? 0) : 0;
           const extraMm = (wordSpacing * espaciosSegmento * 25.4) / 72;
           const advanceMm = segmentWidth + extraMm;
@@ -364,7 +368,7 @@ function toPdfPages(
               : undefined;
 
           runs.push({
-            text: segment.text,
+            text: texto,
             font,
             family: block.style.fontFamily,
             sizePt,
@@ -510,6 +514,9 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
     }
 
     const typography = withTypographyDefaults(input.typography);
+    // La maqueta del PDF es la misma que la de la vista previa: si aquí se
+    // ignorara el salto de página o la apertura en recto, los dos archivos
+    // dirían cosas distintas.
     const blocks = bookToBlocks(
       input.sections.map((section) => ({
         id: section.id,
@@ -517,7 +524,9 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
         type: section.type,
         content: section.content,
         isChapter: isChapterType(section.type),
-        startOnOddPage: false,
+        startOnOddPage: section.startOnOddPage,
+        pageBreakBefore: section.pageBreakBefore,
+        includeInExport: section.includeInExport,
       })),
     );
     const pdfFonts = await loadPdfFonts();
