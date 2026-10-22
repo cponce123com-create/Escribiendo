@@ -31,6 +31,7 @@
     "admin:password-reset": "tsx scripts/admin-password-reset.ts",
     "retention:clean": "tsx scripts/retention.ts",
     "bench:export": "tsx scripts/benchmark-export.ts",
+    "verify:preview-pdf": "tsx scripts/verify-preview-pdf.ts",
     "check:size": "tsx scripts/check-size.ts",
     "stress:export": "tsx scripts/stress-export.ts",
     "validate:epub": "tsx scripts/validate-epub.ts",

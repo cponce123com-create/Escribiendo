@@ -45,6 +45,8 @@ export interface ExportBlock {
 export interface ExportChapter {
   id: string;
   title: string;
+  /** `false` evita agregar automáticamente el título de la sección. */
+  showTitle?: boolean;
   blocks: ExportBlock[];
 }
 
@@ -69,6 +71,7 @@ function modifiedStamp(date: Date): string {
 
 const STYLES = `body { font-family: serif; line-height: 1.5; margin: 1em; }
 h1 { font-size: 1.6em; margin: 1.2em 0 0.8em; }
+.chapter-title { text-align: center; break-before: page; page-break-before: always; }
 h2 { font-size: 1.25em; margin: 1.1em 0 0.6em; }
 p { margin: 0 0 0.35em; text-indent: 1.2em; }
 p.quote { margin-left: 1.5em; margin-right: 1.5em; font-style: italic; text-indent: 0; }
@@ -164,6 +167,10 @@ function chapterXhtml(
   const body: string[] = [];
 
   const footnotes = chapterFootnotes(chapter);
+
+  if (chapter.showTitle !== false) {
+    body.push(`<h1 class="chapter-title">${escapeXml(chapter.title)}</h1>`);
+  }
 
   for (const block of chapter.blocks) {
     if (block.kind === "pageBreak") {

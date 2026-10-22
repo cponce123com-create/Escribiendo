@@ -10,6 +10,8 @@ import {
   type TypographyConfig,
 } from "@escribiendo/editorial-engine";
 import { bookToBlocks, isChapterType, seccionesExportables, type PreviewSection } from "./blocks";
+import { resolveRunningHeads } from "./running-heads";
+import { previewLineDrawings, type PreviewLineDrawing } from "./preview-drawing";
 import { loadPdfFonts } from "@/lib/export/fonts";
 import {
   getBookEdition,
@@ -29,6 +31,8 @@ import {
 export interface PreviewPage extends LaidOutPage {
   /** Encabezado ya resuelto con los marcadores de la plantilla. */
   runningHead: string | null;
+  /** Posiciones de línea medidas con la misma fuente que el PDF. */
+  drawnLines: PreviewLineDrawing[];
 }
 
 export interface PreviewResult {
@@ -146,24 +150,20 @@ export async function buildPreview(
       })
     )?.title ?? "";
 
-  const pages: PreviewPage[] = result.pages.map((page) => {
-    const seccion = page.blocks[0]?.sectionTitle ?? "";
-    const texto = plantilla
-      ? page.side === "recto"
-        ? plantilla.config.runningHead.recto
-        : plantilla.config.runningHead.verso
-      : "";
-
-    if (!texto) {
-      return { ...page, runningHead: page.runningHead };
-    }
+  const resolvedPages = resolveRunningHeads(result.pages, plantilla?.config ?? null, tituloLibro);
+  const pages: PreviewPage[] = resolvedPages.map((page) => {
+    const interior = profile.mirrorMargins ? page.side === "recto" : true;
+    const leftMm = interior ? profile.marginInnerMm + profile.gutterMm : profile.marginOuterMm;
 
     return {
       ...page,
-      runningHead: texto
-        .replaceAll("{libro}", tituloLibro)
-        .replaceAll("{capitulo}", seccion)
-        .trim(),
+      drawnLines: previewLineDrawings(
+        page,
+        result.textWidthMm,
+        leftMm,
+        fuentes?.measure,
+        profile.marginTopMm,
+      ),
     };
   });
 

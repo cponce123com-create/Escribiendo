@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { measureTextMm, type MeasureText } from "./measure";
 import {
+  CHAPTER_TITLE_SINK_PT,
+  isHeadingKind,
   lineHeightMm,
   paginate,
   textBlockSize,
@@ -96,6 +98,35 @@ describe("textBlockSize", () => {
 });
 
 describe("paginate", () => {
+  it("registra la sangría solo en el primer fragmento del párrafo", () => {
+    const result = paginate([bloque("b1", palabras(500), { firstOfSection: false })], GEOMETRY, {
+      ...TIPOGRAFIA,
+      body: { ...TIPOGRAFIA.body, firstLineIndentMm: 4 },
+    });
+    const fragments = result.pages.flatMap((page) => page.blocks);
+
+    expect(fragments.length).toBeGreaterThan(1);
+    expect(fragments[0]?.firstLineIndentMm).toBe(4);
+    expect(fragments.slice(1).every((fragment) => fragment.firstLineIndentMm === 0)).toBe(true);
+  });
+
+  it("aplica al título de capítulo heading1 más la caída solicitada", () => {
+    const result = paginate(
+      [bloque("titulo", "Capítulo uno", { kind: "chapterTitle" })],
+      GEOMETRY,
+      {
+        ...TIPOGRAFIA,
+        heading1: { ...TIPOGRAFIA.heading1, spaceBeforePt: 12 },
+      },
+    );
+    const title = result.pages[0]?.blocks[0];
+
+    expect(title?.spaceBeforeMm).toBeCloseTo(((12 + CHAPTER_TITLE_SINK_PT) * 25.4) / 72);
+    expect(isHeadingKind("chapterTitle")).toBe(true);
+    expect(isHeadingKind("heading3")).toBe(true);
+    expect(isHeadingKind("body")).toBe(false);
+  });
+
   it("coloca un texto corto en una sola página", () => {
     const resultado = paginate([bloque("b1", "una página")], GEOMETRY, TIPOGRAFIA);
 

@@ -36,6 +36,42 @@ export interface PreviewSection {
   includeInExport: boolean;
 }
 
+const SECTION_TYPES_WITH_TITLE = new Set([
+  "PART",
+  "CHAPTER",
+  "INTERLUDE",
+  "PROLOGUE",
+  "EPILOGUE",
+  "INTRODUCTION",
+  "FOREWORD",
+  "ACKNOWLEDGMENTS",
+  "AUTHOR_NOTES",
+  "ABOUT_AUTHOR",
+  "BIBLIOGRAPHY",
+  "GLOSSARY",
+  "APPENDIX",
+  "SUBCHAPTER",
+]);
+
+/** Indica si el tipo de sección presenta el título guardado. */
+export function sectionShowsTitle(type: string, title: string): boolean {
+  return SECTION_TYPES_WITH_TITLE.has(type.toUpperCase()) && title.trim().length > 0;
+}
+
+function normalizeTitle(value: string): string {
+  return value.replace(/\s+/gu, "").toLocaleLowerCase("es");
+}
+
+/** Detecta si el primer bloque del cuerpo ya repite el nombre de la sección. */
+export function repeatsSectionTitle(
+  blocks: readonly Pick<LayoutBlock, "text">[],
+  sectionTitle: string,
+): boolean {
+  const first = blocks[0]?.text;
+
+  return first !== undefined && normalizeTitle(first) === normalizeTitle(sectionTitle);
+}
+
 /**
  * Secciones que entran en la maqueta y en los archivos exportados.
  *
@@ -203,24 +239,56 @@ export function bookToBlocks(sections: PreviewSection[]): LayoutBlock[] {
   for (const section of sections) {
     const sectionBlocks = sectionToBlocks(section, footnotes);
     const opensChapter = section.isChapter && (chapterSeen || section.startOnOddPage);
+    const showsTitle = sectionShowsTitle(section.type, section.title);
+    const repeatsTitle = showsTitle && repeatsSectionTitle(sectionBlocks, section.title);
+    const contentBlocks = repeatsTitle ? sectionBlocks.slice(1) : sectionBlocks;
+    const titleBlock: LayoutBlock | null = showsTitle
+      ? {
+          id: `${section.id}-title`,
+          kind: section.type.toUpperCase() === "SUBCHAPTER" ? "heading2" : "chapterTitle",
+          text: section.title.trim(),
+          ...registrationFor(section),
+          firstOfSection: true,
+        }
+      : null;
 
     if (section.isChapter) {
       chapterSeen = true;
     }
 
-    sectionBlocks.forEach((block, index) => {
+    if (titleBlock) {
+      blocks.push({
+        ...titleBlock,
+        startsChapter: opensChapter,
+        breaksBefore: section.pageBreakBefore === true,
+      });
+    }
+
+    let firstBodyAfterTitle = false;
+
+    contentBlocks.forEach((block, index) => {
+      const firstParagraph = titleBlock !== null && block.kind === "body" && !firstBodyAfterTitle;
+
+      if (firstParagraph) {
+        firstBodyAfterTitle = true;
+      }
+
       blocks.push({
         ...block,
-        startsChapter: opensChapter && index === 0,
-        firstOfSection: index === 0,
+        startsChapter: !titleBlock && opensChapter && index === 0,
+        firstOfSection: titleBlock ? firstParagraph : index === 0,
         // Un salto propio de la sección abre página nueva, aunque la sección
         // no sea un capítulo.
-        breaksBefore: index === 0 && section.pageBreakBefore === true,
+        breaksBefore: !titleBlock && index === 0 && section.pageBreakBefore === true,
       });
     });
   }
 
   return blocks;
+}
+
+function registrationFor(section: PreviewSection): Pick<LayoutBlock, "sectionId" | "sectionTitle"> {
+  return { sectionId: section.id, sectionTitle: section.title };
 }
 
 /** Indica si un tipo de sección abre un capítulo. */
