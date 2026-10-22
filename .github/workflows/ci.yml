@@ -49,8 +49,8 @@ jobs:
       - name: Pruebas unitarias
         run: pnpm test
 
-      - name: Tamaño de los estáticos
-        run: pnpm check:size
-
       - name: Compilación de producción
         run: pnpm build
+
+      - name: Tamaño de los estáticos
+        run: pnpm check:size
