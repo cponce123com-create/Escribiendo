@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { EditorContent, useEditor } from "@tiptap/react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import type { TiptapDocument } from "@escribiendo/book-schema";
 import { countWordsInDocument, MAX_FOOTNOTE_LENGTH } from "@escribiendo/book-schema";
@@ -14,6 +14,7 @@ import {
   readWritingPreferences,
 } from "@/components/writing/writing-preferences";
 import { deleteDraft, loadDraft, saveDraft, type DraftRecord } from "@/lib/editor/drafts";
+import { readSectionScrollPosition, saveSectionScrollPosition } from "@/lib/editor/scroll-position";
 import {
   hasUnsavedWork,
   initialSyncMachine,
@@ -27,6 +28,7 @@ import { SectionConflictPanel } from "@/components/books/section-conflict";
 import { SectionImageControls } from "@/components/books/section-image-controls";
 import { EditorialFootnote } from "@/components/editor/editorial-footnote";
 import { EditorialImage } from "@/components/editor/editorial-image";
+import { LinkIcon } from "@/components/icons";
 import type { BookAssetSummary } from "@/lib/books/assets";
 
 interface SectionEditorProps {
@@ -58,10 +60,30 @@ const LOCAL_SAVE_DEBOUNCE_MS = 700;
 const SERVER_SYNC_DEBOUNCE_MS = 3_000;
 
 interface ToolbarButton {
-  label: string;
+  key: string;
+  label: ReactNode;
   title: string;
-  isActive: () => boolean;
+  ariaLabel: string;
+  pressed?: boolean;
+  disabled?: boolean;
+  text?: boolean;
   run: () => void;
+}
+
+interface ToolbarState {
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
+  strike: boolean;
+  link: boolean;
+  heading1: boolean;
+  heading2: boolean;
+  heading3: boolean;
+  blockquote: boolean;
+  bulletList: boolean;
+  orderedList: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
 }
 
 export function SectionEditor({
@@ -457,6 +479,78 @@ export function SectionEditor({
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
+  // --- Posición de lectura -------------------------------------------------
+  // Al volver desde la ficha del libro, se recupera el punto donde se estaba
+  // leyendo o escribiendo. La posición se guarda al desplazarse y al salir de
+  // la página; el enlace «Volver al libro» también la guarda antes de navegar.
+  useEffect(() => {
+    if (!editor) {
+      return;
+    }
+
+    let listo = false;
+    let scrollFrame: number | null = null;
+    let restoreFrame: number | null = null;
+
+    const guardar = (): void => {
+      if (listo) {
+        saveSectionScrollPosition(bookId, sectionId);
+      }
+    };
+
+    const alDesplazar = (): void => {
+      if (!listo || scrollFrame !== null) {
+        return;
+      }
+
+      scrollFrame = window.requestAnimationFrame(() => {
+        scrollFrame = null;
+        guardar();
+      });
+    };
+
+    const alCambiarVisibilidad = (): void => {
+      if (document.visibilityState === "hidden") {
+        guardar();
+      }
+    };
+
+    const posicion = readSectionScrollPosition(bookId, sectionId);
+
+    // Dos frames: el primero deja montar el contenido y el segundo permite
+    // medir la altura real del documento antes de desplazarse.
+    restoreFrame = window.requestAnimationFrame(() => {
+      restoreFrame = window.requestAnimationFrame(() => {
+        if (posicion !== null) {
+          // Sin animación: volver al punto de lectura no debe recorrer la
+          // página desde el principio delante de la persona.
+          window.scrollTo({ top: posicion, behavior: "instant" });
+        }
+
+        listo = true;
+      });
+    });
+
+    window.addEventListener("scroll", alDesplazar, { passive: true });
+    window.addEventListener("pagehide", guardar);
+    document.addEventListener("visibilitychange", alCambiarVisibilidad);
+
+    return () => {
+      if (scrollFrame !== null) {
+        window.cancelAnimationFrame(scrollFrame);
+      }
+
+      if (restoreFrame !== null) {
+        window.cancelAnimationFrame(restoreFrame);
+      }
+
+      window.removeEventListener("scroll", alDesplazar);
+      window.removeEventListener("pagehide", guardar);
+      document.removeEventListener("visibilitychange", alCambiarVisibilidad);
+      guardar();
+    };
+  }, [bookId, editor, sectionId]);
+
   // Aviso al cerrar la pestaña con cambios sin guardar.
   useEffect(() => {
     if (!hasUnsavedWork(machine)) {
@@ -489,149 +583,305 @@ export function SectionEditor({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [sincronizar]);
 
-  const currentWords = editor
-    ? countWordsInDocument(editor.getJSON() as TiptapDocument)
+  const editorActual = editor;
+
+  const toolbarState = useEditorState({
+    editor: editorActual,
+    selector: ({ editor: actual }): ToolbarState | null => {
+      if (!actual) {
+        return null;
+      }
+
+      return {
+        bold: actual.isActive("bold"),
+        italic: actual.isActive("italic"),
+        underline: actual.isActive("underline"),
+        strike: actual.isActive("strike"),
+        link: actual.isActive("link"),
+        heading1: actual.isActive("heading", { level: 1 }),
+        heading2: actual.isActive("heading", { level: 2 }),
+        heading3: actual.isActive("heading", { level: 3 }),
+        blockquote: actual.isActive("blockquote"),
+        bulletList: actual.isActive("bulletList"),
+        orderedList: actual.isActive("orderedList"),
+        canUndo: actual.can().undo(),
+        canRedo: actual.can().redo(),
+      };
+    },
+  });
+
+  const currentWords = editorActual
+    ? countWordsInDocument(editorActual.getJSON() as TiptapDocument)
     : wordCount;
 
-  const botones: ToolbarButton[] = editor
+  const blockValue = toolbarState?.heading1
+    ? "h1"
+    : toolbarState?.heading2
+      ? "h2"
+      : toolbarState?.heading3
+        ? "h3"
+        : toolbarState?.blockquote
+          ? "blockquote"
+          : "p";
+
+  const aplicarBloque = (valor: string): void => {
+    if (!editorActual) {
+      return;
+    }
+
+    if (valor === "h1") {
+      editorActual.chain().focus().unsetBlockquote().setHeading({ level: 1 }).run();
+      return;
+    }
+
+    if (valor === "h2") {
+      editorActual.chain().focus().unsetBlockquote().setHeading({ level: 2 }).run();
+      return;
+    }
+
+    if (valor === "h3") {
+      editorActual.chain().focus().unsetBlockquote().setHeading({ level: 3 }).run();
+      return;
+    }
+
+    if (valor === "blockquote") {
+      editorActual.chain().focus().setParagraph().setBlockquote().run();
+      return;
+    }
+
+    editorActual.chain().focus().unsetBlockquote().setParagraph().run();
+  };
+
+  const botonesTexto: ToolbarButton[] = editorActual
     ? [
         {
-          label: "N",
-          title: "Negrita",
-          isActive: () => editor.isActive("bold"),
-          run: () => editor.chain().focus().toggleBold().run(),
+          key: "bold",
+          label: <span className="font-bold">B</span>,
+          title: "Negrita (Ctrl/Cmd+B)",
+          ariaLabel: "Negrita",
+          pressed: toolbarState?.bold ?? false,
+          run: () => editorActual.chain().focus().toggleBold().run(),
         },
         {
-          label: "C",
-          title: "Cursiva",
-          isActive: () => editor.isActive("italic"),
-          run: () => editor.chain().focus().toggleItalic().run(),
+          key: "italic",
+          label: <span className="italic">I</span>,
+          title: "Cursiva (Ctrl/Cmd+I)",
+          ariaLabel: "Cursiva",
+          pressed: toolbarState?.italic ?? false,
+          run: () => editorActual.chain().focus().toggleItalic().run(),
         },
         {
-          label: "S",
-          title: "Tachado",
-          isActive: () => editor.isActive("strike"),
-          run: () => editor.chain().focus().toggleStrike().run(),
+          key: "underline",
+          label: <span className="underline">U</span>,
+          title: "Subrayado (Ctrl/Cmd+U)",
+          ariaLabel: "Subrayado",
+          pressed: toolbarState?.underline ?? false,
+          run: () => editorActual.chain().focus().toggleUnderline().run(),
         },
         {
-          label: "U",
-          title: "Subrayado",
-          isActive: () => editor.isActive("underline"),
-          run: () => editor.chain().focus().toggleUnderline().run(),
+          key: "strike",
+          label: <span className="line-through">S</span>,
+          title: "Tachado (Ctrl/Cmd+Shift+X)",
+          ariaLabel: "Tachado",
+          pressed: toolbarState?.strike ?? false,
+          run: () => editorActual.chain().focus().toggleStrike().run(),
         },
         {
-          label: "E",
+          key: "link",
+          label: <LinkIcon />,
           title: "Enlace",
-          isActive: () => editor.isActive("link"),
+          ariaLabel: "Enlace",
+          pressed: toolbarState?.link ?? false,
           run: () => {
-            const anterior = editor.getAttributes("link").href;
+            const anterior = editorActual.getAttributes("link").href;
 
             setDialogo({
               tipo: "enlace",
               valor: typeof anterior === "string" ? anterior : "",
-              desde: editor.state.selection.from,
-              hasta: editor.state.selection.to,
+              desde: editorActual.state.selection.from,
+              hasta: editorActual.state.selection.to,
             });
           },
         },
         {
-          label: "H2",
-          title: "Título de nivel 2",
-          isActive: () => editor.isActive("heading", { level: 2 }),
-          run: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
+          key: "clear",
+          label: "Limpiar",
+          title: "Limpiar formato",
+          ariaLabel: "Limpiar formato",
+          text: true,
+          run: () => editorActual.chain().focus().unsetAllMarks().clearNodes().run(),
         },
+      ]
+    : [];
+
+  const botonesEstructura: ToolbarButton[] = editorActual
+    ? [
         {
-          label: "H3",
-          title: "Título de nivel 3",
-          isActive: () => editor.isActive("heading", { level: 3 }),
-          run: () => editor.chain().focus().toggleHeading({ level: 3 }).run(),
-        },
-        {
-          label: "•",
+          key: "bulletList",
+          label: (
+            <span aria-hidden="true" className="font-serif text-base leading-none">
+              •
+            </span>
+          ),
           title: "Lista de viñetas",
-          isActive: () => editor.isActive("bulletList"),
-          run: () => editor.chain().focus().toggleBulletList().run(),
+          ariaLabel: "Lista de viñetas",
+          pressed: toolbarState?.bulletList ?? false,
+          run: () => editorActual.chain().focus().toggleBulletList().run(),
         },
         {
-          label: "1.",
+          key: "orderedList",
+          label: (
+            <span aria-hidden="true" className="text-xs font-semibold tabular-nums">
+              1.
+            </span>
+          ),
           title: "Lista numerada",
-          isActive: () => editor.isActive("orderedList"),
-          run: () => editor.chain().focus().toggleOrderedList().run(),
+          ariaLabel: "Lista numerada",
+          pressed: toolbarState?.orderedList ?? false,
+          run: () => editorActual.chain().focus().toggleOrderedList().run(),
         },
         {
-          label: "❝",
-          title: "Cita",
-          isActive: () => editor.isActive("blockquote"),
-          run: () => editor.chain().focus().toggleBlockquote().run(),
-        },
-        {
-          label: "—",
+          key: "separator",
+          label: (
+            <span aria-hidden="true" className="font-serif text-base leading-none">
+              —
+            </span>
+          ),
           title: "Separador de escena",
-          isActive: () => editor.isActive("horizontalRule"),
-          run: () => editor.chain().focus().setHorizontalRule().run(),
+          ariaLabel: "Separador de escena",
+          run: () => editorActual.chain().focus().setHorizontalRule().run(),
         },
+      ]
+    : [];
+
+  const botonesInsertar: ToolbarButton[] = editorActual
+    ? [
         {
-          label: "†",
+          key: "footnote",
+          label: (
+            <span aria-hidden="true" className="font-serif text-base leading-none">
+              †
+            </span>
+          ),
           title: "Nota al pie",
-          isActive: () => editor.isActive("footnote"),
+          ariaLabel: "Nota al pie",
           run: () => {
             setDialogo({
               tipo: "nota",
               valor: "",
-              desde: editor.state.selection.from,
-              hasta: editor.state.selection.to,
+              desde: editorActual.state.selection.from,
+              hasta: editorActual.state.selection.to,
             });
           },
         },
+      ]
+    : [];
+
+  const botonesHistorial: ToolbarButton[] = editorActual
+    ? [
         {
-          label: "↶",
-          title: "Deshacer",
-          isActive: () => false,
-          run: () => editor.chain().focus().undo().run(),
+          key: "undo",
+          label: <span aria-hidden="true">↶</span>,
+          title: "Deshacer (Ctrl/Cmd+Z)",
+          ariaLabel: "Deshacer",
+          disabled: !(toolbarState?.canUndo ?? false),
+          run: () => editorActual.chain().focus().undo().run(),
         },
         {
-          label: "↷",
-          title: "Rehacer",
-          isActive: () => false,
-          run: () => editor.chain().focus().redo().run(),
+          key: "redo",
+          label: <span aria-hidden="true">↷</span>,
+          title: "Rehacer (Ctrl/Cmd+Shift+Z)",
+          ariaLabel: "Rehacer",
+          disabled: !(toolbarState?.canRedo ?? false),
+          run: () => editorActual.chain().focus().redo().run(),
         },
       ]
     : [];
+
+  const renderBoton = (boton: ToolbarButton) => (
+    <button
+      key={boton.key}
+      type="button"
+      title={boton.title}
+      aria-label={boton.ariaLabel}
+      aria-pressed={boton.pressed}
+      disabled={boton.disabled}
+      onClick={boton.run}
+      className={`toolbar-button${boton.text ? " toolbar-button--text" : ""}`}
+    >
+      {boton.label}
+    </button>
+  );
 
   const mensaje = statusMessage(machine);
   const sincronizando = machine.state === "syncing";
 
   return (
     <div className="space-y-4">
-      {canEdit ? (
-        <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label="Formato">
-          {botones.map((boton) => (
-            <button
-              key={boton.title}
-              type="button"
-              title={boton.title}
-              aria-label={boton.title}
-              aria-pressed={boton.isActive()}
-              onClick={boton.run}
-              className={`icon-button ${boton.isActive() ? "border-accent text-accent" : ""}`}
+      {canEdit && editorActual ? (
+        <div className="editor-toolbar panel">
+          <p className="meta-label">Formato</p>
+          <div
+            className="editor-toolbar__controls"
+            role="toolbar"
+            aria-label="Formato"
+            aria-orientation="horizontal"
+          >
+            <div className="editor-toolbar__group" role="group" aria-label="Estilo de texto">
+              {botonesTexto.map(renderBoton)}
+            </div>
+            <span className="editor-toolbar__divider" aria-hidden="true" />
+            <div className="editor-toolbar__group" role="group" aria-label="Estilo de párrafo">
+              <div className="editor-toolbar__select">
+                <label className="sr-only" htmlFor={`section-block-type-${sectionId}`}>
+                  Tipo de bloque
+                </label>
+                <select
+                  id={`section-block-type-${sectionId}`}
+                  value={blockValue}
+                  onChange={(event) => aplicarBloque(event.target.value)}
+                >
+                  <option value="p">Párrafo</option>
+                  <option value="h1">Título 1</option>
+                  <option value="h2">Título 2</option>
+                  <option value="h3">Título 3</option>
+                  <option value="blockquote">Cita</option>
+                </select>
+              </div>
+            </div>
+            <span className="editor-toolbar__divider" aria-hidden="true" />
+            <div className="editor-toolbar__group" role="group" aria-label="Listas y estructura">
+              {botonesEstructura.map(renderBoton)}
+            </div>
+            <span className="editor-toolbar__divider" aria-hidden="true" />
+            <div className="editor-toolbar__group" role="group" aria-label="Insertar">
+              {botonesInsertar.map(renderBoton)}
+            </div>
+            <div
+              className="editor-toolbar__group editor-toolbar__group--history"
+              role="group"
+              aria-label="Historial"
             >
-              {boton.label}
-            </button>
-          ))}
+              {botonesHistorial.map(renderBoton)}
+            </div>
+          </div>
         </div>
       ) : null}
 
       {canEdit ? (
-        <SectionImageControls
-          editor={editor}
-          bookId={bookId}
-          assets={assets}
-          onAssetRegistered={(asset) => {
-            setAssets((current) =>
-              current.some((item) => item.id === asset.id) ? current : [...current, asset],
-            );
-          }}
-        />
+        <div className="space-y-2">
+          <p className="meta-label">Imágenes del libro</p>
+          <SectionImageControls
+            editor={editorActual}
+            bookId={bookId}
+            assets={assets}
+            onAssetRegistered={(asset) => {
+              setAssets((current) =>
+                current.some((item) => item.id === asset.id) ? current : [...current, asset],
+              );
+            }}
+          />
+        </div>
       ) : null}
 
       {dialogo?.tipo === "enlace" ? (

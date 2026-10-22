@@ -68,6 +68,7 @@ Cobertura actual (Fases 1 a 3):
 | `packages/export-engine/src/epub.test.ts`                 | EPUB 3 y DOCX: entradas del paquete, `mimetype` en primer lugar, manifiesto, spine, navegación, estilos, XML escapado y reproducibilidad.                                                                   |
 | `apps/web/src/lib/editor/sync.test.ts`                    | Máquina de estados de la sincronización: transiciones, espera de reintento creciente, cuándo toca sincronizar y la invariante «no se dice «guardado» mientras no lo está».                                  |
 | `apps/web/src/lib/editor/drafts.test.ts`                  | Almacén de borradores locales: guardar, recuperar, borrar, listar, aislar por cuenta y funcionar sin IndexedDB.                                                                                             |
+| `apps/web/src/lib/editor/scroll-position.test.ts`         | Posición de lectura: serialización, caducidad, datos dañados y conservación del punto más avanzado al subir para volver al libro.                                                                           |
 
 ---
 
@@ -261,19 +262,20 @@ crea su propio libro, su sección y su perfil de página:
 - Una descarga sin firma se rechaza.
 
 `tests/e2e/manuscrito.spec.ts` cubre la resiliencia del manuscrito, los
-controles de imagen y la inserción, numeración, guardado y persistencia de una
-nota al pie. `tests/e2e/equipo.spec.ts` cubre equipo y gobernanza. Los
-escenarios están descritos en [RECOVERY_TESTS.md](RECOVERY_TESTS.md) y en el
-ROADMAP.
+controles de imagen, la barra de formato agrupada, el tipo de bloque, la vuelta
+al libro con ancla a la sección y la restauración de la posición de lectura.
+También comprueba la inserción, numeración, guardado y persistencia de una nota
+al pie. `tests/e2e/equipo.spec.ts` cubre equipo y gobernanza. Los escenarios
+están descritos en [RECOVERY_TESTS.md](RECOVERY_TESTS.md) y en el ROADMAP.
 
 ### 4.5 Resultados obtenidos
 
 ```text
-Running 80 tests using 1 worker
-80 passed (4.6m)
+Running 83 tests using 1 worker
+83 passed (3.9m)
 ```
 
-Las 81 pruebas incluyen la preparación de la cuenta de pruebas. La suite se ha
+Las 83 pruebas incluyen la preparación de la cuenta de pruebas. La suite se ha
 ejecutado de forma repetida con resultado completo en todas las ejecuciones,
 contra PostgreSQL 17.7 local y contra la **compilación de producción** (no el
 servidor de desarrollo). En producción, el mismo flujo de instalación, acceso y

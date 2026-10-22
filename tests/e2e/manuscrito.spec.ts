@@ -51,6 +51,69 @@ test.describe("Resiliencia del manuscrito", () => {
     await expect(page.getByText("Todavía no hay imágenes en este libro.")).toBeVisible();
   });
 
+  test("la barra de formato muestra controles agrupados y el estado activo", async ({ page }) => {
+    await abrirSeccion(page, SECTION_TITLE);
+
+    await expect(page.getByRole("toolbar", { name: "Formato" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Negrita" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Enlace" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Limpiar formato" })).toBeVisible();
+
+    const tipoBloque = page.getByRole("combobox", { name: "Tipo de bloque" });
+    await expect(tipoBloque).toHaveValue("p");
+
+    await page.locator(".ProseMirror").click();
+    await page.keyboard.type("Texto con formato.");
+    await page.keyboard.press("Shift+Home");
+
+    await page.getByRole("button", { name: "Negrita" }).click();
+    await expect(page.getByRole("button", { name: "Negrita" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    await page.getByRole("button", { name: "Negrita" }).click();
+    await expect(page.getByRole("button", { name: "Negrita" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+
+    await tipoBloque.selectOption("h2");
+    await expect(page.locator(".ProseMirror h2")).toContainText("Texto con formato.");
+
+    await tipoBloque.selectOption("blockquote");
+    await expect(page.locator(".ProseMirror blockquote")).toContainText("Texto con formato.");
+
+    await tipoBloque.selectOption("p");
+    await expect(page.locator(".ProseMirror h2")).toHaveCount(0);
+    await expect(page.locator(".ProseMirror blockquote")).toHaveCount(0);
+  });
+
+  test("vuelve al libro y conserva la posición de lectura al regresar", async ({ page }) => {
+    await abrirSeccion(page, SECTION_TITLE);
+
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    const posicionAnterior = await page.evaluate(() => window.scrollY);
+
+    await page.getByRole("link", { name: "Volver al libro" }).click();
+
+    await expect(page).toHaveURL(/#section-/u);
+    await expect(page.getByRole("heading", { name: BOOK_TITLE })).toBeVisible();
+
+    const enlaceSeccion = page.getByRole("link", { name: new RegExp(SECTION_TITLE, "u") }).first();
+    await expect(enlaceSeccion).toBeVisible();
+    await enlaceSeccion.click();
+
+    await expect(page.locator(".ProseMirror")).toBeVisible();
+    await expect
+      .poll(async () => {
+        const posicionRecuperada = await page.evaluate(() => window.scrollY);
+        return Math.abs(posicionRecuperada - posicionAnterior);
+      })
+      .toBeLessThan(40);
+  });
+
   test("el editor y la ficha del libro no tienen infracciones de accesibilidad graves", async ({
     page,
   }) => {

@@ -29,7 +29,7 @@ export function SectionTree({ bookId, nodes, activeSectionId }: SectionTreeProps
       const isActive = node.id === activeSectionId;
 
       return (
-        <li key={node.id}>
+        <li key={node.id} id={`section-${node.id}`} className="scroll-mt-24">
           <Link
             href={href}
             aria-current={isActive ? "page" : undefined}
