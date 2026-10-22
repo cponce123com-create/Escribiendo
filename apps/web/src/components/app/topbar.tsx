@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { NavLinks } from "@/components/app/nav-links";
 import { Logo } from "@/components/brand/logo";
+import { AppSidebarToggle } from "@/components/app/app-shell";
 import { LogOutIcon } from "@/components/icons";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { logoutAction } from "@/lib/auth/actions";
@@ -15,6 +16,7 @@ export function AppTopbar({ session }: AppTopbarProps) {
   return (
     <header className="app-topbar sticky top-0 z-30 border-b border-line">
       <div className="flex items-center gap-4 px-4 py-3 sm:px-6 lg:px-8">
+        <AppSidebarToggle />
         <div className="lg:hidden">
           <Logo href="/dashboard" />
         </div>

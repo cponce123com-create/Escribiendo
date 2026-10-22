@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { AppShell } from "@/components/app/app-shell";
 import { Sidebar } from "@/components/app/sidebar";
 import { AppTopbar } from "@/components/app/topbar";
 import { requireSession } from "@/lib/auth/session";
@@ -9,13 +10,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const session = await requireSession();
 
   return (
-    <div className="min-h-svh lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]">
-      <a href="#contenido" className="skip-link">
-        Saltar al contenido
-      </a>
-
-      <Sidebar session={session} />
-
+    <AppShell sidebar={<Sidebar session={session} />}>
       <div className="flex min-h-svh min-w-0 flex-col">
         <AppTopbar session={session} />
 
@@ -30,6 +25,6 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </footer>
       </div>
-    </div>
+    </AppShell>
   );
 }

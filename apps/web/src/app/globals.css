@@ -927,6 +927,49 @@
     border-color: var(--line);
   }
 
+  .app-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    transition: grid-template-columns 240ms ease;
+  }
+
+  .app-sidebar-toggle {
+    width: 2.55rem;
+    height: 2.55rem;
+    flex: 0 0 auto;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--surface) 82%, transparent);
+    color: var(--ink-soft);
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease,
+      color 150ms ease,
+      transform 150ms ease;
+  }
+
+  .app-sidebar-toggle:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
+    background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+    color: var(--accent-strong);
+  }
+
+  @media (min-width: 64rem) {
+    .app-shell {
+      grid-template-columns: 17rem minmax(0, 1fr);
+    }
+
+    .app-shell--sidebar-collapsed {
+      grid-template-columns: 0 minmax(0, 1fr);
+    }
+
+    .app-shell--sidebar-collapsed .app-sidebar {
+      display: none;
+    }
+  }
+
   .app-topbar {
     background: color-mix(in srgb, var(--canvas) 82%, transparent);
     backdrop-filter: blur(16px);

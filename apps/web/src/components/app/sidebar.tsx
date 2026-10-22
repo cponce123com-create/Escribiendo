@@ -21,7 +21,11 @@ interface SidebarProps {
 
 export function Sidebar({ session }: SidebarProps) {
   return (
-    <aside className="app-sidebar hidden min-h-svh flex-col border-r lg:flex">
+    <aside
+      id="navegacion-principal"
+      className="app-sidebar hidden min-h-svh flex-col border-r lg:flex"
+      aria-label="Barra lateral principal"
+    >
       <div className="px-5 pb-5 pt-6">
         <Logo href="/dashboard" />
       </div>
