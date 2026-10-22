@@ -98,6 +98,11 @@ export function documentoDePrueba(): ExportDocumentModel {
           { kind: "body", text: "Segunda parte del capítulo." },
         ],
       },
+      {
+        id: "dedicatoria",
+        title: "Dedicatoria",
+        blocks: [{ kind: "body", text: "A quienes escriben incluso cuando cuesta." }],
+      },
     ],
   };
 }
