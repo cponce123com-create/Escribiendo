@@ -35,6 +35,8 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5433/escribiendo_test
       DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5433/escribiendo_test
       E2E_SETUP_TOKEN: e2e-token-de-pruebas-con-mas-de-treinta-y-dos-caracteres
+      # La aplicación lee SETUP_TOKEN; las pruebas, E2E_SETUP_TOKEN.
+      SETUP_TOKEN: e2e-token-de-pruebas-con-mas-de-treinta-y-dos-caracteres
       E2E_ALLOW_NON_TEST_DATABASE: "1"
       E2E_ALLOW_REMOTE_DATABASE: "1"
       NEXT_TELEMETRY_DISABLED: "1"
