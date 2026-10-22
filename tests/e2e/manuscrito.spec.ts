@@ -92,6 +92,28 @@ test.describe("Resiliencia del manuscrito", () => {
     await expect(page).toHaveURL(new RegExp("/sections/"));
   });
 
+  test("pliega y restaura la navegación del manuscrito", async ({ page }) => {
+    await abrirSeccion(page, SECTION_TITLE);
+
+    const navegacion = page.getByRole("complementary", { name: "Navegación del manuscrito" });
+    const ocultar = navegacion.getByRole("button", { name: "Ocultar navegación del manuscrito" });
+
+    await expect(
+      navegacion.getByRole("link", { name: new RegExp(SECTION_TITLE, "u") }),
+    ).toBeVisible();
+    await ocultar.click();
+
+    await expect(navegacion.getByRole("link")).toHaveCount(0);
+    await expect(
+      navegacion.getByRole("button", { name: "Mostrar navegación del manuscrito" }),
+    ).toHaveAttribute("aria-expanded", "false");
+
+    await navegacion.getByRole("button", { name: "Mostrar navegación del manuscrito" }).click();
+    await expect(
+      navegacion.getByRole("link", { name: new RegExp(SECTION_TITLE, "u") }),
+    ).toBeVisible();
+  });
+
   test("el editor ofrece imágenes y la biblioteca del libro", async ({ page }) => {
     await abrirSeccion(page, SECTION_TITLE);
 

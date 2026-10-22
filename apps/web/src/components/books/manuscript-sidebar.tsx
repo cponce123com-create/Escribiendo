@@ -13,6 +13,8 @@ interface ManuscriptSidebarProps {
   nodes: SectionNode[];
   activeSectionId: string;
   canMove: boolean;
+  collapsed: boolean;
+  onToggle: () => void;
 }
 
 /** Navegación del manuscrito y reordenación accesible entre secciones hermanas. */
@@ -21,6 +23,8 @@ export function ManuscriptSidebar({
   nodes,
   activeSectionId,
   canMove,
+  collapsed,
+  onToggle,
 }: ManuscriptSidebarProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -47,7 +51,7 @@ export function ManuscriptSidebar({
         return (
           <li key={node.id}>
             <div
-              className={`group flex items-center gap-1 rounded-md ${active ? "bg-accent/10" : "hover:bg-ink/5"}`}
+              className={`group flex items-center gap-1 rounded-lg border transition-colors ${active ? "border-accent/20 bg-accent/10 shadow-[inset_2px_0_0_var(--accent)]" : "border-transparent hover:border-line hover:bg-ink/5"}`}
               onDragOver={(event) => {
                 if (canMove && draggedId && draggedId !== node.id) event.preventDefault();
               }}
@@ -89,7 +93,7 @@ export function ManuscriptSidebar({
               <Link
                 href={`/books/${bookId}/sections/${node.id}`}
                 aria-current={active ? "page" : undefined}
-                className="min-w-0 flex-1 py-2 pr-1 text-sm text-ink-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+                className={`min-w-0 flex-1 py-2 pr-1 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent ${active ? "font-semibold text-ink" : "text-ink-soft"}`}
                 style={depth > 0 ? { paddingLeft: `${0.25 + depth * 0.75}rem` } : undefined}
               >
                 <span className="block truncate" title={node.title}>
@@ -132,17 +136,101 @@ export function ManuscriptSidebar({
     </ul>
   );
 
+  const sectionCount = countSections(nodes);
+
   return (
-    <aside className="panel h-fit p-4 lg:sticky lg:top-20" aria-label="Navegación del manuscrito">
-      <h2 className="mb-3 font-serif text-lg text-ink">Manuscrito</h2>
-      {nodes.length > 0 ? (
-        renderNodes(nodes, 0)
-      ) : (
-        <p className="text-sm text-ink-muted">Todavía no hay secciones.</p>
-      )}
+    <aside
+      className={`panel manuscript-navigation h-fit self-start transition-[width,padding] duration-300 xl:sticky xl:top-20 ${
+        collapsed ? "p-2" : "p-3 sm:p-4"
+      }`}
+      aria-label="Navegación del manuscrito"
+      data-collapsed={collapsed}
+    >
+      <div
+        className={`flex items-center ${collapsed ? "justify-center" : "justify-between gap-2"}`}
+      >
+        {collapsed ? (
+          <button
+            type="button"
+            className="manuscript-navigation__toggle"
+            aria-label="Mostrar navegación del manuscrito"
+            title="Mostrar capítulos"
+            aria-expanded="false"
+            onClick={onToggle}
+          >
+            <NavigationIcon />
+          </button>
+        ) : (
+          <>
+            <div className="min-w-0">
+              <p className="meta-label">Tu libro</p>
+              <div className="mt-1 flex items-center gap-2">
+                <h2 className="font-serif text-xl leading-tight text-ink">Manuscrito</h2>
+                <span className="rounded-full border border-line px-2 py-0.5 text-[0.65rem] font-semibold tabular-nums text-ink-muted">
+                  {sectionCount}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="manuscript-navigation__toggle shrink-0"
+              aria-label="Ocultar navegación del manuscrito"
+              title="Ocultar capítulos"
+              aria-expanded="true"
+              onClick={onToggle}
+            >
+              <NavigationIcon />
+            </button>
+          </>
+        )}
+      </div>
+
+      {!collapsed ? (
+        <>
+          <div className="my-3 flex items-center justify-between border-y border-line py-2">
+            <span className="text-xs text-ink-muted">Secciones</span>
+            <span className="text-xs font-medium tabular-nums text-ink-soft">
+              {sectionCount} en total
+            </span>
+          </div>
+          <div className="max-h-[calc(100svh-13rem)] overflow-y-auto pr-1">
+            {nodes.length > 0 ? (
+              renderNodes(nodes, 0)
+            ) : (
+              <p className="rounded-lg border border-dashed border-line-strong px-3 py-4 text-sm text-ink-muted">
+                Todavía no hay secciones.
+              </p>
+            )}
+          </div>
+        </>
+      ) : null}
+
       <p className="sr-only" role="status">
         {pending ? "Guardando el orden…" : message}
       </p>
     </aside>
+  );
+}
+
+function countSections(nodes: SectionNode[]): number {
+  return nodes.reduce((total, node) => total + 1 + countSections(node.children), 0);
+}
+
+function NavigationIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" className="size-5" fill="none">
+      <path
+        d="M4 5.5h12M4 10h12M4 14.5h12"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+      <path
+        d="M2.5 5.5h.01M2.5 10h.01M2.5 14.5h.01"
+        stroke="currentColor"
+        strokeWidth="2.8"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }

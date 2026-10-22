@@ -669,6 +669,77 @@
     backdrop-filter: blur(10px);
   }
 
+  .section-workspace-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1.25rem;
+    padding: 1.2rem 1.35rem;
+    border: 1px solid var(--line);
+    border-radius: 1rem;
+    background:
+      linear-gradient(115deg, color-mix(in srgb, var(--accent) 5%, transparent), transparent 48%),
+      color-mix(in srgb, var(--surface-raised) 88%, transparent);
+    box-shadow: var(--shadow-card);
+    backdrop-filter: blur(12px);
+  }
+
+  .workspace-stat {
+    display: inline-flex;
+    min-height: 2rem;
+    align-items: center;
+    gap: 0.45rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 0.35rem 0.7rem;
+    background: color-mix(in srgb, var(--surface) 72%, transparent);
+    color: var(--ink-soft);
+    font-size: 0.72rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .workspace-stat__dot {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 999px;
+    background: var(--success);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 14%, transparent);
+  }
+
+  .manuscript-navigation {
+    overflow: hidden;
+    background: color-mix(in srgb, var(--surface-raised) 91%, transparent);
+  }
+
+  .manuscript-navigation__toggle {
+    display: grid;
+    width: 2.5rem;
+    height: 2.5rem;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: 0.7rem;
+    background: color-mix(in srgb, var(--surface) 72%, transparent);
+    color: var(--ink-soft);
+    transition:
+      background-color 150ms ease,
+      color 150ms ease,
+      border-color 150ms ease,
+      transform 150ms ease;
+  }
+
+  .manuscript-navigation__toggle:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+    background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+    color: var(--accent-strong);
+  }
+
+  .section-details-panel {
+    background: color-mix(in srgb, var(--surface-raised) 82%, transparent);
+  }
+
   .alert {
     display: flex;
     gap: 0.7rem;
@@ -1010,9 +1081,10 @@
    --------------------------------------------------------------------------- */
 
 .manuscript-editor {
-  padding: 1.75rem 1.5rem;
-  min-height: 24rem;
+  min-height: min(70svh, 56rem);
+  padding: clamp(1.35rem, 3.4vw, 3rem) clamp(1.1rem, 4vw, 3.25rem);
   background: var(--surface-raised);
+  box-shadow: 0 18px 50px color-mix(in srgb, var(--ink) 6%, transparent);
 }
 
 .manuscript-editor:focus-within {
