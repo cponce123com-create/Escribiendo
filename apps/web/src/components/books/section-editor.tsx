@@ -24,6 +24,7 @@ import {
   type SyncMachine,
 } from "@/lib/editor/sync";
 import { SectionConflictPanel } from "@/components/books/section-conflict";
+import { EditorToolbar } from "@/components/books/editor-toolbar";
 import { SectionImageControls } from "@/components/books/section-image-controls";
 import { EditorialFootnote } from "@/components/editor/editorial-footnote";
 import { EditorialImage } from "@/components/editor/editorial-image";
@@ -56,13 +57,6 @@ const LOCAL_SAVE_DEBOUNCE_MS = 700;
  * esta espera es solo para no enviar una petición por cada pulsación.
  */
 const SERVER_SYNC_DEBOUNCE_MS = 3_000;
-
-interface ToolbarButton {
-  label: string;
-  title: string;
-  isActive: () => boolean;
-  run: () => void;
-}
 
 export function SectionEditor({
   sectionId,
@@ -493,110 +487,33 @@ export function SectionEditor({
     ? countWordsInDocument(editor.getJSON() as TiptapDocument)
     : wordCount;
 
-  const botones: ToolbarButton[] = editor
-    ? [
-        {
-          label: "N",
-          title: "Negrita",
-          isActive: () => editor.isActive("bold"),
-          run: () => editor.chain().focus().toggleBold().run(),
-        },
-        {
-          label: "C",
-          title: "Cursiva",
-          isActive: () => editor.isActive("italic"),
-          run: () => editor.chain().focus().toggleItalic().run(),
-        },
-        {
-          label: "S",
-          title: "Tachado",
-          isActive: () => editor.isActive("strike"),
-          run: () => editor.chain().focus().toggleStrike().run(),
-        },
-        {
-          label: "U",
-          title: "Subrayado",
-          isActive: () => editor.isActive("underline"),
-          run: () => editor.chain().focus().toggleUnderline().run(),
-        },
-        {
-          label: "E",
-          title: "Enlace",
-          isActive: () => editor.isActive("link"),
-          run: () => {
-            const anterior = editor.getAttributes("link").href;
+  const abrirEnlace = (): void => {
+    if (!editor) {
+      return;
+    }
 
-            setDialogo({
-              tipo: "enlace",
-              valor: typeof anterior === "string" ? anterior : "",
-              desde: editor.state.selection.from,
-              hasta: editor.state.selection.to,
-            });
-          },
-        },
-        {
-          label: "H2",
-          title: "Título de nivel 2",
-          isActive: () => editor.isActive("heading", { level: 2 }),
-          run: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
-        },
-        {
-          label: "H3",
-          title: "Título de nivel 3",
-          isActive: () => editor.isActive("heading", { level: 3 }),
-          run: () => editor.chain().focus().toggleHeading({ level: 3 }).run(),
-        },
-        {
-          label: "•",
-          title: "Lista de viñetas",
-          isActive: () => editor.isActive("bulletList"),
-          run: () => editor.chain().focus().toggleBulletList().run(),
-        },
-        {
-          label: "1.",
-          title: "Lista numerada",
-          isActive: () => editor.isActive("orderedList"),
-          run: () => editor.chain().focus().toggleOrderedList().run(),
-        },
-        {
-          label: "❝",
-          title: "Cita",
-          isActive: () => editor.isActive("blockquote"),
-          run: () => editor.chain().focus().toggleBlockquote().run(),
-        },
-        {
-          label: "—",
-          title: "Separador de escena",
-          isActive: () => editor.isActive("horizontalRule"),
-          run: () => editor.chain().focus().setHorizontalRule().run(),
-        },
-        {
-          label: "†",
-          title: "Nota al pie",
-          isActive: () => editor.isActive("footnote"),
-          run: () => {
-            setDialogo({
-              tipo: "nota",
-              valor: "",
-              desde: editor.state.selection.from,
-              hasta: editor.state.selection.to,
-            });
-          },
-        },
-        {
-          label: "↶",
-          title: "Deshacer",
-          isActive: () => false,
-          run: () => editor.chain().focus().undo().run(),
-        },
-        {
-          label: "↷",
-          title: "Rehacer",
-          isActive: () => false,
-          run: () => editor.chain().focus().redo().run(),
-        },
-      ]
-    : [];
+    const anterior = editor.getAttributes("link").href;
+
+    setDialogo({
+      tipo: "enlace",
+      valor: typeof anterior === "string" ? anterior : "",
+      desde: editor.state.selection.from,
+      hasta: editor.state.selection.to,
+    });
+  };
+
+  const abrirNota = (): void => {
+    if (!editor) {
+      return;
+    }
+
+    setDialogo({
+      tipo: "nota",
+      valor: "",
+      desde: editor.state.selection.from,
+      hasta: editor.state.selection.to,
+    });
+  };
 
   const mensaje = statusMessage(machine);
   const sincronizando = machine.state === "syncing";
@@ -604,21 +521,7 @@ export function SectionEditor({
   return (
     <div className="space-y-4">
       {canEdit ? (
-        <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label="Formato">
-          {botones.map((boton) => (
-            <button
-              key={boton.title}
-              type="button"
-              title={boton.title}
-              aria-label={boton.title}
-              aria-pressed={boton.isActive()}
-              onClick={boton.run}
-              className={`icon-button ${boton.isActive() ? "border-accent text-accent" : ""}`}
-            >
-              {boton.label}
-            </button>
-          ))}
-        </div>
+        <EditorToolbar editor={editor} onLink={abrirEnlace} onFootnote={abrirNota} />
       ) : null}
 
       {canEdit ? (

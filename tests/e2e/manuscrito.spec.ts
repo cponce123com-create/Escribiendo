@@ -43,6 +43,32 @@ test.describe("Resiliencia del manuscrito", () => {
     await expect(page.getByRole("heading", { name: SECTION_TITLE })).toBeVisible();
   });
 
+  test("la barra refleja el formato activo y habilita el historial cuando corresponde", async ({
+    page,
+  }) => {
+    await abrirSeccion(page, SECTION_TITLE);
+
+    const deshacer = page.getByRole("button", { name: "Deshacer" });
+    const rehacer = page.getByRole("button", { name: "Rehacer" });
+
+    await expect(deshacer).toBeDisabled();
+    await expect(rehacer).toBeDisabled();
+
+    const cuerpo = page.locator(".ProseMirror");
+    await cuerpo.click();
+    await page.keyboard.type("Texto para probar el formato.");
+    await page.keyboard.press("Shift+Home");
+
+    const negrita = page.getByRole("button", { name: "Negrita" });
+    await negrita.click();
+    await expect(negrita).toHaveAttribute("aria-pressed", "true");
+    await expect(deshacer).toBeEnabled();
+
+    await deshacer.click();
+    await expect(rehacer).toBeEnabled();
+    await expect(negrita).toHaveAttribute("aria-pressed", "false");
+  });
+
   test("el editor ofrece imágenes y la biblioteca del libro", async ({ page }) => {
     await abrirSeccion(page, SECTION_TITLE);
 
@@ -124,6 +150,10 @@ test.describe("Resiliencia del manuscrito", () => {
 
     await expect(page.getByRole("dialog", { name: "Enlace" })).toHaveCount(0);
     await expect(page.locator('a[href="https://ejemplo.test/libro"]')).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "Enlace" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 
   test("el texto se guarda en el equipo al momento de escribir", async ({ page }) => {
