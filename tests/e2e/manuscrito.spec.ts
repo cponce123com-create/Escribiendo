@@ -114,6 +114,23 @@ test.describe("Resiliencia del manuscrito", () => {
     ).toBeVisible();
   });
 
+  test("pliega el menú principal y recuerda la preferencia", async ({ page }) => {
+    await abrirSeccion(page, SECTION_TITLE);
+
+    const barra = page.getByRole("complementary", { name: "Barra lateral principal" });
+    await expect(barra).toBeVisible();
+    await page.getByRole("button", { name: "Ocultar menú principal" }).click();
+    await expect(barra).toBeHidden();
+
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Mostrar menú principal" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    await page.getByRole("button", { name: "Mostrar menú principal" }).click();
+    await expect(barra).toBeVisible();
+  });
+
   test("el editor ofrece imágenes y la biblioteca del libro", async ({ page }) => {
     await abrirSeccion(page, SECTION_TITLE);
 
