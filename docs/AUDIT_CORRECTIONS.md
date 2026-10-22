@@ -1010,5 +1010,65 @@ Verificación, el 22 de octubre de 2026:
 | Despliegue           | No hizo falta volver a desplegar: el cambio es de datos, no de código.    |
 
 El cierre es operativo: no cambia la puntuación conservadora de 87,4/100, que
-sigue pendiente de las validaciones externas (Word y LibreOffice, Cloudinary,
-PDF/X, cobertura CJK, fuzzing del parser TTF y pentest).
+sigue pendiente de las validaciones externas (Word, Cloudinary, PDF/X,
+cobertura CJK, fuzzing del parser TTF y pentest).
+
+---
+
+## Lote Z: el DOCX se abre con LibreOffice
+
+Fecha: 22 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+
+### Qué faltaba
+
+El DOCX se validaba con Mammoth, un lector de OOXML, pero no se había abierto
+con un procesador de textos. La compatibilidad con Word y con LibreOffice
+seguía sin comprobar.
+
+### Qué se ha cambiado
+
+| Área       | Archivo                                | Cambio                                                                                                                                     |
+| ---------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Validación | `scripts/validate-docx-libreoffice.ts` | Genera el DOCX de prueba, lo convierte a PDF con LibreOffice y comprueba con pdf.js el texto, la nota al pie, el pie de imagen y el salto. |
+| Lector     | `scripts/pdfjs/valida-pdf.mjs`         | Acepta `--full` para imprimir todo el texto en vez de los primeros 600 caracteres.                                                         |
+| Comando    | `package.json`                         | `pnpm validate:docx:libreoffice`.                                                                                                          |
+| CI         | `.github/workflows/docx.yml`           | Instala LibreOffice Writer, ejecuta la validación y guarda el DOCX y el PDF como artefactos.                                               |
+| Documento  | `docs/EXPORT_VALIDATION.md`            | Registra la validación y lo que sigue sin comprobarse (Word).                                                                              |
+
+### Cómo se ejecuta
+
+```bash
+pnpm --dir scripts/pdfjs install
+pnpm validate:docx:libreoffice
+```
+
+Si LibreOffice no está en el PATH:
+
+```bash
+LIBREOFFICE="/ruta/a/soffice" pnpm validate:docx:libreoffice
+```
+
+El DOCX y el PDF se escriben en una carpeta temporal; con
+`DOCX_VALIDATION_DIR` se conservan en una ruta conocida, como hace el trabajo
+de CI.
+
+### Verificación
+
+| Comprobación                     | Resultado                                                                  |
+| -------------------------------- | -------------------------------------------------------------------------- |
+| `pnpm validate:docx:libreoffice` | LibreOffice 26.8.1.1 abre el DOCX y genera un PDF de 3 páginas.            |
+| Texto en el PDF                  | «El velo de la tarde caía sobre la plaza.» y «Segunda parte del capítulo.» |
+| Nota al pie                      | «La nota explica el detalle.» conservada.                                  |
+| Imagen                           | Pie «Pie de la imagen de prueba» conservado.                               |
+| pdf.js 4.10.38                   | Lee las 3 páginas y devuelve el texto completo.                            |
+
+En esta máquina, LibreOffice se instaló desde el MSI oficial 26.8.1 con
+`msiexec /a` y se añadieron las DLL de Visual C++ junto al programa, porque el
+sistema no las tenía. Es una particularidad del entorno: el repositorio no
+depende de ella. El script busca `soffice` en el PATH o en `LIBREOFFICE`, y el
+trabajo de CI instala LibreOffice Writer en Ubuntu.
+
+**Lo que sigue sin comprobarse**: Microsoft Word. LibreOffice es un procesador
+de textos independiente, pero no es Word. La puntuación conservadora sigue en
+87,4/100 hasta cerrar el resto de validaciones externas.

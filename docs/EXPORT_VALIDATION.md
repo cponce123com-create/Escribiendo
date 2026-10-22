@@ -220,10 +220,19 @@ DOCX_VALIDATOR="pnpm dlx mammoth@1.11.0" pnpm validate:docx
 pnpm dlx mammoth@1.11.0 test-results\docx-generado.docx
 ```
 
-**Lo que no se ha hecho**: no se ha abierto el archivo en Microsoft Word ni en
-LibreOffice desde este entorno. El paquete lo entiende un lector OOXML
-independiente, pero la compatibilidad real con Word y con LibreOffice no está
-comprobada.
+**Validación con LibreOffice (Lote Z).** El DOCX también se ha abierto con
+**LibreOffice 26.8.1.1**, un procesador de textos independiente:
+
+- `pnpm validate:docx:libreoffice` genera el DOCX, lo convierte a PDF con
+  LibreOffice en modo sin interfaz y lee el PDF con pdf.js.
+- Resultado: **3 páginas**; se conservan el texto, la nota al pie («La nota
+  explica el detalle.»), el pie de la imagen y el salto de página.
+- El DOCX y el PDF quedan como artefactos del trabajo de CI `DOCX con
+LibreOffice`, para poder abrirlos a mano.
+
+**Lo que sigue sin comprobarse**: Microsoft Word. LibreOffice es un procesador
+de textos independiente, pero no es Word; la compatibilidad con Word no se
+declara.
 
 ## Integridad, seguridad y reproducibilidad
 
@@ -256,22 +265,23 @@ incluyen en ese banco: no hay credenciales de Cloudinary para descargarlas.
 
 ## Evidencia ejecutada
 
-| Comprobación         | Resultado                     |
-| -------------------- | ----------------------------- |
-| `pnpm test`          | 332 pruebas en 35 archivos    |
-| `pnpm test:e2e`      | 80 pruebas en Chromium        |
-| `pnpm typecheck`     | Sin errores                   |
-| `pnpm lint`          | Sin errores                   |
-| `pnpm build`         | Correcto                      |
-| `pnpm bench:export`  | Ejecutado con fuentes         |
-| `pnpm validate:epub` | 0 errores con EPUBCheck 5.1.0 |
-| `pnpm validate:docx` | Leído con Mammoth 1.11.0      |
-| `pnpm validate:pdf`  | Leído con pdf.js 4.10.38      |
+| Comprobación                     | Resultado                       |
+| -------------------------------- | ------------------------------- |
+| `pnpm test`                      | 337 pruebas en 36 archivos      |
+| `pnpm test:e2e`                  | 81 pruebas en Chromium          |
+| `pnpm typecheck`                 | Sin errores                     |
+| `pnpm lint`                      | Sin errores                     |
+| `pnpm build`                     | Correcto                        |
+| `pnpm bench:export`              | Ejecutado con fuentes           |
+| `pnpm validate:epub`             | 0 errores con EPUBCheck 5.1.0   |
+| `pnpm validate:docx`             | Leído con Mammoth 1.11.0        |
+| `pnpm validate:docx:libreoffice` | LibreOffice 26.8.1.1: 3 páginas |
+| `pnpm validate:pdf`              | Leído con pdf.js 4.10.38        |
 
 ## Bloqueos externos
 
-- Word y LibreOffice no están disponibles en esta máquina: la compatibilidad
-  real con esas aplicaciones no está comprobada.
+- Microsoft Word no está disponible en esta máquina: la compatibilidad con
+  Word no está comprobada. LibreOffice 26.8.1.1 sí se ha usado (Lote Z).
 - Cloudinary no está configurado en local: la subida y la descarga reales de
   imágenes no se han probado de extremo a extremo.
 - Render Free no es accesible desde esta red.
@@ -314,9 +324,8 @@ prueba de editor de `tests/e2e/manuscrito.spec.ts`.
   la nota contiene `w:footnoteRef` y el texto en el estilo `FootnoteText`.
 - Los estilos `FootnoteText` y `FootnoteReference` están declarados en
   `word/styles.xml`.
-- No se ha abierto el archivo en Word ni en LibreOffice desde este entorno. La
-  estructura OOXML se comprueba en las pruebas, no la compatibilidad real de la
-  aplicación.
+- Abierto con LibreOffice 26.8.1.1 (Lote Z): la nota al pie se conserva en el
+  PDF generado. Microsoft Word sigue sin probarse.
 
 ### Evidencia
 
