@@ -5,7 +5,7 @@ import { RevisionList } from "@/components/books/revision-list";
 import { SectionEditor } from "@/components/books/section-editor";
 import { requireSession } from "@/lib/auth/session";
 import { canPerform } from "@/lib/books/permissions";
-import { getSection, getBook, listRevisions } from "@/lib/books/queries";
+import { getBook, getSection, getSectionTree, listRevisions } from "@/lib/books/queries";
 import { listBookAssets } from "@/lib/books/assets";
 import {
   emptyTiptapDocument,
@@ -15,6 +15,7 @@ import {
 import { SECTION_TYPE_LABELS, formatNumber } from "@/lib/ui/format";
 import { AssignSelect } from "@/components/team/assign-select";
 import { listMembers } from "@/lib/team/members";
+import { ManuscriptSidebar } from "@/components/books/manuscript-sidebar";
 
 export const metadata: Metadata = {
   title: "Manuscrito",
@@ -43,15 +44,17 @@ export default async function SectionPage({ params }: SectionPageProps) {
     notFound();
   }
 
-  const [book, revisions, miembros, imagenes] = await Promise.all([
+  const [book, revisions, miembros, imagenes, sectionTree] = await Promise.all([
     getBook(session, bookId),
     listRevisions(session, bookId, sectionId),
     listMembers(session),
     listBookAssets(session, bookId),
+    getSectionTree(session, bookId),
   ]);
 
   const canEdit = canPerform(session.workspace.role, "section:update");
   const canRestore = canPerform(session.workspace.role, "revision:restore");
+  const canMove = canPerform(session.workspace.role, "section:move");
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
@@ -80,7 +83,13 @@ export default async function SectionPage({ params }: SectionPageProps) {
         </nav>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+      <div className="grid gap-6 lg:grid-cols-[15rem_minmax(0,1.6fr)_minmax(16rem,1fr)]">
+        <ManuscriptSidebar
+          bookId={bookId}
+          nodes={sectionTree}
+          activeSectionId={section.id}
+          canMove={canMove}
+        />
         <section aria-label="Manuscrito">
           <SectionEditor
             sectionId={section.id}
