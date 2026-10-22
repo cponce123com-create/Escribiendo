@@ -278,9 +278,11 @@
     background: color-mix(in srgb, var(--surface) 60%, transparent);
   }
 
-  .brand-mark svg {
-    width: 1.45rem;
-    height: 1.45rem;
+  .brand-mark img {
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: 0.2rem;
+    object-fit: contain;
   }
 
   .brand-name {
