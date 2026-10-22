@@ -982,3 +982,33 @@ Con el esquema restaurado, `/api/health/ready` responde `200` con
 | `pnpm lint`                             | Sin errores.                                                                                                                                                                        |
 | `pnpm typecheck`                        | Sin errores.                                                                                                                                                                        |
 | `pnpm build`                            | Correcto.                                                                                                                                                                           |
+
+### Cierre en producción
+
+El despliegue seguía mostrando «Migración pendiente» porque la base de datos de
+Neon que usa Render no tenía aplicada la última migración. El `.env` de la
+estación de trabajo apuntaba a `127.0.0.1:5433`, así que ejecutar
+`pnpm db:migrate` en local migraba la base de pruebas, no la de producción.
+
+La red de la estación no permite conectar con Neon por el puerto 5432, así que
+la migración se aplicó desde el editor SQL de Neon, en una transacción:
+
+- `ALTER TABLE "sessions" ADD COLUMN IF NOT EXISTS "workspaceId" UUID;`
+- `CREATE INDEX IF NOT EXISTS "sessions_workspaceId_idx" ON "sessions"("workspaceId");`
+- registro en `_prisma_migrations` con el checksum
+  `5b8c43d6bc9cd36096440c421d143b0d06b35a677eba62a1ea2626d14f8e6f62`
+  (SHA-256 de `20261021210000_session_workspace/migration.sql`), para que
+  `prisma migrate deploy` no la repita.
+
+Verificación, el 22 de octubre de 2026:
+
+| Comprobación         | Resultado                                                                 |
+| -------------------- | ------------------------------------------------------------------------- |
+| `_prisma_migrations` | Cuatro filas; la última, `20261021210000_session_workspace`.              |
+| `/api/health/ready`  | `200` con `status: ready`, `schema: ok` y el commit desplegado `a4a6a68`. |
+| Acceso               | El formulario inicia sesión y las páginas privadas cargan.                |
+| Despliegue           | No hizo falta volver a desplegar: el cambio es de datos, no de código.    |
+
+El cierre es operativo: no cambia la puntuación conservadora de 87,4/100, que
+sigue pendiente de las validaciones externas (Word y LibreOffice, Cloudinary,
+PDF/X, cobertura CJK, fuzzing del parser TTF y pentest).
