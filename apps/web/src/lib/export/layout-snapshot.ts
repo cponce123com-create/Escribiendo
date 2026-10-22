@@ -7,6 +7,7 @@ export interface ExportLayoutSnapshot {
   typography: unknown;
   runningHeadTemplate: RunningHeadTemplate | null;
   bookTitle: string;
+  dropCaps: boolean;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -51,5 +52,6 @@ export function readExportLayoutSnapshot(options: unknown): ExportLayoutSnapshot
     typography: layout.typography,
     runningHeadTemplate,
     bookTitle: typeof layout.bookTitle === "string" ? layout.bookTitle : "",
+    dropCaps: layout.dropCaps === true,
   };
 }

@@ -77,6 +77,8 @@ export interface GenerateInput {
   runningHeadTemplate?: RunningHeadTemplate | null;
   /** Título del libro usado para resolver `{libro}` en el encabezado. */
   bookTitle?: string;
+  /** Activa una inicial capitular en el primer párrafo de cada capítulo. */
+  dropCaps?: boolean;
   /** Imágenes ya resueltas, para pruebas o para una exportación reproducible. */
   images?: ExportImageMap;
   /** Fecha de creación del documento; fija el resultado para que sea reproducible. */
@@ -191,6 +193,7 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
         pageBreakBefore: section.pageBreakBefore,
         includeInExport: section.includeInExport,
       })),
+      { dropCaps: input.dropCaps === true },
     );
     const pdfFonts = await loadPdfFonts();
     const measure = pdfFonts?.measure;
@@ -230,7 +233,11 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
     fuentesIncrustadas = pdf.fuentesIncrustadas;
     fuentesOmitidas = pdf.fuentesOmitidas;
   } else {
-    const chapters = chaptersForReflowableFormats(input.sections, sectionBlocks);
+    const chapters = chaptersForReflowableFormats(
+      input.sections,
+      sectionBlocks,
+      input.dropCaps === true,
+    );
 
     const model: ExportDocumentModel = {
       title: input.title,

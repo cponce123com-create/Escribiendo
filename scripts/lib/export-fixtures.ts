@@ -31,6 +31,7 @@ export function documentoDePrueba(): ExportDocumentModel {
       {
         id: "capitulo-1",
         title: "Prólogo",
+        dropCap: true,
         blocks: [
           { kind: "title", text: "Prólogo" },
           {

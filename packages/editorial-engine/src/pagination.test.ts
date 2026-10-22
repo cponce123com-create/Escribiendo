@@ -110,6 +110,21 @@ describe("paginate", () => {
     expect(fragments.slice(1).every((fragment) => fragment.firstLineIndentMm === 0)).toBe(true);
   });
 
+  it("reserva el ancho de la inicial capitular en las tres primeras líneas", () => {
+    const texto = palabrasiguales(40);
+    const normal = paginate([bloque("normal", texto)], GEOMETRY, TIPOGRAFIA).pages[0]?.blocks[0];
+    const capitular = paginate(
+      [bloque("capitular", texto, { dropCapCharacter: "A" })],
+      GEOMETRY,
+      TIPOGRAFIA,
+    ).pages[0]?.blocks[0];
+
+    expect(capitular?.dropCapIndentMm).toBeGreaterThan(0);
+    expect(capitular?.lines[0]?.text.length).toBeLessThan(normal?.lines[0]?.text.length ?? 0);
+    expect(capitular?.lines[1]?.text.length).toBeLessThan(normal?.lines[1]?.text.length ?? 0);
+    expect(capitular?.lines[2]?.text.length).toBeLessThan(normal?.lines[2]?.text.length ?? 0);
+  });
+
   it("aplica al título de capítulo heading1 más la caída solicitada", () => {
     const result = paginate(
       [bloque("titulo", "Capítulo uno", { kind: "chapterTitle" })],

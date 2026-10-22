@@ -57,6 +57,10 @@ export interface LayoutBlock {
   startsChapter?: boolean;
   /** El bloque es el primero de su sección. */
   firstOfSection?: boolean;
+  /** Inicial opcional para el primer párrafo del capítulo. */
+  dropCapCharacter?: string;
+  /** Espacio reservado a la inicial capitular durante sus tres líneas. */
+  dropCapIndentMm?: number;
   /**
    * El bloque tiene que empezar en una página nueva. Se usa para los saltos
    * de página que pide la sección.
@@ -126,6 +130,10 @@ export interface LaidOutBlock {
   firstOfSection?: boolean;
   /** El bloque continúa de un párrafo partido en la página anterior. */
   continued?: boolean;
+  /** Inicial opcional para la primera línea del párrafo. */
+  dropCapCharacter?: string;
+  /** Espacio reservado a la inicial capitular durante sus tres líneas. */
+  dropCapIndentMm?: number;
   /** Sangría aplicada solo a la primera línea del primer fragmento. */
   firstLineIndentMm?: number;
   /** Imagen y su caja compuesta, cuando el bloque es una imagen. */
@@ -488,6 +496,17 @@ export function paginate(
           ? 0
           : style.firstLineIndentMm;
 
+    const dropCapIndentMm = block.dropCapCharacter
+      ? measureTextMm(block.dropCapCharacter, {
+          fontFamily: style.fontFamily,
+          fontSizePt: style.fontSizePt * 3,
+          letterSpacingPt: style.letterSpacingPt,
+          uppercase: style.uppercase,
+          bold: isHeadingKind(block.kind),
+          ...(measure ? { measure } : {}),
+        }) +
+        (style.fontSizePt * 0.12 * 25.4) / 72
+      : 0;
     const breakOptions = {
       fontFamily: style.fontFamily,
       fontSizePt: style.fontSizePt,
@@ -495,7 +514,10 @@ export function paginate(
       uppercase: style.uppercase,
       smallCaps: style.smallCaps,
       lineWidthMm: widthMm,
-      firstLineIndentMm: indentMm,
+      firstLineIndentMm: indentMm + dropCapIndentMm,
+      ...(block.dropCapCharacter
+        ? { lineIndentsMm: [indentMm + dropCapIndentMm, dropCapIndentMm, dropCapIndentMm] }
+        : {}),
       hyphenation: style.hyphenation,
       // Los títulos se componen en negrita: si se midieran como redonda, la
       // línea cabría en el cálculo y se saldría en el papel.
@@ -596,6 +618,8 @@ export function paginate(
               firstOfSection: block.firstOfSection,
               continued: !isFirstChunk,
               firstLineIndentMm: isFirstChunk ? indentMm : 0,
+              dropCapCharacter: isFirstChunk ? block.dropCapCharacter : undefined,
+              dropCapIndentMm: isFirstChunk ? dropCapIndentMm : undefined,
             },
             before + lineHeight,
           );
@@ -645,6 +669,8 @@ export function paginate(
             firstOfSection: block.firstOfSection,
             continued: !isFirstChunk,
             firstLineIndentMm: isFirstChunk ? indentMm : 0,
+            dropCapCharacter: isFirstChunk ? block.dropCapCharacter : undefined,
+            dropCapIndentMm: isFirstChunk ? dropCapIndentMm : undefined,
           },
           before + pending.length * lineHeight + spaceAfterMm,
         );
@@ -700,6 +726,8 @@ export function paginate(
           firstOfSection: block.firstOfSection,
           continued: !isFirstChunk,
           firstLineIndentMm: isFirstChunk ? indentMm : 0,
+          dropCapCharacter: isFirstChunk ? block.dropCapCharacter : undefined,
+          dropCapIndentMm: isFirstChunk ? dropCapIndentMm : undefined,
         },
         before + take * lineHeight,
       );

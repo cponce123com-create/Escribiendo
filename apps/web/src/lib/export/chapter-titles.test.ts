@@ -17,6 +17,24 @@ describe("capítulos de EPUB y DOCX", () => {
     expect(chapter?.blocks.map((block) => block.text)).toEqual(["Empieza la historia."]);
   });
 
+  it("activa la inicial solo para capítulos que abren sección", () => {
+    const chapters = chaptersForReflowableFormats(
+      [
+        { id: "c1", title: "Capítulo I", type: "CHAPTER" },
+        { id: "s1", title: "Una pausa", type: "SUBCHAPTER" },
+        { id: "d1", title: "Dedicatoria", type: "DEDICATION" },
+      ],
+      [
+        [{ kind: "body", text: "Empieza el capítulo." }],
+        [{ kind: "body", text: "Continúa el capítulo." }],
+        [{ kind: "body", text: "A quien lee." }],
+      ],
+      true,
+    );
+
+    expect(chapters.map((chapter) => chapter.dropCap)).toEqual([true, false, false]);
+  });
+
   it("no genera título para portada, dedicatoria ni copyright", () => {
     const sections = [
       { id: "s1", title: "Cubierta", type: "COVER" },

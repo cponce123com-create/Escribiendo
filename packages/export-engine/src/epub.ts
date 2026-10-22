@@ -47,6 +47,8 @@ export interface ExportChapter {
   title: string;
   /** `false` evita agregar automáticamente el título de la sección. */
   showTitle?: boolean;
+  /** Compone una inicial destacada en el primer párrafo del capítulo. */
+  dropCap?: boolean;
   blocks: ExportBlock[];
 }
 
@@ -74,6 +76,7 @@ h1 { font-size: 1.6em; margin: 1.2em 0 0.8em; }
 .chapter-title { text-align: center; break-before: page; page-break-before: always; }
 h2 { font-size: 1.25em; margin: 1.1em 0 0.6em; }
 p { margin: 0 0 0.35em; text-indent: 1.2em; }
+p.drop-cap::first-letter { float: left; font-size: 3em; line-height: 0.85; padding-right: 0.08em; }
 p.quote { margin-left: 1.5em; margin-right: 1.5em; font-style: italic; text-indent: 0; }
 hr.scene { border: 0; text-align: center; margin: 1.2em 0; }
 hr.scene::after { content: "* * *"; letter-spacing: 0.4em; }
@@ -172,6 +175,7 @@ function chapterXhtml(
     body.push(`<h1 class="chapter-title">${escapeXml(chapter.title)}</h1>`);
   }
 
+  let dropCapApplied = false;
   for (const block of chapter.blocks) {
     if (block.kind === "pageBreak") {
       body.push('<div class="pagebreak"></div>');
@@ -220,7 +224,9 @@ function chapterXhtml(
       continue;
     }
 
-    body.push(`<p>${inlineContent(block)}</p>`);
+    const dropCapClass = chapter.dropCap && !dropCapApplied && block.kind === "body";
+    if (dropCapClass) dropCapApplied = true;
+    body.push(`<p${dropCapClass ? ' class="drop-cap"' : ""}>${inlineContent(block)}</p>`);
   }
 
   if (footnotes.length > 0) {

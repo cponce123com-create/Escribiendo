@@ -133,6 +133,7 @@ export async function GET(request: Request, context: RouteContext): Promise<Next
         ? snapshot.runningHeadTemplate
         : contextData.runningHeadTemplate,
       bookTitle: snapshot?.bookTitle || book.title,
+      dropCaps: snapshot?.dropCaps ?? false,
       createdAt: job.createdAt,
     });
 

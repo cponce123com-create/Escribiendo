@@ -69,6 +69,29 @@ test.describe("Resiliencia del manuscrito", () => {
     await expect(negrita).toHaveAttribute("aria-pressed", "false");
   });
 
+  test("navega entre capítulos y conserva el orden al reordenarlos", async ({ page }) => {
+    await abrirSeccion(page, SECTION_TITLE);
+    const navegacion = page.getByRole("complementary", { name: "Navegación del manuscrito" });
+
+    await expect(
+      navegacion.getByRole("link", { name: new RegExp(SECTION_TITLE, "u") }),
+    ).toHaveAttribute("aria-current", "page");
+
+    await page.goto("/books");
+    await page.getByRole("link", { name: BOOK_TITLE }).click();
+    await page.getByLabel("Título de la sección").fill("Segundo capítulo de pruebas");
+    await page.getByLabel("Tipo").selectOption("CHAPTER");
+    await page.getByRole("button", { name: "Añadir sección" }).click();
+    await page.getByRole("link", { name: /Segundo capítulo de pruebas/u }).click();
+
+    const nav = page.getByRole("complementary", { name: "Navegación del manuscrito" });
+    await nav.getByRole("button", { name: "Subir Segundo capítulo de pruebas" }).click();
+    await expect(nav.getByRole("link").first()).toContainText("Segundo capítulo de pruebas");
+    await nav.getByRole("link", { name: new RegExp(SECTION_TITLE, "u") }).click();
+    await expect(page.locator(".ProseMirror")).toBeVisible();
+    await expect(page).toHaveURL(new RegExp("/sections/"));
+  });
+
   test("el editor ofrece imágenes y la biblioteca del libro", async ({ page }) => {
     await abrirSeccion(page, SECTION_TITLE);
 

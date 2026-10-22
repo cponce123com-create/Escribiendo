@@ -79,4 +79,22 @@ describe("geometría compartida de vista previa y PDF", () => {
       expect(run?.font === "bold").toBe(line.bold);
     });
   });
+
+  it("dibuja la inicial capitular separada y reserva su ancho", () => {
+    const page: LaidOutPage = {
+      ...PAGE,
+      blocks: [
+        {
+          ...PAGE.blocks[1]!,
+          dropCapCharacter: "U",
+        },
+      ],
+    };
+    const pdf = toPdfPages([page], PROFILE, TYPOGRAPHY, new Map()).pdfPages[0];
+    const capital = pdf?.runs.find((run) => run.text === "U");
+    const firstLine = pdf?.runs.find((run) => run.text.startsWith("na línea"));
+
+    expect(capital?.sizePt).toBeCloseTo(TYPOGRAPHY.body.fontSizePt * 3);
+    expect(firstLine?.xMm).toBeGreaterThan((capital?.xMm ?? 0) + 1);
+  });
 });
