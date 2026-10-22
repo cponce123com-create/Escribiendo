@@ -1028,13 +1028,14 @@ seguía sin comprobar.
 
 ### Qué se ha cambiado
 
-| Área       | Archivo                                | Cambio                                                                                                                                     |
-| ---------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Validación | `scripts/validate-docx-libreoffice.ts` | Genera el DOCX de prueba, lo convierte a PDF con LibreOffice y comprueba con pdf.js el texto, la nota al pie, el pie de imagen y el salto. |
-| Lector     | `scripts/pdfjs/valida-pdf.mjs`         | Acepta `--full` para imprimir todo el texto en vez de los primeros 600 caracteres.                                                         |
-| Comando    | `package.json`                         | `pnpm validate:docx:libreoffice`.                                                                                                          |
-| CI         | `.github/workflows/docx.yml`           | Instala LibreOffice Writer, ejecuta la validación y guarda el DOCX y el PDF como artefactos.                                               |
-| Documento  | `docs/EXPORT_VALIDATION.md`            | Registra la validación y lo que sigue sin comprobarse (Word).                                                                              |
+| Área       | Archivo                                            | Cambio                                                                                                                                     |
+| ---------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Validación | `scripts/validate-docx-libreoffice.ts`             | Genera el DOCX de prueba, lo convierte a PDF con LibreOffice y comprueba con pdf.js el texto, la nota al pie, el pie de imagen y el salto. |
+| Lector     | `scripts/pdfjs/valida-pdf.mjs`                     | Acepta `--full` para imprimir todo el texto en vez de los primeros 600 caracteres.                                                         |
+| Comando    | `package.json`                                     | `pnpm validate:docx:libreoffice`.                                                                                                          |
+| CI         | `.github/workflows/docx.yml`                       | Instala LibreOffice Writer, ejecuta la validación y guarda el DOCX y el PDF como artefactos.                                               |
+| CI         | `.github/workflows/ci.yml`, `e2e.yml`, `audit.yml` | Instala pnpm antes de Node, compila antes de medir los estáticos y antes de las pruebas E2E; el E2E recibe `SETUP_TOKEN`.                  |
+| Documento  | `docs/EXPORT_VALIDATION.md`                        | Registra la validación y lo que sigue sin comprobarse (Word).                                                                              |
 
 ### Cómo se ejecuta
 
@@ -1062,6 +1063,36 @@ de CI.
 | Nota al pie                      | «La nota explica el detalle.» conservada.                                  |
 | Imagen                           | Pie «Pie de la imagen de prueba» conservado.                               |
 | pdf.js 4.10.38                   | Lee las 3 páginas y devuelve el texto completo.                            |
+
+### La imagen de Ubuntu 26 destapó los workflows
+
+La etiqueta `ubuntu-latest` pasó a Ubuntu 26 y dejó de traer pnpm
+preinstalado. Los workflows ejecutaban `actions/setup-node` con `cache: pnpm`
+antes de `pnpm/action-setup`, así que fallaban al buscar el ejecutable. Además:
+
+- `check:size` se ejecutaba antes de `pnpm build`; el script termina con error
+  si no hay compilación.
+- El trabajo E2E lanzaba Playwright sin compilar la aplicación y sin pasarle
+  `SETUP_TOKEN`; con la base vacía, `/setup` aparecía deshabilitado y el acceso
+  de prueba fallaba.
+
+Se corrigieron los cuatro workflows. Resultado en GitHub Actions:
+
+| Trabajo                | Resultado                                                      |
+| ---------------------- | -------------------------------------------------------------- |
+| `Verificación`         | Formato, lint, tipos, 337 pruebas, compilación y tamaño: pasa. |
+| `DOCX con LibreOffice` | Pasa; deja `libro.docx` y `libro.pdf` como artefacto.          |
+| `Extremo a extremo`    | 81 pruebas en Chromium: pasan.                                 |
+
+- [Verificación](https://github.com/cponce123com-create/Escribiendo/actions/runs/39790300139)
+- [DOCX con LibreOffice](https://github.com/cponce123com-create/Escribiendo/actions/runs/39789957627)
+- [Extremo a extremo](https://github.com/cponce123com-create/Escribiendo/actions/runs/39792452351)
+- [Auditoría de dependencias](https://github.com/cponce123com-create/Escribiendo/actions/runs/39795156682)
+
+La auditoría de dependencias también pasa: `pnpm audit --prod` no encuentra
+vulnerabilidades en producción. El aviso alto de `braces` es de desarrollo
+(transitiva de `eslint-config-next`) y no tiene versión corregida; se informa
+sin bloquear.
 
 En esta máquina, LibreOffice se instaló desde el MSI oficial 26.8.1 con
 `msiexec /a` y se añadieron las DLL de Visual C++ junto al programa, porque el

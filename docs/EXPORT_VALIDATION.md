@@ -229,6 +229,8 @@ pnpm dlx mammoth@1.11.0 test-results\docx-generado.docx
   explica el detalle.»), el pie de la imagen y el salto de página.
 - El DOCX y el PDF quedan como artefactos del trabajo de CI `DOCX con
 LibreOffice`, para poder abrirlos a mano.
+- El trabajo pasa en Ubuntu y deja ambos archivos como artefactos
+  ([ejecución](https://github.com/cponce123com-create/Escribiendo/actions/runs/39789957627)).
 
 **Lo que sigue sin comprobarse**: Microsoft Word. LibreOffice es un procesador
 de textos independiente, pero no es Word; la compatibilidad con Word no se
@@ -277,6 +279,9 @@ incluyen en ese banco: no hay credenciales de Cloudinary para descargarlas.
 | `pnpm validate:docx`             | Leído con Mammoth 1.11.0        |
 | `pnpm validate:docx:libreoffice` | LibreOffice 26.8.1.1: 3 páginas |
 | `pnpm validate:pdf`              | Leído con pdf.js 4.10.38        |
+
+Los trabajos `Verificación` y `Extremo a extremo` también pasan en GitHub
+Actions; el E2E ejecuta las 81 pruebas en Chromium.
 
 ## Bloqueos externos
 
