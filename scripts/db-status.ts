@@ -13,6 +13,7 @@
  */
 import path from "node:path";
 import { config as loadEnv } from "dotenv";
+import { COLUMNAS_ESPERADAS, missingColumns } from "../packages/database/src/expected-schema";
 import { scrubSecrets } from "../packages/shared/src/redaction";
 import { repoRoot } from "./lib/prisma-cli";
 
@@ -188,6 +189,36 @@ if (pending.length > 0) {
 }
 
 ok(`Migraciones aplicadas: ${applied.length}`);
+
+// Tener las tablas no basta: una base a la que le falta una columna responde,
+// pero la aplicación falla al leerla. Es el caso que dejó la aplicación caída
+// con un «error de interfaz»: las tablas estaban, la columna no.
+const columnas = await prisma.$queryRaw<{ tabla: string; columna: string }[]>`
+  SELECT table_name AS tabla, column_name AS columna
+  FROM information_schema.columns
+  WHERE table_schema = current_schema()
+`;
+
+const faltantes = missingColumns(columnas);
+
+if (faltantes.length > 0) {
+  const lista = faltantes.map((columna) => `${columna.tabla}.${columna.columna}`).join(", ");
+  const migracionRegistrada = applied.some(
+    (row) => row.migration_name === "20261021210000_session_workspace",
+  );
+
+  fail(
+    `Faltan columnas que la aplicación necesita: ${lista}.\n` +
+      "  Aplica las migraciones con `pnpm db:migrate`." +
+      (migracionRegistrada
+        ? "\n  La migración que crea la columna de sesión ya figura como aplicada: comprueba\n" +
+          "  que DATABASE_URL y DIRECT_URL apuntan a la misma base y que no se restauró\n" +
+          "  el esquema desde una copia anterior."
+        : ""),
+  );
+}
+
+ok(`Columnas esperadas: ${COLUMNAS_ESPERADAS.length}`);
 
 const users = await prisma.user.count({ where: { deletedAt: null } });
 ok(`Cuentas de usuario: ${users}`);

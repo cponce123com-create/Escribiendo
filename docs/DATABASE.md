@@ -80,6 +80,18 @@ Informa de si la base de datos responde, de cuántas tablas de la aplicación
 existen, de cuántas migraciones están aplicadas y de cuántas cuentas hay. Es el
 comando que hay que ejecutar **antes** de desplegar y **después** de migrar.
 
+También comprueba las **columnas concretas** que necesita el código
+(`sessions.workspaceId`, `export_jobs.idempotencyKey` y `books.writingProgress`).
+Si falta alguna, termina con error y la nombra:
+
+```
+✗ Faltan columnas que la aplicación necesita: sessions.workspaceId.
+  Aplica las migraciones con `pnpm db:migrate`.
+```
+
+Tener solo las tablas no basta: una base a la que le falta una columna responde
+y supera un `SELECT 1`, pero la aplicación falla al leerla.
+
 Además, comprueba que `DATABASE_URL` y `DIRECT_URL` apuntan al mismo endpoint
 de Neon (proyecto, rama, región y base de datos). Si no coinciden, la
 migración se aplicaría a una base de datos distinta de la que usa la

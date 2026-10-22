@@ -10,13 +10,7 @@
  * Aquí se detecta ese caso para poder decir exactamente qué hacer.
  */
 import { prisma } from "./client";
-
-/** Columnas que la aplicación necesita y que solo existen tras migrar. */
-const COLUMNAS_ESPERADAS: Array<{ tabla: string; columna: string }> = [
-  { tabla: "sessions", columna: "workspaceId" },
-  { tabla: "export_jobs", columna: "idempotencyKey" },
-  { tabla: "books", columna: "writingProgress" },
-];
+import { missingColumns } from "./expected-schema";
 
 /** Error de Prisma cuando falta una columna o una tabla. */
 export function esEsquemaDesactualizado(error: unknown): boolean {
@@ -50,19 +44,13 @@ export async function checkSchema(timeoutMs = 3_000): Promise<boolean> {
   let timeout: ReturnType<typeof setTimeout> | undefined;
 
   try {
-    const consulta = prisma.$queryRaw<{ tabla: string; columna: string }[]>`
+    const consulta = prisma.$queryRaw<Array<{ tabla: string; columna: string }>>`
       SELECT table_name AS tabla, column_name AS columna
       FROM information_schema.columns
       WHERE table_schema = current_schema()
     `;
     const resultado = await Promise.race([
-      consulta.then((columnas) =>
-        COLUMNAS_ESPERADAS.every((esperada) =>
-          columnas.some(
-            (columna) => columna.tabla === esperada.tabla && columna.columna === esperada.columna,
-          ),
-        ),
-      ),
+      consulta.then((columnas) => missingColumns(columnas).length === 0),
       new Promise<boolean>((resolve) => {
         timeout = setTimeout(() => resolve(false), timeoutMs);
       }),

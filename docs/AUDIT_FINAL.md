@@ -138,7 +138,7 @@ se afirma más de lo que se ha comprobado.
 | Archivos PDF corruptos                               | No: la cabecera, la estructura y el cierre se comprueban en cada prueba                   |
 | Pérdida de imágenes o formato sin advertencia        | **Resuelto** para el formato en línea, los separadores y las imágenes en PDF, EPUB y DOCX |
 | Migraciones destructivas no autorizadas              | Ninguna: las tres migraciones son aditivas                                                |
-| Pruebas críticas fallidas                            | Ninguna: 333 unitarias y 81 E2E en verde                                                  |
+| Pruebas críticas fallidas                            | Ninguna: 337 unitarias y 81 E2E en verde                                                  |
 | Error de compilación                                 | Ninguno                                                                                   |
 | Regresión funcional                                  | Ninguna detectada                                                                         |
 | Exposición de secretos                               | Ninguna: escaneo del árbol y del historial de commits                                     |
