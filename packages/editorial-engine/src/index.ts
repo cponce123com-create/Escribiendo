@@ -48,6 +48,7 @@ export {
   type InlineRun,
   type RichLine,
 } from "./rich-text";
+export { baselineCorrectionPt, textLinePlacement, type TextLinePlacement } from "./drawing";
 export {
   DEFAULT_IMAGE_WIDTH_PERCENT,
   IMAGE_CAPTION_GAP_MM,
@@ -63,7 +64,9 @@ export {
   type ImageLayoutInput,
 } from "./image";
 export {
+  CHAPTER_TITLE_SINK_PT,
   fitsTextBlock,
+  isHeadingKind,
   lineHeightMm,
   paginate,
   textBlockSize,

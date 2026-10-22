@@ -1,6 +1,11 @@
 import type { LayoutProfileSummary } from "@/lib/layout/profiles";
 import type { PreviewPage } from "@/lib/layout/preview";
-import type { LaidOutBlock, TypographyConfig } from "@escribiendo/editorial-engine";
+import {
+  baselineCorrectionPt,
+  isHeadingKind,
+  type LaidOutBlock,
+  type TypographyConfig,
+} from "@escribiendo/editorial-engine";
 
 /**
  * Vista previa paginada.
@@ -16,9 +21,9 @@ import type { LaidOutBlock, TypographyConfig } from "@escribiendo/editorial-engi
 const PX_PER_MM = 96 / 25.4;
 
 const FAMILIAS: Record<string, string> = {
-  serif: "var(--font-serif)",
-  "sans-serif": "var(--font-ui)",
-  monospace: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+  serif: '"Liberation Serif"',
+  "sans-serif": '"Liberation Sans"',
+  monospace: '"Liberation Mono"',
 };
 
 interface PaginatedPreviewProps {
@@ -77,7 +82,7 @@ function PageSheet({ page, profile, typography, pageWidth, pageHeight }: PageShe
 
   return (
     <div
-      className="relative overflow-hidden border border-ink/15 bg-white shadow-sm dark:bg-neutral-50"
+      className="relative overflow-hidden border border-ink/15 bg-white text-black shadow-sm dark:bg-white"
       style={{
         width: `${pageWidth}px`,
         height: `${pageHeight}px`,
@@ -86,20 +91,37 @@ function PageSheet({ page, profile, typography, pageWidth, pageHeight }: PageShe
         // exacto.
         contentVisibility: "auto",
         containIntrinsicSize: `${pageHeight}px`,
+        color: "#000000",
+        fontKerning: "none",
+        fontVariantLigatures: "none",
+        fontSynthesis: "none",
       }}
       aria-label={`Página ${page.index}`}
     >
       {page.runningHead ? (
         <div
-          className="absolute text-center text-ink/70"
+          className="absolute text-center"
           style={{
-            top: `${profile.headerDistanceMm * PX_PER_MM}px`,
+            top: `${(profile.headerDistanceMm + 2.5 - ((8 * 25.4) / 72) * 0.8) * PX_PER_MM}px`,
             left: `${leftMarginMm * PX_PER_MM}px`,
             width: `${textWidthMm * PX_PER_MM}px`,
             fontSize: "8pt",
+            lineHeight: "8pt",
+            fontFamily: FAMILIAS[typography.body.fontFamily],
+            color: "#000000",
+            fontKerning: "none",
+            fontVariantLigatures: "none",
+            fontSynthesis: "none",
           }}
         >
-          {page.runningHead}
+          <span
+            style={{
+              position: "relative",
+              top: `${baselineCorrectionPt(typography.body.fontFamily, 8, 8)}pt`,
+            }}
+          >
+            {page.runningHead}
+          </span>
         </div>
       ) : null}
 
@@ -112,8 +134,12 @@ function PageSheet({ page, profile, typography, pageWidth, pageHeight }: PageShe
             width: `${textWidthMm * PX_PER_MM}px`,
           }}
         >
-          {page.blocks.map((block) => (
-            <PreviewBlock key={`${block.id}-${page.index}`} block={block} />
+          {page.blocks.map((block, blockIndex) => (
+            <PreviewBlock
+              key={`${block.id}-${page.index}`}
+              block={block}
+              drawnLines={page.drawnLines.filter((drawing) => drawing.blockIndex === blockIndex)}
+            />
           ))}
         </div>
       )}
@@ -122,7 +148,7 @@ function PageSheet({ page, profile, typography, pageWidth, pageHeight }: PageShe
         <FootnoteArea
           page={page}
           typography={typography}
-          topMm={profile.marginTopMm + page.totalHeightMm - page.footnotesHeightMm}
+          topMm={profile.pageHeightMm - profile.marginBottomMm - page.footnotesHeightMm}
           leftMm={leftMarginMm}
           widthMm={textWidthMm}
         />
@@ -130,15 +156,28 @@ function PageSheet({ page, profile, typography, pageWidth, pageHeight }: PageShe
 
       {profile.showPageNumbers ? (
         <div
-          className="absolute text-center tabular-nums text-ink-muted"
+          className="absolute text-center tabular-nums"
           style={{
-            bottom: `${profile.footerDistanceMm * PX_PER_MM}px`,
+            top: `${(profile.pageHeightMm - Math.max(profile.footerDistanceMm, 4) - ((9 * 25.4) / 72) * 0.8) * PX_PER_MM}px`,
             left: `${leftMarginMm * PX_PER_MM}px`,
             width: `${textWidthMm * PX_PER_MM}px`,
             fontSize: "9pt",
+            lineHeight: "9pt",
+            fontFamily: FAMILIAS[typography.body.fontFamily],
+            color: "#000000",
+            fontKerning: "none",
+            fontVariantLigatures: "none",
+            fontSynthesis: "none",
           }}
         >
-          {page.folio}
+          <span
+            style={{
+              position: "relative",
+              top: `${baselineCorrectionPt(typography.body.fontFamily, 9, 9)}pt`,
+            }}
+          >
+            {page.folio}
+          </span>
         </div>
       ) : null}
     </div>
@@ -156,6 +195,7 @@ interface FootnoteAreaProps {
 function FootnoteArea({ page, typography, topMm, leftMm, widthMm }: FootnoteAreaProps) {
   const fontSizePt = typography.body.fontSizePt * 0.78;
   const lineHeightPt = fontSizePt * 1.3;
+  const family = typography.body.fontFamily;
 
   return (
     <div
@@ -165,9 +205,14 @@ function FootnoteArea({ page, typography, topMm, leftMm, widthMm }: FootnoteArea
         top: `${topMm * PX_PER_MM}px`,
         left: `${leftMm * PX_PER_MM}px`,
         width: `${widthMm * PX_PER_MM}px`,
+        paddingTop: `${3 * PX_PER_MM}px`,
         fontFamily: FAMILIAS[typography.body.fontFamily] ?? FAMILIAS.serif,
         fontSize: `${fontSizePt}pt`,
         lineHeight: `${lineHeightPt}pt`,
+        color: "#000000",
+        fontKerning: "none",
+        fontVariantLigatures: "none",
+        fontSynthesis: "none",
       }}
     >
       <div
@@ -175,13 +220,26 @@ function FootnoteArea({ page, typography, topMm, leftMm, widthMm }: FootnoteArea
         style={{
           width: "35%",
           borderTop: "0.5px solid #777",
-          marginBottom: `${1.5 * PX_PER_MM}px`,
+          position: "absolute",
+          top: `${1 * PX_PER_MM}px`,
         }}
       />
       {page.footnotes.map((note) => (
-        <div key={note.id} style={{ marginBottom: `${1.2 * PX_PER_MM}px` }}>
+        <div key={note.id} style={{ marginBottom: `${1.5 * PX_PER_MM}px` }}>
           {note.lines.map((line, index) => (
-            <div key={`${note.id}-${index}`}>{line}</div>
+            <div
+              key={`${note.id}-${index}`}
+              style={{ height: `${lineHeightPt}pt`, whiteSpace: "nowrap" }}
+            >
+              <span
+                style={{
+                  position: "relative",
+                  top: `${baselineCorrectionPt(family, fontSizePt, lineHeightPt)}pt`,
+                }}
+              >
+                {line}
+              </span>
+            </div>
           ))}
         </div>
       ))}
@@ -189,17 +247,15 @@ function FootnoteArea({ page, typography, topMm, leftMm, widthMm }: FootnoteArea
   );
 }
 
-function PreviewBlock({ block }: { block: LaidOutBlock }) {
+function PreviewBlock({
+  block,
+  drawnLines,
+}: {
+  block: LaidOutBlock;
+  drawnLines: Array<{ lineIndex: number; leftMm: number; widthMm: number; wordSpacingPt: number }>;
+}) {
   const { style } = block;
   const lineHeight = style.fontSizePt * style.lineHeight;
-  const alignment =
-    style.alignment === "justify"
-      ? "justify"
-      : style.alignment === "center"
-        ? "center"
-        : style.alignment === "right"
-          ? "right"
-          : "left";
 
   return (
     <div
@@ -208,12 +264,16 @@ function PreviewBlock({ block }: { block: LaidOutBlock }) {
         fontSize: `${style.fontSizePt}pt`,
         lineHeight: `${lineHeight}pt`,
         letterSpacing: `${style.letterSpacingPt}pt`,
-        textAlign: alignment,
+        textAlign: "left",
         textTransform: style.uppercase ? "uppercase" : undefined,
         fontVariantCaps: style.smallCaps ? "small-caps" : undefined,
-        marginTop: `${block.spaceBeforeMm * PX_PER_MM}px`,
-        marginBottom: `${block.spaceAfterMm * PX_PER_MM}px`,
-        marginLeft: block.kind === "blockquote" ? "1.5em" : undefined,
+        paddingTop: `${block.spaceBeforeMm * PX_PER_MM}px`,
+        paddingBottom: `${block.spaceAfterMm * PX_PER_MM}px`,
+        color: "#000000",
+        fontWeight: isHeadingKind(block.kind) ? 700 : undefined,
+        fontKerning: "none",
+        fontVariantLigatures: "none",
+        fontSynthesis: "none",
         fontStyle: block.kind === "blockquote" ? "italic" : undefined,
       }}
     >
@@ -280,62 +340,72 @@ function PreviewBlock({ block }: { block: LaidOutBlock }) {
         </figure>
       ) : (
         block.lines.map((line, index) => {
-          const esUltima = index === block.lines.length - 1;
+          const placement = drawnLines[index];
 
           return (
             <div
               key={`${block.id}-${index}`}
               style={{
-                minHeight: `${lineHeight}pt`,
-                // Cada línea es un bloque propio, así que el justificado del
-                // navegador no se aplica: hay que pedirlo explícitamente. La
-                // última línea del párrafo se deja suelta, como en un libro.
-                textAlignLast: style.alignment === "justify" && !esUltima ? "justify" : alignment,
-                ...(line.overflow ? { color: "var(--color-danger, #b3261e)" } : {}),
+                height: `${lineHeight}pt`,
+                lineHeight: `${lineHeight}pt`,
+                whiteSpace: "nowrap",
+                textAlign: "left",
+                position: "relative",
+                left: `${(placement?.leftMm ?? 0) * PX_PER_MM}px`,
+                width: `${(placement?.widthMm ?? 0) * PX_PER_MM}px`,
+                wordSpacing: `${placement?.wordSpacingPt ?? 0}pt`,
               }}
             >
-              {line.segments && line.segments.length > 0
-                ? line.segments.map((segment, segmentIndex) => {
-                    const marks = segment.marks;
+              <span
+                style={{
+                  position: "relative",
+                  top: `${baselineCorrectionPt(style.fontFamily, style.fontSizePt, lineHeight)}pt`,
+                }}
+              >
+                {line.segments && line.segments.length > 0
+                  ? line.segments.map((segment, segmentIndex) => {
+                      const marks = segment.marks;
 
-                    if (!marks) {
-                      return <span key={segmentIndex}>{segment.text}</span>;
-                    }
+                      if (!marks) {
+                        return <span key={segmentIndex}>{segment.text}</span>;
+                      }
 
-                    const decorations = [
-                      marks.underline ? "underline" : null,
-                      marks.strike ? "line-through" : null,
-                    ].filter(Boolean);
+                      const decorations = [
+                        marks.underline ? "underline" : null,
+                        marks.strike ? "line-through" : null,
+                      ].filter(Boolean);
 
-                    return (
-                      <span
-                        key={segmentIndex}
-                        title={
-                          segment.footnote
-                            ? `Nota ${segment.footnote.number}: ${segment.footnote.note}`
-                            : undefined
-                        }
-                        style={{
-                          fontWeight: marks.bold ? 700 : undefined,
-                          fontStyle: marks.italic ? "italic" : undefined,
-                          textDecoration:
-                            decorations.length > 0 ? decorations.join(" ") : undefined,
-                          verticalAlign: marks.superscript
-                            ? "super"
-                            : marks.subscript
-                              ? "sub"
-                              : undefined,
-                          fontSize: marks.superscript || marks.subscript ? "0.72em" : undefined,
-                          fontFamily: marks.code ? "monospace" : undefined,
-                          ...(marks.link ? { color: "#1a4f9c", textDecoration: "underline" } : {}),
-                        }}
-                      >
-                        {segment.text}
-                      </span>
-                    );
-                  })
-                : line.text}
-              {line.hyphenated ? "‑" : ""}
+                      return (
+                        <span
+                          key={segmentIndex}
+                          title={
+                            segment.footnote
+                              ? `Nota ${segment.footnote.number}: ${segment.footnote.note}`
+                              : undefined
+                          }
+                          style={{
+                            fontWeight: marks.bold ? 700 : undefined,
+                            fontStyle: marks.italic ? "italic" : undefined,
+                            textDecoration:
+                              decorations.length > 0 ? decorations.join(" ") : undefined,
+                            position: marks.superscript || marks.subscript ? "relative" : undefined,
+                            top: marks.superscript
+                              ? `${-style.fontSizePt * 0.38}pt`
+                              : marks.subscript
+                                ? `${style.fontSizePt * 0.18}pt`
+                                : undefined,
+                            lineHeight: marks.superscript || marks.subscript ? 0 : undefined,
+                            fontSize: marks.superscript || marks.subscript ? "0.72em" : undefined,
+                            fontFamily: marks.code ? FAMILIAS.monospace : undefined,
+                            ...(marks.link ? { textDecoration: "underline" } : {}),
+                          }}
+                        >
+                          {segment.text}
+                        </span>
+                      );
+                    })
+                  : line.text}
+              </span>
             </div>
           );
         })
