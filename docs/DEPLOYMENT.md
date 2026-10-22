@@ -88,6 +88,14 @@ pnpm db:migrate
 y recargar. La migración es aditiva (no borra datos). Si prefieres comprobarlo
 antes de tocar nada, `pnpm db:migrate:status` dice si falta alguna.
 
+Si la red no permite conectar con Neon por el puerto 5432, la migración se
+puede aplicar desde el editor SQL de Neon: ejecutar el DDL de
+`packages/database/prisma/migrations/<migración>/migration.sql` (con
+`IF NOT EXISTS`) y registrar la migración en `_prisma_migrations` con el
+SHA-256 del archivo. Sin ese registro, `prisma migrate deploy` intentaría
+repetirla y fallaría. Es una alternativa manual; lo normal es usar
+`pnpm db:migrate`.
+
 Este caso se reproduce a propósito: si el despliegue usa una base de datos
 antigua, el aviso aparece en lugar de una pantalla de error sin explicación.
 

@@ -982,3 +982,124 @@ Con el esquema restaurado, `/api/health/ready` responde `200` con
 | `pnpm lint`                             | Sin errores.                                                                                                                                                                        |
 | `pnpm typecheck`                        | Sin errores.                                                                                                                                                                        |
 | `pnpm build`                            | Correcto.                                                                                                                                                                           |
+
+### Cierre en producción
+
+El despliegue seguía mostrando «Migración pendiente» porque la base de datos de
+Neon que usa Render no tenía aplicada la última migración. El `.env` de la
+estación de trabajo apuntaba a `127.0.0.1:5433`, así que ejecutar
+`pnpm db:migrate` en local migraba la base de pruebas, no la de producción.
+
+La red de la estación no permite conectar con Neon por el puerto 5432, así que
+la migración se aplicó desde el editor SQL de Neon, en una transacción:
+
+- `ALTER TABLE "sessions" ADD COLUMN IF NOT EXISTS "workspaceId" UUID;`
+- `CREATE INDEX IF NOT EXISTS "sessions_workspaceId_idx" ON "sessions"("workspaceId");`
+- registro en `_prisma_migrations` con el checksum
+  `5b8c43d6bc9cd36096440c421d143b0d06b35a677eba62a1ea2626d14f8e6f62`
+  (SHA-256 de `20261021210000_session_workspace/migration.sql`), para que
+  `prisma migrate deploy` no la repita.
+
+Verificación, el 22 de octubre de 2026:
+
+| Comprobación         | Resultado                                                                 |
+| -------------------- | ------------------------------------------------------------------------- |
+| `_prisma_migrations` | Cuatro filas; la última, `20261021210000_session_workspace`.              |
+| `/api/health/ready`  | `200` con `status: ready`, `schema: ok` y el commit desplegado `a4a6a68`. |
+| Acceso               | El formulario inicia sesión y las páginas privadas cargan.                |
+| Despliegue           | No hizo falta volver a desplegar: el cambio es de datos, no de código.    |
+
+El cierre es operativo: no cambia la puntuación conservadora de 87,4/100, que
+sigue pendiente de las validaciones externas (Word, Cloudinary, PDF/X,
+cobertura CJK, fuzzing del parser TTF y pentest).
+
+---
+
+## Lote Z: el DOCX se abre con LibreOffice
+
+Fecha: 22 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+
+### Qué faltaba
+
+El DOCX se validaba con Mammoth, un lector de OOXML, pero no se había abierto
+con un procesador de textos. La compatibilidad con Word y con LibreOffice
+seguía sin comprobar.
+
+### Qué se ha cambiado
+
+| Área       | Archivo                                            | Cambio                                                                                                                                     |
+| ---------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Validación | `scripts/validate-docx-libreoffice.ts`             | Genera el DOCX de prueba, lo convierte a PDF con LibreOffice y comprueba con pdf.js el texto, la nota al pie, el pie de imagen y el salto. |
+| Lector     | `scripts/pdfjs/valida-pdf.mjs`                     | Acepta `--full` para imprimir todo el texto en vez de los primeros 600 caracteres.                                                         |
+| Comando    | `package.json`                                     | `pnpm validate:docx:libreoffice`.                                                                                                          |
+| CI         | `.github/workflows/docx.yml`                       | Instala LibreOffice Writer, ejecuta la validación y guarda el DOCX y el PDF como artefactos.                                               |
+| CI         | `.github/workflows/ci.yml`, `e2e.yml`, `audit.yml` | Instala pnpm antes de Node, compila antes de medir los estáticos y antes de las pruebas E2E; el E2E recibe `SETUP_TOKEN`.                  |
+| Documento  | `docs/EXPORT_VALIDATION.md`                        | Registra la validación y lo que sigue sin comprobarse (Word).                                                                              |
+
+### Cómo se ejecuta
+
+```bash
+pnpm --dir scripts/pdfjs install
+pnpm validate:docx:libreoffice
+```
+
+Si LibreOffice no está en el PATH:
+
+```bash
+LIBREOFFICE="/ruta/a/soffice" pnpm validate:docx:libreoffice
+```
+
+El DOCX y el PDF se escriben en una carpeta temporal; con
+`DOCX_VALIDATION_DIR` se conservan en una ruta conocida, como hace el trabajo
+de CI.
+
+### Verificación
+
+| Comprobación                     | Resultado                                                                  |
+| -------------------------------- | -------------------------------------------------------------------------- |
+| `pnpm validate:docx:libreoffice` | LibreOffice 26.8.1.1 abre el DOCX y genera un PDF de 3 páginas.            |
+| Texto en el PDF                  | «El velo de la tarde caía sobre la plaza.» y «Segunda parte del capítulo.» |
+| Nota al pie                      | «La nota explica el detalle.» conservada.                                  |
+| Imagen                           | Pie «Pie de la imagen de prueba» conservado.                               |
+| pdf.js 4.10.38                   | Lee las 3 páginas y devuelve el texto completo.                            |
+
+### La imagen de Ubuntu 26 destapó los workflows
+
+La etiqueta `ubuntu-latest` pasó a Ubuntu 26 y dejó de traer pnpm
+preinstalado. Los workflows ejecutaban `actions/setup-node` con `cache: pnpm`
+antes de `pnpm/action-setup`, así que fallaban al buscar el ejecutable. Además:
+
+- `check:size` se ejecutaba antes de `pnpm build`; el script termina con error
+  si no hay compilación.
+- El trabajo E2E lanzaba Playwright sin compilar la aplicación y sin pasarle
+  `SETUP_TOKEN`; con la base vacía, `/setup` aparecía deshabilitado y el acceso
+  de prueba fallaba.
+
+Se corrigieron los cuatro workflows. Resultado en GitHub Actions:
+
+| Trabajo                | Resultado                                                      |
+| ---------------------- | -------------------------------------------------------------- |
+| `Verificación`         | Formato, lint, tipos, 337 pruebas, compilación y tamaño: pasa. |
+| `DOCX con LibreOffice` | Pasa; deja `libro.docx` y `libro.pdf` como artefacto.          |
+| `Extremo a extremo`    | 81 pruebas en Chromium: pasan.                                 |
+
+- [Verificación](https://github.com/cponce123com-create/Escribiendo/actions/runs/39790300139)
+- [DOCX con LibreOffice](https://github.com/cponce123com-create/Escribiendo/actions/runs/39789957627)
+- [Extremo a extremo](https://github.com/cponce123com-create/Escribiendo/actions/runs/39792452351)
+- [Auditoría de dependencias](https://github.com/cponce123com-create/Escribiendo/actions/runs/39795156682)
+
+La auditoría de dependencias también pasa: `pnpm audit --prod` no encuentra
+vulnerabilidades en producción. El aviso alto de `braces` es de desarrollo
+(transitiva de `eslint-config-next`) y no tiene versión corregida; se informa
+sin bloquear.
+
+En esta máquina, LibreOffice se instaló desde el MSI oficial 26.8.1 con
+`msiexec /a` y se añadieron las DLL de Visual C++ junto al programa, porque el
+sistema no las tenía. Es una particularidad del entorno: el repositorio no
+depende de ella. El script busca `soffice` en el PATH o en `LIBREOFFICE`, y el
+trabajo de CI instala LibreOffice Writer en Ubuntu.
+
+**Lo que sigue sin comprobarse**: Microsoft Word. LibreOffice es un procesador
+de textos independiente, pero no es Word. La puntuación conservadora sigue en
+87,4/100 hasta cerrar el resto de validaciones externas.

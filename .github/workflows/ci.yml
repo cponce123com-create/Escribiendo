@@ -20,16 +20,16 @@ jobs:
       - name: Repositorio
         uses: actions/checkout@v5
 
+      - name: pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.14.0
+
       - name: Node.js
         uses: actions/setup-node@v5
         with:
           node-version: 24.20.0
           cache: pnpm
-
-      - name: pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 12.14.0
 
       - name: Dependencias
         run: pnpm install --frozen-lockfile
@@ -49,8 +49,8 @@ jobs:
       - name: Pruebas unitarias
         run: pnpm test
 
-      - name: Tamaño de los estáticos
-        run: pnpm check:size
-
       - name: Compilación de producción
         run: pnpm build
+
+      - name: Tamaño de los estáticos
+        run: pnpm check:size

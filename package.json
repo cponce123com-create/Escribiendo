@@ -35,6 +35,7 @@
     "stress:export": "tsx scripts/stress-export.ts",
     "validate:epub": "tsx scripts/validate-epub.ts",
     "validate:docx": "tsx scripts/validate-docx.ts",
+    "validate:docx:libreoffice": "tsx scripts/validate-docx-libreoffice.ts",
     "validate:pdf": "tsx scripts/validate-pdf.ts"
   },
   "devDependencies": {
