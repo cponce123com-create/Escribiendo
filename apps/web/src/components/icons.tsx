@@ -142,10 +142,27 @@ export function LockIcon(props: IconProps) {
   );
 }
 
+export function ArrowLeftIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M20 12H5m0 0 5-5m-5 5 5 5" />
+    </IconBase>
+  );
+}
+
 export function ArrowRightIcon(props: IconProps) {
   return (
     <IconBase {...props}>
       <path d="M4 12h15m0 0-5-5m5 5-5 5" />
+    </IconBase>
+  );
+}
+
+export function LinkIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M10.5 13.5a4.5 4.5 0 0 0 6.36 0l2.12-2.12a4.5 4.5 0 1 0-6.36-6.36L11.5 6.14" />
+      <path d="M13.5 10.5a4.5 4.5 0 0 0-6.36 0L5.02 12.62a4.5 4.5 0 1 0 6.36 6.36l1.12-1.12" />
     </IconBase>
   );
 }

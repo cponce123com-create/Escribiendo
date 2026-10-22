@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BackToBookLink } from "@/components/books/back-to-book-link";
 import { RevisionList } from "@/components/books/revision-list";
 import { SectionEditor } from "@/components/books/section-editor";
 import { requireSession } from "@/lib/auth/session";
@@ -70,7 +71,8 @@ export default async function SectionPage({ params }: SectionPageProps) {
           {section.assignee ? ` · asignada a ${section.assignee.name}` : ""}
         </p>
 
-        <nav className="flex flex-wrap gap-2" aria-label="Acciones de la sección">
+        <nav className="flex flex-wrap items-center gap-2" aria-label="Acciones de la sección">
+          <BackToBookLink bookId={bookId} sectionId={section.id} />
           <Link
             className="btn btn-ghost btn-sm"
             href={`/books/${bookId}/sections/${section.id}/history`}

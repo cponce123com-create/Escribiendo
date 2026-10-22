@@ -813,6 +813,129 @@
 }
 
 /* ---------------------------------------------------------------------------
+   Barra de formato del manuscrito
+   ---------------------------------------------------------------------------
+   La barra agrupa las marcas de texto, el tipo de bloque, las listas y las
+   acciones de inserción. En escritorio se queda visible al desplazarse para
+   no obligar a subir hasta el principio de la sección.
+   --------------------------------------------------------------------------- */
+
+.editor-toolbar {
+  position: sticky;
+  top: 3.8rem;
+  z-index: 20;
+  padding: 0.65rem 0.5rem 0.55rem;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.editor-toolbar .meta-label {
+  margin-bottom: 0.45rem;
+}
+
+.editor-toolbar__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem 0.2rem;
+}
+
+.editor-toolbar__group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.05rem;
+}
+
+.editor-toolbar__group--history {
+  margin-left: auto;
+}
+
+.editor-toolbar__divider {
+  width: 1px;
+  height: 1.35rem;
+  flex: 0 0 auto;
+  margin: 0 0.2rem;
+  background: var(--line);
+}
+
+.toolbar-button {
+  display: inline-flex;
+  min-width: 1.95rem;
+  height: 2.05rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  border: 1px solid transparent;
+  border-radius: 0.28rem;
+  padding: 0 0.4rem;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.toolbar-button:hover {
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  color: var(--ink);
+}
+
+.toolbar-button[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--accent) 22%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+}
+
+.toolbar-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+  background: transparent;
+}
+
+.toolbar-button svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.toolbar-button--text {
+  padding-inline: 0.5rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.01em;
+}
+
+.editor-toolbar__select select {
+  height: 2.05rem;
+  border: 1px solid var(--line);
+  border-radius: 0.28rem;
+  background: var(--surface);
+  padding: 0 0.3rem;
+  color: var(--ink-soft);
+  font-size: 0.74rem;
+  font-weight: 560;
+  cursor: pointer;
+}
+
+.editor-toolbar__select select:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.editor-toolbar__select select:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+@media (max-width: 1023px) {
+  .editor-toolbar {
+    position: static;
+  }
+}
+
+/* ---------------------------------------------------------------------------
    Editor de manuscrito
    ---------------------------------------------------------------------------
    Estilos del contenido editable (ProseMirror). El editor es el único punto
