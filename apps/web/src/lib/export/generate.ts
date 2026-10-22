@@ -4,8 +4,6 @@ import {
   buildDocx,
   buildEpub,
   buildPdf,
-  type ExportBlock,
-  type ExportChapter,
   type ExportDocumentModel,
   type ExportImageMap,
   type ImageTarget,
@@ -19,6 +17,7 @@ import { sectionToBlocks } from "./manuscript";
 import { loadExportImages } from "./images";
 import { loadPdfFonts } from "./fonts";
 import { toPdfPages, type PdfLayoutProfile } from "./pdf-layout";
+import { chaptersForReflowableFormats } from "./chapter-titles";
 import type { RunningHeadTemplate } from "@/lib/layout/running-heads";
 
 /**
@@ -231,16 +230,7 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
     fuentesIncrustadas = pdf.fuentesIncrustadas;
     fuentesOmitidas = pdf.fuentesOmitidas;
   } else {
-    const chapters: ExportChapter[] = input.sections.map((section, index) => ({
-      id: section.id,
-      title: section.title,
-      blocks: (sectionBlocks[index] ?? []).map((block): ExportBlock => ({
-        kind: block.kind,
-        text: block.text,
-        ...(block.runs ? { runs: block.runs } : {}),
-        ...(block.image ? { image: block.image } : {}),
-      })),
-    }));
+    const chapters = chaptersForReflowableFormats(input.sections, sectionBlocks);
 
     const model: ExportDocumentModel = {
       title: input.title,

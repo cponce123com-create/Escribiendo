@@ -44,7 +44,7 @@ const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
   <w:style w:type="paragraph" w:styleId="Ttulo1">
     <w:name w:val="heading 1"/>
     <w:basedOn w:val="Normal"/>
-    <w:pPr><w:spacing w:before="240" w:after="240"/><w:outlineLvl w:val="0"/></w:pPr>
+    <w:pPr><w:keepNext/><w:spacing w:before="720" w:after="240"/><w:outlineLvl w:val="0"/></w:pPr>
     <w:rPr><w:b/><w:sz w:val="36"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Ttulo2">
@@ -378,7 +378,9 @@ export function buildDocx(
   let imageIndex = 0;
 
   for (const chapter of document.chapters) {
-    body.push(paragraph(chapter.title, "Ttulo1"));
+    if (chapter.showTitle !== false) {
+      body.push(paragraph(chapter.title, "Ttulo1"));
+    }
 
     for (const block of chapter.blocks) {
       if (block.kind === "pageBreak") {

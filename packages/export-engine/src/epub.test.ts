@@ -12,6 +12,7 @@ const DOCUMENTO: ExportDocumentModel = {
     {
       id: "c1",
       title: "El velo de la tarde",
+      showTitle: false,
       blocks: [
         { kind: "title", text: "El velo de la tarde" },
         { kind: "body", text: "Caía la tarde sobre la plaza." },
@@ -99,12 +100,25 @@ describe("buildEpub", () => {
 
   it("escribe el contenido de los capítulos en XHTML", () => {
     const capitulo = entryText(bytes, "EPUB/text/chapter-001.xhtml") ?? "";
+    const segundo = entryText(bytes, "EPUB/text/chapter-002.xhtml") ?? "";
 
     expect(capitulo).toContain("<h1>El velo de la tarde</h1>");
     expect(capitulo).toContain("<p>Caía la tarde sobre la plaza.</p>");
     expect(capitulo).toContain("<h2>Un aparte</h2>");
     expect(capitulo).toContain(`<p class="quote">El tiempo no pasa: se queda.</p>`);
     expect(capitulo).toContain('xmlns:epub="http://www.idpf.org/2007/ops"');
+    expect(segundo).toContain('<h1 class="chapter-title">Marta</h1>');
+  });
+
+  it("muestra o suprime el título automático según showTitle", () => {
+    const chapter = { id: "c1", title: "Capítulo nuevo", blocks: [] };
+    const show = buildEpub({ ...DOCUMENTO, chapters: [{ ...chapter, showTitle: true }] }, FECHA);
+    const hide = buildEpub({ ...DOCUMENTO, chapters: [{ ...chapter, showTitle: false }] }, FECHA);
+    const showXhtml = entryText(show, "EPUB/text/chapter-001.xhtml") ?? "";
+    const hideXhtml = entryText(hide, "EPUB/text/chapter-001.xhtml") ?? "";
+
+    expect(showXhtml).toContain('<h1 class="chapter-title">Capítulo nuevo</h1>');
+    expect(hideXhtml).not.toContain('class="chapter-title"');
   });
 
   it("escribe la navegación con el índice de capítulos", () => {
@@ -169,6 +183,19 @@ describe("buildDocx", () => {
     expect(documento).toContain('<w:pStyle w:val="Ttulo2"/>');
     expect(documento).toContain('<w:pStyle w:val="Cita"/>');
     expect(documento).toContain('<w:t xml:space="preserve">Caía la tarde sobre la plaza.</w:t>');
+  });
+
+  it("honra showTitle y mantiene el título unido al párrafo siguiente", () => {
+    const chapter = { id: "c1", title: "Capítulo nuevo", blocks: [] };
+    const show = buildDocx({ ...DOCUMENTO, chapters: [{ ...chapter, showTitle: true }] }, FECHA);
+    const hide = buildDocx({ ...DOCUMENTO, chapters: [{ ...chapter, showTitle: false }] }, FECHA);
+    const showXml = entryText(show, "word/document.xml") ?? "";
+    const hideXml = entryText(hide, "word/document.xml") ?? "";
+    const styles = entryText(show, "word/styles.xml") ?? "";
+
+    expect(showXml).toContain("Capítulo nuevo");
+    expect(hideXml).not.toContain("Capítulo nuevo");
+    expect(styles).toContain('<w:keepNext/><w:spacing w:before="720"');
   });
 
   it("conserva los saltos de página", () => {
