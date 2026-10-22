@@ -10,7 +10,7 @@ Esta auditoría combina dos fuentes, y distingue siempre cuál se usó:
 
 1. **Revisión del código** de autenticación, sesiones, permisos, validación de
    origen, cabeceras, descargas, auditoría y retención.
-2. **Pruebas ejecutadas** con la suite del repositorio: 332 unitarias y 80 de
+2. **Pruebas ejecutadas** con la suite del repositorio: 333 unitarias y 81 de
    extremo a extremo en Chromium, contra la compilación de producción.
 
 No se ha ejecutado una prueba de penetración externa, ni un escaneo

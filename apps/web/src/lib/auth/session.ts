@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import type { UserRole, WorkspaceRole } from "@escribiendo/database";
 import { prisma } from "@/lib/db";
 import { esEsquemaDesactualizado } from "@escribiendo/database";
-import { ConfigurationError } from "@/lib/errors";
+import { isAppError, ConfigurationError } from "@/lib/errors";
 import { getRequestContext, type RequestContext } from "@/lib/security/request-context";
 import { getServerEnv, getSessionTtlMs, isProduction } from "@/lib/env";
 import { generateToken, hashToken } from "./tokens";
@@ -238,7 +238,21 @@ export async function switchWorkspace(
 }
 
 export async function requireSession(): Promise<SessionContext> {
-  const session = await getSession();
+  let session: SessionContext | null;
+
+  try {
+    session = await getSession();
+  } catch (error) {
+    // La base de datos no tiene el esquema que espera esta versión: en vez de
+    // romper cada página privada, se lleva a una pantalla que explica qué
+    // falta y cómo aplicarlo. Las páginas del grupo (app) llaman aquí, así que
+    // el aviso cubre todas por igual.
+    if (isAppError(error) && error.code === "CONFIGURATION_ERROR") {
+      redirect("/migracion-pendiente");
+    }
+
+    throw error;
+  }
 
   if (!session) {
     redirect("/login");

@@ -1,24 +1,12 @@
 import type { ReactNode } from "react";
 import { Sidebar } from "@/components/app/sidebar";
 import { AppTopbar } from "@/components/app/topbar";
-import { EsquemaDesactualizado } from "@/components/app/schema-error";
 import { requireSession } from "@/lib/auth/session";
-import { isAppError } from "@/lib/errors";
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
-  let session;
-
-  try {
-    session = await requireSession();
-  } catch (error) {
-    // Si la base de datos no tiene el esquema que espera el código, se dice
-    // qué hacer en vez de dejar un error sin explicación.
-    if (isAppError(error) && error.code === "CONFIGURATION_ERROR") {
-      return <EsquemaDesactualizado />;
-    }
-
-    throw error;
-  }
+  // Si la base de datos no tiene el esquema que espera el código,
+  // `requireSession` lleva a la pantalla de migración pendiente.
+  const session = await requireSession();
 
   return (
     <div className="min-h-svh lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]">

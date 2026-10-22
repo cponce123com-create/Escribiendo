@@ -266,7 +266,7 @@ ms y después solo hay que medir.
 
 | Suite                       | Duración | Resultado    |
 | --------------------------- | -------: | ------------ |
-| `pnpm test` (unitarias)     |   ~9,5 s | 332 en verde |
+| `pnpm test` (unitarias)     |   ~9,5 s | 333 en verde |
 | `pnpm test:e2e` (navegador) |   ~3,6 m | 72 en verde  |
 | `pnpm build` (producción)   |        — | Correcto     |
 

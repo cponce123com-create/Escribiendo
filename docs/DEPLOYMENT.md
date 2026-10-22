@@ -63,9 +63,16 @@ todas las páginas que consultan la base de datos fallan.
 ### Si la aplicación dice «Migración pendiente»
 
 Cuando el código es más nuevo que la base de datos, la aplicación lo dice en
-vez de dejar un «error de interfaz»: en el acceso y en las páginas privadas
-aparece un aviso con el comando exacto, y `/api/health/ready` responde `503`
-con `"schema": "outdated"`. Lo que hay que hacer es:
+vez de dejar un «error de interfaz»:
+
+- `/login` y `/setup` comprueban la base **antes** de leer la sesión y muestran
+  el aviso con el comando exacto.
+- Cualquier página privada redirige a `/migracion-pendiente`, una pantalla
+  estática con el mismo aviso.
+- `/api/health/ready` responde `503` con `"schema": "outdated"` y
+  `pnpm db:status` lo indica.
+
+Lo que hay que hacer es:
 
 ```bash
 pnpm db:migrate

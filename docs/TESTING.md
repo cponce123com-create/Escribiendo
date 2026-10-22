@@ -38,7 +38,7 @@ pnpm test
 Vitest recorre `apps/**/*.test.ts`, `packages/**/*.test.ts` y
 `scripts/**/*.test.ts`. No necesita base de datos ni navegador.
 
-Resultado vigente: **332 pruebas en 35 archivos** (21 de octubre de 2026).
+Resultado vigente: **333 pruebas en 35 archivos** (22 de octubre de 2026).
 Cobertura actual (Fases 1 a 3):
 
 | Archivo                                                   | Qué verifica                                                                                                                                                                                                |
@@ -273,7 +273,7 @@ Running 80 tests using 1 worker
 80 passed (4.6m)
 ```
 
-Las 80 pruebas incluyen la preparación de la cuenta de pruebas. La suite se ha
+Las 81 pruebas incluyen la preparación de la cuenta de pruebas. La suite se ha
 ejecutado de forma repetida con resultado completo en todas las ejecuciones,
 contra PostgreSQL 17.7 local y contra la **compilación de producción** (no el
 servidor de desarrollo). En producción, el mismo flujo de instalación, acceso y

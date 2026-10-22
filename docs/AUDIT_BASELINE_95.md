@@ -39,8 +39,8 @@ Después del lote de imágenes y de las pruebas nuevas de esta rama:
 Las cifras son de esta máquina y de la compilación de producción local. No
 presumen el comportamiento del despliegue de Render.
 
-La cifra vigente despues del Lote S es **332 pruebas unitarias en 35 archivos**
-y **80 pruebas E2E en Chromium**. Las tablas siguientes conservan la historia de
+La cifra vigente despues del Lote Y es **333 pruebas unitarias en 35 archivos**
+y **81 pruebas E2E en Chromium**. Las tablas siguientes conservan la historia de
 cada lote; no se reescriben los resultados anteriores.
 
 ## Hallazgos comprobados y corregidos en el lote de imágenes
@@ -153,8 +153,8 @@ Base del lote: `dc7c6ea`.
 
 | Comprobación         | Resultado                |
 | -------------------- | ------------------------ |
-| Pruebas unitarias    | 332 pruebas, 35 archivos |
-| Extremo a extremo    | 80 pruebas en Chromium   |
+| Pruebas unitarias    | 333 pruebas, 35 archivos |
+| Extremo a extremo    | 81 pruebas en Chromium   |
 | Formato, lint        | Sin errores              |
 | Tipos y compilación  | Sin errores              |
 | Banco de exportación | Ejecutado con fuentes    |

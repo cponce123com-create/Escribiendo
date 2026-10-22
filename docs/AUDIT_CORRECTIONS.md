@@ -908,53 +908,74 @@ Base del lote: `4281847`.
 
 ## Lote Y: la aplicacion explica cuando le falta una migracion
 
-Fecha: 21 de octubre de 2026.
+Fecha: 21 y 22 de octubre de 2026.
 Rama: `improvement/escribiendo-95`.
-Base del lote: `38d4f51`.
+Base del lote: `38d4f51` (primera parte) y este commit (cierre).
 
-### Que pasaba
+### Qué pasaba
 
-Desplegar el codigo nuevo sin aplicar la migracion dejaba la aplicacion
-entera caida con un «error de interfaz» y una referencia opaca. Es lo que
-sucedio en un entorno real: la sesion se lee con la columna
-`sessions.workspaceId`, que en una base antigua no existe, y Prisma falla con
-`P2022`. Sin mensaje util, sin pista de que faltaba una migracion.
+Desplegar el código nuevo sin aplicar la migración dejaba la aplicación entera
+caída: un «error de interfaz» con una referencia opaca. La sesión se lee con la
+columna `sessions.workspaceId`, que en una base antigua no existe, y Prisma
+falla con `P2022`.
 
-### Reproduccion
+La primera corrección cubría la lectura de la sesión y el envío del formulario
+de acceso, pero quedaban dos huecos reales, comprobados en la reproducción:
 
-Se simuló un despliegue antiguo: se quitó la columna de la base de pruebas y
-se arrancó la compilacion de produccion.
+1. `/login` y `/setup` contaban usuarios (la base respondía) y después leían la
+   sesión. Con una cookie presente, la página volvía a romperse.
+2. Cada página privada vuelve a pedir la sesión por su cuenta; el aviso del
+   layout solo cubría las peticiones en las que fallaba la lectura del layout.
 
-| Momento                   | Antes                                    | Ahora                                                             |
-| ------------------------- | ---------------------------------------- | ----------------------------------------------------------------- |
-| Acceso (`/login`)         | «No se ha podido iniciar sesion…»        | «La base de datos esta desactualizada… ejecuta `pnpm db:migrate`» |
-| Pagina privada con sesion | «Error de interfaz» con referencia opaca | Pantalla «Migracion pendiente» con el comando exacto              |
-| `/api/health/ready`       | `200` con `database: ok`                 | `503` con `schema: outdated`                                      |
-| Consulta de la sesion     | Excepcion `P2022` sin contexto           | Excepcion traducida a un mensaje accionable                       |
+### Reproducción
 
-### Que se ha cambiado
+Se simuló un despliegue antiguo: se quitó la columna de la base de pruebas y se
+arrancó la compilación de producción. Se visitaron las rutas públicas y las
+privadas con una cookie de sesión.
 
-| Area      | Archivo                                             | Cambio                                                                                                                                                    |
-| --------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Base      | `packages/database/src/schema.ts`                   | `esEsquemaDesactualizado()` reconoce el error de Prisma por columna o tabla que falta; `checkSchema()` comprueba las columnas que la aplicacion necesita. |
-| Sesion    | `apps/web/src/lib/auth/session.ts`                  | El error de esquema se convierte en un `ConfigurationError` con el comando exacto.                                                                        |
-| Interfaz  | `apps/web/src/components/app/schema-error.tsx`      | Pantalla «Migracion pendiente».                                                                                                                           |
-| Interfaz  | `apps/web/src/app/(app)/layout.tsx`, `app/page.tsx` | Se muestra esa pantalla en vez de dejar que el error llegue a la pantalla de error.                                                                       |
-| Acceso    | `apps/web/src/lib/auth/actions.ts`                  | El fallo de esquema se distingue de unas credenciales incorrectas.                                                                                        |
-| Salud     | `apps/web/src/app/api/health/ready/route.ts`        | Informa `schema: ok` u `schema: outdated` y responde `503` si falta una migracion.                                                                        |
-| Pruebas   | `packages/database/src/schema.test.ts`              | Cuatro casos: error de Prisma, mensaje sin codigo y errores que **no** son de esquema.                                                                    |
-| Pruebas   | `tests/e2e/security.spec.ts`                        | El chequeo de salud comprueba que el esquema esta al dia.                                                                                                 |
-| Documento | `docs/DEPLOYMENT.md`                                | Explica el aviso y el comando.                                                                                                                            |
+| Momento                                               | Antes                            | Ahora                                                                |
+| ----------------------------------------------------- | -------------------------------- | -------------------------------------------------------------------- |
+| `/` sin sesión                                        | Redirige al acceso, que falla    | Acceso con el aviso de migración                                     |
+| `/login` con cookie                                   | «Error de interfaz»              | Aviso «La base de datos está desactualizada» con el comando          |
+| `/setup`                                              | «Error de interfaz»              | El mismo aviso, antes de tocar la sesión                             |
+| `/dashboard`, `/stats`, `/books`, `/team`, `/account` | «Error de interfaz»              | Redirección a `/migracion-pendiente`                                 |
+| `/migracion-pendiente`                                | No existía                       | Pantalla estática disponible sin base de datos                       |
+| Envío del formulario de acceso                        | «No se ha podido iniciar sesión» | Distingue el esquema desactualizado de unas credenciales incorrectas |
+| `/api/health/ready`                                   | `200` con `database: ok`         | `503` con `schema: outdated`                                         |
+
+Con el esquema restaurado, `/api/health/ready` responde `200` con
+`schema: ok` y el acceso muestra el formulario con normalidad.
+
+### Qué se ha cambiado
+
+| Área      | Archivo                                             | Cambio                                                                                                                                                                          |
+| --------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Base      | `packages/database/src/schema.ts`                   | `esEsquemaDesactualizado()` reconoce el error de Prisma por columna o tabla que falta; `checkSchema()` comprueba las columnas que la aplicación necesita, con límite de tiempo. |
+| Base      | `packages/database/src/schema.test.ts`              | Cuatro casos: error de Prisma, mensaje sin código y errores que **no** son de esquema.                                                                                          |
+| Acceso    | `apps/web/src/lib/auth/installation.ts`             | `getDatabaseState()` cuenta usuarios y después comprueba el esquema: devuelve `not-migrated` antes de leer la sesión.                                                           |
+| Acceso    | `apps/web/src/lib/auth/database-state.ts`           | `schemaOutdatedState()`, estado para una base que responde pero no tiene las columnas esperadas.                                                                                |
+| Acceso    | `apps/web/src/components/auth/database-problem.tsx` | El aviso habla de tablas **o columnas** y del comando que hay que ejecutar.                                                                                                     |
+| Sesión    | `apps/web/src/lib/auth/session.ts`                  | El error de esquema se convierte en `ConfigurationError`; `requireSession()` redirige a `/migracion-pendiente`, de modo que cubre todas las páginas privadas.                   |
+| Interfaz  | `apps/web/src/components/app/schema-error.tsx`      | Pantalla «Migración pendiente».                                                                                                                                                 |
+| Ruta      | `apps/web/src/app/migracion-pendiente/page.tsx`     | Pantalla estática y pública, disponible aunque la base no tenga el esquema.                                                                                                     |
+| Interfaz  | `apps/web/src/app/page.tsx`                         | Muestra la pantalla si la sesión no se puede leer.                                                                                                                              |
+| Interfaz  | `apps/web/src/app/(app)/layout.tsx`                 | Vuelve a ser simple: la redirección vive en `requireSession()`.                                                                                                                 |
+| Interfaz  | `apps/web/src/app/error.tsx`                        | Usa `retry` (API estable de Next 16.4): reintentar vuelve a pedir los datos al servidor.                                                                                        |
+| Acceso    | `apps/web/src/lib/auth/actions.ts`                  | El fallo de esquema se distingue de unas credenciales incorrectas.                                                                                                              |
+| Salud     | `apps/web/src/app/api/health/ready/route.ts`        | Informa `schema: ok` u `outdated` y responde `503` si falta una migración.                                                                                                      |
+| Pruebas   | `apps/web/src/lib/auth/database-state.test.ts`      | Nuevo caso para `schemaOutdatedState()`.                                                                                                                                        |
+| Pruebas   | `tests/e2e/security.spec.ts`                        | El chequeo de salud exige `schema: ok`; la pantalla de migración se sirve sin sesión y con el comando.                                                                          |
+| Documento | `docs/DEPLOYMENT.md`, `README.md`                   | Explican el aviso, las rutas y el comando.                                                                                                                                      |
 
 ### Pruebas ejecutadas
 
-| Comprobacion          | Resultado                                                                                                    |
-| --------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Reproduccion          | Con el esquema antiguo: aviso de migracion en el acceso y en la pagina privada; `503` en el chequeo de salud |
-| Con el esquema al dia | El aviso no aparece y la aplicacion funciona con normalidad                                                  |
-| `pnpm test`           | 332 pruebas en 35 archivos                                                                                   |
-| `pnpm test:e2e`       | 80 pruebas en Chromium                                                                                       |
-| `pnpm format:check`   | Correcto                                                                                                     |
-| `pnpm lint`           | Sin errores                                                                                                  |
-| `pnpm typecheck`      | Sin errores                                                                                                  |
-| `pnpm build`          | Correcto                                                                                                     |
+| Comprobación                     | Resultado                                                                                                                                                                           |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reproducción con esquema antiguo | Ocho rutas sin «error de interfaz»: `/`, `/login`, `/migracion-pendiente`, `/dashboard`, `/stats`, `/books`, `/team` y `/account`; avisos correctos y `503` en el chequeo de salud. |
+| Esquema restaurado               | `/api/health/ready` responde `200` con `schema: ok`; el acceso muestra el formulario.                                                                                               |
+| `pnpm test`                      | 333 pruebas en 35 archivos.                                                                                                                                                         |
+| `pnpm test:e2e`                  | 81 pruebas en Chromium; EPUBCheck 5.1.0 sin errores ni advertencias.                                                                                                                |
+| `pnpm format:check`              | Correcto.                                                                                                                                                                           |
+| `pnpm lint`                      | Sin errores.                                                                                                                                                                        |
+| `pnpm typecheck`                 | Sin errores.                                                                                                                                                                        |
+| `pnpm build`                     | Correcto.                                                                                                                                                                           |

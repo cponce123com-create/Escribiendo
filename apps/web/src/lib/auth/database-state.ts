@@ -52,6 +52,21 @@ export function readErrorName(error: unknown): string {
 }
 
 /**
+ * Estado de una base que responde pero no tiene el esquema que espera el
+ * código. Se usa cuando la conexión funciona y la comprobación de columnas
+ * detecta que falta una migración: no hay un error de Prisma que clasificar,
+ * pero el resultado para quien opera la aplicación es el mismo.
+ */
+export function schemaOutdatedState(): DatabaseState {
+  return {
+    status: "not-migrated",
+    errorCode: "P2022",
+    errorName: "EsquemaDesactualizado",
+    errorMessage: "La base de datos no tiene todas las columnas que espera la aplicación.",
+  };
+}
+
+/**
  * Decide a qué estado corresponde un fallo de base de datos.
  *
  * `not-migrated` significa que la base responde pero le falta el esquema:

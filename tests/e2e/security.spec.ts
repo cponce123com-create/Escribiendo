@@ -27,6 +27,15 @@ test.describe("Capa de seguridad", () => {
     expect(readyBody.checks.schema).toBe("ok");
   });
 
+  test("la pantalla de migración pendiente explica qué hacer sin sesión", async ({ request }) => {
+    const response = await request.get("/migracion-pendiente");
+    expect(response.status()).toBe(200);
+
+    const html = await response.text();
+    expect(html).toContain("Migración pendiente");
+    expect(html).toContain("pnpm db:migrate");
+  });
+
   test("la respuesta incluye una CSP con nonce y sin estilos en línea libres", async ({
     request,
   }) => {
