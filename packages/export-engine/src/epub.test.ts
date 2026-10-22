@@ -121,6 +121,31 @@ describe("buildEpub", () => {
     expect(hideXhtml).not.toContain('class="chapter-title"');
   });
 
+  it("aplica letra capital solo al primer párrafo del EPUB", () => {
+    const epub = buildEpub(
+      {
+        ...DOCUMENTO,
+        chapters: [
+          {
+            id: "c1",
+            title: "Capítulo nuevo",
+            dropCap: true,
+            blocks: [
+              { kind: "body", text: "Primera entrada." },
+              { kind: "body", text: "Segundo párrafo." },
+            ],
+          },
+        ],
+      },
+      FECHA,
+    );
+    const xhtml = entryText(epub, "EPUB/text/chapter-001.xhtml") ?? "";
+
+    expect(xhtml).toContain('<p class="drop-cap">Primera entrada.</p>');
+    expect(xhtml).toContain("<p>Segundo párrafo.</p>");
+    expect(xhtml.match(/class="drop-cap"/gu)).toHaveLength(1);
+  });
+
   it("escribe la navegación con el índice de capítulos", () => {
     const nav = entryText(bytes, "EPUB/nav.xhtml") ?? "";
 
@@ -196,6 +221,27 @@ describe("buildDocx", () => {
     expect(showXml).toContain("Capítulo nuevo");
     expect(hideXml).not.toContain("Capítulo nuevo");
     expect(styles).toContain('<w:keepNext/><w:spacing w:before="720"');
+  });
+
+  it("aplica una inicial capitular al primer párrafo del DOCX", () => {
+    const docx = buildDocx(
+      {
+        ...DOCUMENTO,
+        chapters: [
+          {
+            id: "c1",
+            title: "Capítulo nuevo",
+            dropCap: true,
+            blocks: [{ kind: "body", text: "Primera entrada." }],
+          },
+        ],
+      },
+      FECHA,
+    );
+    const xml = entryText(docx, "word/document.xml") ?? "";
+
+    expect(xml).toContain('<w:framePr w:dropCap="drop" w:lines="3" w:wrap="around"/>');
+    expect(xml).toContain("Primera entrada.");
   });
 
   it("conserva los saltos de página", () => {

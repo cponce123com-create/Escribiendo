@@ -1,5 +1,5 @@
 import type { ExportBlock, ExportChapter } from "@escribiendo/export-engine";
-import { repeatsSectionTitle, sectionShowsTitle } from "@/lib/layout/blocks";
+import { isChapterType, repeatsSectionTitle, sectionShowsTitle } from "@/lib/layout/blocks";
 import type { ManuscriptBlock } from "./manuscript";
 
 export interface SectionTitleInput {
@@ -12,6 +12,7 @@ export interface SectionTitleInput {
 export function chaptersForReflowableFormats(
   sections: readonly SectionTitleInput[],
   sectionBlocks: readonly ManuscriptBlock[][],
+  dropCaps = false,
 ): ExportChapter[] {
   return sections.map((section, index) => {
     const sourceBlocks = sectionBlocks[index] ?? [];
@@ -35,6 +36,7 @@ export function chaptersForReflowableFormats(
       id: section.id,
       title: section.title,
       showTitle: showSectionTitle && !isSubchapter,
+      dropCap: dropCaps && isChapterType(section.type) && !isSubchapter,
       blocks,
     };
   });

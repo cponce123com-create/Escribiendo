@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { FormMessage } from "@/components/forms/form-message";
 import { requestExportAction, type ExportActionState } from "@/lib/export/actions";
 import { initialActionState } from "@/lib/action-state";
@@ -42,6 +42,7 @@ const FORMATOS: Array<{ id: ExportFormat; label: string; description: string }> 
  * caduca a los pocos minutos: si caduca, se vuelve a pedir.
  */
 export function ExportPanel({ bookId, hasLayout }: ExportPanelProps) {
+  const [dropCaps, setDropCaps] = useState(false);
   const [state, formAction] = useActionState<ExportActionState, FormData>(
     requestExportAction,
     initialActionState,
@@ -50,6 +51,26 @@ export function ExportPanel({ bookId, hasLayout }: ExportPanelProps) {
   return (
     <div className="space-y-6">
       <FormMessage state={state} />
+
+      <section className="panel p-5" aria-labelledby="export-options-title">
+        <h2 id="export-options-title" className="font-serif text-lg text-ink">
+          Opciones de composición
+        </h2>
+        <label className="mt-3 flex cursor-pointer items-start gap-3 text-sm text-ink-soft">
+          <input
+            type="checkbox"
+            checked={dropCaps}
+            onChange={(event) => setDropCaps(event.target.checked)}
+            className="mt-0.5 accent-accent"
+          />
+          <span>
+            <span className="block font-medium text-ink">Letra capital al inicio del capítulo</span>
+            <span className="mt-1 block text-ink-muted">
+              Destaca la primera letra del primer párrafo en PDF, EPUB y DOCX.
+            </span>
+          </span>
+        </label>
+      </section>
 
       <ul className="space-y-3">
         {FORMATOS.map((formato) => {
@@ -70,6 +91,7 @@ export function ExportPanel({ bookId, hasLayout }: ExportPanelProps) {
                 <form action={formAction}>
                   <input type="hidden" name="bookId" value={bookId} />
                   <input type="hidden" name="format" value={formato.id} />
+                  <input type="hidden" name="dropCaps" value={dropCaps ? "true" : "false"} />
                   <button type="submit" className="btn btn-secondary" disabled={sinMaqueta}>
                     Generar
                   </button>

@@ -231,7 +231,10 @@ export function sectionToBlocks(
  * La primera sección no es un capítulo: es la parte preliminar. A partir de
  * ahí, cada sección de tipo capítulo abre en página par.
  */
-export function bookToBlocks(sections: PreviewSection[]): LayoutBlock[] {
+export function bookToBlocks(
+  sections: PreviewSection[],
+  options: { dropCaps?: boolean } = {},
+): LayoutBlock[] {
   const blocks: LayoutBlock[] = [];
   const footnotes: FootnoteCounter = { next: 1 };
   let chapterSeen = false;
@@ -275,6 +278,13 @@ export function bookToBlocks(sections: PreviewSection[]): LayoutBlock[] {
 
       blocks.push({
         ...block,
+        ...(options.dropCaps &&
+        section.isChapter &&
+        section.type.toUpperCase() !== "SUBCHAPTER" &&
+        firstParagraph &&
+        block.text.length > 0
+          ? { dropCapCharacter: Array.from(block.text)[0] }
+          : {}),
         startsChapter: !titleBlock && opensChapter && index === 0,
         firstOfSection: titleBlock ? firstParagraph : index === 0,
         // Un salto propio de la sección abre página nueva, aunque la sección

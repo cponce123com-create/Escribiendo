@@ -293,8 +293,15 @@ function paragraph(text: string, styleId: string | null): string {
 }
 
 /** Párrafo de Word a partir de un bloque con formato. */
-function blockParagraph(block: ExportBlock, styleId: string | null, links: string[]): string {
-  const properties = styleId ? `<w:pPr><w:pStyle w:val="${styleId}"/></w:pPr>` : "";
+function blockParagraph(
+  block: ExportBlock,
+  styleId: string | null,
+  links: string[],
+  dropCap = false,
+): string {
+  const style = styleId ? `<w:pStyle w:val="${styleId}"/>` : "";
+  const frame = dropCap ? '<w:framePr w:dropCap="drop" w:lines="3" w:wrap="around"/>' : "";
+  const properties = style || frame ? `<w:pPr>${style}${frame}</w:pPr>` : "";
 
   return `<w:p>${properties}${inlineXml(block, links)}</w:p>`;
 }
@@ -382,6 +389,7 @@ export function buildDocx(
       body.push(paragraph(chapter.title, "Ttulo1"));
     }
 
+    let dropCapApplied = false;
     for (const block of chapter.blocks) {
       if (block.kind === "pageBreak") {
         body.push('<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
@@ -414,7 +422,9 @@ export function buildDocx(
         continue;
       }
 
-      body.push(blockParagraph(block, null, links));
+      const dropCap = chapter.dropCap && !dropCapApplied && block.kind === "body";
+      if (dropCap) dropCapApplied = true;
+      body.push(blockParagraph(block, null, links, dropCap));
     }
   }
 

@@ -127,6 +127,7 @@ export async function requestExport(
   session: SessionContext,
   bookId: string,
   format: ExportFormat,
+  dropCaps = false,
 ): Promise<ExportJobSummary> {
   const book = await prisma.book.findFirst({
     where: { id: bookId, workspaceId: session.workspace.id, deletedAt: null },
@@ -145,6 +146,7 @@ export async function requestExport(
     typography: context.typography,
     runningHeadTemplate: context.runningHeadTemplate,
     bookTitle: book.title,
+    dropCaps,
   };
 
   // La huella incluye el formato y la maqueta: cambian el archivo, de modo
@@ -273,6 +275,7 @@ async function generarExportJob(session: SessionContext, jobId: string): Promise
       typography: snapshot ? snapshot.typography : context.typography,
       runningHeadTemplate: snapshot ? snapshot.runningHeadTemplate : context.runningHeadTemplate,
       bookTitle: snapshot?.bookTitle || book.title,
+      dropCaps: snapshot?.dropCaps ?? false,
       createdAt: job.createdAt,
     });
 

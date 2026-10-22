@@ -46,7 +46,9 @@ export function textLinePlacement(
   const line = block.lines[lineIndex];
   const bold = isHeadingKind(block.kind);
   const italic = block.kind === "blockquote";
-  const indentMm = lineIndex === 0 ? (block.firstLineIndentMm ?? 0) : 0;
+  const indentMm =
+    (lineIndex === 0 ? (block.firstLineIndentMm ?? 0) : 0) +
+    (lineIndex < 3 ? (block.dropCapIndentMm ?? 0) : 0);
   const widthMm = Math.max(0, textWidthMm - indentMm);
   const segments = line?.segments?.length ? line.segments : [{ text: line?.text ?? "" }];
   const naturalWidthMm = segments.reduce((sum, segment) => {

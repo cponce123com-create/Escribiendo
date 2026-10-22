@@ -298,7 +298,8 @@ export function breakRunsIntoLines(runs: readonly InlineRun[], options: BreakOpt
   let isFirstLine = true;
 
   const availableWidth = (): number => {
-    const indent = isFirstLine ? (options.firstLineIndentMm ?? 0) : 0;
+    const indent =
+      options.lineIndentsMm?.[lines.length] ?? (isFirstLine ? (options.firstLineIndentMm ?? 0) : 0);
     return options.lineWidthMm - indent;
   };
 

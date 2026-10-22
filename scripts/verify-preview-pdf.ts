@@ -42,6 +42,7 @@ const sections = [
     sectionId: "capitulo-prueba",
     sectionTitle: "Capítulo de prueba",
     firstOfSection: false,
+    dropCapCharacter: "L",
   },
 ];
 const typography = {

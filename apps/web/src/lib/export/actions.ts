@@ -79,6 +79,7 @@ export async function requestExportAction(
 
   const bookId = uuidSchema.safeParse(formValue(formData, "bookId"));
   const format = formatSchema.safeParse(formValue(formData, "format"));
+  const dropCaps = formValue(formData, "dropCaps") === "true";
 
   if (!bookId.success) {
     return errorState("El libro no es válido.");
@@ -91,7 +92,7 @@ export async function requestExportAction(
   let job;
 
   try {
-    job = await requestExport(session, bookId.data, format.data);
+    job = await requestExport(session, bookId.data, format.data, dropCaps);
   } catch (error) {
     logger.error("export.request_error", {
       requestId: context?.requestId,

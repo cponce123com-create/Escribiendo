@@ -248,6 +248,20 @@ describe("bookToBlocks", () => {
     expect(blocks[1]?.firstOfSection).toBe(true);
   });
 
+  it("marca solo la inicial del primer párrafo de un capítulo cuando se activa", () => {
+    const section: PreviewSection = {
+      ...seccion(
+        documento({ type: "paragraph", content: [{ type: "text", text: "Una entrada." }] }),
+      ),
+      startOnOddPage: true,
+    };
+    const bloques = bookToBlocks([section], { dropCaps: true });
+    const cuerpo = bloques.find((bloque) => bloque.kind === "body");
+
+    expect(cuerpo?.dropCapCharacter).toBe("U");
+    expect(bookToBlocks([section])[1]?.dropCapCharacter).toBeUndefined();
+  });
+
   it("quita un título de contenido repetido sin distinguir espacios ni mayúsculas", () => {
     const section = seccion(
       documento(

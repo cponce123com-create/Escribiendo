@@ -204,8 +204,30 @@ export function toPdfPages(
         let x = placement.xMm;
         const wordSpacing = placement.wordSpacingPt;
 
+        if (index === 0 && block.dropCapCharacter) {
+          const capital = block.dropCapCharacter;
+          const capitalText = block.style.uppercase ? capital.toLocaleUpperCase("es") : capital;
+          const capitalSize = block.style.fontSizePt * 3;
+          const capitalWidth = measureSegment(capitalText, capitalSize, baseBold, baseItalic);
+          const ascent = {
+            serif: 0.891,
+            "sans-serif": 0.905,
+            monospace: 0.833,
+          }[block.style.fontFamily];
+          runs.push({
+            text: capitalText,
+            font: baseFont,
+            family: block.style.fontFamily,
+            sizePt: capitalSize,
+            xMm: leftMm,
+            baselineMm: baselineMm + ((capitalSize - block.style.fontSizePt) * ascent * 25.4) / 72,
+          });
+          x = Math.max(x, leftMm + capitalWidth + (block.style.fontSizePt * 0.12 * 25.4) / 72);
+        }
+
         // Un renglón puede mezclar negrita, cursiva y redonda: cada tramo se
         // dibuja con su fuente y en su posición, no se aplana a un solo estilo.
+        let firstSegment = true;
         for (const segment of segments) {
           if (segment.text.length === 0) {
             continue;
@@ -220,7 +242,13 @@ export function toPdfPages(
           // El texto se dibuja en mayúsculas si el estilo lo pide: la
           // medición ya cuenta con esa transformación, así que el ancho y el
           // dibujo tienen que ir juntos.
-          const texto = block.style.uppercase ? segment.text.toLocaleUpperCase("es") : segment.text;
+          let segmentText = segment.text;
+          if (index === 0 && block.dropCapCharacter && firstSegment) {
+            segmentText = segmentText.replace(/^./u, "");
+            firstSegment = false;
+          }
+          const texto = block.style.uppercase ? segmentText.toLocaleUpperCase("es") : segmentText;
+          if (texto.length === 0) continue;
           const segmentWidth = measureSegment(texto, sizePt, bold, italic, family);
           const espaciosSegmento = wordSpacing > 0 ? (segment.text.match(/ /gu)?.length ?? 0) : 0;
           const extraMm = (wordSpacing * espaciosSegmento * 25.4) / 72;
