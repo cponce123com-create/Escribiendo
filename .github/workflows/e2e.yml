@@ -66,5 +66,8 @@ jobs:
       - name: Navegador
         run: pnpm exec playwright install --with-deps chromium
 
+      - name: Compilación de producción
+        run: pnpm build
+
       - name: Pruebas de extremo a extremo
         run: pnpm exec playwright test --reporter=line
