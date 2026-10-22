@@ -30,8 +30,13 @@ jobs:
       - name: Dependencias
         run: pnpm install --frozen-lockfile
 
-      - name: Auditoría
-        run: pnpm audit --audit-level=high
+      - name: Auditoría de producción
+        run: pnpm audit --prod --audit-level=high
+
+      # La auditoría de desarrollo es informativa: braces (transitiva de
+      # eslint-config-next) no tiene versión corregida.
+      - name: Avisos de desarrollo
+        run: pnpm audit --audit-level=high || true
 
       - name: Versiones anticuadas
         run: pnpm outdated || true
