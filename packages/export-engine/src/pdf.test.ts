@@ -146,6 +146,13 @@ describe("buildPdf", () => {
     expect(text).toContain("/CreationDate (D:20261020100000Z)");
   });
 
+  it("cierra el diccionario de metadatos con sintaxis PDF válida", () => {
+    const text = asText(buildPdf(DOCUMENT));
+
+    expect(text).toContain("/ModDate (D:20261020100000Z) >>\nendobj");
+    expect(text).not.toContain("/>>");
+  });
+
   it("usa la caja de la hoja acabada como CropBox y TrimBox", () => {
     const text = asText(buildPdf(DOCUMENT));
 

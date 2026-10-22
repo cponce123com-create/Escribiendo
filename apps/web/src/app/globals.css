@@ -469,6 +469,98 @@
     height: 1.1rem;
   }
 
+  .editor-toolbar-wrap {
+    position: sticky;
+    top: 0.5rem;
+    z-index: 20;
+    padding: 0.5rem;
+    border: 1px solid var(--line);
+    border-radius: 0.9rem;
+    background: color-mix(in srgb, var(--surface-raised) 94%, transparent);
+    box-shadow: 0 5px 18px color-mix(in srgb, var(--ink) 9%, transparent);
+    backdrop-filter: blur(12px);
+  }
+
+  .editor-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .editor-toolbar__group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.2rem;
+    border: 1px solid var(--line);
+    border-radius: 0.7rem;
+    background: var(--surface);
+  }
+
+  .editor-toolbar__select {
+    min-height: 2.35rem;
+    max-width: min(17rem, 76vw);
+    padding: 0.35rem 2rem 0.35rem 0.65rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 0.55rem;
+    background: var(--surface-raised);
+    color: var(--ink);
+    font-size: 0.82rem;
+  }
+
+  .editor-toolbar__button {
+    display: inline-flex;
+    min-width: 2.35rem;
+    min-height: 2.35rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.55rem;
+    border: 1px solid transparent;
+    border-radius: 0.55rem;
+    background: transparent;
+    color: var(--ink);
+    font-size: 0.85rem;
+    font-weight: 550;
+    line-height: 1;
+    transition:
+      background-color 150ms ease,
+      color 150ms ease,
+      border-color 150ms ease;
+  }
+
+  .editor-toolbar__button:hover:not(:disabled) {
+    border-color: var(--line-strong);
+    background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  }
+
+  .editor-toolbar__button.is-active {
+    border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+    background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+    color: var(--accent-strong);
+  }
+
+  .editor-toolbar__button:disabled {
+    cursor: not-allowed;
+    color: var(--ink-soft);
+    opacity: 0.48;
+  }
+
+  .editor-toolbar__button svg {
+    width: 1.05rem;
+    height: 1.05rem;
+    flex: none;
+  }
+
+  .editor-toolbar__help {
+    margin: 0.45rem 0.2rem 0;
+    color: var(--ink-soft);
+    font-size: 0.76rem;
+    line-height: 1.4;
+  }
+
   .field-label {
     display: block;
     margin-bottom: 0.45rem;
