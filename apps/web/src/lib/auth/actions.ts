@@ -22,6 +22,7 @@ import type { AuthActionState } from "./action-state";
 import { hashPassword, passwordNeedsRehash, verifyPassword, verifyWithDummyHash } from "./password";
 import { hashToken, secureCompareTokens } from "./tokens";
 import { createSession, destroyCurrentSession, getSession, revokeOtherSessions } from "./session";
+import { esEsquemaDesactualizado } from "@escribiendo/database";
 import { passwordContainsIdentity, passwordsMatch, slugifyWorkspaceName } from "./identity";
 
 const INVALID_CREDENTIALS =
@@ -213,6 +214,15 @@ export async function loginAction(
     );
   } catch (error) {
     logActionError("auth.login_error", context, error);
+
+    // Si la base de datos no tiene el esquema que espera el código, decirlo
+    // con claridad: el acceso no es un problema de credenciales.
+    if (esEsquemaDesactualizado(error)) {
+      return errorState(
+        "La base de datos está desactualizada: falta aplicar una migración. En el servidor, ejecuta `pnpm db:migrate`.",
+      );
+    }
+
     return errorState("No se ha podido iniciar sesión en este momento. Inténtalo de nuevo.");
   }
 

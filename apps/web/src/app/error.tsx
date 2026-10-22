@@ -6,10 +6,10 @@ import { AlertIcon } from "@/components/icons";
 
 interface ErrorPageProps {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }
 
-export default function ErrorPage({ error, reset }: ErrorPageProps) {
+export default function ErrorPage({ error, retry }: ErrorPageProps) {
   useEffect(() => {
     console.error("Error de interfaz", {
       name: error.name,
@@ -37,7 +37,7 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
             <p className="mt-3 font-mono text-xs text-ink-muted">Referencia: {error.digest}</p>
           ) : null}
           <div className="mt-6 flex flex-wrap gap-3">
-            <button type="button" className="btn btn-primary" onClick={reset}>
+            <button type="button" className="btn btn-primary" onClick={retry}>
               Reintentar
             </button>
             <a className="btn btn-secondary" href="/login">

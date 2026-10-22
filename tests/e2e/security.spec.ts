@@ -20,8 +20,26 @@ test.describe("Capa de seguridad", () => {
     const ready = await request.get("/api/health/ready");
     expect(ready.status()).toBe(200);
 
-    const readyBody = (await ready.json()) as { checks: { database: string } };
+    const readyBody = (await ready.json()) as {
+      checks: { database: string; schema: string };
+      commit: string | null;
+    };
     expect(readyBody.checks.database).toBe("ok");
+    // El esquema al día: si no lo estuviera, la aplicación se caería al
+    // pedir la sesión y el aviso de migración no se vería nunca.
+    expect(readyBody.checks.schema).toBe("ok");
+    // En Render, el commit desplegado permite distinguir un despliegue viejo
+    // de uno nuevo. Si no hay variable de entorno, se informa null.
+    expect(readyBody).toHaveProperty("commit");
+  });
+
+  test("la pantalla de migración pendiente explica qué hacer sin sesión", async ({ request }) => {
+    const response = await request.get("/migracion-pendiente");
+    expect(response.status()).toBe(200);
+
+    const html = await response.text();
+    expect(html).toContain("Migración pendiente");
+    expect(html).toContain("pnpm db:migrate");
   });
 
   test("la respuesta incluye una CSP con nonce y sin estilos en línea libres", async ({

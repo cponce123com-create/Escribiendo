@@ -152,10 +152,16 @@ pnpm db:migrate:create
 ```
 
 `pnpm db:status` informa de si la base de datos responde, de cuántas tablas
-existen, de cuántas migraciones están aplicadas y de cuántas cuentas hay. Es
-imprescindible ejecutarlo **antes** de desplegar: si las migraciones no están
-aplicadas, la aplicación arranca pero ninguna página que consulte la base de
-datos puede completarse.
+existen, de cuántas migraciones están aplicadas, de cuántas cuentas hay y de
+si el **esquema está al día**. Es imprescindible ejecutarlo **antes** de
+desplegar: si las migraciones no están aplicadas, la aplicación arranca pero
+ninguna página que consulte la base de datos puede completarse.
+
+Cuando el código es más nuevo que la base de datos, la aplicación lo dice en
+vez de dejar un «error de interfaz»: aparece un aviso de **migración
+pendiente** con el comando exacto, y `/api/health/ready` responde `503` con
+`"schema": "outdated"`. En ese caso, `pnpm db:migrate` y recargar. Las
+migraciones son aditivas: no borran datos.
 
 Los comandos `db:*` se ejecutan desde la raíz del repositorio: la CLI de
 Prisma busca el archivo `.env` en el directorio de trabajo actual y, sin el

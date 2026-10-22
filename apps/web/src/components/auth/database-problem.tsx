@@ -26,7 +26,7 @@ export function DatabaseProblem({ state, requestId }: DatabaseProblemProps) {
         <p className="eyebrow">Servicio no disponible</p>
         <h1 className="mt-3 font-serif text-2xl text-ink">
           {notMigrated
-            ? "La base de datos no tiene el esquema aplicado."
+            ? "La base de datos está desactualizada."
             : "No se puede conectar con la base de datos."}
         </h1>
       </div>
@@ -34,9 +34,9 @@ export function DatabaseProblem({ state, requestId }: DatabaseProblemProps) {
       <p className="text-sm leading-relaxed text-ink-soft">
         {notMigrated ? (
           <>
-            La base de datos responde, pero le faltan las tablas del modelo editorial. Aplica las
-            migraciones desde el equipo donde tengas el <code className="font-mono">.env</code> de
-            Neon:
+            La base de datos responde, pero le faltan tablas o columnas del modelo editorial. Aplica
+            las migraciones desde el equipo donde tengas el <code className="font-mono">.env</code>{" "}
+            de Neon:
           </>
         ) : (
           <>

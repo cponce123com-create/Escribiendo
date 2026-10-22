@@ -1,4 +1,5 @@
 import "server-only";
+import { checkSchema } from "@escribiendo/database";
 import { scrubSecrets } from "@escribiendo/shared";
 import { prisma } from "@/lib/db";
 import { logger } from "@/lib/logger";
@@ -6,6 +7,7 @@ import {
   classifyDatabaseError,
   readErrorCode,
   readErrorName,
+  schemaOutdatedState,
   type DatabaseState,
 } from "./database-state";
 
@@ -25,6 +27,16 @@ export type { DatabaseState } from "./database-state";
 export async function getDatabaseState(): Promise<DatabaseState> {
   try {
     const users = await prisma.user.count({ where: { deletedAt: null } });
+
+    // Contar usuarios solo demuestra que la base responde. La aplicación
+    // necesita además columnas concretas: si falta una migración, la sesión
+    // falla después y el acceso acaba en un error sin explicación. Se
+    // comprueba aquí, antes de tocar la sesión, para poder decirlo.
+    if (!(await checkSchema())) {
+      logger.error("db.schema_outdated", { hasUsers: users > 0 });
+
+      return schemaOutdatedState();
+    }
 
     return { status: "ready", hasUsers: users > 0 };
   } catch (error) {

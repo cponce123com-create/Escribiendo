@@ -3,6 +3,7 @@ import {
   classifyDatabaseError,
   readErrorCode,
   readErrorName,
+  schemaOutdatedState,
   type DatabaseFailure,
 } from "./database-state";
 
@@ -29,6 +30,18 @@ describe("readErrorName", () => {
   it("devuelve el nombre de la clase del error", () => {
     expect(readErrorName(new TypeError("x"))).toBe("TypeError");
     expect(readErrorName("no es un error")).toBe("UnknownError");
+  });
+});
+
+describe("schemaOutdatedState", () => {
+  it("describe una base que responde pero no tiene el esquema esperado", () => {
+    const state = schemaOutdatedState();
+
+    expect(state).toMatchObject({
+      status: "not-migrated",
+      errorCode: "P2022",
+      errorName: "EsquemaDesactualizado",
+    });
   });
 });
 

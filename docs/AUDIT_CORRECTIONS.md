@@ -347,7 +347,7 @@ Base del lote: `dc7c6ea`.
 
 | Suite               | Resultado                  |
 | ------------------- | -------------------------- |
-| `pnpm test`         | 328 pruebas en 34 archivos |
+| `pnpm test`         | 332 pruebas en 35 archivos |
 | `pnpm test:e2e`     | 80 pruebas en Chromium     |
 | `pnpm format:check` | Correcto                   |
 | `pnpm lint`         | Sin errores                |
@@ -419,7 +419,7 @@ Base del lote: `86610b6`.
 | `pnpm validate:docx` | Mammoth 1.11.0 lee el documento: texto, negrita, cursiva, enlace, nota al pie e imagen incrustada |
 | `pnpm audit --prod`  | Sin vulnerabilidades conocidas                                                                    |
 | `pnpm audit`         | 1 aviso alto de desarrollo (`braces`), sin version corregida publicada                            |
-| `pnpm test`          | 328 pruebas en 34 archivos                                                                        |
+| `pnpm test`          | 332 pruebas en 35 archivos                                                                        |
 | `pnpm test:e2e`      | 80 pruebas en Chromium                                                                            |
 
 ### Limites que permanecen
@@ -468,7 +468,7 @@ Base del lote: `c43ee27`.
 | PDF de la aplicacion | `node scripts/pdfjs/valida-pdf.mjs test-results\pdf-generado.pdf` devuelve el texto |
 | `pnpm validate:epub` | 0 errores y 0 advertencias con EPUBCheck 5.1.0                                      |
 | `pnpm validate:docx` | Mammoth 1.11.0 lee el documento                                                     |
-| `pnpm test`          | 328 pruebas en 34 archivos                                                          |
+| `pnpm test`          | 332 pruebas en 35 archivos                                                          |
 | `pnpm test:e2e`      | 80 pruebas en Chromium                                                              |
 | `pnpm bench:export`  | PDF de 671 KB, EPUB de 29 KB y DOCX de 8 KB para 200 000 palabras                   |
 
@@ -526,7 +526,7 @@ Base del lote: `29dac65`.
 | `pnpm stress:export` | PDF de 588 ms y 40 159 KB, EPUB de 1 413 ms, DOCX de 1 355 ms         |
 | Memoria maxima       | 367 MB, con un margen de 145 MB sobre los 512 MB de Render Free       |
 | Antes del arreglo    | La misma prueba daba 1 647 MB: la exportacion no cabia en Render Free |
-| `pnpm test`          | 328 pruebas en 34 archivos                                            |
+| `pnpm test`          | 332 pruebas en 35 archivos                                            |
 | `pnpm test:e2e`      | 80 pruebas en Chromium                                                |
 | `pnpm validate:epub` | 0 errores y 0 advertencias con EPUBCheck 5.1.0                        |
 
@@ -641,7 +641,7 @@ XML character`. Comprobado con EPUBCheck 5.1.0.
 | `packages/export-engine/src/epub.test.ts`       | 4 casos nuevos: controles y enlaces peligrosos en EPUB y DOCX                   |
 | `packages/book-schema/src/diff.test.ts`         | Un caso nuevo: la comparacion enorme degrada a sustitucion completa             |
 | `packages/editorial-engine/src/measure.test.ts` | Un caso nuevo: el espacio inseparable no parte palabras                         |
-| `pnpm test`                                     | 328 pruebas en 34 archivos                                                      |
+| `pnpm test`                                     | 332 pruebas en 35 archivos                                                      |
 | `pnpm test:e2e`                                 | 73 pruebas en Chromium                                                          |
 
 ### Lote Q: el trabajo de quien escribe no se pierde ni se cuelga
@@ -657,7 +657,7 @@ XML character`. Comprobado con EPUBCheck 5.1.0.
 
 Pruebas: `apps/web/src/lib/export/job-estado.test.ts` (3 casos) y
 `scripts/lib/e2e-database.test.ts` (6 casos, incluidas las dos anulaciones
-independientes). 328 unitarias en 34 archivos y 73 E2E en Chromium.
+independientes). 332 unitarias en 35 archivos y 73 E2E en Chromium.
 
 ### Lote R: la aplicacion no se cuelga ni se aburre
 
@@ -670,7 +670,7 @@ independientes). 328 unitarias en 34 archivos y 73 E2E en Chromium.
 | Las paginas con manuscrito no llevaban `Cache-Control: no-store` explicito.                                                           | `/books`, `/notes`, `/stats` y `/team` se marcan como privadas y sin cache.                                    |
 | Retirar a alguien, revocar una invitacion, borrar una nota, un objetivo o un perfil: un solo clic.                                    | Piden confirmacion en el sitio, sin ventanas del navegador.                                                    |
 
-Pruebas: 328 unitarias en 34 archivos y 73 E2E en Chromium (la de escritura
+Pruebas: 332 unitarias en 35 archivos y 73 E2E en Chromium (la de escritura
 comprueba ahora la confirmacion).
 
 ---
@@ -719,7 +719,7 @@ Base del lote: `b26c522`.
 | -------------------- | -------------------------------------------------------------------------------- |
 | `pnpm check:size`    | 1 240 KB de JavaScript (presupuesto 1 953 KB) y 4 265 KB de estaticos (5 859 KB) |
 | E2E de accesibilidad | 80 pruebas en Chromium, sin infracciones graves ni criticas                      |
-| `pnpm test`          | 328 pruebas en 34 archivos                                                       |
+| `pnpm test`          | 332 pruebas en 35 archivos                                                       |
 
 ---
 
@@ -757,7 +757,7 @@ Base del lote: `58b130d`.
 
 | Comprobacion        | Resultado                           |
 | ------------------- | ----------------------------------- |
-| `pnpm test`         | 328 pruebas en 34 archivos          |
+| `pnpm test`         | 332 pruebas en 35 archivos          |
 | `pnpm test:e2e`     | 80 pruebas en Chromium (dos nuevas) |
 | `pnpm format:check` | Correcto                            |
 | `pnpm lint`         | Sin errores                         |
@@ -804,7 +804,7 @@ La migracion es aditiva (`ALTER TABLE ... ADD COLUMN`), sin tocar datos.
 | `pnpm db:validate`                          | El esquema es valido                                   |
 | `pnpm db:migrate`                           | Migracion aplicada en la base de pruebas               |
 | E2E de equipo                               | Un caso nuevo: cambiar de estudio y volver al original |
-| `pnpm test`                                 | 328 pruebas en 34 archivos                             |
+| `pnpm test`                                 | 332 pruebas en 35 archivos                             |
 | `pnpm test:e2e`                             | 80 pruebas en Chromium                                 |
 | `pnpm lint`, `pnpm typecheck`, `pnpm build` | Sin errores                                            |
 
@@ -854,7 +854,7 @@ Base del lote: `b0a1949`.
 
 | Comprobacion        | Resultado                  |
 | ------------------- | -------------------------- |
-| `pnpm test`         | 328 pruebas en 34 archivos |
+| `pnpm test`         | 332 pruebas en 35 archivos |
 | `pnpm test:e2e`     | 80 pruebas en Chromium     |
 | `pnpm format:check` | Correcto                   |
 | `pnpm lint`         | Sin errores                |
@@ -897,9 +897,85 @@ Base del lote: `4281847`.
 | Comprobacion        | Resultado                                          |
 | ------------------- | -------------------------------------------------- |
 | `pnpm db:status`    | Tamano de tablas y 3 indices parciales comprobados |
-| `pnpm test`         | 328 pruebas en 34 archivos                         |
+| `pnpm test`         | 332 pruebas en 35 archivos                         |
 | `pnpm test:e2e`     | 80 pruebas en Chromium                             |
 | `pnpm format:check` | Correcto                                           |
 | `pnpm lint`         | Sin errores                                        |
 | `pnpm typecheck`    | Sin errores                                        |
 | `pnpm build`        | Correcto                                           |
+
+---
+
+## Lote Y: la aplicacion explica cuando le falta una migracion
+
+Fecha: 21 y 22 de octubre de 2026.
+Rama: `improvement/escribiendo-95`.
+Base del lote: `38d4f51` (primera parte) y este commit (cierre).
+
+### Qué pasaba
+
+Desplegar el código nuevo sin aplicar la migración dejaba la aplicación entera
+caída: un «error de interfaz» con una referencia opaca. La sesión se lee con la
+columna `sessions.workspaceId`, que en una base antigua no existe, y Prisma
+falla con `P2022`.
+
+La primera corrección cubría la lectura de la sesión y el envío del formulario
+de acceso, pero quedaban dos huecos reales, comprobados en la reproducción:
+
+1. `/login` y `/setup` contaban usuarios (la base respondía) y después leían la
+   sesión. Con una cookie presente, la página volvía a romperse.
+2. Cada página privada vuelve a pedir la sesión por su cuenta; el aviso del
+   layout solo cubría las peticiones en las que fallaba la lectura del layout.
+
+### Reproducción
+
+Se simuló un despliegue antiguo: se quitó la columna de la base de pruebas y se
+arrancó la compilación de producción. Se visitaron las rutas públicas y las
+privadas con una cookie de sesión.
+
+| Momento                                               | Antes                            | Ahora                                                                |
+| ----------------------------------------------------- | -------------------------------- | -------------------------------------------------------------------- |
+| `/` sin sesión                                        | Redirige al acceso, que falla    | Acceso con el aviso de migración                                     |
+| `/login` con cookie                                   | «Error de interfaz»              | Aviso «La base de datos está desactualizada» con el comando          |
+| `/setup`                                              | «Error de interfaz»              | El mismo aviso, antes de tocar la sesión                             |
+| `/dashboard`, `/stats`, `/books`, `/team`, `/account` | «Error de interfaz»              | Redirección a `/migracion-pendiente`                                 |
+| `/migracion-pendiente`                                | No existía                       | Pantalla estática disponible sin base de datos                       |
+| Envío del formulario de acceso                        | «No se ha podido iniciar sesión» | Distingue el esquema desactualizado de unas credenciales incorrectas |
+| `/api/health/ready`                                   | `200` con `database: ok`         | `503` con `schema: outdated`                                         |
+
+Con el esquema restaurado, `/api/health/ready` responde `200` con
+`schema: ok` y el acceso muestra el formulario con normalidad.
+
+### Qué se ha cambiado
+
+| Área      | Archivo                                             | Cambio                                                                                                                                                                          |
+| --------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Base      | `packages/database/src/schema.ts`                   | `esEsquemaDesactualizado()` reconoce el error de Prisma por columna o tabla que falta; `checkSchema()` comprueba las columnas que la aplicación necesita, con límite de tiempo. |
+| Base      | `packages/database/src/schema.test.ts`              | Cuatro casos: error de Prisma, mensaje sin código y errores que **no** son de esquema.                                                                                          |
+| Acceso    | `apps/web/src/lib/auth/installation.ts`             | `getDatabaseState()` cuenta usuarios y después comprueba el esquema: devuelve `not-migrated` antes de leer la sesión.                                                           |
+| Acceso    | `apps/web/src/lib/auth/database-state.ts`           | `schemaOutdatedState()`, estado para una base que responde pero no tiene las columnas esperadas.                                                                                |
+| Acceso    | `apps/web/src/components/auth/database-problem.tsx` | El aviso habla de tablas **o columnas** y del comando que hay que ejecutar.                                                                                                     |
+| Sesión    | `apps/web/src/lib/auth/session.ts`                  | El error de esquema se convierte en `ConfigurationError`; `requireSession()` redirige a `/migracion-pendiente`, de modo que cubre todas las páginas privadas.                   |
+| Interfaz  | `apps/web/src/components/app/schema-error.tsx`      | Pantalla «Migración pendiente».                                                                                                                                                 |
+| Ruta      | `apps/web/src/app/migracion-pendiente/page.tsx`     | Pantalla estática y pública, disponible aunque la base no tenga el esquema.                                                                                                     |
+| Interfaz  | `apps/web/src/app/page.tsx`                         | Muestra la pantalla si la sesión no se puede leer.                                                                                                                              |
+| Interfaz  | `apps/web/src/app/(app)/layout.tsx`                 | Vuelve a ser simple: la redirección vive en `requireSession()`.                                                                                                                 |
+| Interfaz  | `apps/web/src/app/error.tsx`                        | Usa `retry` (API estable de Next 16.4): reintentar vuelve a pedir los datos al servidor.                                                                                        |
+| Acceso    | `apps/web/src/lib/auth/actions.ts`                  | El fallo de esquema se distingue de unas credenciales incorrectas.                                                                                                              |
+| Salud     | `apps/web/src/app/api/health/ready/route.ts`        | Informa `schema: ok` u `outdated`, responde `503` si falta una migración e incluye el commit desplegado en Render.                                                              |
+| Pruebas   | `apps/web/src/lib/auth/database-state.test.ts`      | Nuevo caso para `schemaOutdatedState()`.                                                                                                                                        |
+| Pruebas   | `tests/e2e/security.spec.ts`                        | El chequeo de salud exige `schema: ok`; la pantalla de migración se sirve sin sesión y con el comando.                                                                          |
+| Documento | `docs/DEPLOYMENT.md`, `README.md`                   | Explican el aviso, las rutas y el comando.                                                                                                                                      |
+
+### Pruebas ejecutadas
+
+| Comprobación                     | Resultado                                                                                                                                                                           |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reproducción con esquema antiguo | Ocho rutas sin «error de interfaz»: `/`, `/login`, `/migracion-pendiente`, `/dashboard`, `/stats`, `/books`, `/team` y `/account`; avisos correctos y `503` en el chequeo de salud. |
+| Esquema restaurado               | `/api/health/ready` responde `200` con `schema: ok`; el acceso muestra el formulario.                                                                                               |
+| `pnpm test`                      | 333 pruebas en 35 archivos.                                                                                                                                                         |
+| `pnpm test:e2e`                  | 81 pruebas en Chromium; EPUBCheck 5.1.0 sin errores ni advertencias.                                                                                                                |
+| `pnpm format:check`              | Correcto.                                                                                                                                                                           |
+| `pnpm lint`                      | Sin errores.                                                                                                                                                                        |
+| `pnpm typecheck`                 | Sin errores.                                                                                                                                                                        |
+| `pnpm build`                     | Correcto.                                                                                                                                                                           |

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { checkDatabaseConnection } from "@escribiendo/database";
+import { checkDatabaseConnection, checkSchema } from "@escribiendo/database";
 import { APP_VERSION } from "@/lib/version";
 
 export const runtime = "nodejs";
@@ -7,19 +7,30 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request): Promise<NextResponse> {
   const databaseReady = await checkDatabaseConnection(2_500);
+  // Con la base conectada puede faltar una migración: es un estado distinto
+  // de «la base no responde» y hay que decirlo.
+  const schemaReady = databaseReady ? await checkSchema(2_500) : false;
+  const ready = databaseReady && schemaReady;
+
+  // Render expone el commit desplegado. Sirve para saber si el código que
+  // responde es el último: sin este dato, un despliegue viejo y uno nuevo con
+  // un fallo se ven igual desde fuera.
+  const commit = process.env.RENDER_GIT_COMMIT?.slice(0, 7) ?? null;
 
   return NextResponse.json(
     {
-      status: databaseReady ? "ready" : "unavailable",
+      status: ready ? "ready" : "unavailable",
       version: APP_VERSION,
+      commit,
       timestamp: new Date().toISOString(),
       checks: {
         application: "ok",
         database: databaseReady ? "ok" : "unavailable",
+        schema: schemaReady ? "ok" : "outdated",
       },
     },
     {
-      status: databaseReady ? 200 : 503,
+      status: ready ? 200 : 503,
       headers: {
         "Cache-Control": "no-store",
         "X-Request-ID": request.headers.get("x-request-id") ?? "",

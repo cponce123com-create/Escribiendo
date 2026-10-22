@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { UserRole, WorkspaceRole } from "@escribiendo/database";
 import { prisma } from "@/lib/db";
+import { esEsquemaDesactualizado } from "@escribiendo/database";
+import { isAppError, ConfigurationError } from "@/lib/errors";
 import { getRequestContext, type RequestContext } from "@/lib/security/request-context";
 import { getServerEnv, getSessionTtlMs, isProduction } from "@/lib/env";
 import { generateToken, hashToken } from "./tokens";
@@ -112,35 +114,51 @@ export const getSession = cache(async (): Promise<SessionContext | null> => {
   }
 
   const now = new Date();
-  const session = await prisma.session.findUnique({
-    where: { tokenHash: hashToken(token) },
-    select: {
-      id: true,
-      expiresAt: true,
-      revokedAt: true,
-      lastUsedAt: true,
-      workspaceId: true,
-      user: {
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          role: true,
-          isActive: true,
-          deletedAt: true,
-          memberships: {
-            orderBy: { createdAt: "asc" },
-            select: {
-              role: true,
-              workspace: {
-                select: { id: true, name: true, slug: true, deletedAt: true },
+
+  let session;
+
+  try {
+    session = await prisma.session.findUnique({
+      where: { tokenHash: hashToken(token) },
+      select: {
+        id: true,
+        expiresAt: true,
+        revokedAt: true,
+        lastUsedAt: true,
+        workspaceId: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            role: true,
+            isActive: true,
+            deletedAt: true,
+            memberships: {
+              orderBy: { createdAt: "asc" },
+              select: {
+                role: true,
+                workspace: {
+                  select: { id: true, name: true, slug: true, deletedAt: true },
+                },
               },
             },
           },
         },
       },
-    },
-  });
+    });
+  } catch (error) {
+    // Si la base de datos no tiene el esquema que espera el código, la
+    // aplicación no puede ni leer la sesión. Se dice con claridad en vez de
+    // dejar un «error de interfaz» sin explicación.
+    if (esEsquemaDesactualizado(error)) {
+      throw new ConfigurationError(
+        "La base de datos está desactualizada: falta aplicar una migración. Ejecuta `pnpm db:migrate` en el servidor y vuelve a cargar la página.",
+      );
+    }
+
+    throw error;
+  }
 
   if (
     !session ||
@@ -220,7 +238,21 @@ export async function switchWorkspace(
 }
 
 export async function requireSession(): Promise<SessionContext> {
-  const session = await getSession();
+  let session: SessionContext | null;
+
+  try {
+    session = await getSession();
+  } catch (error) {
+    // La base de datos no tiene el esquema que espera esta versión: en vez de
+    // romper cada página privada, se lleva a una pantalla que explica qué
+    // falta y cómo aplicarlo. Las páginas del grupo (app) llaman aquí, así que
+    // el aviso cubre todas por igual.
+    if (isAppError(error) && error.code === "CONFIGURATION_ERROR") {
+      redirect("/migracion-pendiente");
+    }
+
+    throw error;
+  }
 
   if (!session) {
     redirect("/login");

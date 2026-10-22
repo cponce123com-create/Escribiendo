@@ -4,6 +4,8 @@ import { AppTopbar } from "@/components/app/topbar";
 import { requireSession } from "@/lib/auth/session";
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
+  // Si la base de datos no tiene el esquema que espera el código,
+  // `requireSession` lleva a la pantalla de migración pendiente.
   const session = await requireSession();
 
   return (
