@@ -55,10 +55,12 @@ pnpm db:migrate
 pnpm db:status
 ```
 
-`pnpm db:status` comprueba, sin modificar nada, si la base de datos responde y
-si tiene el esquema aplicado. **Ejecuta `pnpm db:migrate` antes de dar por
-bueno un despliegue**: sin migraciones aplicadas, la aplicación arranca pero
-todas las páginas que consultan la base de datos fallan.
+`pnpm db:status` comprueba, sin modificar nada, si la base de datos responde,
+si tiene el esquema aplicado y si están las columnas que necesita el código.
+Si falta alguna, la nombra y termina con error. **Ejecuta `pnpm db:migrate`
+antes de dar por bueno un despliegue**: sin migraciones aplicadas, la
+aplicación arranca pero todas las páginas que consultan la base de datos
+fallan.
 
 ### Si la aplicación dice «Migración pendiente»
 

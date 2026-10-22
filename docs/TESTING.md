@@ -38,7 +38,7 @@ pnpm test
 Vitest recorre `apps/**/*.test.ts`, `packages/**/*.test.ts` y
 `scripts/**/*.test.ts`. No necesita base de datos ni navegador.
 
-Resultado vigente: **333 pruebas en 35 archivos** (22 de octubre de 2026).
+Resultado vigente: **337 pruebas en 36 archivos** (22 de octubre de 2026).
 Cobertura actual (Fases 1 a 3):
 
 | Archivo                                                   | Qué verifica                                                                                                                                                                                                |
