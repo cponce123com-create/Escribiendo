@@ -6,6 +6,7 @@ import { countBooks, listBooks, type BookSort } from "@/lib/books/queries";
 import { BOOK_STATUS_LABELS } from "@/lib/ui/format";
 import { formatNumber } from "@/lib/ui/format";
 import { LibraryIcon } from "@/components/icons";
+import { DeleteBookButton } from "@/components/books/delete-book-button";
 
 export const metadata: Metadata = {
   title: "Biblioteca",
@@ -45,6 +46,7 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
   ]);
 
   const canCreate = canPerform(session.workspace.role, "book:create");
+  const canDelete = canPerform(session.workspace.role, "book:delete");
   const isFiltered = search.length > 0 || status !== undefined;
 
   return (
@@ -152,10 +154,10 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
       ) : (
         <ul className="space-y-3">
           {books.map((book) => (
-            <li key={book.id}>
+            <li key={book.id} className="panel p-5">
               <Link
                 href={`/books/${book.id}`}
-                className="panel block p-5 transition-colors hover:border-line-strong"
+                className="block transition-colors hover:opacity-80"
               >
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="min-w-0">
@@ -193,6 +195,11 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
                   </dl>
                 </div>
               </Link>
+              {canDelete && book.status === "DRAFT" ? (
+                <div className="mt-4 flex justify-end border-t border-line pt-4">
+                  <DeleteBookButton bookId={book.id} title={book.title} />
+                </div>
+              ) : null}
             </li>
           ))}
         </ul>
