@@ -55,7 +55,7 @@ export async function replaceBookManuscriptAction(
     orderBy: [{ sortOrder: "asc" }, { title: "asc" }],
     select: { id: true, title: true, version: true, content: true },
   });
-  if (!sections.length) return { count: 0, error: "El libro no está disponible." };
+  if (!sections.length) return { count: 0, error: "El libro no est� disponible." };
 
   const prepared = sections.flatMap((section) => {
     const document = parseTiptapDocument(section.content);
@@ -96,8 +96,8 @@ export async function replaceBookManuscriptAction(
     return {
       count: 0,
       error: error instanceof Error && error.message === "SECTION_VERSION_CONFLICT"
-        ? "El manuscrito cambió mientras se aplicaba el reemplazo. No se modificó ninguna sección; recarga y vuelve a intentarlo."
-        : "No se pudo completar el reemplazo. No se modificó ninguna sección; vuelve a intentarlo.",
+        ? "El manuscrito cambi� mientras se aplicaba el reemplazo. No se modific� ninguna secci�n; recarga y vuelve a intentarlo."
+        : "No se pudo completar el reemplazo. No se modific� ninguna secci�n; vuelve a intentarlo.",
     };
   }
   for (const item of prepared) revalidatePath(`/books/${bookId}/sections/${item.section.id}`);
