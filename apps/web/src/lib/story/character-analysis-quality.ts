@@ -267,3 +267,17 @@ export function analyzeAndFilterCharacterCandidates(
     sectionText: sections.map((section) => section.text).join("\n"),
   });
 }
+
+/** Identifica sugerencias pendientes que la revisión actual ya no acepta. */
+export function obsoleteCharacterSuggestionIds(
+  suggestions: Array<{ id: string; normalizedName: string }>,
+  candidates: CharacterCandidate[],
+): string[] {
+  const acceptedNames = new Set(
+    candidates.map((candidate) => normalizeCharacterName(candidate.name).slice(0, 160)),
+  );
+
+  return suggestions
+    .filter((suggestion) => !acceptedNames.has(normalizeCharacterName(suggestion.normalizedName)))
+    .map((suggestion) => suggestion.id);
+}
