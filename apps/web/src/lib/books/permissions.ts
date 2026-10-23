@@ -44,6 +44,9 @@ const RESTORE_ROLES: ReadonlySet<WorkspaceRole> = new Set(["OWNER", "ADMIN", "ED
 /** Quien puede aprobar un libro y darlo por terminado. */
 const APPROVE_ROLES: ReadonlySet<WorkspaceRole> = new Set(["OWNER", "ADMIN", "EDITOR"]);
 
+/** Quien puede exportar y gestionar la maquetación (publicación). */
+const PUBLISH_ROLES: ReadonlySet<WorkspaceRole> = new Set(["OWNER", "ADMIN", "EDITOR"]);
+
 /**
  * Quién puede comentar.
  *
@@ -69,10 +72,12 @@ export function canPerform(role: WorkspaceRole, action: LibraryAction): boolean 
     case "section:create":
     case "section:update":
     case "section:move":
-    case "layout:manage":
-    case "export:create":
     case "story:manage":
       return WRITE_ROLES.has(role);
+
+    case "layout:manage":
+    case "export:create":
+      return PUBLISH_ROLES.has(role);
 
     case "comment:create":
       // Quien revisa no escribe el manuscrito, pero sí deja comentarios: es

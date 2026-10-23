@@ -951,14 +951,20 @@ export async function moveSectionAction(
   ordered.splice(index, 0, section.id);
 
   try {
-    await prisma.$transaction(async (transaction) => {
-      for (const [order, id] of ordered.entries()) {
-        await transaction.bookSection.update({
-          where: { id },
-          data: { sortOrder: order, ...(id === section.id ? { parentId: resolvedParentId } : {}) },
-        });
-      }
-    });
+    // Single batch update using CASE expression for sortOrder and parentId
+    // This replaces N individual UPDATEs with 1 query
+    const caseSortOrder = ordered.map((id, order) => `WHEN '${id}' THEN ${order}`).join(" ");
+    const caseParentId = `WHEN '${section.id}' THEN ${resolvedParentId ? `'${resolvedParentId}'` : "NULL"} ELSE parent_id END`;
+
+    await prisma.$executeRawUnsafe(
+      `
+      UPDATE "book_sections"
+      SET
+        "sortOrder" = CASE id ${caseSortOrder} END,
+        "parentId" = CASE id ${caseParentId}
+      WHERE id IN (${ordered.map((id) => `'${id}'`).join(", ")})
+    `,
+    );
   } catch (error) {
     logActionError("books.section_move_error", context, error);
     return errorState("No se ha podido reordenar la sección. Inténtalo de nuevo.");
