@@ -1,0 +1,40 @@
+name: Interfaz responsive
+
+on:
+  pull_request:
+  push:
+    branches: [main, "fix/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: interface-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  geometry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.14.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Comprobar geometría con datos aislados
+        run: node --import tsx scripts/verify-interface.ts
+        env:
+          INTERFACE_OUTPUT: interface-results
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: interface-results
+          path: interface-results/
+          retention-days: 7
