@@ -879,6 +879,7 @@ export async function restoreRevisionAction(
   revalidatePath(`/books/${section.bookId}`);
   revalidatePath(`/books/${section.bookId}/sections/${section.id}`);
 
+  revalidatePath(`/books/${section.bookId}/sections/${section.id}/history`);
   return successState(`Revisión ${revision.version} restaurada como una versión nueva.`);
 }
 

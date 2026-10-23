@@ -132,6 +132,7 @@ export default async function SectionPage({ params, searchParams }: SectionPageP
             </div>
           </header>
           <SectionEditor
+            key={`${section.id}-${section.version}`}
             sectionId={section.id}
             sectionTitle={section.title}
             bookId={section.bookId}
