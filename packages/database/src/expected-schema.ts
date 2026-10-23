@@ -11,6 +11,9 @@ export const COLUMNAS_ESPERADAS: ReadonlyArray<{ tabla: string; columna: string 
   { tabla: "sessions", columna: "workspaceId" },
   { tabla: "export_jobs", columna: "idempotencyKey" },
   { tabla: "books", columna: "writingProgress" },
+  { tabla: "story_plan_items", columna: "kind" },
+  { tabla: "story_characters", columna: "role" },
+  { tabla: "story_worlds", columna: "kind" },
 ];
 
 export interface ColumnaDisponible {

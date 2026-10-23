@@ -66,6 +66,9 @@ model User {
   sectionsAssigned BookSection[]     @relation("SectionAssignee")
   invitationsSent  WorkspaceInvitation[] @relation("InvitationAuthor")
   auditLogs       AuditLog[]         @relation("AuditActor")
+  storyPlanItemsCreated  StoryPlanItem[]  @relation("StoryPlanItemCreatedBy")
+  storyCharactersCreated StoryCharacter[] @relation("StoryCharacterCreatedBy")
+  storyWorldsCreated     StoryWorld[]     @relation("StoryWorldCreatedBy")
 
   @@index([isActive])
   @@index([deletedAt])
@@ -89,6 +92,9 @@ model Workspace {
   editorialTemplates  EditorialTemplate[]
   assets              Asset[]
   auditLogs           AuditLog[]
+  storyPlanItems      StoryPlanItem[]
+  storyCharacters     StoryCharacter[]
+  storyWorlds         StoryWorld[]
 
   @@index([ownerId])
   @@index([deletedAt])
@@ -254,6 +260,9 @@ model Book {
   notes     WritingNote[]
   goals     WritingGoal[]
   comments  EditorialComment[]
+  storyPlanItems StoryPlanItem[]
+  storyCharacters StoryCharacter[]
+  storyWorlds    StoryWorld[]
 
   @@index([workspaceId, deletedAt])
   @@index([workspaceId, status])
@@ -585,6 +594,139 @@ model WritingGoal {
   @@index([userId, periodStart])
   @@index([bookId])
   @@map("writing_goals")
+}
+
+// ---------------------------------------------------------------------------
+// Herramientas de historia: planificación, personajes y mundos
+// ---------------------------------------------------------------------------
+
+enum StoryPlanKind {
+  ACT
+  CHAPTER
+  SCENE
+  SEQUENCE
+  OTHER
+}
+
+enum StoryPlanStatus {
+  IDEA
+  PLANNED
+  WRITING
+  DONE
+}
+
+enum CharacterRole {
+  PROTAGONIST
+  ANTAGONIST
+  SECONDARY
+  MENTOR
+  LOVE_INTEREST
+  OTHER
+}
+
+enum WorldKind {
+  PLACE
+  CULTURE
+  ORGANIZATION
+  SYSTEM
+  OBJECT
+  EVENT
+  OTHER
+}
+
+/// Idea, escena o hito del plan de una historia.
+///
+/// Puede pertenecer a un libro concreto o al estudio en general, para las
+/// ideas que todavía no tienen destino. No sustituye a las secciones del
+/// manuscrito: es el mapa previo de lo que se quiere contar.
+model StoryPlanItem {
+  id          String          @id @default(uuid()) @db.Uuid
+  workspaceId String          @db.Uuid
+  bookId      String?         @db.Uuid
+  createdById String?         @db.Uuid
+  title       String          @db.VarChar(200)
+  summary     String?         @db.Text
+  kind        StoryPlanKind   @default(SCENE)
+  status      StoryPlanStatus @default(IDEA)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  deletedAt   DateTime?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  book      Book?     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  createdBy User?     @relation("StoryPlanItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, bookId])
+  @@index([workspaceId, status])
+  @@index([workspaceId, createdAt])
+  @@index([createdById])
+  @@index([deletedAt])
+  @@map("story_plan_items")
+}
+
+/// Ficha de personaje de la biblia de la historia.
+///
+/// Igual que el plan, puede estar vinculada a un libro o ser general del
+/// estudio. El borrado es lógico: una ficha eliminada no se pierde de forma
+/// inmediata y puede auditarse.
+model StoryCharacter {
+  id          String        @id @default(uuid()) @db.Uuid
+  workspaceId String        @db.Uuid
+  bookId      String?       @db.Uuid
+  createdById String?       @db.Uuid
+  name        String        @db.VarChar(160)
+  role        CharacterRole @default(OTHER)
+  age         String?       @db.VarChar(40)
+  occupation  String?       @db.VarChar(120)
+  summary     String?       @db.VarChar(300)
+  description String?       @db.Text
+  personality String?       @db.Text
+  motivation  String?       @db.Text
+  conflict    String?       @db.Text
+  arc         String?       @db.Text
+  notes       String?       @db.Text
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  book      Book?     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  createdBy User?     @relation("StoryCharacterCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, bookId])
+  @@index([workspaceId, role])
+  @@index([workspaceId, createdAt])
+  @@index([createdById])
+  @@index([deletedAt])
+  @@map("story_characters")
+}
+
+/// Lugar, cultura, organización o regla del mundo de una historia.
+model StoryWorld {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @db.Uuid
+  bookId      String?   @db.Uuid
+  createdById String?   @db.Uuid
+  name        String    @db.VarChar(160)
+  kind        WorldKind @default(PLACE)
+  summary     String?   @db.VarChar(300)
+  description String?   @db.Text
+  rules       String?   @db.Text
+  notes       String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  book      Book?     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  createdBy User?     @relation("StoryWorldCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, bookId])
+  @@index([workspaceId, kind])
+  @@index([workspaceId, createdAt])
+  @@index([createdById])
+  @@index([deletedAt])
+  @@map("story_worlds")
 }
 
 /// Comentario editorial sobre un libro o una sección concreta.

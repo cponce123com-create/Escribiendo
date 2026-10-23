@@ -2,8 +2,9 @@ import { StudioRail } from "@/components/books/studio-rail";
 import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
 import { NavLinks } from "@/components/app/nav-links";
+import { ToolLinks } from "@/components/app/tool-links";
 
-import { BookIcon, ChartIcon, LayoutIcon, LogOutIcon, UsersIcon } from "@/components/icons";
+import { BookIcon, ChartIcon, LogOutIcon } from "@/components/icons";
 import { logoutAction } from "@/lib/auth/actions";
 import type { SessionContext } from "@/lib/auth/session";
 import { getInitials } from "@/lib/ui/format";
@@ -29,23 +30,11 @@ export function Sidebar({ session }: SidebarProps) {
         </div>
         <div className="sidebar-tools mx-5 border-t border-line py-5">
           <p className="meta-label mb-3">Herramientas</p>
-          <nav aria-label="Herramientas de escritura">
-            {[
-              { label: "Planificación", icon: LayoutIcon },
-              { label: "Personajes", icon: UsersIcon },
-              { label: "Mundos", icon: BookIcon },
-            ].map(({ label, icon: Icon }) => (
-              <div key={label} className="nav-item-future" aria-disabled="true">
-                <Icon />
-                <span>{label}</span>
-                <span className="phase-chip">Próximamente</span>
-              </div>
-            ))}
-            <Link className="nav-item" href="/stats">
-              <ChartIcon />
-              <span>Objetivos</span>
-            </Link>
-          </nav>
+          <ToolLinks />
+          <Link className="nav-item mt-1" href="/stats">
+            <ChartIcon />
+            <span>Objetivos</span>
+          </Link>
         </div>
         <div className="mx-5 border-t border-line py-5">
           <p className="meta-label mb-3">Ayuda</p>

@@ -8,6 +8,8 @@ imprenta en un único espacio de trabajo. Este repositorio contiene las
 integración firmada con Cloudinary, preparación de despliegue en Render,
 biblioteca y manuscrito, herramientas de escritura asistida, maquetación con
 vista previa paginada, exportación a PDF, EPUB y DOCX y gobierno del equipo.
+Incluye además las **herramientas de historia**: planificación, personajes y
+mundos.
 
 > No hay registro público. El acceso se crea una sola vez mediante `/setup` y
 > un token de instalación de alta entropía. Después, solo un administrador
@@ -17,26 +19,27 @@ vista previa paginada, exportación a PDF, EPUB y DOCX y gobierno del equipo.
 
 ## Estado
 
-| Área                                                  | Estado                                |
-| ----------------------------------------------------- | ------------------------------------- |
-| Monorepo pnpm y TypeScript estricto                   | Implementado                          |
-| Esquema PostgreSQL/Prisma completo                    | Implementado; migraciones versionadas |
-| Autenticación Argon2id + sesiones opacas              | Implementado                          |
-| Instalación inicial protegida por token               | Implementado                          |
-| Recuperación de contraseña sin proveedor de correo    | Implementado mediante CLI             |
-| Panel privado y gestión de cuenta                     | Implementado                          |
-| Biblioteca de libros con búsqueda y filtros           | Implementado (Fase 2)                 |
-| Manuscrito con Tiptap, revisiones y progreso          | Implementado (Fase 2)                 |
-| Notas privadas, objetivos y estadísticas              | Implementado (Fase 3)                 |
-| Comentarios editoriales y flujo de revisión           | Implementado (Fase 3)                 |
-| Comparador de revisiones y preferencias de escritura  | Implementado (Fase 3)                 |
-| Maquetación: perfiles, plantillas y vista previa      | Implementado (Fase 4)                 |
-| Exportación: PDF, EPUB y DOCX con descarga firmada    | Implementado (Fase 5)                 |
-| Equipo: invitaciones, roles, asignaciones y auditoría | Implementado (Fase 6)                 |
-| Cloudinary: firma de subida directa                   | Implementado                          |
-| Cabeceras de seguridad y CSP con nonce                | Implementado                          |
-| Health checks y blueprint de Render                   | Implementado                          |
-| Pruebas unitarias, de esquema y de extremo a extremo  | Implementado                          |
+| Área                                                    | Estado                                |
+| ------------------------------------------------------- | ------------------------------------- |
+| Monorepo pnpm y TypeScript estricto                     | Implementado                          |
+| Esquema PostgreSQL/Prisma completo                      | Implementado; migraciones versionadas |
+| Autenticación Argon2id + sesiones opacas                | Implementado                          |
+| Instalación inicial protegida por token                 | Implementado                          |
+| Recuperación de contraseña sin proveedor de correo      | Implementado mediante CLI             |
+| Panel privado y gestión de cuenta                       | Implementado                          |
+| Biblioteca de libros con búsqueda y filtros             | Implementado (Fase 2)                 |
+| Manuscrito con Tiptap, revisiones y progreso            | Implementado (Fase 2)                 |
+| Notas privadas, objetivos y estadísticas                | Implementado (Fase 3)                 |
+| Comentarios editoriales y flujo de revisión             | Implementado (Fase 3)                 |
+| Comparador de revisiones y preferencias de escritura    | Implementado (Fase 3)                 |
+| Planificación, personajes y mundos (biblia de historia) | Implementado; migración aditiva       |
+| Maquetación: perfiles, plantillas y vista previa        | Implementado (Fase 4)                 |
+| Exportación: PDF, EPUB y DOCX con descarga firmada      | Implementado (Fase 5)                 |
+| Equipo: invitaciones, roles, asignaciones y auditoría   | Implementado (Fase 6)                 |
+| Cloudinary: firma de subida directa                     | Implementado                          |
+| Cabeceras de seguridad y CSP con nonce                  | Implementado                          |
+| Health checks y blueprint de Render                     | Implementado                          |
+| Pruebas unitarias, de esquema y de extremo a extremo    | Implementado                          |
 
 La aplicación **no incluye datos de demostración, botones simulados ni
 credenciales de ejemplo**. Si una integración no está configurada, la interfaz
@@ -72,6 +75,7 @@ escribiendo/
 │     │  ├─ auth/               # Sesiones, contraseñas, acciones
 │     │  ├─ books/              # Biblioteca, secciones, revisiones
 │     │  ├─ writing/            # Notas, objetivos y estadísticas
+│     │  ├─ story/              # Planificación, personajes y mundos
 │     │  ├─ review/             # Comentarios editoriales y flujo de revisión
 │     │  ├─ layout/             # Perfiles de página, plantillas y maqueta
 │     │  ├─ team/               # Miembros, invitaciones, asignaciones y auditoría

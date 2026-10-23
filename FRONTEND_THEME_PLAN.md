@@ -8,7 +8,7 @@
 
 ## Verificación y alcance
 
-Tema común aplicado a navegación, tarjetas, campos, botones, formularios y pantallas de acceso. Panel compuesto con datos reales y permisos de creación. El editor conserva sus estilos específicos. Planificación, personajes y mundos se identifican como próximos; no son botones simulados.
+Tema común aplicado a navegación, tarjetas, campos, botones, formularios y pantallas de acceso. Panel compuesto con datos reales y permisos de creación. El editor conserva sus estilos específicos. Planificación, personajes y mundos están implementados y enlazados; no son botones simulados.
 
 La actividad semanal cuenta días con palabras añadidas en la zona Europe/Madrid; no se presenta como una racha consecutiva ni como sesiones de escritura. Equipo muestra miembros reales. Las cubiertas tipográficas representan títulos reales, no portadas subidas.
 

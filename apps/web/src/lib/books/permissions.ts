@@ -26,6 +26,7 @@ export const ACCIONES = [
   "comment:resolve",
   "layout:manage",
   "export:create",
+  "story:manage",
   "team:manage",
   "audit:export",
 ] as const;
@@ -72,6 +73,7 @@ export function canPerform(role: WorkspaceRole, action: LibraryAction): boolean 
     case "section:move":
     case "layout:manage":
     case "export:create":
+    case "story:manage":
       return WRITE_ROLES.has(role);
 
     case "comment:create":

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { LibrarySearch } from "@/components/app/library-search";
 import { WorkspaceSwitcher } from "@/components/app/workspace-switcher";
 import { NavLinks } from "@/components/app/nav-links";
+import { ToolLinks } from "@/components/app/tool-links";
 import { Logo } from "@/components/brand/logo";
 import { AppSidebarToggle } from "@/components/app/app-shell";
 import { LogOutIcon } from "@/components/icons";
@@ -79,6 +80,7 @@ export function AppTopbar({ session }: AppTopbarProps) {
 
       <div className="lg:hidden">
         <NavLinks variant="mobile" />
+        <ToolLinks variant="mobile" />
       </div>
     </header>
   );

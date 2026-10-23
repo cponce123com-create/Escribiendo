@@ -72,6 +72,15 @@ export default async function BookPage({ params }: BookPageProps) {
         ) : null}
 
         <nav className="flex flex-wrap gap-2" aria-label="Acciones del libro">
+          <Link className="btn btn-ghost btn-sm" href={`/planning?book=${book.id}`}>
+            Planificación
+          </Link>
+          <Link className="btn btn-ghost btn-sm" href={`/characters?book=${book.id}`}>
+            Personajes
+          </Link>
+          <Link className="btn btn-ghost btn-sm" href={`/worlds?book=${book.id}`}>
+            Mundos
+          </Link>
           <Link className="btn btn-ghost btn-sm" href={`/books/${book.id}/notes`}>
             Notas
           </Link>

@@ -178,6 +178,18 @@ export function Dashboard({ name, canCreate, totals, books, activity, week }: Da
         <section className="panel p-5">
           <h2 className="dashboard-small-title">Acciones rápidas</h2>
           <div className="dashboard-actions">
+            <Link href="/planning">
+              <LayoutIcon />
+              Planificación
+            </Link>
+            <Link href="/characters">
+              <UsersIcon />
+              Personajes
+            </Link>
+            <Link href="/worlds">
+              <BookIcon />
+              Mundos
+            </Link>
             {canCreate && (
               <Link href="/books/new">
                 <BookIcon />

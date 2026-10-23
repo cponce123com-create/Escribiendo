@@ -13,6 +13,8 @@ interface TextFieldProps {
    * enviar el formulario sin rellenarlo.
    */
   required?: boolean;
+  /** Prefijo para que varias fichas de la misma página no repitan `id`. */
+  idPrefix?: string;
 }
 
 export function TextField({
@@ -25,8 +27,9 @@ export function TextField({
   defaultValue,
   placeholder,
   required = true,
+  idPrefix,
 }: TextFieldProps) {
-  const inputId = `field-${name}`;
+  const inputId = `${idPrefix ? `${idPrefix}-` : ""}field-${name}`;
   const errorId = `${inputId}-error`;
   const hintId = `${inputId}-hint`;
   const describedBy = [error ? errorId : null, hint ? hintId : null].filter(Boolean).join(" ");
