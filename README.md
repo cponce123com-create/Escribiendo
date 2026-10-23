@@ -250,3 +250,9 @@ Los detalles y las limitaciones conocidas están en
 
 Código privado y no licenciado. © EDITORIAL NO PARA TODOS. Todos los derechos
 reservados.
+
+## Intervención v6.1
+
+Consulta [la auditoría técnica](docs/AUDITORIA_INTEGRAL_ESCRIBIENDO_V6_1.md) y [el plan por fases](docs/PLAN_ESCRIBIENDO_V6_1.md). Incluyen resultados ejecutados y validaciones pendientes, sin equiparar un PR con un despliegue.
+
+La reconciliación de contadores se puede simular con `node --import tsx scripts/reconcile-book-statistics.ts`. El modo predeterminado solo informa diferencias. Ensaya en una copia desechable y revisa el resultado antes de autorizar `--apply` en una base real.

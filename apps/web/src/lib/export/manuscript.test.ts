@@ -115,7 +115,7 @@ describe("manuscrito de exportación", () => {
 
     it("devuelve null para los trabajos antiguos que solo guardaban versiones", () => {
       expect(readSectionSnapshot([{ id: "s1", version: 1 }])).toBeNull();
-      expect(readSectionSnapshot([])).toBeNull();
+      expect(readSectionSnapshot([])).toEqual([]);
       expect(readSectionSnapshot(null)).toBeNull();
     });
 
@@ -213,4 +213,40 @@ describe("manuscrito de exportación", () => {
       expect(sections[0]?.title).toBe("Actual");
     });
   });
+});
+
+describe("immutable self-contained snapshots", () => {
+  it("keeps an explicitly empty book empty without reading current sections", async () => {
+    mockPrisma.bookSection.findMany.mockClear();
+    expect(await loadManuscriptForJob(session, "book-1", [])).toEqual([]);
+    expect(mockPrisma.bookSection.findMany).not.toHaveBeenCalled();
+  });
+
+  it("reproduces version one after the live section has changed or disappeared", async () => {
+    const content = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "Original" }] }],
+    };
+    mockPrisma.bookSection.findMany.mockClear();
+    const result = await loadManuscriptForJob(session, "book-1", [
+      snapshot({ content, parentId: "part" }),
+    ]);
+    expect(result[0]?.content).toEqual(content);
+    expect(result[0]?.parentId).toBe("part");
+    expect(mockPrisma.bookSection.findMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses corrupt snapshots instead of silently exporting today's manuscript", async () => {
+    await expect(
+      loadManuscriptForJob(session, "book-1", [{ id: "s1", version: 1, title: "Partial" }]),
+    ).rejects.toThrow(/corrupta/);
+    await expect(loadManuscriptForJob(session, "book-1", null)).rejects.toThrow(/corrupta/);
+  });
+});
+
+it("refuses to silently drop missing legacy sections", async () => {
+  mockPrisma.bookSection.findMany.mockResolvedValue([]);
+  await expect(
+    loadManuscriptForJob(session, "book-1", [{ id: "missing", version: 1 }]),
+  ).rejects.toThrow(/archivo parcial/);
 });

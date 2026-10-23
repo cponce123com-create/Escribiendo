@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { emptyTiptapDocument } from "@escribiendo/book-schema";
+import type { emptyTiptapDocument } from "@escribiendo/book-schema";
 import { excerptForQuery, findTextMatches, replaceTextLeaves } from "./manuscript-search";
 
 describe("búsqueda y reemplazo del manuscrito", () => {

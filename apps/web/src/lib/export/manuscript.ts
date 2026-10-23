@@ -1,4 +1,5 @@
 import "server-only";
+import { editorialOrder } from "@/lib/books/reading-order";
 import { prisma } from "@/lib/db";
 import type { SessionContext } from "@/lib/auth/session";
 import { parseTiptapDocument, type TiptapDocument } from "@escribiendo/book-schema";
@@ -23,6 +24,7 @@ import { createHash } from "node:crypto";
  */
 
 export interface ExportSection {
+  parentId?: string | null;
   id: string;
   title: string;
   type: string;
@@ -58,6 +60,8 @@ export interface SectionVersion {
  * de pedir la exportación alteraría el archivo del trabajo en curso.
  */
 export interface SectionSnapshot extends SectionVersion {
+  parentId?: string | null;
+  content?: unknown;
   title: string;
   type: string;
   startOnOddPage: boolean;
@@ -85,10 +89,10 @@ export async function currentSectionVersions(
       book: { workspaceId: session.workspace.id, deletedAt: null },
     },
     orderBy: [{ sortOrder: "asc" }, { title: "asc" }, { id: "asc" }],
-    select: { id: true, version: true },
+    select: { id: true, version: true, parentId: true, sortOrder: true, title: true },
   });
 
-  return sections.map((section) => ({ id: section.id, version: section.version }));
+  return editorialOrder(sections).map((section) => ({ id: section.id, version: section.version }));
 }
 
 /** Instantánea editorial de las secciones, en orden de lectura. */
@@ -105,6 +109,9 @@ export async function currentSectionSnapshots(
     orderBy: [{ sortOrder: "asc" }, { title: "asc" }, { id: "asc" }],
     select: {
       id: true,
+      parentId: true,
+      sortOrder: true,
+      content: true,
       version: true,
       title: true,
       type: true,
@@ -118,13 +125,15 @@ export async function currentSectionSnapshots(
     },
   });
 
-  return seccionesExportables(sections).map(toSectionSnapshot);
+  return seccionesExportables(editorialOrder(sections)).map(toSectionSnapshot);
 }
 
 function toSectionSnapshot(section: SectionSnapshot): SectionSnapshot {
   return {
     id: section.id,
+    parentId: section.parentId ?? null,
     version: section.version,
+    content: parseTiptapDocument(section.content),
     title: section.title,
     type: section.type,
     startOnOddPage: section.startOnOddPage,
@@ -144,7 +153,7 @@ function toSectionSnapshot(section: SectionSnapshot): SectionSnapshot {
  * en ese caso se conserva la reconstrucción anterior.
  */
 export function readSectionSnapshot(value: unknown): SectionSnapshot[] | null {
-  if (!Array.isArray(value) || value.length === 0) {
+  if (!Array.isArray(value)) {
     return null;
   }
 
@@ -172,6 +181,8 @@ export function readSectionSnapshot(value: unknown): SectionSnapshot[] | null {
     if (
       typeof id !== "string" ||
       typeof version !== "number" ||
+      !Number.isInteger(version) ||
+      version < 1 ||
       typeof title !== "string" ||
       typeof type !== "string" ||
       typeof startOnOddPage !== "boolean" ||
@@ -186,6 +197,10 @@ export function readSectionSnapshot(value: unknown): SectionSnapshot[] | null {
     }
 
     snapshot.push({
+      ...(entry.parentId === null || typeof entry.parentId === "string"
+        ? { parentId: entry.parentId }
+        : {}),
+      ...("content" in entry ? { content: parseTiptapDocument(entry.content) } : {}),
       id,
       version,
       title,
@@ -220,6 +235,7 @@ export function manuscriptHash(sections: ExportSection[], extra: string): string
         version: section.version,
         title: section.title,
         type: section.type,
+        parentId: section.parentId ?? null,
         startOnOddPage: section.startOnOddPage,
         pageBreakBefore: section.pageBreakBefore,
         includeInExport: section.includeInExport,
@@ -251,13 +267,15 @@ export async function loadManuscript(
   const sections = await prisma.bookSection.findMany({
     where: {
       bookId,
-      deletedAt: null,
+      ...(versions ? { id: { in: versions.map((section) => section.id) } } : { deletedAt: null }),
       book: { workspaceId: session.workspace.id, deletedAt: null },
     },
     orderBy: [{ sortOrder: "asc" }, { title: "asc" }, { id: "asc" }],
     select: {
       id: true,
       title: true,
+      parentId: true,
+      sortOrder: true,
       type: true,
       content: true,
       version: true,
@@ -273,11 +291,20 @@ export async function loadManuscript(
 
   // Una sección excluida del libro no se exporta. La vista previa aplica el
   // mismo filtro, de modo que ambas cosas cuentan la misma historia.
-  const exportables = seccionesExportables(sections);
+  const byId = new Map(sections.map((section) => [section.id, section]));
+  if (versions && versions.some((section) => !byId.has(section.id))) {
+    throw new Error(
+      "Faltan secciones de la exportación histórica. No se generará un archivo parcial.",
+    );
+  }
+  const exportables = versions
+    ? versions.map((section) => byId.get(section.id)!)
+    : seccionesExportables(editorialOrder(sections));
 
-  if (!versions || versions.length === 0) {
+  if (!versions) {
     return exportables.map((section) => ({
       id: section.id,
+      parentId: section.parentId ?? null,
       title: section.title,
       type: section.type,
       content: section.content,
@@ -317,6 +344,7 @@ export async function loadManuscript(
       if (version === section.version) {
         return {
           id: section.id,
+          parentId: section.parentId ?? null,
           title: section.title,
           type: section.type,
           content: section.content,
@@ -372,6 +400,13 @@ export async function loadManuscriptFromSnapshot(
   bookId: string,
   snapshot: SectionSnapshot[],
 ): Promise<ExportSection[]> {
+  if (snapshot.every((section) => section.content !== undefined)) {
+    return snapshot.map((section) => ({
+      ...section,
+      content: parseTiptapDocument(section.content),
+    }));
+  }
+
   const rows = await prisma.bookSection.findMany({
     where: {
       id: { in: snapshot.map((section) => section.id) },
@@ -423,6 +458,7 @@ export async function loadManuscriptFromSnapshot(
 
     return {
       id: section.id,
+      parentId: section.parentId ?? null,
       title: section.title,
       type: section.type,
       content,
@@ -455,7 +491,22 @@ export async function loadManuscriptForJob(
     return loadManuscriptFromSnapshot(session, bookId, snapshot);
   }
 
-  const versions = Array.isArray(stored) ? (stored as SectionVersion[]) : [];
+  if (
+    !Array.isArray(stored) ||
+    stored.some(
+      (entry) =>
+        !isRecord(entry) ||
+        typeof entry.id !== "string" ||
+        !Number.isInteger(entry.version) ||
+        Number(entry.version) < 1 ||
+        Object.keys(entry).some((key) => key !== "id" && key !== "version"),
+    )
+  ) {
+    throw new Error(
+      "La instantánea editorial está incompleta o corrupta. No se puede reconstruir con datos actuales.",
+    );
+  }
+  const versions = stored as SectionVersion[];
 
   return loadManuscript(session, bookId, versions);
 }
@@ -516,7 +567,9 @@ export function sectionToBlocks(
   try {
     document = parseTiptapDocument(section.content);
   } catch {
-    return blocks;
+    throw new Error(
+      `La sección «${section.title}» contiene un documento inválido y no se puede exportar.`,
+    );
   }
 
   const pushRuns = (kind: ManuscriptBlock["kind"], runs: readonly InlineRun[]): void => {

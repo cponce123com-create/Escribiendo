@@ -28,7 +28,9 @@ async function openLayout(page: Page): Promise<void> {
 
 /** Abre el bloque de perfiles si está cerrado. */
 async function openAdvancedProfiles(page: Page): Promise<void> {
-  const details = page.locator("details");
+  const details = page
+    .locator("details")
+    .filter({ has: page.getByRole("heading", { name: "Perfiles de página" }) });
 
   if ((await details.getAttribute("open")) === null) {
     await details.locator("summary").click();
@@ -301,7 +303,11 @@ test.describe("Maquetación", () => {
     await page.getByRole("link", { name: BOOK_TITLE }).click();
     await page.getByRole("link", { name: SECTION_TITLE }).click();
 
+    await page.getByRole("tab", { name: "Detalles", exact: true }).click();
     await page.getByLabel("Título en el libro").fill("El despertar");
+    const reopen = page.getByRole("button", { name: "Mostrar panel editorial", exact: true });
+    if (await reopen.isVisible()) await reopen.click();
+    await page.getByRole("tab", { name: "Detalles", exact: true }).click();
     await page.getByLabel("Tipo de sección", { exact: true }).check();
     await page.getByLabel("Número", { exact: true }).check();
     await page.getByRole("button", { name: "Guardar título" }).click();
@@ -320,6 +326,7 @@ test.describe("Maquetación", () => {
     await page.getByRole("link", { name: BOOK_TITLE }).click();
     await page.getByRole("link", { name: "El despertar" }).click();
 
+    await page.getByRole("tab", { name: "Detalles", exact: true }).click();
     await page.getByLabel("Título", { exact: true }).uncheck();
     await page.getByRole("button", { name: "Guardar título" }).click();
     await expect(page.getByText(/Titulo actualizado/)).toBeVisible();

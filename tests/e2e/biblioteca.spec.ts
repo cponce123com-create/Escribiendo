@@ -50,13 +50,13 @@ test.describe("Biblioteca", () => {
   test("el buscador filtra la biblioteca", async ({ page }) => {
     await page.goto("/books");
 
-    await page.getByLabel("Buscar").fill("oficio");
+    await page.getByLabel("Buscar", { exact: true }).fill("oficio");
     await page.getByRole("button", { name: "Filtrar" }).click();
 
     await expect(page).toHaveURL(/[?&]q=oficio/u);
     await expect(page.getByRole("heading", { name: BOOK_TITLE })).toBeVisible();
 
-    await page.getByLabel("Buscar").fill("no-existe-este-libro");
+    await page.getByLabel("Buscar", { exact: true }).fill("no-existe-este-libro");
     await page.getByRole("button", { name: "Filtrar" }).click();
 
     await expect(page.getByText("Ningún libro coincide con el filtro.")).toBeVisible();

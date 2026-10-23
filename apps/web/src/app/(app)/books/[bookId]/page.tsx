@@ -7,6 +7,7 @@ import { BookStatusControl } from "@/components/books/book-status-control";
 import { requireSession } from "@/lib/auth/session";
 import { canPerform } from "@/lib/books/permissions";
 import { getBook, getSectionTree } from "@/lib/books/queries";
+import { computeWritingProgress } from "@/lib/books/progress";
 import { flattenSectionTree } from "@/lib/books/section-tree";
 import { coverObjectPosition } from "@/lib/books/covers";
 import {
@@ -38,32 +39,56 @@ export default async function BookPage({ params }: BookPageProps) {
   const tree = await getSectionTree(session, book.id);
   const sections = flattenSectionTree(tree);
 
+  const chapterCount = sections.filter((section) => section.type === "CHAPTER").length;
+  const wordCount = sections.reduce((sum, section) => sum + section.wordCount, 0);
+
   const canEdit = canPerform(session.workspace.role, "book:update");
   const canCreateSection = canPerform(session.workspace.role, "section:create");
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <header className="space-y-4">
+      <header className="panel book-detail-header space-y-4 p-5 sm:p-7">
         <p className="eyebrow">
           <Link className="underline" href="/books">
             Biblioteca
           </Link>
         </p>
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="font-serif text-[clamp(2rem,4vw,3rem)] leading-[1.03] text-ink">
-              {book.title}
-            </h1>
-            {book.subtitle ? (
-              <p className="mt-2 text-base italic text-ink-soft">{book.subtitle}</p>
-            ) : null}
-            <p className="mt-3 text-sm text-ink-muted">
-              {book.penName ? `${book.penName} · ` : ""}
-              {book.authorName}
-              {book.genre ? ` · ${book.genre}` : ""} · {book.language.toUpperCase()}
-            </p>
+          <div className="book-detail-identity">
+            <Link
+              href={`/books/${book.id}/edit`}
+              className="book-detail-cover"
+              aria-label={book.cover ? "Cambiar portada" : "Agregar portada"}
+            >
+              {book.cover ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={book.cover.url}
+                  alt={`Portada de ${book.title}`}
+                  style={{ objectPosition: coverObjectPosition(book.cover.crop) }}
+                />
+              ) : (
+                <span>
+                  Agregar
+                  <br />
+                  portada
+                </span>
+              )}
+            </Link>
+            <div className="min-w-0">
+              <h1 className="font-serif text-[clamp(2rem,4vw,3rem)] leading-[1.03] text-ink">
+                {book.title}
+              </h1>
+              {book.subtitle ? (
+                <p className="mt-2 text-base italic text-ink-soft">{book.subtitle}</p>
+              ) : null}
+              <p className="mt-3 text-sm text-ink-muted">
+                {book.penName ? `${book.penName} · ` : ""}
+                {book.authorName}
+                {book.genre ? ` · ${book.genre}` : ""} · {book.language.toUpperCase()}
+              </p>
+            </div>
           </div>
-
           {canEdit ? (
             <div className="flex flex-wrap gap-2">
               <BookStatusControl bookId={book.id} status={book.status} />
@@ -78,7 +103,17 @@ export default async function BookPage({ params }: BookPageProps) {
           <p className="max-w-3xl text-sm leading-relaxed text-ink-soft">{book.description}</p>
         ) : null}
 
-        <nav className="flex flex-wrap gap-2" aria-label="Acciones del libro">
+        <nav className="book-detail-actions" aria-label="Acciones del libro">
+          <Link
+            className="btn btn-primary"
+            href={
+              sections[0]
+                ? `/books/${book.id}/sections/${sections[0].id}`
+                : `/books/${book.id}/edit`
+            }
+          >
+            {sections.length ? "Continuar escribiendo" : "Preparar mi libro"}
+          </Link>
           <Link className="btn btn-ghost btn-sm" href={`/planning?book=${book.id}`}>
             Planificación
           </Link>
@@ -100,45 +135,14 @@ export default async function BookPage({ params }: BookPageProps) {
           <Link className="btn btn-ghost btn-sm" href={`/books/${book.id}/export`}>
             Exportación
           </Link>
-          <Link className="btn btn-ghost btn-sm" href={`/books/${book.id}/edit`}>
-            Editar metadatos
-          </Link>
         </nav>
       </header>
-
-      {book.cover ? (
-        <section
-          className="panel flex flex-wrap items-center gap-5 p-5"
-          aria-label="Portada del libro"
-        >
-          <div className="book-cover-thumb size-24">
-            {/* Cloudinary entrega la imagen ya optimizada; no necesita otra transformación. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={book.cover.url}
-              alt={`Portada de ${book.title}`}
-              className="book-cover-thumb-image"
-              style={{ objectPosition: coverObjectPosition(book.cover.crop) }}
-            />
-          </div>
-          <div>
-            <p className="meta-label">Portada</p>
-            <p className="mt-1 font-serif text-xl text-ink">Portada activa del libro</p>
-            <Link
-              className="mt-2 inline-block text-sm text-accent underline"
-              href={`/books/${book.id}/edit`}
-            >
-              Ajustar portada y encuadre
-            </Link>
-          </div>
-        </section>
-      ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Resumen del libro">
         <div className="stat-card">
           <p className="meta-label">Palabras</p>
           <p className="mt-4 font-serif text-3xl tabular-nums text-ink">
-            {formatNumber(book.wordCount)}
+            {formatNumber(wordCount)}
           </p>
           <p className="mt-1 text-xs text-ink-muted">
             {book.targetWordCount
@@ -150,7 +154,7 @@ export default async function BookPage({ params }: BookPageProps) {
         <div className="stat-card">
           <p className="meta-label">Capítulos</p>
           <p className="mt-4 font-serif text-3xl tabular-nums text-ink">
-            {formatNumber(book.chapterCount)}
+            {formatNumber(chapterCount)}
           </p>
           <p className="mt-1 text-xs text-ink-muted">
             {formatNumber(sections.length)} secciones en total
@@ -160,7 +164,9 @@ export default async function BookPage({ params }: BookPageProps) {
         <div className="stat-card">
           <p className="meta-label">Progreso</p>
           <p className="mt-4 font-serif text-3xl tabular-nums text-ink">
-            {book.targetWordCount ? formatPercent(book.writingProgress) : "—"}
+            {book.targetWordCount
+              ? formatPercent(computeWritingProgress(wordCount, book.targetWordCount))
+              : "—"}
           </p>
           <p className="mt-1 text-xs text-ink-muted">
             {BOOK_STATUS_LABELS[book.status] ?? book.status}

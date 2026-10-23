@@ -21,6 +21,7 @@ export function StudioSearch() {
     const onResult = (event: Event) => {
       if (event instanceof CustomEvent && typeof event.detail === "string") setResult(event.detail);
     };
+    input.current?.setAttribute("aria-keyshortcuts", "Control+k Meta+k");
     window.addEventListener("keydown", onKey);
     window.addEventListener("studio-search-result", onResult);
     return () => {
@@ -53,9 +54,7 @@ export function StudioSearch() {
           const nextQuery = event.target.value;
           setQuery(nextQuery);
           setResult("");
-          window.dispatchEvent(
-            new CustomEvent("studio-search-highlight", { detail: nextQuery }),
-          );
+          window.dispatchEvent(new CustomEvent("studio-search-highlight", { detail: nextQuery }));
         }}
       />
       <kbd>Ctrl / ⌘ K</kbd>

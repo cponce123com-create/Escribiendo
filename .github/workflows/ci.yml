@@ -49,6 +49,9 @@ jobs:
       - name: Pruebas unitarias
         run: pnpm test
 
+      - name: Correspondencia estructural de vista previa y PDF
+        run: pnpm verify:preview-pdf
+
       - name: Compilación de producción
         run: pnpm build
 

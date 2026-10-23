@@ -1,5 +1,6 @@
 "use server";
 
+import { coverAssetVersion } from "@/lib/covers/asset-identity";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -125,12 +126,24 @@ export async function registerBookCoverAction(
     return errorState("La imagen no pertenece a la carpeta de este libro.");
   }
 
+  const version = coverAssetVersion(
+    parsed.data.secureUrl,
+    config.cloudName,
+    parsed.data.publicId,
+    format,
+  );
+  if (!version)
+    return errorState(
+      "La URL de la portada no coincide con su archivo y versión. Vuelve a subirla.",
+    );
+
   try {
     const asset = await prisma.asset.create({
       data: {
         workspaceId: session.workspace.id,
         createdById: session.user.id,
         publicId: parsed.data.publicId,
+        version,
         secureUrl: parsed.data.secureUrl,
         format,
         width: parsed.data.width,

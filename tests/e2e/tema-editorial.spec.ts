@@ -7,8 +7,10 @@ test("tema compartido, búsqueda real, menú retráctil y guía", async ({ page 
   await expect(
     page.getByRole("heading", { name: "Tu estudio está listo para crear." }),
   ).toBeVisible();
-  await page.keyboard.press("ControlOrMeta+k");
+  // The shortcut is advertised only after its listener is active.
   const search = page.getByRole("searchbox", { name: "Buscar en la biblioteca" });
+  await expect(search).toHaveAttribute("aria-keyshortcuts", "Control+k Meta+k");
+  await page.keyboard.press("ControlOrMeta+k");
   await expect(search).toBeFocused();
   await search.fill("consulta-e2e-sin-resultados");
   await search.press("Enter");

@@ -107,7 +107,9 @@ test.describe("Resiliencia del manuscrito", () => {
     const nav = page.getByRole("complementary", { name: "Navegación del manuscrito" });
     await nav.getByLabel("Opciones de Segundo capítulo de pruebas").click();
     await nav.getByRole("button", { name: "Subir Segundo capítulo de pruebas" }).click();
-    await expect(nav.getByRole("link").first()).toContainText("Segundo capítulo de pruebas");
+    await expect(nav.locator('a[href*="/sections/"]').first()).toContainText(
+      "Segundo capítulo de pruebas",
+    );
     await nav.getByRole("link", { name: new RegExp(SECTION_TITLE, "u") }).click();
     await expect(page.locator(".ProseMirror")).toBeVisible();
     await expect(page).toHaveURL(new RegExp("/sections/"));

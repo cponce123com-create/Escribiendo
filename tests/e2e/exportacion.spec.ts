@@ -305,6 +305,9 @@ test.describe("Exportación", () => {
     await page.getByRole("link", { name: BOOK_TITLE }).click();
     await page.getByRole("link", { name: SECTION_TITLE }).click();
 
+    const reopen = page.getByRole("button", { name: "Mostrar panel editorial", exact: true });
+    if (await reopen.isVisible()) await reopen.click();
+    await page.getByRole("tab", { name: "Detalles", exact: true }).click();
     await page.getByLabel("Tipo de sección", { exact: true }).check();
     await page.getByLabel("Número", { exact: true }).check();
     await page.getByRole("button", { name: "Guardar título" }).click();

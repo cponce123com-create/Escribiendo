@@ -107,6 +107,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     folder,
     allowed_formats: ALLOWED_IMAGE_FORMATS,
     unique_filename: "true",
+    overwrite: "false",
   };
   const signature = buildCloudinarySignature(params, config.apiSecret);
 

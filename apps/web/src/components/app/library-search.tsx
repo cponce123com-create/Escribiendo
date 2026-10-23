@@ -16,6 +16,7 @@ export function LibrarySearch() {
         input.current?.focus();
       }
     };
+    input.current?.setAttribute("aria-keyshortcuts", "Control+k Meta+k");
     window.addEventListener("keydown", focusSearch);
     return () => window.removeEventListener("keydown", focusSearch);
   }, [pathname]);

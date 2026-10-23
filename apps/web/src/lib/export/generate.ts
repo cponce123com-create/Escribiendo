@@ -177,6 +177,12 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
   let imagenesOmitidas = Math.max(0, imageOccurrences - embeddedOccurrences);
   let estimatedPagination = false;
   let fuentesIncrustadas = 0;
+  if (input.cover?.src && !loadedImages.assets.has(input.cover.src)) {
+    throw new Error(
+      "No se pudo recuperar la portada de esta exportación. El archivo no se generará sin ella.",
+    );
+  }
+
   let fuentesOmitidas = 0;
 
   if (input.format === "PDF_DIGITAL" || input.format === "PDF_PRINT") {
@@ -211,7 +217,12 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
     const measure = pdfFonts?.measure;
     estimatedPagination = !pdfFonts;
 
-    const composition = paginate(blocks, geometryFromProfile(input.profile), typography, measure);
+    const composition = paginate(
+      blocks,
+      { ...geometryFromProfile(input.profile), physicalPageOffset: input.cover ? 1 : 0 },
+      typography,
+      measure,
+    );
     const pdfComposition = toPdfPages(
       composition.pages,
       input.profile,
