@@ -175,6 +175,12 @@ export function ManuscriptSidebar({
               </button>
             ) : null}
           </header>
+          <Link
+            className="mb-3 inline-flex text-xs font-semibold text-accent underline-offset-2 hover:underline"
+            href={`/characters?book=${bookId}`}
+          >
+            Personajes del libro →
+          </Link>
           <div id="studio-chapter-tree" className="studio-chapter-tree">
             {groupSections(nodes).map((group) => (
               <details className="studio-section-group" key={group.label} open>

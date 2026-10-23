@@ -8,6 +8,7 @@ import { SelectField } from "@/components/forms/select-field";
 import { TextField } from "@/components/forms/text-field";
 import { TextareaField } from "@/components/forms/textarea-field";
 import { UsersIcon } from "@/components/icons";
+import { CharacterAnalyzer } from "@/components/story/character-analyzer";
 import { initialActionState } from "@/lib/action-state";
 import {
   createCharacterAction,
@@ -64,6 +65,7 @@ export function CharacterDirectory({
       <FormMessage state={createState} />
       <FormMessage state={updateState} />
       <FormMessage state={deleteState} />
+      {canManage && defaultBookId ? <CharacterAnalyzer bookId={defaultBookId} /> : null}
 
       {canManage ? (
         <section className="panel p-5" aria-labelledby="new-character-title">
