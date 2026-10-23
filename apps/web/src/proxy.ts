@@ -28,6 +28,9 @@ export function proxy(request: NextRequest): NextResponse {
     "frame-ancestors 'none'",
     "worker-src 'self' blob:",
     "manifest-src 'self'",
+    ...(request.nextUrl.pathname.startsWith("/characters")
+      ? ["style-src-attr 'unsafe-inline'"]
+      : []),
     ...(isDevelopment ? [] : ["upgrade-insecure-requests"]),
   ].join("; ");
 
@@ -57,6 +60,7 @@ export function proxy(request: NextRequest): NextResponse {
     request.nextUrl.pathname.startsWith("/notes") ||
     request.nextUrl.pathname.startsWith("/stats") ||
     request.nextUrl.pathname.startsWith("/team") ||
+    request.nextUrl.pathname.startsWith("/characters") ||
     request.nextUrl.pathname.startsWith("/guide")
   ) {
     response.headers.set("Cache-Control", "private, no-store, max-age=0");
