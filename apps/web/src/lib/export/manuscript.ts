@@ -49,6 +49,30 @@ export interface SectionVersion {
   version: number;
 }
 
+/**
+ * Instantánea editorial de una sección.
+ *
+ * Guarda todo lo que afecta al archivo exportado, no solo el texto: el título,
+ * el tipo y las opciones de composición pueden cambiar sin que cambie la
+ * versión del manuscrito. Sin esta instantánea, renombrar un capítulo después
+ * de pedir la exportación alteraría el archivo del trabajo en curso.
+ */
+export interface SectionSnapshot extends SectionVersion {
+  title: string;
+  type: string;
+  startOnOddPage: boolean;
+  pageBreakBefore: boolean;
+  includeInExport: boolean;
+  showInToc: boolean;
+  showTitle: boolean;
+  showSectionType: boolean;
+  showSectionNumber: boolean;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 /** Versiones de las secciones de un libro, en orden de lectura. */
 export async function currentSectionVersions(
   session: SessionContext,
@@ -60,29 +84,151 @@ export async function currentSectionVersions(
       deletedAt: null,
       book: { workspaceId: session.workspace.id, deletedAt: null },
     },
-    orderBy: [{ sortOrder: "asc" }, { title: "asc" }],
+    orderBy: [{ sortOrder: "asc" }, { title: "asc" }, { id: "asc" }],
     select: { id: true, version: true },
   });
 
   return sections.map((section) => ({ id: section.id, version: section.version }));
 }
 
+/** Instantánea editorial de las secciones, en orden de lectura. */
+export async function currentSectionSnapshots(
+  session: SessionContext,
+  bookId: string,
+): Promise<SectionSnapshot[]> {
+  const sections = await prisma.bookSection.findMany({
+    where: {
+      bookId,
+      deletedAt: null,
+      book: { workspaceId: session.workspace.id, deletedAt: null },
+    },
+    orderBy: [{ sortOrder: "asc" }, { title: "asc" }, { id: "asc" }],
+    select: {
+      id: true,
+      version: true,
+      title: true,
+      type: true,
+      startOnOddPage: true,
+      pageBreakBefore: true,
+      includeInExport: true,
+      showInToc: true,
+      showTitle: true,
+      showSectionType: true,
+      showSectionNumber: true,
+    },
+  });
+
+  return seccionesExportables(sections).map(toSectionSnapshot);
+}
+
+function toSectionSnapshot(section: SectionSnapshot): SectionSnapshot {
+  return {
+    id: section.id,
+    version: section.version,
+    title: section.title,
+    type: section.type,
+    startOnOddPage: section.startOnOddPage,
+    pageBreakBefore: section.pageBreakBefore,
+    includeInExport: section.includeInExport,
+    showInToc: section.showInToc,
+    showTitle: section.showTitle,
+    showSectionType: section.showSectionType,
+    showSectionNumber: section.showSectionNumber,
+  };
+}
+
+/**
+ * Lee la instantánea guardada en un trabajo.
+ *
+ * Devuelve `null` para los trabajos antiguos, que solo guardaban `{id, version}`:
+ * en ese caso se conserva la reconstrucción anterior.
+ */
+export function readSectionSnapshot(value: unknown): SectionSnapshot[] | null {
+  if (!Array.isArray(value) || value.length === 0) {
+    return null;
+  }
+
+  const snapshot: SectionSnapshot[] = [];
+
+  for (const entry of value) {
+    if (!isRecord(entry)) {
+      return null;
+    }
+
+    const {
+      id,
+      version,
+      title,
+      type,
+      startOnOddPage,
+      pageBreakBefore,
+      includeInExport,
+      showInToc,
+      showTitle,
+      showSectionType,
+      showSectionNumber,
+    } = entry;
+
+    if (
+      typeof id !== "string" ||
+      typeof version !== "number" ||
+      typeof title !== "string" ||
+      typeof type !== "string" ||
+      typeof startOnOddPage !== "boolean" ||
+      typeof pageBreakBefore !== "boolean" ||
+      typeof includeInExport !== "boolean" ||
+      typeof showInToc !== "boolean" ||
+      typeof showTitle !== "boolean" ||
+      typeof showSectionType !== "boolean" ||
+      typeof showSectionNumber !== "boolean"
+    ) {
+      return null;
+    }
+
+    snapshot.push({
+      id,
+      version,
+      title,
+      type,
+      startOnOddPage,
+      pageBreakBefore,
+      includeInExport,
+      showInToc,
+      showTitle,
+      showSectionType,
+      showSectionNumber,
+    });
+  }
+
+  return snapshot;
+}
+
 /**
  * Huella del manuscrito.
  *
- * Cambia en cuanto cambia el contenido de cualquier sección, de modo que un
- * trabajo con la misma clave pero distinto manuscrito es un trabajo nuevo.
+ * Incluye todo lo que cambia el archivo: contenido, versión, título, tipo,
+ * orden y opciones de composición. Cambiar cualquiera de ellos da lugar a un
+ * trabajo nuevo; repetir la misma exportación reutiliza el trabajo existente.
  */
 export function manuscriptHash(sections: ExportSection[], extra: string): string {
   const hash = createHash("sha256");
 
   for (const section of sections) {
-    hash.update(section.id);
-    hash.update(`:${section.version}:`);
     hash.update(
-      createHash("sha256")
-        .update(JSON.stringify(section.content ?? null))
-        .digest("hex"),
+      JSON.stringify({
+        id: section.id,
+        version: section.version,
+        title: section.title,
+        type: section.type,
+        startOnOddPage: section.startOnOddPage,
+        pageBreakBefore: section.pageBreakBefore,
+        includeInExport: section.includeInExport,
+        showInToc: section.showInToc,
+        showTitle: section.showTitle,
+        showSectionType: section.showSectionType,
+        showSectionNumber: section.showSectionNumber,
+        content: section.content ?? null,
+      }),
     );
     hash.update("|");
   }
@@ -108,7 +254,7 @@ export async function loadManuscript(
       deletedAt: null,
       book: { workspaceId: session.workspace.id, deletedAt: null },
     },
-    orderBy: [{ sortOrder: "asc" }, { title: "asc" }],
+    orderBy: [{ sortOrder: "asc" }, { title: "asc" }, { id: "asc" }],
     select: {
       id: true,
       title: true,
@@ -210,7 +356,110 @@ export async function loadManuscript(
     });
 }
 
-/** Tramo de texto con formato, en la forma plana que consumen los escritores. */
+/**
+ * Carga el manuscrito exactamente como estaba al pedir el trabajo.
+ *
+ * Los metadatos (título, tipo y opciones) salen de la instantánea, no de la
+ * fila actual: renombrar un capítulo o cambiar su entrada en el índice después
+ * de pedir la exportación no altera el archivo del trabajo. El contenido se
+ * recupera de la revisión si la sección ya ha avanzado de versión.
+ *
+ * No se filtra por `deletedAt`: una sección borrada después de pedir el
+ * trabajo sigue formando parte de la instantánea.
+ */
+export async function loadManuscriptFromSnapshot(
+  session: SessionContext,
+  bookId: string,
+  snapshot: SectionSnapshot[],
+): Promise<ExportSection[]> {
+  const rows = await prisma.bookSection.findMany({
+    where: {
+      id: { in: snapshot.map((section) => section.id) },
+      bookId,
+      book: { workspaceId: session.workspace.id, deletedAt: null },
+    },
+    select: { id: true, version: true, content: true },
+  });
+
+  const porId = new Map(rows.map((row) => [row.id, row]));
+  const necesitanRevision = snapshot.filter((section) => {
+    const row = porId.get(section.id);
+
+    return row !== undefined && row.version !== section.version;
+  });
+
+  const revisiones =
+    necesitanRevision.length > 0
+      ? await prisma.sectionRevision.findMany({
+          where: {
+            sectionId: { in: necesitanRevision.map((section) => section.id) },
+            version: { in: necesitanRevision.map((section) => section.version) },
+          },
+          select: { sectionId: true, version: true, content: true },
+        })
+      : [];
+
+  const porRevision = new Map(
+    revisiones.map((revision) => [`${revision.sectionId}:${revision.version}`, revision]),
+  );
+
+  return snapshot.map((section) => {
+    const row = porId.get(section.id);
+
+    if (!row) {
+      throw new Error(`La sección «${section.title}» ya no existe en este libro.`);
+    }
+
+    const content =
+      row.version === section.version
+        ? row.content
+        : porRevision.get(`${section.id}:${section.version}`)?.content;
+
+    if (content === undefined) {
+      throw new Error(
+        `No se ha podido recuperar la versión ${section.version} de la sección «${section.title}».`,
+      );
+    }
+
+    return {
+      id: section.id,
+      title: section.title,
+      type: section.type,
+      content,
+      version: section.version,
+      startOnOddPage: section.startOnOddPage,
+      pageBreakBefore: section.pageBreakBefore,
+      includeInExport: section.includeInExport,
+      showInToc: section.showInToc,
+      showTitle: section.showTitle,
+      showSectionType: section.showSectionType,
+      showSectionNumber: section.showSectionNumber,
+    };
+  });
+}
+
+/**
+ * Carga el manuscrito de un trabajo guardado.
+ *
+ * Los trabajos nuevos traen la instantánea completa; los antiguos solo
+ * guardaban `{id, version}` y se reconstruyen con los metadatos actuales.
+ */
+export async function loadManuscriptForJob(
+  session: SessionContext,
+  bookId: string,
+  stored: unknown,
+): Promise<ExportSection[]> {
+  const snapshot = readSectionSnapshot(stored);
+
+  if (snapshot) {
+    return loadManuscriptFromSnapshot(session, bookId, snapshot);
+  }
+
+  const versions = Array.isArray(stored) ? (stored as SectionVersion[]) : [];
+
+  return loadManuscript(session, bookId, versions);
+}
+
 export interface ManuscriptRun {
   text: string;
   bold?: boolean;

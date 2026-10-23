@@ -184,7 +184,14 @@ export async function getSectionTree(
   bookId: string,
 ): Promise<SectionNode[]> {
   const rows = await prisma.bookSection.findMany({
-    where: { bookId, deletedAt: null },
+    where: {
+      bookId,
+      deletedAt: null,
+      // El libro tiene que pertenecer al espacio de trabajo de la sesión. Sin
+      // este filtro, un identificador manipulado expondría el árbol de otro
+      // estudio aunque la ruta pareciera válida.
+      book: { workspaceId: session.workspace.id, deletedAt: null },
+    },
     orderBy: [{ sortOrder: "asc" }, { title: "asc" }],
     select: {
       id: true,

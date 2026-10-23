@@ -1,48 +1,63 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { z } from "zod";
 
-const mockPrisma = {
-  book: {
-    create: vi.fn(),
-    update: vi.fn(),
-    updateMany: vi.fn(),
-    findFirst: vi.fn(),
-    findUniqueOrThrow: vi.fn(),
-    count: vi.fn(),
-  },
-  bookSection: {
-    create: vi.fn(),
-    update: vi.fn(),
-    updateMany: vi.fn(),
-    findFirst: vi.fn(),
-    findMany: vi.fn(),
-    aggregate: vi.fn(),
-    count: vi.fn(),
-  },
-  sectionRevision: {
-    create: vi.fn(),
-    findFirst: vi.fn(),
-  },
-  characterAnalysisTask: {
-    upsert: vi.fn(),
-  },
-  $transaction: vi.fn(),
-  $executeRawUnsafe: vi.fn(),
-};
+const { mockPrisma, mockSession, mockContext } = vi.hoisted(() => {
+  const mockPrisma = {
+    book: {
+      create: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+      findFirst: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
+      count: vi.fn(),
+    },
+    bookSection: {
+      create: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+      aggregate: vi.fn(),
+      count: vi.fn(),
+    },
+    sectionRevision: {
+      create: vi.fn(),
+      findFirst: vi.fn(),
+    },
+    characterAnalysisTask: {
+      upsert: vi.fn(),
+    },
+    $transaction: vi.fn(),
+  };
 
-const mockSession = {
-  sessionId: "session-1",
-  user: { id: "user-1", email: "test@example.com", name: "Test User", role: "AUTHOR" },
-  workspace: { id: "workspace-1", name: "Test Workspace", slug: "test", role: "OWNER" },
-  workspaces: [{ id: "workspace-1", name: "Test Workspace", slug: "test", role: "OWNER" }],
-};
+  const mockSession = {
+    sessionId: "session-1",
+    user: {
+      id: "user-1",
+      email: "test@example.com",
+      name: "Test User",
+      role: "AUTHOR" as const,
+    },
+    workspace: {
+      id: "workspace-1",
+      name: "Test Workspace",
+      slug: "test",
+      role: "OWNER" as const,
+    },
+    workspaces: [
+      { id: "workspace-1", name: "Test Workspace", slug: "test", role: "OWNER" as const },
+    ],
+  };
 
-const mockContext = {
-  requestId: "req-1",
-  ip: "127.0.0.1",
-  ipHash: "hash",
-  userAgent: "test-agent",
-};
+  const mockContext = {
+    requestId: "req-1",
+    ip: "127.0.0.1",
+    ipHash: "hash",
+    userAgent: "test-agent",
+  };
+
+  return { mockPrisma, mockSession, mockContext };
+});
 
 vi.mock("@/lib/db", () => ({
   prisma: mockPrisma,
@@ -72,16 +87,19 @@ vi.mock("@/lib/logger", () => ({
   logger: { error: vi.fn(), warn: vi.fn() },
 }));
 
-import { createBookAction } from "./actions";
+import { createBookAction, createSectionAction, deleteSectionAction, moveSectionAction } from "./actions";
 import type { LibraryActionState } from "./action-state";
+import { getSession } from "@/lib/auth/session";
+import { assertServerActionOrigin } from "@/lib/security/request-context";
+import { redirect } from "next/navigation";
 
 describe("books actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    vi.resetAllMocks();
+    // `restoreMocks` limpia las implementaciones entre pruebas: se reponen
+    // aquí para que cada caso parta de una sesión y un contexto válidos.
+    vi.mocked(getSession).mockResolvedValue(mockSession);
+    vi.mocked(assertServerActionOrigin).mockResolvedValue(mockContext);
   });
 
   function makeFormData(data: Record<string, string>): FormData {
@@ -91,6 +109,18 @@ describe("books actions", () => {
     }
     return fd;
   }
+
+  // Las acciones validan los identificadores con `uuidSchema`: los casos deben
+  // usar UUID reales, no cadenas de ejemplo.
+  const ids = {
+    book: "11111111-1111-4111-8111-111111111111",
+    section: "22222222-2222-4222-8222-222222222222",
+    parent: "33333333-3333-4333-8333-333333333333",
+    sibling1: "44444444-4444-4444-8444-444444444444",
+    sibling2: "55555555-5555-4555-8555-555555555555",
+    otherParent: "66666666-6666-4666-8666-666666666666",
+    child: "77777777-7777-4777-8777-777777777777",
+  } as const;
 
   describe("createBookAction", () => {
     it("crea un libro y redirige", async () => {
@@ -104,7 +134,7 @@ describe("books actions", () => {
         language: "es",
       });
 
-      const result = await createBookAction({ status: "idle" }, formData);
+      await createBookAction({ status: "idle" }, formData);
 
       expect(mockPrisma.book.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -117,7 +147,9 @@ describe("books actions", () => {
           }),
         })
       );
-      expect(result).toEqual({ status: "success", message: expect.any(String) });
+      // La acción redirige a la ficha del libro. En Next.js `redirect` corta
+      // la ejecución: no existe un estado de éxito que devolver.
+      expect(redirect).toHaveBeenCalledWith(`/books/${bookId}`);
     });
 
     it("rechaza si el usuario no tiene permisos", async () => {
@@ -150,6 +182,229 @@ describe("books actions", () => {
 
       expect(result.status).toBe("error");
       expect(result.fieldErrors).toBeDefined();
+    });
+  });
+
+  describe("moveSectionAction", () => {
+    const bookId = ids.book;
+
+    function sectionRow(overrides: Record<string, unknown> = {}) {
+      return {
+        id: ids.section,
+        bookId,
+        parentId: null,
+        title: "Sección",
+        version: 1,
+        content: {},
+        ...overrides,
+      };
+    }
+
+    beforeEach(() => {
+      mockPrisma.$transaction.mockImplementation(async (cb: (tx: typeof mockPrisma) => unknown) =>
+        cb(mockPrisma),
+      );
+      mockPrisma.bookSection.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.bookSection.findMany.mockResolvedValue([]);
+    });
+
+    it("mueve dentro del mismo libro, cambia de padre y renumera el orden", async () => {
+      mockPrisma.bookSection.findFirst.mockImplementation(
+        async ({ where }: { where: { id?: string } }) => {
+          if (where.id === ids.section) {
+            return sectionRow();
+          }
+
+          if (where.id === ids.parent) {
+            return { id: ids.parent, bookId, parentId: null };
+          }
+
+          return null;
+        },
+      );
+      mockPrisma.bookSection.findMany.mockResolvedValue([
+        { id: ids.sibling1 },
+        { id: ids.sibling2 },
+      ]);
+
+      const result = await moveSectionAction(
+        { status: "idle" },
+        makeFormData({ sectionId: ids.section, parentId: ids.parent, position: "1" }),
+      );
+
+      expect(result.status).toBe("success");
+      expect(mockPrisma.bookSection.updateMany).toHaveBeenNthCalledWith(1, {
+        where: { id: ids.sibling1, bookId, deletedAt: null },
+        data: { sortOrder: 0 },
+      });
+      expect(mockPrisma.bookSection.updateMany).toHaveBeenNthCalledWith(2, {
+        where: { id: ids.section, bookId, deletedAt: null },
+        data: { sortOrder: 1, parentId: ids.parent },
+      });
+      expect(mockPrisma.bookSection.updateMany).toHaveBeenNthCalledWith(3, {
+        where: { id: ids.sibling2, bookId, deletedAt: null },
+        data: { sortOrder: 2 },
+      });
+      expect(mockPrisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+        isolationLevel: "Serializable",
+        timeout: 15_000,
+      });
+    });
+
+    it("rechaza un padre que no pertenece al mismo libro", async () => {
+      mockPrisma.bookSection.findFirst.mockImplementation(
+        async ({ where }: { where: { id?: string } }) =>
+          where.id === ids.section ? sectionRow() : null,
+      );
+
+      const result = await moveSectionAction(
+        { status: "idle" },
+        makeFormData({ sectionId: ids.section, parentId: ids.otherParent, position: "0" }),
+      );
+
+      expect(result.status).toBe("error");
+      expect(result.message).toContain("no pertenece a este libro");
+      expect(mockPrisma.bookSection.updateMany).not.toHaveBeenCalled();
+      expect(mockPrisma.bookSection.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: ids.otherParent,
+            bookId,
+            deletedAt: null,
+          }),
+        }),
+      );
+    });
+
+    it("rechaza mover una sección bajo una descendiente suya", async () => {
+      mockPrisma.bookSection.findFirst.mockImplementation(
+        async ({ where }: { where: { id?: string } }) => {
+          if (where.id === ids.section) {
+            return sectionRow();
+          }
+
+          if (where.id === ids.child) {
+            return { id: ids.child, bookId, parentId: ids.section };
+          }
+
+          return null;
+        },
+      );
+
+      const result = await moveSectionAction(
+        { status: "idle" },
+        makeFormData({ sectionId: ids.section, parentId: ids.child, position: "0" }),
+      );
+
+      expect(result.status).toBe("error");
+      expect(result.message).toContain("descendientes");
+      expect(mockPrisma.bookSection.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("reintenta si PostgreSQL aborta por conflicto de serialización", async () => {
+      let attempts = 0;
+
+      mockPrisma.$transaction.mockImplementation(
+        async (cb: (tx: typeof mockPrisma) => unknown) => {
+          attempts += 1;
+          const value = await cb(mockPrisma);
+
+          if (attempts === 1) {
+            throw Object.assign(new Error("conflicto"), { code: "P2034" });
+          }
+
+          return value;
+        },
+      );
+      mockPrisma.bookSection.findFirst.mockImplementation(
+        async ({ where }: { where: { id?: string } }) =>
+          where.id === ids.section ? sectionRow() : null,
+      );
+      mockPrisma.bookSection.findMany.mockResolvedValue([{ id: ids.sibling1 }]);
+
+      const result = await moveSectionAction(
+        { status: "idle" },
+        makeFormData({ sectionId: ids.section, position: "0" }),
+      );
+
+      expect(result.status).toBe("success");
+      expect(attempts).toBe(2);
+    });
+  });
+
+  describe("createSectionAction", () => {
+    it("rechaza un padre de otro libro y no crea la sección", async () => {
+      mockPrisma.book.findFirst.mockResolvedValue({ id: ids.book });
+      mockPrisma.bookSection.findFirst.mockResolvedValue(null);
+
+      const result = await createSectionAction(
+        { status: "idle" },
+        makeFormData({
+          bookId: ids.book,
+          title: "Capítulo",
+          type: "CHAPTER",
+          parentId: ids.otherParent,
+        }),
+      );
+
+      expect(result.status).toBe("error");
+      expect(result.message).toContain("no existe en este libro");
+      expect(mockPrisma.bookSection.create).not.toHaveBeenCalled();
+      expect(mockPrisma.bookSection.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: ids.otherParent,
+            bookId: ids.book,
+            deletedAt: null,
+          }),
+        }),
+      );
+    });
+  });
+
+  describe("deleteSectionAction", () => {
+    beforeEach(() => {
+      mockPrisma.$transaction.mockImplementation(
+        async (cb: (tx: typeof mockPrisma) => unknown) => cb(mockPrisma),
+      );
+      mockPrisma.bookSection.aggregate.mockResolvedValue({ _sum: { wordCount: 0 } });
+      mockPrisma.bookSection.count.mockResolvedValue(0);
+      mockPrisma.book.findUniqueOrThrow.mockResolvedValue({ targetWordCount: null });
+      mockPrisma.book.update.mockResolvedValue({});
+    });
+
+    it("borra la sección y sus descendientes solo dentro del libro", async () => {
+      mockPrisma.bookSection.findFirst.mockResolvedValue({
+        id: ids.section,
+        bookId: ids.book,
+        title: "S1",
+        version: 1,
+        content: {},
+      });
+      mockPrisma.bookSection.findMany
+        .mockResolvedValueOnce([{ id: ids.child }])
+        .mockResolvedValueOnce([]);
+
+      await deleteSectionAction(
+        { status: "idle" },
+        makeFormData({ sectionId: ids.section }),
+      );
+
+      expect(mockPrisma.bookSection.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { parentId: ids.section, bookId: ids.book, deletedAt: null },
+        }),
+      );
+      expect(mockPrisma.bookSection.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: { in: [ids.section, ids.child] },
+            bookId: ids.book,
+            deletedAt: null,
+          }),
+        }),
+      );
+      expect(redirect).toHaveBeenCalledWith(`/books/${ids.book}`);
     });
   });
 });
