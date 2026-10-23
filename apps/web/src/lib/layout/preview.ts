@@ -5,12 +5,25 @@ import type { SessionContext } from "@/lib/auth/session";
 import {
   paginate,
   withTypographyDefaults,
+  type LayoutBlock,
   type LayoutDiagnostic,
   type LaidOutPage,
   type PageGeometry,
   type TypographyConfig,
 } from "@escribiendo/editorial-engine";
-import { bookToBlocks, isChapterType, seccionesExportables, type PreviewSection } from "./blocks";
+import {
+  bookToBlocks,
+  isChapterType,
+  seccionesExportables,
+  type MatterLayout,
+  type PreviewSection,
+} from "./blocks";
+import {
+  EMPTY_MATTER,
+  composeMatter,
+  loadBookMatter,
+  pageFolioBySection,
+} from "@/lib/editorial/book-matter";
 import { resolveRunningHeads } from "./running-heads";
 import { previewLineDrawings, type PreviewLineDrawing } from "./preview-drawing";
 import { loadPdfFonts } from "@/lib/export/fonts";
@@ -167,7 +180,7 @@ export async function buildPreview(
 
   const dropCaps = options.dropCaps === true;
   const sections = await loadPreviewSections(session, bookId);
-  const blocks = bookToBlocks(sections, { dropCaps });
+  const matter = await loadBookMatter(session, bookId, sections);
 
   // La tipografía de la plantilla prima sobre la del perfil: la plantilla
   // describe el estilo editorial y el perfil la geometría.
@@ -179,12 +192,30 @@ export async function buildPreview(
   // vista previa y el archivo salen con los mismos cortes de línea.
   const fuentes = await loadPdfFonts();
   const cover = await getBookCover(session, bookId);
-  const result = paginate(
-    blocks,
-    { ...geometryFromProfile(profile), physicalPageOffset: cover ? 1 : 0 },
-    typography,
-    fuentes?.measure,
-  );
+  const geometry = { ...geometryFromProfile(profile), physicalPageOffset: cover ? 1 : 0 };
+  const compose = (front: readonly MatterLayout[], back: readonly MatterLayout[]): LayoutBlock[] =>
+    bookToBlocks(sections, { dropCaps, frontMatter: front, backMatter: back });
+
+  // Primera pasada: materias sin páginas. Después se estabiliza el índice,
+  // porque sus propias páginas desplazan el cuerpo que numera.
+  let composedMatter = matter ? composeMatter(matter, new Map()) : EMPTY_MATTER;
+  let blocks = compose(composedMatter.front, composedMatter.back);
+  let result = paginate(blocks, geometry, typography, fuentes?.measure);
+
+  for (let pass = 0; pass < 3 && matter; pass += 1) {
+    const next = composeMatter(matter, pageFolioBySection(result.pages));
+    const nextBlocks = compose(next.front, next.back);
+    const nextResult = paginate(nextBlocks, geometry, typography, fuentes?.measure);
+    const stable = next.signature === composedMatter.signature;
+
+    composedMatter = next;
+    blocks = nextBlocks;
+    result = nextResult;
+
+    if (stable) {
+      break;
+    }
+  }
 
   // El encabezado de página lo define la plantilla. Si la plantilla no dice
   // nada, se usa el título de la sección, que es lo que hace el motor.

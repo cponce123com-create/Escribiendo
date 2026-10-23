@@ -11,7 +11,13 @@ import {
 } from "@escribiendo/export-engine";
 import { paginate, withTypographyDefaults, type PageGeometry } from "@escribiendo/editorial-engine";
 import { getBookEdition, getDefaultLayoutProfile } from "@/lib/layout/profiles";
-import { bookToBlocks, isChapterType } from "@/lib/layout/blocks";
+import { bookToBlocks, isChapterType, type MatterLayout } from "@/lib/layout/blocks";
+import {
+  EMPTY_MATTER,
+  composeMatter,
+  pageFolioBySection,
+  type BookMatter,
+} from "@/lib/editorial/book-matter";
 import type { SessionContext } from "@/lib/auth/session";
 import type { ExportSection } from "./manuscript";
 import { sectionToBlocks } from "./manuscript";
@@ -86,6 +92,8 @@ export interface GenerateInput {
   images?: ExportImageMap;
   /** Portada del libro, cuando existe. */
   cover?: ExportImage;
+  /** Materias editoriales ya cargadas; el índice se numera con las páginas reales. */
+  matter?: BookMatter | null;
   /** Fecha de creación del documento; fija el resultado para que sea reproducible. */
   createdAt: Date;
 }
@@ -196,8 +204,7 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
     // La maqueta del PDF es la misma que la de la vista previa: si aquí se
     // ignorara el salto de página o la apertura en recto, los dos archivos
     // dirían cosas distintas.
-    const blocks = bookToBlocks(
-      input.sections.map((section) => ({
+    const previewSections = input.sections.map((section) => ({
         id: section.id,
         title: section.title,
         type: section.type,
@@ -210,19 +217,44 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
         showTitle: section.showTitle,
         showSectionType: section.showSectionType,
         showSectionNumber: section.showSectionNumber,
-      })),
-      { dropCaps: input.dropCaps === true },
-    );
+      }));
+    const compose = (front: readonly MatterLayout[], back: readonly MatterLayout[]) =>
+      bookToBlocks(previewSections, {
+        dropCaps: input.dropCaps === true,
+        frontMatter: front,
+        backMatter: back,
+      });
     const pdfFonts = await loadPdfFonts();
     const measure = pdfFonts?.measure;
     estimatedPagination = !pdfFonts;
 
-    const composition = paginate(
-      blocks,
-      { ...geometryFromProfile(input.profile), physicalPageOffset: input.cover ? 1 : 0 },
+    const geometry = { ...geometryFromProfile(input.profile), physicalPageOffset: input.cover ? 1 : 0 };
+    const matter = input.matter ?? null;
+    let composedMatter = matter ? composeMatter(matter, new Map()) : EMPTY_MATTER;
+    let composition = paginate(
+      compose(composedMatter.front, composedMatter.back),
+      geometry,
       typography,
       measure,
     );
+
+    for (let pass = 0; pass < 3 && matter; pass += 1) {
+      const next = composeMatter(matter, pageFolioBySection(composition.pages));
+      const nextComposition = paginate(
+        compose(next.front, next.back),
+        geometry,
+        typography,
+        measure,
+      );
+      const stable = next.signature === composedMatter.signature;
+
+      composedMatter = next;
+      composition = nextComposition;
+
+      if (stable) {
+        break;
+      }
+    }
     const pdfComposition = toPdfPages(
       composition.pages,
       input.profile,

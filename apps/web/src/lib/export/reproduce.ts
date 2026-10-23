@@ -2,6 +2,7 @@ import "server-only";
 import type { ExportFormat } from "@escribiendo/database";
 import type { SessionContext } from "@/lib/auth/session";
 import { getBookCover } from "@/lib/books/covers";
+import { loadBookMatter } from "@/lib/editorial/book-matter";
 import { prisma } from "@/lib/db";
 import { exportContext, type GenerateInput } from "./generate";
 import { readExportLayoutSnapshot } from "./layout-snapshot";
@@ -54,12 +55,14 @@ export async function resolveExportJobInput(
 
   const title = snapshot?.bookTitle || book.title;
   const author = snapshot?.authorName || book.authorName;
+  const matter = await loadBookMatter(session, job.bookId, sections);
 
   return {
     format: job.format,
     title,
     author,
     sections,
+    matter,
     profile: snapshot ? snapshot.profile : (context?.profile ?? null),
     typography: snapshot ? snapshot.typography : (context?.typography ?? {}),
     runningHeadTemplate: snapshot
