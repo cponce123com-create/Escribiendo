@@ -1,4 +1,5 @@
 "use client";
+import { AUTOSAVE_MIN_INTERVAL_MS } from "@/lib/editor/autosave";
 import { FOOTNOTE_EDIT_EVENT, parseFootnoteEdit } from "@/lib/editor/footnote-edit";
 
 import { useRouter } from "next/navigation";
@@ -124,6 +125,7 @@ export function SectionEditor({
   const requestRef = useRef(0);
   const localTimer = useRef<number | null>(null);
   const syncTimer = useRef<number | null>(null);
+  const autosaveNotBeforeRef = useRef(0);
   const retryTimer = useRef<number | null>(null);
 
   const dispatch = useCallback((event: Parameters<typeof reduceSync>[1]) => {
@@ -349,6 +351,12 @@ export function SectionEditor({
         return;
       }
 
+      const remaining = autosaveNotBeforeRef.current - Date.now();
+      if (intent === "autosave" && remaining > 0) {
+        dispatch({ type: "sync-throttled", retryAfterMs: remaining });
+        return;
+      }
+
       if (estado.state === "syncing") {
         return;
       }
@@ -402,7 +410,9 @@ export function SectionEditor({
 
         if (resultado.throttled) {
           // El servidor ha pospuesto el guardado: el texto sigue pendiente.
-          dispatch({ type: "sync-throttled" });
+          const retryAfterMs = resultado.retryAfterMs ?? AUTOSAVE_MIN_INTERVAL_MS;
+          autosaveNotBeforeRef.current = Date.now() + retryAfterMs;
+          dispatch({ type: "sync-throttled", retryAfterMs });
           return;
         }
 
@@ -415,6 +425,7 @@ export function SectionEditor({
           }).catch(() => undefined);
         }
 
+        autosaveNotBeforeRef.current = 0;
         const versionGuardada = resultado.savedVersion ?? versionRef.current;
         versionRef.current = versionGuardada;
 
@@ -451,13 +462,16 @@ export function SectionEditor({
         window.clearTimeout(syncTimer.current);
       }
 
-      syncTimer.current = window.setTimeout(() => {
-        syncTimer.current = null;
+      syncTimer.current = window.setTimeout(
+        () => {
+          syncTimer.current = null;
 
-        if (shouldSync(machineRef.current)) {
-          void sincronizar("autosave");
-        }
-      }, ms);
+          if (shouldSync(machineRef.current)) {
+            void sincronizar("autosave");
+          }
+        },
+        Math.max(ms, autosaveNotBeforeRef.current - Date.now()),
+      );
     },
     [sincronizar],
   );

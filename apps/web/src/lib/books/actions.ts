@@ -1,4 +1,5 @@
 "use server";
+import { remainingAutosaveDelay } from "@/lib/editor/autosave";
 import { compareEditorialSections } from "./reading-order";
 import { withSerializableRetry } from "./serializable";
 import { recomputeBookTotals } from "./statistics";
@@ -33,7 +34,6 @@ import type { SectionSaveState } from "@/lib/editor/sync";
  * del navegador, no para sustituir al guardado explícito. Acotarlo evita
  * llenar el historial de revisiones de ruido.
  */
-const AUTOSAVE_MIN_INTERVAL_MS = 45_000;
 
 const uuidSchema = z.string().uuid("El identificador no es válido.");
 const sectionTypeSchema = z.enum(BOOK_SECTION_TYPES);
@@ -716,7 +716,8 @@ export async function saveSectionAction(
       select: { createdAt: true },
     });
 
-    if (last && Date.now() - last.createdAt.getTime() < AUTOSAVE_MIN_INTERVAL_MS) {
+    const retryAfterMs = last ? remainingAutosaveDelay(last.createdAt.getTime(), Date.now()) : 0;
+    if (retryAfterMs > 0) {
       // El texto **no** está guardado en el servidor: sigue pendiente. La
       // respuesta lo dice con claridad para que el editor no lo dé por
       // confirmado.
@@ -724,6 +725,7 @@ export async function saveSectionAction(
         status: "success",
         message: "Guardado automático pospuesto: hay un cambio muy reciente.",
         throttled: true,
+        retryAfterMs,
         savedVersion: null,
       };
     }
