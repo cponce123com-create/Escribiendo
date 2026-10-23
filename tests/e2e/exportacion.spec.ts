@@ -320,10 +320,11 @@ test.describe("Exportación", () => {
       .getByRole("link", { name: "Maquetación" })
       .click();
     await page.getByRole("link", { name: "Ver la vista previa paginada" }).click();
-    const paginasVistaPrevia = await page
+    const previewSheets = page
       .getByRole("region", { name: "páginas", exact: true })
-      .locator('[aria-label^="Página "], [aria-label="Portada"]')
-      .count();
+      .locator('[aria-label^="Página "], [aria-label="Portada"]');
+    await expect(previewSheets.first()).toBeVisible();
+    const paginasVistaPrevia = await previewSheets.count();
     expect(paginasVistaPrevia).toBeGreaterThan(0);
 
     await page.goto("/books");

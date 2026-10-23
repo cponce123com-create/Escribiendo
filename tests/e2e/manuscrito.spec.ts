@@ -18,7 +18,7 @@ const SECTION_TITLE = "Capítulo de pruebas";
 async function abrirSeccion(page: Page, titulo: string): Promise<void> {
   await page.goto("/books");
   await page.getByRole("link", { name: BOOK_TITLE }).click();
-  await page.getByRole("link", { name: titulo }).click();
+  await page.getByRole("link", { name: titulo, exact: true }).click();
   await expect(page.locator(".ProseMirror")).toBeVisible();
 }
 
@@ -366,7 +366,11 @@ test.describe("Resiliencia del manuscrito", () => {
     await expect(segunda.getByRole("button", { name: "Usar la del servidor" })).toBeVisible();
 
     // Ninguna de las dos versiones se ha perdido.
-    await expect(segunda.getByText(/Texto de la segunda pestaña/)).toBeVisible();
+    await expect(primera.locator(".ProseMirror")).toContainText("Texto de la primera pestaña.");
+    await expect(segunda.locator(".ProseMirror")).toContainText("Texto de la segunda pestaña.");
+    const comparison = segunda.getByLabel("comparación de las dos versiones", { exact: true });
+    await expect(comparison).toContainText("primera");
+    await expect(comparison).toContainText("segunda");
 
     await primera.close();
     await segunda.close();

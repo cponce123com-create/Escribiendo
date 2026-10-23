@@ -144,7 +144,7 @@ test.describe("Biblioteca", () => {
 
     // 5 palabras sobre un objetivo de 40000: 0,0125 %, redondeado a 0,01 %.
     const progress = page.locator(".stat-card").filter({ hasText: "Progreso" });
-    await expect(progress).toContainText("0.01%");
+    await expect(progress).toContainText("0,01%");
   });
 
   test("una segunda versión se añade al historial", async ({ page }) => {
