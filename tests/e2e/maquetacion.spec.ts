@@ -339,7 +339,9 @@ test.describe("Maquetación", () => {
     await page.getByRole("link", { name: "Ver la vista previa paginada" }).click();
 
     const paginas = page.getByRole("region", { name: "páginas" });
-    await expect(paginas.locator('[data-block-kind="title"]')).toHaveCount(0);
+    const titles = paginas.locator('[data-block-kind="title"], [data-block-kind="chapterTitle"]');
+    await expect(titles.filter({ hasText: "El despertar" })).toHaveCount(0);
+    await expect(titles.filter({ hasText: "Segundo capítulo" })).toHaveCount(1);
     await expect(page.getByRole("region", { name: "índice" })).toContainText("El despertar");
   });
 });
