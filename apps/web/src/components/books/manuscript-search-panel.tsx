@@ -11,6 +11,7 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
   const [matches, setMatches] = useState<ManuscriptMatch[]>([]);
   const [message, setMessage] = useState("");
   const searchRequest = useRef(0);
+  const searchRequest = useRef(0);
   const [pending, startTransition] = useTransition();
   const total = useMemo(() => matches.reduce((sum, item) => sum + item.count, 0), [matches]);
 

@@ -200,13 +200,19 @@ export function SectionEditor({
         }),
       );
     };
+    const highlight = (event: Event): void => {
+      if (!(event instanceof CustomEvent) || typeof event.detail !== "string" || !editor) return;
+      editor.view.dispatch(editor.state.tr.setMeta(manuscriptSearchPluginKey, event.detail));
+    };
     const escape = (event: KeyboardEvent) => {
       if (event.key === "Escape") setFocused(false);
     };
     window.addEventListener("studio-search", search);
+    window.addEventListener("studio-search-highlight", highlight);
     window.addEventListener("keydown", escape);
     return () => {
       window.removeEventListener("studio-search", search);
+      window.removeEventListener("studio-search-highlight", highlight);
       window.removeEventListener("keydown", escape);
     };
   }, [editor]);
