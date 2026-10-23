@@ -28,7 +28,10 @@ import { SectionConflictPanel } from "@/components/books/section-conflict";
 import { EditorToolbar } from "@/components/books/editor-toolbar";
 import { SectionImageControls } from "@/components/books/section-image-controls";
 import { EditorialFootnote } from "@/components/editor/editorial-footnote";
-import { ManuscriptSearchHighlights, manuscriptSearchPluginKey } from "@/components/editor/manuscript-search-highlights";
+import {
+  ManuscriptSearchHighlights,
+  manuscriptSearchPluginKey,
+} from "@/components/editor/manuscript-search-highlights";
 import { EditorialImage } from "@/components/editor/editorial-image";
 import { StudioIcon } from "./studio-icon";
 import { readingMinutes, textMatches } from "@/lib/books/studio";
