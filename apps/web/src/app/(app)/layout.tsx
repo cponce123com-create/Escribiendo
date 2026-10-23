@@ -21,7 +21,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         <footer className="border-t border-line px-4 py-5 text-xs text-ink-muted sm:px-6 lg:px-10">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span>ESCRIBIENDO · Plataforma privada de EDITORIAL NO PARA TODOS</span>
-            <span>Fase 1 · Fundaciones y acceso</span>
+            <span>Tu espacio para escribir, crear y publicar.</span>
           </div>
         </footer>
       </div>

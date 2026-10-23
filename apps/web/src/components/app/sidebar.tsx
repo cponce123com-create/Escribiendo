@@ -2,20 +2,11 @@ import { StudioRail } from "@/components/books/studio-rail";
 import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
 import { NavLinks } from "@/components/app/nav-links";
-import { WorkspaceSwitcher } from "@/components/app/workspace-switcher";
-import { DownloadIcon, LayoutIcon, LogOutIcon, UsersIcon } from "@/components/icons";
+
+import { BookIcon, ChartIcon, LayoutIcon, LogOutIcon, UsersIcon } from "@/components/icons";
 import { logoutAction } from "@/lib/auth/actions";
 import type { SessionContext } from "@/lib/auth/session";
-import { getInitials, WORKSPACE_ROLE_LABELS } from "@/lib/ui/format";
-import { UPCOMING_PHASES } from "@/lib/ui/phases";
-
-/** Icono de cada fase pendiente. */
-const PHASE_ICONS: Record<string, typeof DownloadIcon> = {
-  exportacion: DownloadIcon,
-  equipo: UsersIcon,
-  operacion: LayoutIcon,
-};
-
+import { getInitials } from "@/lib/ui/format";
 interface SidebarProps {
   session: SessionContext;
 }
@@ -33,38 +24,42 @@ export function Sidebar({ session }: SidebarProps) {
           <Logo href="/dashboard" />
         </div>
 
-        <div className="mx-5 border-y border-line py-4">
-          <p className="meta-label">Espacio de trabajo</p>
-          <p className="mt-1.5 font-serif text-lg leading-tight text-ink">
-            {session.workspace.name}
-          </p>
-          <p className="mt-1 text-xs text-ink-muted">
-            {WORKSPACE_ROLE_LABELS[session.workspace.role] ?? session.workspace.role}
-          </p>
-          <WorkspaceSwitcher activo={session.workspace} estudios={session.workspaces} />
-        </div>
-
-        <div className="px-3 py-4">
-          <p className="meta-label px-2 pb-2">Estudio</p>
+        <div className="px-4 py-4">
           <NavLinks />
         </div>
-
-        <div className="px-3">
-          <p className="meta-label px-2 pb-2">Próximas fases</p>
-          <div aria-label="Secciones todavía no disponibles">
-            {UPCOMING_PHASES.map((phase) => {
-              const Icon = PHASE_ICONS[phase.slug] ?? LayoutIcon;
-
-              return (
-                <div className="nav-item-future" key={phase.slug}>
-                  <Icon />
-                  <span>{phase.label}</span>
-                  <span className="phase-chip">Fase {phase.id}</span>
-                </div>
-              );
-            })}
-          </div>
+        <div className="sidebar-tools mx-5 border-t border-line py-5">
+          <p className="meta-label mb-3">Herramientas</p>
+          <nav aria-label="Herramientas de escritura">
+            {[
+              { label: "Planificación", icon: LayoutIcon },
+              { label: "Personajes", icon: UsersIcon },
+              { label: "Mundos", icon: BookIcon },
+            ].map(({ label, icon: Icon }) => (
+              <div key={label} className="nav-item-future" aria-disabled="true">
+                <Icon />
+                <span>{label}</span>
+                <span className="phase-chip">Próximamente</span>
+              </div>
+            ))}
+            <Link className="nav-item" href="/stats">
+              <ChartIcon />
+              <span>Objetivos</span>
+            </Link>
+          </nav>
         </div>
+        <div className="mx-5 border-t border-line py-5">
+          <p className="meta-label mb-3">Ayuda</p>
+          <Link href="/guide" className="nav-item">
+            <BookIcon />
+            <span>Guía y recursos</span>
+          </Link>
+        </div>
+        <blockquote className="sidebar-quote mx-5 mb-6">
+          <BookIcon className="mx-auto mb-3 size-5 text-accent" />
+          Un lugar para las historias
+          <br />
+          que merecen ser contadas.
+        </blockquote>
 
         <div className="mt-auto border-t border-line p-4">
           <Link

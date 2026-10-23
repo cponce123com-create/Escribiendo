@@ -56,7 +56,8 @@ export function proxy(request: NextRequest): NextResponse {
     request.nextUrl.pathname.startsWith("/books") ||
     request.nextUrl.pathname.startsWith("/notes") ||
     request.nextUrl.pathname.startsWith("/stats") ||
-    request.nextUrl.pathname.startsWith("/team")
+    request.nextUrl.pathname.startsWith("/team") ||
+    request.nextUrl.pathname.startsWith("/guide")
   ) {
     response.headers.set("Cache-Control", "private, no-store, max-age=0");
   }
