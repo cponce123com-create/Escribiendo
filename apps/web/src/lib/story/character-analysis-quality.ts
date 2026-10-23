@@ -41,6 +41,16 @@ const LIKELY_PLACES = new Set([
 ]);
 const NON_NAME_WORDS = new Set([
   "hombre",
+  "hola",
+  "adiós",
+  "adios",
+  "gracias",
+  "perdón",
+  "perdon",
+  "oye",
+  "venga",
+  "vamos",
+  "claro",
   "mujer",
   "muchacho",
   "muchacha",

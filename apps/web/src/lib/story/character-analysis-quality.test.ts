@@ -114,6 +114,24 @@ describe("quality gate for incremental character suggestions", () => {
     ).toEqual([]);
   });
 
+  it("descarta saludos usados como diálogo y conserva nombres y apellidos", () => {
+    const sectionText =
+      "—Hola, Clara —dijo Andrés. —Hola, Andrés —respondió Clara. —Hola, Clara —repitió Andrés. " +
+      "María Fernanda Ríos llegó al pueblo. María Fernanda Ríos habló con Clara. " +
+      "María Fernanda Ríos volvió a casa.";
+
+    const candidates = analyzeNarrative([{ title: "Capítulo tres", text: sectionText }]);
+    const filtered = filterCharacterCandidates(candidates, {
+      bookTitle: "Novela",
+      existingCharacterNames: [],
+      sectionText,
+    });
+    const names = filtered.map((candidate) => candidate.name);
+
+    expect(names).not.toContain("Hola");
+    expect(names).toContain("María Fernanda Ríos");
+  });
+
   it("keeps repeated, well-formed names while suppressing common words", () => {
     expect(
       filterCharacterCandidates([person("Ana Sol", 0.8), person("Tarde", 0.9)], {
