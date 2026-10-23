@@ -153,3 +153,4 @@ export {
   missingLegalFields,
 } from "./legal-page";
 export type { LegalTemplateMetadata, LegalRequiredField } from "./legal-page";
+export { legalClausesSchema, LEGAL_CLAUSES_MAX_CHARS } from "./legal-clauses";
