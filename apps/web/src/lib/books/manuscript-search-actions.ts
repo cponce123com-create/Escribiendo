@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { parseTiptapDocument, countWordsInDocument, CHAPTER_LIKE_SECTION_TYPES, type TiptapDocument } from "@escribiendo/book-schema";
+import { parseTiptapDocument, countWordsInDocument, CHAPTER_LIKE_SECTION_TYPES } from "@escribiendo/book-schema";
+import type { Prisma, RevisionReason } from "@escribiendo/database";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { assertServerActionOrigin } from "@/lib/security/request-context";
@@ -56,47 +57,50 @@ export async function replaceBookManuscriptAction(
   });
   if (!sections.length) return { count: 0, error: "El libro no está disponible." };
 
-  let total = 0;
+  const prepared = sections.flatMap((section) => {
+    const document = parseTiptapDocument(section.content);
+    const result = replaceTextLeaves(document, needle, replacement);
+    return result.count ? [{ section, document: result.document, count: result.count }] : [];
+  });
+  const total = prepared.reduce((sum, item) => sum + item.count, 0);
+  if (!total) return { count: 0 };
+
   try {
-    for (const section of sections) {
-      const document = parseTiptapDocument(section.content);
-      const result = replaceTextLeaves(document, needle, replacement);
-      if (!result.count) continue;
-      const nextVersion = section.version + 1;
-      const wordCount = countWordsInDocument(result.document);
-      await prisma.$transaction(async (transaction) => {
+    await prisma.$transaction(async (transaction) => {
+      for (const item of prepared) {
+        const nextVersion = item.section.version + 1;
+        const wordCount = countWordsInDocument(item.document);
         await transaction.sectionRevision.create({
           data: {
-            sectionId: section.id,
+            sectionId: item.section.id,
             createdById: session.user.id,
             version: nextVersion,
-            content: result.document as unknown as import("@escribiendo/database").Prisma.InputJsonValue,
+            content: item.document as unknown as Prisma.InputJsonValue,
             wordCount,
-            reason: "MANUAL",
-            title: section.title,
+            reason: "MANUAL" satisfies RevisionReason,
+            title: item.section.title,
           },
         });
         const saved = await transaction.bookSection.updateMany({
-          where: { id: section.id, version: section.version, deletedAt: null },
+          where: { id: item.section.id, version: item.section.version, deletedAt: null },
           data: {
-            content: result.document as unknown as import("@escribiendo/database").Prisma.InputJsonValue,
+            content: item.document as unknown as Prisma.InputJsonValue,
             wordCount,
             version: nextVersion,
           },
         });
         if (saved.count !== 1) throw new Error("SECTION_VERSION_CONFLICT");
-      });
-      total += result.count;
-      revalidatePath(`/books/${bookId}/sections/${section.id}`);
-    }
+      }
+    });
   } catch (error) {
     return {
-      count: total,
+      count: 0,
       error: error instanceof Error && error.message === "SECTION_VERSION_CONFLICT"
-        ? "El manuscrito cambió mientras se aplicaba el reemplazo. Recarga y vuelve a intentarlo."
-        : "No se pudo completar el reemplazo. Revisa las secciones y vuelve a intentarlo.",
+        ? "El manuscrito cambió mientras se aplicaba el reemplazo. No se modificó ninguna sección; recarga y vuelve a intentarlo."
+        : "No se pudo completar el reemplazo. No se modificó ninguna sección; vuelve a intentarlo.",
     };
   }
+  for (const item of prepared) revalidatePath(`/books/${bookId}/sections/${item.section.id}`);
 
   const [aggregate, chapters, book] = await Promise.all([
     prisma.bookSection.aggregate({ where: { bookId, deletedAt: null }, _sum: { wordCount: true } }),
