@@ -154,7 +154,7 @@ export default async function BookPage({ params }: BookPageProps) {
         <div className="stat-card">
           <p className="meta-label">Progreso</p>
           <p className="mt-4 font-serif text-3xl tabular-nums text-ink">
-            {book.targetWordCount ? `${book.writingProgress}%` : "—"}
+            {book.targetWordCount ? `${book.writingProgress.toFixed(2)}%` : "—"}
           </p>
           <p className="mt-1 text-xs text-ink-muted">
             {BOOK_STATUS_LABELS[book.status] ?? book.status}

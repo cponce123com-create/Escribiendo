@@ -205,7 +205,7 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
                       <div>
                         <dt className="meta-label">Progreso</dt>
                         <dd className="mt-1 font-serif text-lg tabular-nums text-ink">
-                          {book.targetWordCount ? `${book.writingProgress}%` : "—"}
+                          {book.targetWordCount ? `${book.writingProgress.toFixed(2)}%` : "—"}
                         </dd>
                       </div>
                     </dl>
