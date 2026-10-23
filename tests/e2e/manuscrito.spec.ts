@@ -304,27 +304,41 @@ test.describe("Resiliencia del manuscrito", () => {
   test("escribir mientras se guarda no marca el texto como guardado", async ({ page }) => {
     await abrirSeccion(page, SECTION_TITLE);
 
-    // La petición tarda: durante ese tiempo se escribe algo más.
-    await page.route("**/books/**/sections/**", async (ruta) => {
-      if (ruta.request().method() === "POST") {
-        await new Promise((resolver) => setTimeout(resolver, 2_500));
+    let releaseRequest!: () => void;
+    let markStarted!: () => void;
+    const blocked = new Promise<void>((resolve) => {
+      releaseRequest = resolve;
+    });
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    await page.route("**/books/**/sections/**", async (route) => {
+      if (route.request().method() === "POST") {
+        markStarted();
+        await blocked;
       }
-
-      await ruta.fallback();
+      await route.fallback();
     });
 
-    await page.locator(".ProseMirror").click();
+    const editor = page.locator(".ProseMirror");
+    await editor.click();
     await page.keyboard.type("Frase enviada.");
-
     await page.getByRole("button", { name: "Guardar manuscrito" }).click();
-
-    // Mientras la petición está en curso se escribe otra frase.
-    await page.keyboard.type(" Y una frase escrita durante el envío.");
-
-    // La respuesta del servidor confirma la primera frase, pero la segunda
-    // sigue sin guardar: el estado no puede decir que todo está guardado.
-    await expect(page.getByText(/Guardado en este equipo|Sincronizando/)).toBeVisible();
-    await expect(page.getByText("Guardado en el servidor.")).not.toBeVisible();
+    await started;
+    try {
+      // El clic en Guardar mueve el foco al botón: se vuelve al manuscrito.
+      await editor.click();
+      await page.keyboard.press("ControlOrMeta+End");
+      await page.keyboard.type(" Y una frase escrita durante el envío.");
+      await expect(page.locator(".manuscript-editor")).toHaveAttribute("data-dirty", "true");
+      await expect(page.getByText("Guardado en el servidor.")).not.toBeVisible();
+    } finally {
+      releaseRequest();
+    }
+    await expect(page.locator(".manuscript-editor")).toHaveAttribute("data-dirty", "false");
+    await page.reload();
+    await expect(editor).toContainText("Frase enviada.");
+    await expect(editor).toContainText("Y una frase escrita durante el envío.");
   });
 
   test("dos pestañas sobre la misma sección muestran el conflicto", async ({ context }) => {

@@ -64,7 +64,8 @@ jobs:
         run: pnpm db:migrate
 
       - name: Navegador
-        run: pnpm exec playwright install --with-deps chromium
+        timeout-minutes: 5
+        run: pnpm exec playwright install --with-deps --only-shell chromium
 
       - name: Compilación de producción
         run: pnpm build
