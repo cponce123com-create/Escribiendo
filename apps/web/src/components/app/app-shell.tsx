@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { createContext, useContext, useSyncExternalStore, type ReactNode } from "react";
 
 const SIDEBAR_KEY = "escribiendo-app-sidebar-collapsed";
@@ -34,6 +35,8 @@ function subscribe(onChange: () => void): () => void {
 /** Marco de la aplicación con estado compartido para plegar el menú global. */
 export function AppShell({ sidebar, children }: { sidebar: ReactNode; children: ReactNode }) {
   const collapsed = useSyncExternalStore(subscribe, readPreference, () => false);
+  const pathname = usePathname();
+  const studio = /^\/books\/[^/]+\/sections\/[^/]+$/.test(pathname);
 
   const toggle = (): void => {
     fallbackCollapsed = !collapsed;
@@ -49,7 +52,9 @@ export function AppShell({ sidebar, children }: { sidebar: ReactNode; children: 
 
   return (
     <SidebarContext.Provider value={{ collapsed, toggle }}>
-      <div className={`app-shell min-h-svh ${collapsed ? "app-shell--sidebar-collapsed" : ""}`}>
+      <div
+        className={`app-shell min-h-svh ${studio ? "editorial-studio" : ""} ${collapsed ? "app-shell--sidebar-collapsed" : ""}`}
+      >
         <a href="#contenido" className="skip-link">
           Saltar al contenido
         </a>

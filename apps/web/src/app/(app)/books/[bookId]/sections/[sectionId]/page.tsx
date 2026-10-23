@@ -12,10 +12,16 @@ import {
   parseTiptapDocument,
   type TiptapDocument,
 } from "@escribiendo/book-schema";
-import { SECTION_TYPE_LABELS, formatNumber } from "@/lib/ui/format";
+import { SECTION_TYPE_LABELS, formatNumber, formatDateTime } from "@/lib/ui/format";
 import { AssignSelect } from "@/components/team/assign-select";
 import { listMembers } from "@/lib/team/members";
 import { ManuscriptWorkspace } from "@/components/books/manuscript-workspace";
+
+import { StudioInspector } from "@/components/books/studio-inspector";
+import { StudioIcon } from "@/components/books/studio-icon";
+import { listBookNotes } from "@/lib/writing/notes";
+import { readingMinutes, sectionGroup } from "@/lib/books/studio";
+import { flattenSectionTree } from "@/lib/books/section-tree";
 
 export const metadata: Metadata = {
   title: "Manuscrito",
@@ -44,71 +50,81 @@ export default async function SectionPage({ params }: SectionPageProps) {
     notFound();
   }
 
-  const [book, revisions, miembros, imagenes, sectionTree] = await Promise.all([
+  const [book, revisions, miembros, imagenes, sectionTree, notes] = await Promise.all([
     getBook(session, bookId),
     listRevisions(session, bookId, sectionId),
     listMembers(session),
     listBookAssets(session, bookId),
     getSectionTree(session, bookId),
+    listBookNotes(session, bookId),
   ]);
 
   const canEdit = canPerform(session.workspace.role, "section:update");
   const canRestore = canPerform(session.workspace.role, "revision:restore");
   const canMove = canPerform(session.workspace.role, "section:move");
 
+  const chapterNumber =
+    flattenSectionTree(sectionTree)
+      .filter((node) => node.type === "CHAPTER")
+      .findIndex((node) => node.id === section.id) + 1;
+  const historyHref = `/books/${bookId}/sections/${section.id}/history`;
   return (
-    <div className="mx-auto max-w-[1500px] space-y-6">
-      <header className="section-workspace-header">
-        <div className="min-w-0">
-          <p className="eyebrow flex flex-wrap items-center gap-2">
-            <Link
-              className="text-ink-soft transition-colors hover:text-accent"
-              href={`/books/${bookId}`}
-            >
-              {book?.title ?? "Libro"}
-            </Link>
-            <span aria-hidden="true" className="text-ink-muted">
-              /
-            </span>
-            <span>Espacio de escritura</span>
-          </p>
-          <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
-            <div className="min-w-0">
-              <h1 className="truncate font-serif text-[clamp(1.9rem,3.5vw,2.75rem)] leading-[1.02] tracking-[-0.035em] text-ink">
-                {section.title}
-              </h1>
-              <p className="mt-2 text-sm text-ink-muted">
+    <ManuscriptWorkspace
+      bookId={bookId}
+      nodes={sectionTree}
+      activeSectionId={section.id}
+      canMove={canMove}
+      canCreate={canPerform(session.workspace.role, "section:create")}
+      editor={
+        <>
+          <header className="studio-chapter-hero">
+            <div className="studio-chapter-eyebrow">
+              <span>
                 {SECTION_TYPE_LABELS[section.type] ?? section.type}
-                <span className="mx-2 text-line-strong">·</span>
-                {section.assignee ? `Asignada a ${section.assignee.name}` : "Lista para escribir"}
-              </p>
+                {chapterNumber > 0 ? ` ${chapterNumber}` : ""}
+              </span>
+              <span aria-hidden="true">/</span>
+              <Link href={`/books/${bookId}`}>{sectionGroup(section.type)}</Link>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="workspace-stat">
-                <span className="workspace-stat__dot" aria-hidden="true" />
+            <h1>{section.title}</h1>
+            <p className="studio-chapter-description">
+              {book?.title ?? "Libro"}
+              {section.assignee ? ` · ${section.assignee.name}` : ""}
+            </p>
+            <div className="studio-chapter-meta">
+              <span className="studio-meta-pill">
+                <span className="studio-live-dot" />
                 {formatNumber(section.wordCount)} palabras
               </span>
-              <span className="workspace-stat">Versión {section.version}</span>
+              <span className="studio-meta-pill">
+                <StudioIcon name="book" />
+                {readingMinutes(section.wordCount)} min de lectura
+              </span>
+              <Link className="studio-meta-pill" href={historyHref}>
+                Versión {section.version} <span aria-hidden="true">⌄</span>
+              </Link>
+              <time dateTime={section.updatedAt.toISOString()}>
+                Última edición: {formatDateTime(section.updatedAt)}
+              </time>
+              <Link
+                className="studio-history-link"
+                aria-label="Historial y comparador"
+                href={historyHref}
+              >
+                <StudioIcon name="history" />
+                Historial y comparar
+              </Link>
+              <details className="studio-hero-menu">
+                <summary aria-label="Más acciones del libro">•••</summary>
+                <nav>
+                  <Link href={`/books/${bookId}/preview`}>Vista previa</Link>
+                  <Link href={`/books/${bookId}/layout`}>Maquetación</Link>
+                  <Link href={`/books/${bookId}/export`}>Exportar libro</Link>
+                  <Link href={`/books/${bookId}`}>Gestionar secciones</Link>
+                </nav>
+              </details>
             </div>
-          </div>
-        </div>
-
-        <nav className="flex shrink-0 flex-wrap gap-2" aria-label="Acciones de la sección">
-          <Link
-            className="btn btn-secondary btn-sm"
-            href={`/books/${bookId}/sections/${section.id}/history`}
-          >
-            Historial y comparador
-          </Link>
-        </nav>
-      </header>
-
-      <ManuscriptWorkspace
-        bookId={bookId}
-        nodes={sectionTree}
-        activeSectionId={section.id}
-        canMove={canMove}
-        editor={
+          </header>
           <SectionEditor
             sectionId={section.id}
             sectionTitle={section.title}
@@ -120,45 +136,51 @@ export default async function SectionPage({ params }: SectionPageProps) {
             canEdit={canEdit}
             bookAssets={imagenes}
           />
-        }
-        details={
-          <aside
-            className="panel section-details-panel p-5 sm:p-6"
-            aria-labelledby="revisions-title"
-          >
-            <p className="meta-label">Historial</p>
-            <h2 id="revisions-title" className="mt-1.5 font-serif text-2xl text-ink">
-              Revisiones
-            </h2>
-            <p className="mt-2 mb-5 text-sm leading-relaxed text-ink-muted">
-              Cada guardado crea una revisión. Las revisiones no se modifican nunca: restaurar una
-              versión anterior la copia como una versión nueva.
-            </p>
-
+        </>
+      }
+      details={
+        <StudioInspector
+          bookId={bookId}
+          sectionId={sectionId}
+          notes={notes.filter((note) => !note.sectionId || note.sectionId === sectionId)}
+          history={
             <RevisionList
               sectionId={section.id}
-              revisions={revisions}
+              revisions={revisions.slice(0, 3)}
               currentVersion={section.version}
               canRestore={canRestore}
             />
-
-            {canEdit ? (
-              <div className="mt-6 border-t border-line pt-5">
-                <p className="meta-label">Asignación</p>
-                <div className="mt-3">
-                  <AssignSelect
-                    kind="section"
-                    targetId={section.id}
-                    assigneeId={section.assigneeId}
-                    members={miembros}
-                    label="Responsable"
-                  />
-                </div>
-              </div>
-            ) : null}
-          </aside>
-        }
-      />
-    </div>
+          }
+          details={
+            <div className="space-y-5">
+              <dl className="studio-detail-list">
+                <dt>Libro</dt>
+                <dd>{book?.title}</dd>
+                <dt>Tipo de sección</dt>
+                <dd>{SECTION_TYPE_LABELS[section.type]}</dd>
+                <dt>Exportación</dt>
+                <dd>{section.includeInExport ? "Incluida" : "Excluida"}</dd>
+              </dl>
+              {canEdit ? (
+                <AssignSelect
+                  kind="section"
+                  targetId={section.id}
+                  assigneeId={section.assigneeId}
+                  members={miembros}
+                  label="Responsable"
+                />
+              ) : null}
+              <p className="text-sm text-ink-muted">
+                El nombre del capítulo se imprime solo, con el estilo de título de la maqueta: no
+                hace falta escribirlo en el texto.
+              </p>
+              <Link className="btn btn-secondary btn-sm" href={`/books/${bookId}/layout`}>
+                Configurar maqueta
+              </Link>
+            </div>
+          }
+        />
+      }
+    />
   );
 }

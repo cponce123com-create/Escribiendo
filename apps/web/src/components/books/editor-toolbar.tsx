@@ -1,5 +1,6 @@
 "use client";
 
+import { StudioIcon } from "./studio-icon";
 import type { Editor } from "@tiptap/core";
 import { useEditorState } from "@tiptap/react";
 import { useSyncExternalStore, type ReactNode } from "react";
@@ -9,6 +10,7 @@ interface EditorToolbarProps {
   editor: Editor | null;
   onLink: () => void;
   onFootnote: () => void;
+  onImage: () => void;
 }
 
 interface EditorToolbarState {
@@ -85,7 +87,7 @@ function ToolbarButton({
   title: string;
   pressed?: boolean;
   disabled?: boolean;
-  onClick: () => void;
+  onClick?: () => void;
   children: ReactNode;
 }) {
   return (
@@ -104,7 +106,7 @@ function ToolbarButton({
   );
 }
 
-export function EditorToolbar({ editor, onLink, onFootnote }: EditorToolbarProps) {
+export function EditorToolbar({ editor, onLink, onFootnote, onImage }: EditorToolbarProps) {
   const estado = useEditorState({
     editor,
     selector: ({ editor: instancia }): EditorToolbarState => {
@@ -182,7 +184,7 @@ export function EditorToolbar({ editor, onLink, onFootnote }: EditorToolbarProps
             pressed={estado?.bold ?? false}
             onClick={() => editor.chain().focus().toggleBold().run()}
           >
-            <strong>N</strong>
+            <strong>B</strong>
           </ToolbarButton>
           <ToolbarButton
             label="Cursiva"
@@ -190,7 +192,7 @@ export function EditorToolbar({ editor, onLink, onFootnote }: EditorToolbarProps
             pressed={estado?.italic ?? false}
             onClick={() => editor.chain().focus().toggleItalic().run()}
           >
-            <em>K</em>
+            <em>I</em>
           </ToolbarButton>
           <ToolbarButton
             label="Subrayado"
@@ -198,7 +200,7 @@ export function EditorToolbar({ editor, onLink, onFootnote }: EditorToolbarProps
             pressed={estado?.underline ?? false}
             onClick={() => editor.chain().focus().toggleUnderline().run()}
           >
-            <u>S</u>
+            <u>U</u>
           </ToolbarButton>
           <ToolbarButton
             label="Tachado"
@@ -206,7 +208,7 @@ export function EditorToolbar({ editor, onLink, onFootnote }: EditorToolbarProps
             pressed={estado?.strike ?? false}
             onClick={() => editor.chain().focus().toggleStrike().run()}
           >
-            <s>T</s>
+            <s>S</s>
           </ToolbarButton>
         </div>
 
@@ -247,20 +249,27 @@ export function EditorToolbar({ editor, onLink, onFootnote }: EditorToolbarProps
             <Icono tipo="link" />
             <span>Enlace</span>
           </ToolbarButton>
-          <ToolbarButton label="Nota al pie" title="Nota al pie" onClick={onFootnote}>
-            <Icono tipo="footnote" />
-            <span>Nota al pie</span>
-          </ToolbarButton>
-          <ToolbarButton
-            label="Separador"
-            title="Separador"
-            onClick={() => editor.chain().focus().setHorizontalRule().run()}
-          >
-            <Icono tipo="rule" />
-            <span>Separador</span>
+          <ToolbarButton label="Imagen" title="Insertar o gestionar imágenes" onClick={onImage}>
+            <StudioIcon name="image" />
           </ToolbarButton>
         </div>
 
+        <div className="editor-toolbar__group" role="group" aria-label="Alineación del párrafo">
+          <ToolbarButton
+            label="Alinear a la izquierda"
+            title="Alineación individual pendiente; configura la alineación en Maquetación"
+            disabled
+          >
+            <StudioIcon name="alignLeft" />
+          </ToolbarButton>
+          <ToolbarButton
+            label="Centrar párrafo"
+            title="Alineación individual pendiente; configura la alineación en Maquetación"
+            disabled
+          >
+            <StudioIcon name="alignCenter" />
+          </ToolbarButton>
+        </div>
         <div className="editor-toolbar__group" role="group" aria-label="Historial">
           <ToolbarButton
             label="Deshacer"
@@ -279,11 +288,30 @@ export function EditorToolbar({ editor, onLink, onFootnote }: EditorToolbarProps
             <span aria-hidden="true">↷</span>
           </ToolbarButton>
         </div>
+        <details className="studio-toolbar-more">
+          <summary>
+            Más <span aria-hidden="true">⌄</span>
+          </summary>
+          <div>
+            <ToolbarButton label="Nota al pie" title="Nota al pie" onClick={onFootnote}>
+              <Icono tipo="footnote" />
+              <span>Nota al pie</span>
+            </ToolbarButton>
+            <ToolbarButton
+              label="Separador"
+              title="Separador"
+              onClick={() => editor.chain().focus().setHorizontalRule().run()}
+            >
+              <Icono tipo="rule" />
+              <span>Separador</span>
+            </ToolbarButton>
+            <p className="editor-toolbar__help">
+              El nombre del capítulo se imprime solo, con el estilo de título de la maqueta: no hace
+              falta escribirlo en el texto.
+            </p>
+          </div>
+        </details>
       </div>
-      <p className="editor-toolbar__help">
-        El nombre del capítulo se imprime solo, con el estilo de título de la maqueta: no hace falta
-        escribirlo en el texto.
-      </p>
     </div>
   );
 }

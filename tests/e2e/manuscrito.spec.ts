@@ -85,6 +85,7 @@ test.describe("Resiliencia del manuscrito", () => {
     await page.getByRole("link", { name: /Segundo capítulo de pruebas/u }).click();
 
     const nav = page.getByRole("complementary", { name: "Navegación del manuscrito" });
+    await nav.getByLabel("Opciones de Segundo capítulo de pruebas").click();
     await nav.getByRole("button", { name: "Subir Segundo capítulo de pruebas" }).click();
     await expect(nav.getByRole("link").first()).toContainText("Segundo capítulo de pruebas");
     await nav.getByRole("link", { name: new RegExp(SECTION_TITLE, "u") }).click();
@@ -166,6 +167,7 @@ test.describe("Resiliencia del manuscrito", () => {
     await page.keyboard.type("Una llamada a nota.");
 
     // La nota se escribe en un diálogo propio, no en una ventana del navegador.
+    await page.locator(".studio-toolbar-more > summary").click();
     await page.getByRole("button", { name: "Nota al pie" }).click();
 
     const dialogo = page.getByRole("dialog", { name: "Nota al pie" });

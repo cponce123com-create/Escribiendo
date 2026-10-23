@@ -1,7 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { EditorContent, useEditor } from "@tiptap/react";
+import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import type { TiptapDocument } from "@escribiendo/book-schema";
 import { countWordsInDocument, MAX_FOOTNOTE_LENGTH } from "@escribiendo/book-schema";
@@ -28,6 +29,8 @@ import { EditorToolbar } from "@/components/books/editor-toolbar";
 import { SectionImageControls } from "@/components/books/section-image-controls";
 import { EditorialFootnote } from "@/components/editor/editorial-footnote";
 import { EditorialImage } from "@/components/editor/editorial-image";
+import { StudioIcon } from "./studio-icon";
+import { readingMinutes, textMatches } from "@/lib/books/studio";
 import type { BookAssetSummary } from "@/lib/books/assets";
 
 interface SectionEditorProps {
@@ -69,6 +72,7 @@ export function SectionEditor({
   canEdit,
   bookAssets,
 }: SectionEditorProps) {
+  const router = useRouter();
   const [machine, setMachine] = useState<SyncMachine>(() => initialSyncMachine(version));
   const [conflict, setConflict] = useState<SectionConflict | null>(null);
   /**
@@ -95,6 +99,10 @@ export function SectionEditor({
   const [online, setOnline] = useState(true);
   const [recovered, setRecovered] = useState(false);
   const [assets, setAssets] = useState<BookAssetSummary[]>(() => bookAssets);
+
+  const [imageToolsOpen, setImageToolsOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const searchPosition = useRef({ query: "", from: -1 });
 
   const machineRef = useRef(machine);
   const versionRef = useRef(version);
@@ -147,6 +155,58 @@ export function SectionEditor({
       dispatch({ type: "edit" });
     },
   });
+
+  const liveStats = useEditorState({
+    editor,
+    selector: ({ editor: current }) =>
+      current
+        ? {
+            words: countWordsInDocument(current.getJSON() as TiptapDocument),
+            characters: current.getText().length,
+          }
+        : null,
+  });
+
+  useEffect(() => {
+    const search = (event: Event): void => {
+      if (!(event instanceof CustomEvent) || typeof event.detail !== "string" || !editor) return;
+      const query = event.detail;
+      const matches: Array<{ from: number; to: number }> = [];
+      editor.state.doc.descendants((node, position) => {
+        if (node.isTextblock) {
+          const text = node.textBetween(0, node.content.size, "\n", "\ufffc");
+          for (const match of textMatches(text, query))
+            matches.push({ from: position + 1 + match.from, to: position + 1 + match.to });
+          return false;
+        }
+      });
+      const previous = searchPosition.current;
+      let index =
+        previous.query === query ? matches.findIndex((match) => match.from > previous.from) : 0;
+      if (index < 0) index = 0;
+      const selected = matches[index];
+      if (selected) {
+        editor.chain().focus().setTextSelection(selected).scrollIntoView().run();
+        searchPosition.current = { query, from: selected.from };
+      }
+      window.dispatchEvent(
+        new CustomEvent("studio-search-result", {
+          detail: selected
+            ? `${index + 1} de ${matches.length} en este capítulo`
+            : "Sin coincidencias en este capítulo",
+        }),
+      );
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFocused(false);
+    };
+    window.addEventListener("studio-search", search);
+    window.addEventListener("keydown", escape);
+    return () => {
+      window.removeEventListener("studio-search", search);
+      window.removeEventListener("keydown", escape);
+    };
+  }, [editor]);
 
   // --- Recuperación del borrador local -------------------------------------
 
@@ -313,6 +373,7 @@ export function SectionEditor({
         } else {
           dispatch({ type: "sync-ok", version: versionGuardada });
           await deleteDraft(userId, bookId, sectionId);
+          router.refresh();
         }
       } catch {
         if (peticion !== requestRef.current) {
@@ -322,7 +383,7 @@ export function SectionEditor({
         dispatch({ type: "sync-offline" });
       }
     },
-    [bookId, canEdit, dispatch, editor, sectionId, userId],
+    [bookId, canEdit, dispatch, editor, router, sectionId, userId],
   );
 
   // --- Programación de las tareas ------------------------------------------
@@ -483,9 +544,7 @@ export function SectionEditor({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [sincronizar]);
 
-  const currentWords = editor
-    ? countWordsInDocument(editor.getJSON() as TiptapDocument)
-    : wordCount;
+  const currentWords = liveStats?.words ?? wordCount;
 
   const abrirEnlace = (): void => {
     if (!editor) {
@@ -519,12 +578,17 @@ export function SectionEditor({
   const sincronizando = machine.state === "syncing";
 
   return (
-    <div className="space-y-4">
+    <div className={`studio-editor-body ${focused ? "is-focused" : ""}`}>
       {canEdit ? (
-        <EditorToolbar editor={editor} onLink={abrirEnlace} onFootnote={abrirNota} />
+        <EditorToolbar
+          editor={editor}
+          onLink={abrirEnlace}
+          onFootnote={abrirNota}
+          onImage={() => setImageToolsOpen((value) => !value)}
+        />
       ) : null}
 
-      {canEdit ? (
+      {canEdit && imageToolsOpen ? (
         <SectionImageControls
           editor={editor}
           bookId={bookId}
@@ -703,21 +767,41 @@ export function SectionEditor({
         <EditorContent editor={editor} />
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="studio-editor-status">
+        <span className="studio-word-stats">
+          {formatNumber(currentWords)} palabras <i />
+          {formatNumber(liveStats?.characters ?? 0)} caracteres <i />
+          {readingMinutes(currentWords)} min de lectura
+        </span>
         <p className="text-xs text-ink-muted" role="status" aria-live="polite">
-          {formatNumber(currentWords)} palabras · {mensaje} · versión {machine.serverVersion}
+          <span className={`studio-save-dot ${machine.state === "synced" ? "is-saved" : ""}`}>
+            <StudioIcon name="check" />
+          </span>
+          {mensaje}
         </p>
 
         {canEdit ? (
           <button
             type="button"
-            className="btn btn-primary"
+            className="studio-save-button"
+            aria-label="Guardar manuscrito"
+            title="Guardar manuscrito (Ctrl/⌘+S)"
             onClick={() => void sincronizar("manual")}
             disabled={sincronizando}
           >
-            {sincronizando ? "Guardando…" : "Guardar manuscrito"}
+            {sincronizando ? "Guardando…" : "Guardar"}
           </button>
         ) : null}
+        <button
+          type="button"
+          className="studio-focus-button"
+          onClick={() => setFocused((value) => !value)}
+          aria-pressed={focused}
+          aria-label={focused ? "Salir del modo concentración" : "Ampliar editor"}
+          title="Modo concentración · Esc para salir"
+        >
+          <StudioIcon name="expand" />
+        </button>
       </div>
 
       {!online ? (
@@ -777,7 +861,7 @@ export function SectionEditor({
       ) : null}
 
       {canEdit ? (
-        <p className="text-xs leading-relaxed text-ink-muted">
+        <p className="studio-save-help text-xs leading-relaxed text-ink-muted">
           «{sectionTitle}» se guarda de forma explícita. Además, cada cambio se guarda en este
           equipo al momento y se envía al servidor en cuanto dejas de escribir; el historial de
           versiones conserva cada guardado confirmado.
