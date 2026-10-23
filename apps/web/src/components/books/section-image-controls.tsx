@@ -101,7 +101,7 @@ export function SectionImageControls({
   });
 
   const updateSelected = (attrs: Partial<SelectedImage>): void => {
-    editor?.chain().focus().updateEditorialImage(attrs).run();
+    editor?.chain().updateEditorialImage(attrs).run();
   };
 
   const upload = async (file: File, mode: "insert" | "replace"): Promise<void> => {
