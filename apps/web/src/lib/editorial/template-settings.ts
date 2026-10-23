@@ -7,11 +7,13 @@ const text = z
 export const legalFieldsSchema = z
   .object({
     rightsHolder: text.optional(),
+    printRun: z.number().int().min(1).max(100000000).nullable().optional(),
     copyrightYear: z.number().int().min(1000).max(9999).nullable().optional(),
     publicationDate: text.optional(),
     publicationCity: text.optional(),
     publicationCountry: text.optional(),
     publisherName: text.optional(),
+    imprint: text.optional(),
     legalPublisher: text.optional(),
     address: text.optional(),
     isbn: text.optional(),
@@ -26,12 +28,14 @@ export const LEGAL_FIELD_LABELS: Record<string, string> = {
   publicationDate: "Fecha de publicación (AAAA-MM-DD, AAAA-MM o AAAA)",
   publicationCity: "Ciudad",
   publicationCountry: "País (código PE para Perú)",
-  publisherName: "Sello editorial",
+  publisherName: "Editorial",
+  imprint: "Sello editorial",
   legalPublisher: "Responsable de publicación",
   address: "Dirección editorial",
   isbn: "ISBN",
   legalDeposit: "Número de depósito legal",
   printer: "Imprenta",
+  printRun: "Tiraje (ejemplares)",
   editionLabel: "Nombre de la edición",
 };
 export function settingsRecord(value: unknown): Record<string, unknown> {

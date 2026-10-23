@@ -64,6 +64,10 @@ export function chaptersForReflowableFormats(
       (block) => ({
         kind: block.kind,
         text: block.text,
+        ...("alignment" in block
+          ? { alignment: block.alignment as "left" | "right" | "center" }
+          : {}),
+        ...("id" in block ? { id: block.id as string } : {}),
         ...(block.runs ? { runs: block.runs } : {}),
         ...(block.image ? { image: block.image } : {}),
       }),

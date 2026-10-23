@@ -254,9 +254,12 @@ export function tocToBlocks(entries: readonly TocEntry[], options: TocBlockOptio
             },
           }
         : {}),
-      ...(parameters.tocTemplate === "toc-compact"
-        ? { styleOverride: { fontSizePt: 9, lineHeight: 1.1, spaceAfterPt: 1 } }
-        : {}),
+      styleOverride: {
+        firstLineIndentMm: indent.length * 4,
+        ...(parameters.tocTemplate === "toc-compact"
+          ? { fontSizePt: 9, lineHeight: 1.1, spaceAfterPt: 1 }
+          : {}),
+      },
       sectionId: options.id,
       ...(options.sectionTitle ? { sectionTitle: options.sectionTitle } : {}),
     });

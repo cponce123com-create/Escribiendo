@@ -34,6 +34,7 @@ interface PaginatedPreviewProps {
   typography: TypographyConfig;
   /** Portada que abre el archivo, si el libro tiene una. */
   cover?: PreviewCover | null;
+  eager?: boolean;
 }
 
 export function PaginatedPreview({
@@ -41,6 +42,7 @@ export function PaginatedPreview({
   profile,
   typography,
   cover = null,
+  eager = false,
 }: PaginatedPreviewProps) {
   const pageWidth = profile.pageWidthMm * PX_PER_MM;
   const pageHeight = profile.pageHeightMm * PX_PER_MM;
@@ -64,6 +66,7 @@ export function PaginatedPreview({
             typography={typography}
             pageWidth={pageWidth}
             pageHeight={pageHeight}
+            eager={eager}
             displayIndex={page.index + pageOffset}
           />
           <figcaption className="text-xs text-ink-muted">
@@ -118,6 +121,7 @@ function CoverSheet({
 }
 
 interface PageSheetProps {
+  eager?: boolean;
   page: PreviewPage;
   profile: LayoutProfileSummary;
   typography: TypographyConfig;
@@ -134,6 +138,7 @@ function PageSheet({
   pageWidth,
   pageHeight,
   displayIndex = page.index,
+  eager = false,
 }: PageSheetProps) {
   const mirror = profile.mirrorMargins;
   // En una página par (la derecha) el margen interior queda a la izquierda;
@@ -158,7 +163,7 @@ function PageSheet({
         // En un libro largo, el navegador no dibuja las páginas que no se
         // ven: el tamaño se reserva para que el salto de página siga siendo
         // exacto.
-        contentVisibility: "auto",
+        contentVisibility: eager ? "visible" : "auto",
         containIntrinsicSize: `${pageHeight}px`,
         color: "#000000",
         fontKerning: "none",

@@ -483,3 +483,52 @@ describe("texto que no se puede exportar", () => {
     expect(relaciones).not.toContain("javascript:");
   });
 });
+
+it("el índice semántico conserva niveles y anclas sin números físicos", () => {
+  const document: ExportDocumentModel = {
+    ...DOCUMENTO,
+    toc: {
+      title: "Contenido",
+      entries: [
+        { sourceId: "c1", sectionId: "c1", title: "Capítulo", level: 1 },
+        { sourceId: "h1", sectionId: "c1", title: "Apartado", level: 2 },
+      ],
+    },
+    chapters: [
+      {
+        ...DOCUMENTO.chapters[0]!,
+        blocks: [{ id: "h1", kind: "heading", text: "Apartado", level: 2 }],
+      },
+    ],
+  };
+  const entries = zipEntries(buildEpub(document, FECHA));
+  const nav = new TextDecoder().decode(entries.get("EPUB/nav.xhtml")!.data);
+  const chapter = new TextDecoder().decode(entries.get("EPUB/text/chapter-001.xhtml")!.data);
+  expect(nav).toContain("<h1>Contenido</h1>");
+  expect(nav).toContain("chapter-001.xhtml#h1");
+  expect(nav).toContain("<ol><li>");
+  expect(nav).not.toContain("....");
+  expect(chapter).toContain('id="h1"');
+});
+
+it("la dedicatoria conserva alineación derecha en EPUB y DOCX", () => {
+  const document: ExportDocumentModel = {
+    ...DOCUMENTO,
+    chapters: [
+      {
+        id: "ded",
+        title: "Dedicatoria",
+        showTitle: false,
+        blocks: [{ kind: "body", text: "Para quienes leen.", alignment: "right" }],
+      },
+    ],
+  };
+  const epub = zipEntries(buildEpub(document, FECHA));
+  expect(new TextDecoder().decode(epub.get("EPUB/text/chapter-001.xhtml")!.data)).toContain(
+    "text-align:right",
+  );
+  const docx = zipEntries(buildDocx(document, FECHA));
+  expect(new TextDecoder().decode(docx.get("word/document.xml")!.data)).toContain(
+    '<w:jc w:val="right"/>',
+  );
+});

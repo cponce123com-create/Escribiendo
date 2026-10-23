@@ -86,3 +86,24 @@ it("rechaza origen, rol, libro ajeno y cláusulas inválidas", async () => {
   m.origin.mockRejectedValue(new Error());
   expect((await updateLegalTemplateAction({ status: "idle" }, form())).status).toBe("error");
 });
+
+it("persiste el diseño del índice y las columnas de profundidad con alcance de workspace", async () => {
+  const { updateTocTemplateAction } = await import("./template-actions");
+  const { TOC_TEMPLATE_CATALOG } = await import("@escribiendo/templates");
+  const f = new FormData();
+  f.set("bookId", bookId);
+  f.set("parameters", JSON.stringify(TOC_TEMPLATE_CATALOG[1]!.parameters));
+  expect((await updateTocTemplateAction({ status: "idle" }, f)).status).toBe("success");
+  expect(m.update.mock.calls[0]?.[0].data).toMatchObject({
+    tocDepth: "chapters-h1-h2-h3",
+    settings: { unrelated: true, tocTemplate: "toc-detailed", tocTemplateVersion: 2 },
+  });
+  expect(m.create.mock.calls[0]?.[0].data).toMatchObject({
+    kind: "TABLE_OF_CONTENTS",
+    mode: "AUTOMATIC",
+    templateSlug: "toc-detailed",
+    templateVersion: 2,
+  });
+  m.role = "REVIEWER";
+  expect((await updateTocTemplateAction({ status: "idle" }, f)).status).toBe("error");
+});

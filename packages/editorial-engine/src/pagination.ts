@@ -568,7 +568,10 @@ export function paginate(
       });
       lines = titles.map((line, index) => {
         if (index !== titles.length - 1) return { ...line, segments: [{ text: line.text }] };
-        const remaining = Math.max(0, widthMm - measureString(line.text) - labelWidth);
+        const remaining = Math.max(
+          0,
+          widthMm - (index === 0 ? indentMm : 0) - measureString(line.text) - labelWidth,
+        );
         const unit = entry.leaders ? "." : "\u2002";
         const count = Math.max(1, Math.floor(remaining / Math.max(0.01, measureString(unit))));
         const text = `${line.text}${unit.repeat(count)}${entry.label}`;

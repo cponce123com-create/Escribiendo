@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { editorialOrder } from "@/lib/books/reading-order";
 import { prisma } from "@/lib/db";
 import type { SessionContext } from "@/lib/auth/session";
@@ -94,7 +95,7 @@ export interface PreviewResult {
 }
 
 /** Secciones del libro con su contenido, en orden de lectura. */
-export async function loadPreviewSections(
+async function readPreviewSections(
   session: SessionContext,
   bookId: string,
 ): Promise<PreviewSection[]> {
@@ -140,6 +141,21 @@ export async function loadPreviewSections(
   }));
 }
 
+// Caché limitada a la petición de render: nunca comparte datos entre usuarios.
+export const loadPreviewSections = cache(readPreviewSections);
+const previewEdition = cache(getBookEdition);
+const previewDefaultProfile = cache(getDefaultLayoutProfile);
+const previewCover = cache(getBookCover);
+const previewBookTitle = cache(
+  async (session: SessionContext, bookId: string) =>
+    (
+      await prisma.book.findFirst({
+        where: { id: bookId, workspaceId: session.workspace.id },
+        select: { title: true },
+      })
+    )?.title ?? "",
+);
+
 /** Geometría de la página a partir del perfil. */
 export function geometryFromProfile(profile: LayoutProfileSummary): PageGeometry {
   return {
@@ -174,8 +190,8 @@ export async function buildPreview(
   bookId: string,
   options: PreviewOptions = {},
 ): Promise<PreviewResult | null> {
-  const edition = await getBookEdition(session, bookId);
-  const profile = edition?.profile ?? (await getDefaultLayoutProfile(session));
+  const edition = await previewEdition(session, bookId);
+  const profile = edition?.profile ?? (await previewDefaultProfile(session));
 
   if (!profile) {
     return null;
@@ -194,7 +210,7 @@ export async function buildPreview(
   // La misma métrica que usa el PDF: si las fuentes están disponibles, la
   // vista previa y el archivo salen con los mismos cortes de línea.
   const fuentes = await loadPdfFonts();
-  const cover = await getBookCover(session, bookId);
+  const cover = await previewCover(session, bookId);
   const geometry = { ...geometryFromProfile(profile), physicalPageOffset: cover ? 1 : 0 };
   const compose = (front: readonly MatterLayout[], back: readonly MatterLayout[]): LayoutBlock[] =>
     bookToBlocks(sectionsForMatter(sections, matter), {
@@ -227,13 +243,7 @@ export async function buildPreview(
   // El encabezado de página lo define la plantilla. Si la plantilla no dice
   // nada, se usa el título de la sección, que es lo que hace el motor.
   const plantilla = edition?.template;
-  const tituloLibro =
-    (
-      await prisma.book.findFirst({
-        where: { id: bookId, workspaceId: session.workspace.id },
-        select: { title: true },
-      })
-    )?.title ?? "";
+  const tituloLibro = await previewBookTitle(session, bookId);
 
   const resolvedPages = resolveRunningHeads(result.pages, plantilla?.config ?? null, tituloLibro);
   const pages: PreviewPage[] = resolvedPages.map((page) => {

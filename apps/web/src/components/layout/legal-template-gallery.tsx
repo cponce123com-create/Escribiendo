@@ -171,7 +171,8 @@ export function LegalTemplateGallery({
           </select>
         </label>
         <label className="block text-sm">
-          Sección de texto libre para página propia
+          Sección de texto libre para página propia (crea una sección «Personalizada» en el
+          manuscrito)
           <select
             defaultValue={sectionId}
             name="sectionId"
@@ -212,7 +213,7 @@ export function LegalTemplateGallery({
                   href={
                     warning.field === "title" || warning.field === "author"
                       ? `/books/${bookId}/edit#field-${warning.field === "author" ? "authorName" : "title"}`
-                      : `#legal-${warning.field ?? "datos"}`
+                      : `#legal-${warning.field === "editionNumber" ? "editionLabel" : (warning.field ?? "datos")}`
                   }
                 >
                   {warning.message} Completar datos →
@@ -254,13 +255,13 @@ export function LegalTemplateGallery({
                   {label}
                   <input
                     className="field-input"
-                    type={key === "copyrightYear" ? "number" : "text"}
+                    type={key === "copyrightYear" || key === "printRun" ? "number" : "text"}
                     value={fields[key] ?? ""}
                     onChange={(event) =>
                       setFields((previous) => ({
                         ...previous,
                         [key]:
-                          key === "copyrightYear"
+                          key === "copyrightYear" || key === "printRun"
                             ? event.target.value
                               ? Number(event.target.value)
                               : null

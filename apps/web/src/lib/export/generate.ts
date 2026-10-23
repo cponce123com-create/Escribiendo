@@ -1,4 +1,5 @@
 import "server-only";
+import { buildTocEntries } from "@escribiendo/templates";
 import { createHash } from "node:crypto";
 import {
   buildDocx,
@@ -13,7 +14,12 @@ import {
 } from "@escribiendo/export-engine";
 import { paginate, withTypographyDefaults, type PageGeometry } from "@escribiendo/editorial-engine";
 import { getBookEdition, getDefaultLayoutProfile } from "@/lib/layout/profiles";
-import { bookToBlocks, isChapterType, type MatterLayout } from "@/lib/layout/blocks";
+import {
+  sectionToBlocks as layoutSectionToBlocks,
+  bookToBlocks,
+  isChapterType,
+  type MatterLayout,
+} from "@/lib/layout/blocks";
 import {
   sectionsForMatter,
   EMPTY_MATTER,
@@ -337,9 +343,23 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
     const reflowBlocks = reflowSections.map((section) => {
       const blocks =
         sectionBlocks[input.sections.findIndex((item) => item.id === section.id)] ?? [];
-      return section.type === "DEDICATION"
-        ? blocks.map((block) => ({ ...block, alignment: "right" as const }))
-        : blocks;
+      const layoutBlocks = layoutSectionToBlocks({
+        ...section,
+        isChapter: isChapterType(section.type),
+      });
+      const headingIds = new Map<string, string[]>();
+      for (const block of layoutBlocks) {
+        if (block.kind.startsWith("heading")) {
+          const ids = headingIds.get(block.text) ?? [];
+          ids.push(block.id);
+          headingIds.set(block.text, ids);
+        }
+      }
+      return blocks.map((block) => ({
+        ...block,
+        ...(block.kind === "heading" ? { id: headingIds.get(block.text)?.shift() } : {}),
+        ...(section.type === "DEDICATION" ? { alignment: "right" as const } : {}),
+      }));
     });
     const chapters = chaptersForReflowableFormats(
       reflowSections,
@@ -384,6 +404,24 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
         .slice(0, 32)
         .replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/u, "$1-$2-$3-$4-$5")}`,
       chapters,
+      ...(input.matter
+        ? {
+            toc: {
+              title: input.matter.tocParameters?.tocTitle ?? "Índice",
+              entries: buildTocEntries(input.matter.tocSources, input.matter.tocOptions).map(
+                (entry) => ({
+                  ...entry,
+                  sectionId:
+                    reflowSections.find(
+                      (section) =>
+                        section.id === entry.sourceId ||
+                        entry.sourceId.startsWith(`${section.id}-`),
+                    )?.id ?? entry.sourceId,
+                }),
+              ),
+            },
+          }
+        : {}),
       cover: input.cover,
     };
 

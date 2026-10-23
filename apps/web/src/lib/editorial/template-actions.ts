@@ -2,6 +2,8 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import {
+  tocParametersSchema,
+  TOC_TEMPLATE_CATALOG,
   legalPageTemplateSchema,
   legalClausesSchema,
   LEGAL_TEMPLATE_VERSIONS,
@@ -79,6 +81,7 @@ export async function updateLegalTemplateAction(
           const section = await tx.bookSection.findFirst({
             where: {
               id: data.sectionId,
+              type: { in: ["CUSTOM", "COPYRIGHT"] },
               bookId: data.bookId,
               deletedAt: null,
               book: { workspaceId: session.workspace.id, deletedAt: null },
@@ -114,7 +117,7 @@ export async function updateLegalTemplateAction(
           sectionId: data.mode === "MANUAL" ? data.sectionId : null,
           templateSlug: data.template,
           templateVersion: LEGAL_TEMPLATE_VERSIONS[data.template],
-          data: { editionId: edition.id },
+          data: JSON.parse(JSON.stringify({ ...settingsRecord(row?.data), editionId: edition.id })),
           includeInExport: true,
         };
         if (row) await tx.editorialMatter.update({ where: { id: row.id }, data: matterData });
@@ -155,4 +158,102 @@ export async function updateLegalTemplateAction(
   for (const path of ["/edicion", "/layout", "/preview", "/export"])
     revalidatePath(`/books/${data.bookId}${path}`);
   return successState("Página legal guardada.");
+}
+
+export async function updateTocTemplateAction(
+  _previous: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  let context;
+  try {
+    context = await assertServerActionOrigin();
+  } catch {
+    return errorState("No se ha podido validar la solicitud.");
+  }
+  const session = await getSession();
+  if (!session) return errorState("Inicia sesión para guardar el índice.");
+  try {
+    assertCanPerform(session.workspace.role, "layout:manage");
+  } catch {
+    return errorState("No tienes permisos para gestionar la maquetación.");
+  }
+  const bookId = z.string().uuid().safeParse(formValue(form, "bookId"));
+  let parameters;
+  try {
+    parameters = tocParametersSchema.parse(JSON.parse(formValue(form, "parameters")));
+  } catch {
+    return errorState("Revisa los parámetros del índice.");
+  }
+  if (!bookId.success) return errorState("El libro no es válido.");
+  const version = TOC_TEMPLATE_CATALOG.find(
+    (item) => item.slug === parameters.tocTemplate,
+  )!.version;
+  try {
+    const editionId = await prisma.$transaction(
+      async (tx) => {
+        const edition = await tx.bookEdition.findFirst({
+          where: {
+            bookId: bookId.data,
+            book: { workspaceId: session.workspace.id, deletedAt: null },
+          },
+          orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+          select: { id: true, settings: true },
+        });
+        if (!edition) throw new Error("Aplica primero una maqueta a este libro.");
+        const settings = {
+          ...settingsRecord(edition.settings),
+          ...parameters,
+          tocTemplateVersion: version,
+        };
+        await tx.bookEdition.update({
+          where: { id: edition.id },
+          data: {
+            settings,
+            tocDepth: parameters.tocDepth,
+            tocIncludeFrontMatter: parameters.tocIncludeFrontMatter,
+            tocIncludeBackMatter: parameters.tocIncludeBackMatter,
+          },
+        });
+        const rows = await tx.editorialMatter.findMany({
+          where: { bookId: bookId.data, kind: "TABLE_OF_CONTENTS", deletedAt: null },
+          select: { id: true, data: true, mode: true },
+        });
+        // Conserva las filas MANUAL antiguas; la elección explícita de esta edición manda.
+        const row = rows.find((item) => settingsRecord(item.data).editionId === edition.id);
+        const values = {
+          mode: "AUTOMATIC" as const,
+          enabled: true,
+          sectionId: null,
+          templateSlug: parameters.tocTemplate,
+          templateVersion: version,
+          title: parameters.tocTitle,
+          data: JSON.parse(JSON.stringify({ ...settingsRecord(row?.data), editionId: edition.id })),
+          includeInExport: true,
+        };
+        if (row) await tx.editorialMatter.update({ where: { id: row.id }, data: values });
+        else
+          await tx.editorialMatter.create({
+            data: { ...values, bookId: bookId.data, kind: "TABLE_OF_CONTENTS" },
+          });
+        return edition.id;
+      },
+      { isolationLevel: "Serializable" },
+    );
+    await writeAuditLog(
+      {
+        action: "TOC_TEMPLATE_UPDATED",
+        entityType: "BookEdition",
+        entityId: editionId,
+        workspaceId: session.workspace.id,
+        actorId: session.user.id,
+        metadata: { template: parameters.tocTemplate, version },
+      },
+      context,
+    );
+  } catch {
+    return errorState("No se pudo guardar el índice. Comprueba la maqueta y vuelve a intentarlo.");
+  }
+  for (const path of ["/edicion", "/layout", "/preview", "/export"])
+    revalidatePath(`/books/${bookId.data}${path}`);
+  return successState("Plantilla de índice guardada.");
 }

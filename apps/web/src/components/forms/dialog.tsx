@@ -36,7 +36,7 @@ export function Dialog({ abierto, titulo, descripcion, onCerrar, children }: Dia
       if (evento.key === "Tab") {
         const focusable = Array.from(
           contenedor.current?.querySelectorAll<HTMLElement>(
-            'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex="0"]',
+            'button:not([disabled]), input:not([disabled]):not([type="hidden"]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex="0"]',
           ) ?? [],
         );
         const first = focusable[0],
@@ -55,7 +55,9 @@ export function Dialog({ abierto, titulo, descripcion, onCerrar, children }: Dia
     };
 
     document.addEventListener("keydown", alPulsar);
-    contenedor.current?.querySelector<HTMLElement>("input, textarea, button")?.focus();
+    contenedor.current
+      ?.querySelector<HTMLElement>('button, input:not([type="hidden"]), textarea, select, a[href]')
+      ?.focus();
 
     return () => {
       document.removeEventListener("keydown", alPulsar);
@@ -85,6 +87,14 @@ export function Dialog({ abierto, titulo, descripcion, onCerrar, children }: Dia
         aria-describedby={descripcion ? descripcionId : undefined}
         className="panel w-full max-w-lg space-y-4 p-6 shadow-lg"
       >
+        <button
+          type="button"
+          className="button button-secondary float-right"
+          onClick={onCerrar}
+          aria-label="Cerrar diálogo"
+        >
+          Cerrar
+        </button>
         <div className="space-y-1">
           <h2 id={tituloId} className="font-serif text-xl text-ink">
             {titulo}

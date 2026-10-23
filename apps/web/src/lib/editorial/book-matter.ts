@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { legalFieldsSchema, settingsRecord } from "./template-settings";
 import type { LaidOutPage } from "@escribiendo/editorial-engine";
 import {
@@ -36,6 +37,7 @@ export interface BookMatter {
   tocSources: TocSource[];
   tocOptions: BuildTocOptions;
   tocParameters?: TocParameters;
+  tocTemplateVersion?: number;
   /** Datos de la página legal; `null` si el libro no tiene título o autoría. */
   legal: LegalPageInput | null;
   legalMode: "print" | "digital";
@@ -183,7 +185,7 @@ export function pageFolioBySection(pages: readonly LaidOutPage[]): Map<string, n
  * Devuelve `null` cuando el libro no pertenece al espacio de trabajo: la
  * composición no debe inventar materias para un libro ajeno.
  */
-export async function loadBookMatter(
+async function readBookMatter(
   session: SessionContext,
   bookId: string,
   sections: readonly (Pick<
@@ -281,7 +283,7 @@ export async function loadBookMatter(
           title,
           subtitle: book.subtitle,
           author,
-          rightsHolder: metadata?.rightsHolder ?? author,
+          rightsHolder: metadata?.rightsHolder ?? null,
           copyrightYear:
             metadata?.publicationYear ?? edition?.publicationDate?.getUTCFullYear() ?? null,
           editionNumber: metadata?.editionNumber ?? null,
@@ -336,6 +338,10 @@ export async function loadBookMatter(
   const legalRow =
     rows.find((row) => settingsRecord(row.data).editionId === edition?.id) ??
     rows.find((row) => !settingsRecord(row.data).editionId);
+  if (legal && !settingString(edition?.settings, "legalPageTemplate")) {
+    const savedTemplate = legalTemplateFrom(legalRow?.templateSlug ?? null);
+    if (savedTemplate) legal.template = savedTemplate;
+  }
   const mode =
     settingString(edition?.settings, "legalPageMode") ??
     (legalRow?.enabled === false ? "DISABLED" : legalRow?.mode);
@@ -434,7 +440,16 @@ export async function loadBookMatter(
           ? "DISABLED"
           : "AUTOMATIC",
     tocSources,
-    tocParameters: tocParametersFrom(edition?.settings),
+    tocParameters: tocParametersFrom({
+      ...settingsRecord(edition?.settings),
+      ...(!settingString(edition?.settings, "tocTemplate") && tocRow?.templateSlug
+        ? { tocTemplate: tocRow.templateSlug }
+        : {}),
+    }),
+    tocTemplateVersion:
+      typeof settingsRecord(edition?.settings).tocTemplateVersion === "number"
+        ? (settingsRecord(edition?.settings).tocTemplateVersion as number)
+        : undefined,
     tocOptions: {
       depth: tocDepthFrom(edition?.tocDepth ?? settingString(edition?.settings, "tocDepth")),
       includeFrontMatter: edition?.tocIncludeFrontMatter ?? true,
@@ -454,11 +469,13 @@ export async function loadBookMatter(
       typeof settingsRecord(edition?.settings).legalPageTemplateVersion === "number"
         ? (settingsRecord(edition?.settings).legalPageTemplateVersion as number)
         : undefined,
-    legalMode: legalTemplate === "copyright-digital" ? "digital" : "print",
+    legalMode: legal?.template === "copyright-digital" ? "digital" : "print",
     hasTocSection: sections.some((section) => section.type.toUpperCase() === "TABLE_OF_CONTENTS"),
     hasCopyrightSection: sections.some((section) => section.type.toUpperCase() === "COPYRIGHT"),
   };
 }
+
+export const loadBookMatter = cache(readBookMatter);
 
 /**
  * Compone las materias automáticas con las páginas ya calculadas.
@@ -534,6 +551,12 @@ export function sectionsForMatter<T extends { id: string; type: string }>(
 ): T[] {
   if (!matter) return [...sections];
   return sections.filter((section) => {
+    if (
+      matter.tocMode !== "MANUAL" &&
+      matter.tocMode !== "DISABLED" &&
+      section.type === "TABLE_OF_CONTENTS"
+    )
+      return false;
     if (matter.legalPageMode && section.type === "COPYRIGHT") return false;
     if (matter.legalPageMode === "MANUAL" && section.id === matter.legalPageSectionId) return false;
     return true;

@@ -33,6 +33,7 @@ export function MatterSheet({
           <foreignObject width={width} height={height}>
             <div>
               <PaginatedPreview
+                eager
                 pages={[page]}
                 profile={preview.profile}
                 typography={preview.typography}
