@@ -38,6 +38,7 @@ export interface BookMatter {
   legalMode: "print" | "digital";
   /** El manuscrito ya incluye una sección de índice. */
   hasTocSection: boolean;
+  tocMode?: "AUTOMATIC" | "MANUAL" | "DISABLED";
   /** El manuscrito ya incluye una página de créditos. */
   hasCopyrightSection: boolean;
   legalPageMode?: "TEMPLATE" | "MANUAL" | "DISABLED";
@@ -163,6 +164,7 @@ export function pageFolioBySection(pages: readonly LaidOutPage[]): Map<string, n
 
   pages.forEach((page) => {
     for (const block of page.blocks) {
+      if (!map.has(block.id)) map.set(block.id, page.folio);
       if (block.sectionId && block.firstOfSection && !map.has(block.sectionId)) {
         map.set(block.sectionId, page.folio);
       }
@@ -184,7 +186,8 @@ export async function loadBookMatter(
   sections: readonly Pick<
     PreviewSection,
     "id" | "title" | "type" | "showInToc" | "includeInExport"
-  >[],
+  >[] &
+    readonly { content?: unknown }[],
 ): Promise<BookMatter | null> {
   const book = await prisma.book.findFirst({
     where: { id: bookId, workspaceId: session.workspace.id, deletedAt: null },
@@ -374,12 +377,59 @@ export async function loadBookMatter(
     title: section.title,
     level: tocLevel(section.type),
     group: tocGroup(section.type),
-    showInToc: section.showInToc,
+    showInToc:
+      section.showInToc && section.type !== "TABLE_OF_CONTENTS" && section.type !== "COPYRIGHT",
     includeInExport: section.includeInExport,
     enabled: true,
   }));
 
+  // Los encabezados usan ids de bloque reales; el folio se obtiene de la composición.
+  sections.forEach((section) => {
+    if (!section.content || section.type === "TABLE_OF_CONTENTS" || section.type === "COPYRIGHT")
+      return;
+    const blocks = sectionToBlocks({
+      ...section,
+      content: section.content,
+      isChapter: false,
+      startOnOddPage: false,
+      pageBreakBefore: false,
+      showTitle: true,
+      showSectionType: false,
+      showSectionNumber: false,
+    });
+    const sourceIndex = tocSources.findIndex((source) => source.id === section.id);
+    const headings = blocks
+      .filter((block) => ["heading1", "heading2", "heading3"].includes(block.kind))
+      .map((block) => ({
+        id: block.id,
+        title: block.text,
+        level: Number(block.kind.at(-1)) + 1,
+        headingLevel: Number(block.kind.at(-1)),
+        group: tocGroup(section.type),
+        showInToc: section.showInToc,
+        includeInExport: section.includeInExport,
+      }));
+    tocSources.splice(sourceIndex + 1, 0, ...headings);
+  });
+  const tocRows = await prisma.editorialMatter.findMany({
+    where: {
+      bookId,
+      kind: "TABLE_OF_CONTENTS",
+      deletedAt: null,
+      book: { workspaceId: session.workspace.id, deletedAt: null },
+    },
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+  });
+  const tocRow =
+    tocRows.find((row) => settingsRecord(row.data).editionId === edition?.id) ??
+    tocRows.find((row) => !settingsRecord(row.data).editionId);
   return {
+    tocMode:
+      tocRow?.mode === "MANUAL"
+        ? "MANUAL"
+        : tocRow?.mode === "DISABLED" || tocRow?.enabled === false
+          ? "DISABLED"
+          : "AUTOMATIC",
     tocSources,
     tocOptions: {
       depth: tocDepthFrom(edition?.tocDepth ?? settingString(edition?.settings, "tocDepth")),
@@ -442,7 +492,7 @@ export function composeMatter(
     }
   }
 
-  if (!matter.hasTocSection) {
+  if (matter.tocMode !== "MANUAL" && matter.tocMode !== "DISABLED") {
     const entries = buildTocEntries(
       matter.tocSources.map((source) => {
         const folio = pageBySection.get(source.id);

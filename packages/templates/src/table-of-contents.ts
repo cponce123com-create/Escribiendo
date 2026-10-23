@@ -51,6 +51,7 @@ export function tocIncludesParts(depth: TocDepth): boolean {
 export type TocGroup = "front" | "body" | "back";
 
 export interface TocSource {
+  headingLevel?: number;
   id: string;
   title: string;
   /** 0 = parte, 1 = capítulo, 2 = subcapítulo, 3 = apartado. */
@@ -120,7 +121,12 @@ export function buildTocEntries(
       if (!includeParts && source.level === 0) {
         continue;
       }
-      if (source.level > maxLevel) {
+      if (
+        source.headingLevel !== undefined &&
+        (options.depth === "parts-chapters" || source.headingLevel > maxLevel)
+      )
+        continue;
+      if (source.headingLevel === undefined && source.level > maxLevel) {
         continue;
       }
     }
