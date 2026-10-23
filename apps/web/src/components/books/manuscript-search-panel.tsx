@@ -11,6 +11,7 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
   const [matches, setMatches] = useState<ManuscriptMatch[]>([]);
   const [message, setMessage] = useState("");
   const searchRequest = useRef(0);
+  const searchRequest = useRef(0);
   const [pending, startTransition] = useTransition();
   const total = useMemo(() => matches.reduce((sum, item) => sum + item.count, 0), [matches]);
 
@@ -39,10 +40,10 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
   const replaceAll = (): void => {
     const activeEditor = document.querySelector('.manuscript-editor[data-dirty="true"]');
     if (activeEditor) {
-      setMessage("Guarda primero los cambios pendientes del capítulo abierto.");
+      setMessage("Guarda primero los cambios pendientes del cap�tulo abierto.");
       return;
     }
-    if (!total || pending || !window.confirm(`Se reemplazarán ${total} coincidencias en todo el libro. Guarda primero los cambios pendientes del capítulo abierto. ¿Continuar?`)) return;
+    if (!total || pending || !window.confirm(`Se reemplazar�n ${total} coincidencias en todo el libro. Guarda primero los cambios pendientes del cap�tulo abierto. �Continuar?`)) return;
     startTransition(async () => {
       const result = await replaceBookManuscriptAction(bookId, query, replacement);
       setMessage(result.error ?? `Se reemplazaron ${result.count} coincidencias en todo el libro.`);
@@ -61,7 +62,7 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
         type="search"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
-        placeholder="Buscar una palabra o frase…"
+        placeholder="Buscar una palabra o frase�w^~)�v"
       />
       {canEdit ? (
         <div className="manuscript-search-replace">
@@ -71,7 +72,7 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
             className="field-input"
             value={replacement}
             onChange={(event) => setReplacement(event.target.value)}
-            placeholder="Reemplazar por…"
+            placeholder="Reemplazar por�w^~)�v"
           />
           <button type="button" className="btn btn-secondary btn-sm" disabled={!total || pending} onClick={replaceAll}>
             Reemplazar todo
@@ -79,7 +80,7 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
         </div>
       ) : null}
       <p role="status" aria-live="polite" className="text-xs text-ink-muted">
-        {pending ? "Buscando…" : message}
+        {pending ? "Buscando�w^~)�v" : message}
       </p>
       {matches.length ? (
         <ul className="manuscript-search-results">
