@@ -17,6 +17,7 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
   useEffect(() => {
     const requestId = ++searchRequest.current;
     const needle = query.trim();
+    window.dispatchEvent(new CustomEvent("studio-search-highlight", { detail: needle }));
     if (!needle) {
       setMatches([]);
       setMessage("");
