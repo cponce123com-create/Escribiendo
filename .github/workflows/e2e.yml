@@ -13,7 +13,7 @@ concurrency:
 jobs:
   e2e:
     name: Chromium contra la compilación de producción
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
 
     services:
@@ -64,13 +64,15 @@ jobs:
         run: pnpm db:migrate
 
       - name: Navegador
-        run: pnpm exec playwright install --with-deps chromium
+        timeout-minutes: 5
+        # La imagen incluye las bibliotecas de Chrome; las fuentes editoriales están en el repo.
+        run: pnpm exec playwright install --only-shell chromium
 
       - name: Compilación de producción
         run: pnpm build
 
       - name: Pruebas de extremo a extremo
-        run: pnpm exec playwright test --reporter=line
+        run: pnpm exec playwright test
 
       - name: Conservar informe, capturas y trazas
         if: always()

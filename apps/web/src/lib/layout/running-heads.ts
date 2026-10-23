@@ -14,7 +14,9 @@ export function resolveRunningHeads(
   bookTitle: string,
 ): LaidOutPage[] {
   return pages.map((page) => {
-    const abreCapitulo = page.blocks[0]?.startsChapter === true;
+    const abreCapitulo =
+      page.blocks[0]?.startsChapter === true ||
+      page.blocks.some((block) => block.kind === "chapterTitle" && block.firstOfSection === true);
 
     if (page.blank || abreCapitulo) {
       return { ...page, runningHead: null };

@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { restoreRevisionAction } from "@/lib/books/actions";
 import { initialLibraryActionState } from "@/lib/books/action-state";
-import { formatDateTime } from "@/lib/ui/format";
+import { formatDateTime, REVISION_REASON_LABELS } from "@/lib/ui/format";
 import type { RevisionSummary } from "@/lib/books/queries";
 
 interface RevisionListProps {
@@ -70,6 +70,9 @@ export function RevisionList({
                       Actual
                     </span>
                   ) : null}
+                </p>
+                <p className="text-xs text-ink-soft">
+                  {REVISION_REASON_LABELS[revision.reason] ?? revision.reason}
                 </p>
                 <p className="mt-0.5 text-xs text-ink-muted">
                   {revision.createdBy.name} · {formatDateTime(revision.createdAt)} ·{" "}

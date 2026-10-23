@@ -15,7 +15,7 @@ import { inflateSync } from "node:zlib";
  */
 test.describe.configure({ mode: "serial" });
 
-const BOOK_TITLE = "Libro exportable";
+const BOOK_TITLE = `Libro exportable ${randomUUID()}`;
 const SECTION_TITLE = "Prólogo exportable";
 
 function unicodeFromHex(hex: string): string {
@@ -320,8 +320,12 @@ test.describe("Exportación", () => {
       .getByRole("link", { name: "Maquetación" })
       .click();
     await page.getByRole("link", { name: "Ver la vista previa paginada" }).click();
-    const resumen = await page.getByText(/\d+ páginas con la plantilla/).innerText();
-    const paginasVistaPrevia = Number(resumen.match(/(\d+) páginas/u)?.[1]);
+    const previewSheets = page
+      .getByRole("region", { name: "páginas", exact: true })
+      .locator('[aria-label^="Página "], [aria-label="Portada"]');
+    await expect(previewSheets.first()).toBeVisible();
+    const paginasVistaPrevia = await previewSheets.count();
+    expect(paginasVistaPrevia).toBeGreaterThan(0);
 
     await page.goto("/books");
     await page.getByRole("link", { name: BOOK_TITLE }).click();

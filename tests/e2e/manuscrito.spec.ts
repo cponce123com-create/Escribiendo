@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { auditar, resume } from "./support/axe";
 
@@ -10,14 +11,14 @@ import { auditar, resume } from "./support/axe";
  */
 test.describe.configure({ mode: "serial" });
 
-const BOOK_TITLE = "Manuscrito resiliente";
+const BOOK_TITLE = `Manuscrito resiliente ${randomUUID()}`;
 const SECTION_TITLE = "Capítulo de pruebas";
 
 /** Espera a que el editor esté listo. */
 async function abrirSeccion(page: Page, titulo: string): Promise<void> {
   await page.goto("/books");
   await page.getByRole("link", { name: BOOK_TITLE }).click();
-  await page.getByRole("link", { name: titulo }).click();
+  await page.getByRole("link", { name: titulo, exact: true }).click();
   await expect(page.locator(".ProseMirror")).toBeVisible();
 }
 
@@ -54,7 +55,9 @@ test.describe("Resiliencia del manuscrito", () => {
 
     await expect(panel).toHaveAttribute("data-collapsed", "true");
     await expect(panel.getByRole("button", { name: "Mostrar panel editorial" })).toBeVisible();
-    expect((await editor.boundingBox())?.width ?? 0).toBeGreaterThan(anchoAbierto);
+    await expect
+      .poll(async () => (await editor.boundingBox())?.width ?? 0)
+      .toBeGreaterThan(anchoAbierto);
 
     await page.reload();
     const panelTrasRecarga = page.getByRole("complementary", { name: "Panel editorial" });
@@ -157,6 +160,7 @@ test.describe("Resiliencia del manuscrito", () => {
   test("el editor ofrece imágenes y la biblioteca del libro", async ({ page }) => {
     await abrirSeccion(page, SECTION_TITLE);
 
+    await page.getByRole("button", { name: "Imagen", exact: true }).click();
     await expect(page.getByRole("button", { name: "Insertar imagen" })).toBeVisible();
     await page.getByRole("button", { name: "Biblioteca (0)" }).click();
     await expect(page.getByText("Todavía no hay imágenes en este libro.")).toBeVisible();
@@ -301,27 +305,41 @@ test.describe("Resiliencia del manuscrito", () => {
   test("escribir mientras se guarda no marca el texto como guardado", async ({ page }) => {
     await abrirSeccion(page, SECTION_TITLE);
 
-    // La petición tarda: durante ese tiempo se escribe algo más.
-    await page.route("**/books/**/sections/**", async (ruta) => {
-      if (ruta.request().method() === "POST") {
-        await new Promise((resolver) => setTimeout(resolver, 2_500));
+    let releaseRequest!: () => void;
+    let markStarted!: () => void;
+    const blocked = new Promise<void>((resolve) => {
+      releaseRequest = resolve;
+    });
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    await page.route("**/books/**/sections/**", async (route) => {
+      if (route.request().method() === "POST") {
+        markStarted();
+        await blocked;
       }
-
-      await ruta.fallback();
+      await route.fallback();
     });
 
-    await page.locator(".ProseMirror").click();
+    const editor = page.locator(".ProseMirror");
+    await editor.click();
     await page.keyboard.type("Frase enviada.");
-
     await page.getByRole("button", { name: "Guardar manuscrito" }).click();
-
-    // Mientras la petición está en curso se escribe otra frase.
-    await page.keyboard.type(" Y una frase escrita durante el envío.");
-
-    // La respuesta del servidor confirma la primera frase, pero la segunda
-    // sigue sin guardar: el estado no puede decir que todo está guardado.
-    await expect(page.getByText(/Guardado en este equipo|Sincronizando/)).toBeVisible();
-    await expect(page.getByText("Guardado en el servidor.")).not.toBeVisible();
+    await started;
+    try {
+      // El clic en Guardar mueve el foco al botón: se vuelve al manuscrito.
+      await editor.click();
+      await page.keyboard.press("ControlOrMeta+End");
+      await page.keyboard.type(" Y una frase escrita durante el envío.");
+      await expect(page.locator(".manuscript-editor")).toHaveAttribute("data-dirty", "true");
+      await expect(page.getByText("Guardado en el servidor.")).not.toBeVisible();
+    } finally {
+      releaseRequest();
+    }
+    await expect(page.locator(".manuscript-editor")).toHaveAttribute("data-dirty", "false");
+    await page.reload();
+    await expect(editor).toContainText("Frase enviada.");
+    await expect(editor).toContainText("Y una frase escrita durante el envío.");
   });
 
   test("dos pestañas sobre la misma sección muestran el conflicto", async ({ context }) => {
@@ -348,7 +366,11 @@ test.describe("Resiliencia del manuscrito", () => {
     await expect(segunda.getByRole("button", { name: "Usar la del servidor" })).toBeVisible();
 
     // Ninguna de las dos versiones se ha perdido.
-    await expect(segunda.getByText(/Texto de la segunda pestaña/)).toBeVisible();
+    await expect(primera.locator(".ProseMirror")).toContainText("Texto de la primera pestaña.");
+    await expect(segunda.locator(".ProseMirror")).toContainText("Texto de la segunda pestaña.");
+    const comparison = segunda.getByLabel("comparación de las dos versiones", { exact: true });
+    await expect(comparison).toContainText("primera");
+    await expect(comparison).toContainText("segunda");
 
     await primera.close();
     await segunda.close();

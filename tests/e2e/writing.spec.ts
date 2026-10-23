@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 
 /**
@@ -9,7 +10,7 @@ import { expect, test } from "@playwright/test";
  */
 test.describe.configure({ mode: "serial" });
 
-const BOOK_TITLE = "Cuaderno de trabajo";
+const BOOK_TITLE = `Cuaderno de trabajo ${randomUUID()}`;
 const SECTION_TITLE = "Prólogo del cuaderno";
 
 test.describe("Escritura asistida", () => {

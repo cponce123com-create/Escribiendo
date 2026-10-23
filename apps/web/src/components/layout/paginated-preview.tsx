@@ -169,6 +169,7 @@ function PageSheet({
     >
       {page.runningHead ? (
         <div
+          data-page-running-head
           className="absolute text-center"
           style={{
             top: `${(profile.headerDistanceMm + 2.5 - ((8 * 25.4) / 72) * 0.8) * PX_PER_MM}px`,
@@ -196,6 +197,7 @@ function PageSheet({
 
       {page.blank ? null : (
         <div
+          data-page-text
           className="absolute"
           style={{
             top: `${profile.marginTopMm * PX_PER_MM}px`,
@@ -328,6 +330,7 @@ function PreviewBlock({
 
   return (
     <div
+      data-block-kind={block.kind}
       style={{
         position: "relative",
         fontFamily: FAMILIAS[style.fontFamily] ?? FAMILIAS.serif,

@@ -112,12 +112,13 @@ export function ManuscriptSidebar({
                     <button
                       type="button"
                       disabled={pending || groupIndex === 0}
-                      onClick={() =>
+                      onClick={(event) => {
+                        event.currentTarget.closest("details")?.removeAttribute("open");
                         move(
                           node,
                           siblings.findIndex((item) => item.id === list[groupIndex - 1]?.id),
-                        )
-                      }
+                        );
+                      }}
                       aria-label={`Subir ${node.title}`}
                     >
                       ↑ Subir
@@ -125,12 +126,13 @@ export function ManuscriptSidebar({
                     <button
                       type="button"
                       disabled={pending || groupIndex === list.length - 1}
-                      onClick={() =>
+                      onClick={(event) => {
+                        event.currentTarget.closest("details")?.removeAttribute("open");
                         move(
                           node,
                           siblings.findIndex((item) => item.id === list[groupIndex + 1]?.id),
-                        )
-                      }
+                        );
+                      }}
                       aria-label={`Bajar ${node.title}`}
                     >
                       ↓ Bajar

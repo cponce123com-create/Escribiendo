@@ -1,4 +1,8 @@
+import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
+import { prisma } from "../../packages/database/src/client";
+import { assertDisposableDatabase } from "../../scripts/lib/e2e-database";
+import { E2E_USER_EMAIL } from "./support/session";
 
 /**
  * Biblioteca y manuscritos: creación de libros, estructura de secciones,
@@ -11,18 +15,45 @@ import { expect, test } from "@playwright/test";
  */
 test.describe.configure({ mode: "serial" });
 
-const BOOK_TITLE = "El oficio de escribir";
+const BOOK_TITLE = `El oficio de escribir ${randomUUID()}`;
 const SECTION_TITLE = "Capítulo 1 · El principio";
 
 test.describe("Biblioteca", () => {
   test("la biblioteca vacía ofrece crear el primer libro", async ({ page }) => {
-    await page.goto("/books");
-
-    await expect(page.getByRole("heading", { name: "Los libros del estudio" })).toBeVisible();
-    await expect(page.getByText("La biblioteca está vacía.")).toBeVisible();
-
-    await page.goto("/books/new");
-    await expect(page.getByRole("heading", { name: "Nuevo libro" })).toBeVisible();
+    assertDisposableDatabase(process.env.DATABASE_URL ?? "");
+    const user = await prisma.user.findUniqueOrThrow({ where: { email: E2E_USER_EMAIL } });
+    const workspace = await prisma.workspace.create({
+      data: {
+        name: "Biblioteca vacía E2E",
+        slug: `biblioteca-vacia-${randomUUID()}`,
+        ownerId: user.id,
+        members: { create: { userId: user.id, role: "OWNER" } },
+      },
+    });
+    let original: string | undefined;
+    try {
+      await page.goto("/books");
+      await page.locator("details.workspace-menu > summary").click();
+      const selector = page.getByLabel("Cambiar de espacio de trabajo");
+      original = await selector.inputValue();
+      await selector.selectOption(workspace.id);
+      await page.getByRole("button", { name: "Cambiar de estudio" }).click();
+      await expect(page.getByText("Has cambiado de estudio.")).toBeVisible();
+      await page.goto("/books");
+      await expect(page.getByRole("heading", { name: "Los libros del estudio" })).toBeVisible();
+      await expect(page.getByText("La biblioteca está vacía.")).toBeVisible();
+      await page.getByRole("link", { name: "Crear el primer libro", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "Nuevo libro" })).toBeVisible();
+    } finally {
+      if (original) {
+        await page.goto("/books");
+        await page.locator("details.workspace-menu > summary").click();
+        await page.getByLabel("Cambiar de espacio de trabajo").selectOption(original);
+        await page.getByRole("button", { name: "Cambiar de estudio" }).click();
+        await expect(page.getByText("Has cambiado de estudio.")).toBeVisible();
+      }
+      await prisma.workspace.delete({ where: { id: workspace.id } });
+    }
   });
 
   test("un libro se crea con sus metadatos y aparece en la biblioteca", async ({ page }) => {
@@ -44,7 +75,12 @@ test.describe("Biblioteca", () => {
 
     await page.goto("/books");
     await expect(page.getByRole("heading", { name: BOOK_TITLE })).toBeVisible();
-    await expect(page.getByText("Ana Torres")).toBeVisible();
+    await expect(
+      page
+        .getByRole("listitem")
+        .filter({ has: page.getByRole("heading", { name: BOOK_TITLE }) })
+        .getByText("Ana Torres"),
+    ).toBeVisible();
   });
 
   test("el buscador filtra la biblioteca", async ({ page }) => {
@@ -77,7 +113,8 @@ test.describe("Biblioteca", () => {
     ]);
 
     await expect(page.getByRole("heading", { name: SECTION_TITLE })).toBeVisible();
-    await expect(page.getByText("0 palabras · versión 1")).toBeVisible();
+    await expect(page.locator(".studio-chapter-meta")).toContainText("0 palabras");
+    await expect(page.getByRole("link", { name: /Versión 1/u })).toBeVisible();
   });
 
   test("el manuscrito se guarda y crea una revisión", async ({ page }) => {
@@ -107,7 +144,7 @@ test.describe("Biblioteca", () => {
 
     // 5 palabras sobre un objetivo de 40000: 0,0125 %, redondeado a 0,01 %.
     const progress = page.locator(".stat-card").filter({ hasText: "Progreso" });
-    await expect(progress).toContainText("0.01%");
+    await expect(progress).toContainText("0,01%");
   });
 
   test("una segunda versión se añade al historial", async ({ page }) => {

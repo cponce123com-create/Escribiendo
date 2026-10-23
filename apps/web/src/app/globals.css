@@ -1506,7 +1506,7 @@ html[data-focus-mode="true"] .app-topbar {
   --surface-raised: #fffdfb;
   --ink: #171b20;
   --ink-soft: #53565b;
-  --ink-muted: #707176;
+  --ink-muted: #626369;
   --line: #e6e0d9;
   --line-strong: #d5cec6;
   --accent: #aa4130;
@@ -3710,10 +3710,11 @@ html[data-focus-mode="true"] .app-topbar {
 [data-theme="dark"] .frontend-studio .app-sidebar .nav-item,
 [data-theme="dark"] .frontend-studio .app-sidebar .btn-ghost {
   color: #f0e9dc;
-  transition: background-color 150ms ease;
+  transition: none;
 }
 [data-theme="dark"] .frontend-studio .app-sidebar .nav-item[aria-current="page"] {
   color: #ee9a83;
+  background: #36251f;
 }
 
 /* The generic page-header rule must not remove the book card's inset. */

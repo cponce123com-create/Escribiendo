@@ -14,9 +14,12 @@ export default defineConfig({
   globalSetup: "./tests/e2e/global-setup.ts",
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
+  failOnFlakyTests: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   workers: 1,
-  reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
+  reporter: process.env.CI
+    ? [["line"], ["html", { open: "never" }], ["json", { outputFile: "test-results/results.json" }]]
+    : "list",
   use: {
     baseURL,
     trace: "on-first-retry",
