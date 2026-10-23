@@ -168,6 +168,11 @@ export default async function BookPage({ params }: BookPageProps) {
         </div>
       </section>
 
+      <div className="mb-5 flex flex-wrap gap-2">
+        <Link className="btn btn-secondary" href={`/characters?book=${book.id}`}>
+          Personajes de este libro
+        </Link>
+      </div>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
         <section className="panel p-6" aria-labelledby="structure-title">
           <p className="meta-label">Estructura</p>
