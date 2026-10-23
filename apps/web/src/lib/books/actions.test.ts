@@ -226,8 +226,8 @@ describe("books actions", () => {
         },
       );
       mockPrisma.bookSection.findMany.mockResolvedValue([
-        { id: ids.sibling1 },
-        { id: ids.sibling2 },
+        { id: ids.sibling1, title: "A", type: "CHAPTER", parentId: ids.parent, sortOrder: 0 },
+        { id: ids.sibling2, title: "B", type: "CHAPTER", parentId: ids.parent, sortOrder: 1 },
       ]);
 
       const result = await moveSectionAction(

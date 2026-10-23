@@ -8,6 +8,7 @@ import { deleteSectionAction, moveSectionAction } from "@/lib/books/actions";
 import type { ActionState } from "@/lib/action-state";
 import { initialActionState } from "@/lib/action-state";
 import { flattenSectionTree, type SectionNode } from "@/lib/books/section-tree";
+import { hierarchyTargets } from "@/lib/books/hierarchy-targets";
 import { groupSections } from "@/lib/books/studio";
 import { Dialog } from "@/components/forms/dialog";
 import { NewSectionForm } from "./new-section-form";
@@ -42,11 +43,11 @@ export function ManuscriptSidebar({
   const [adding, setAdding] = useState(false);
   const flat = flattenSectionTree(nodes);
   const chapters = flat.filter((node) => node.type === "CHAPTER");
-  const move = (node: SectionNode, position: number): void => {
+  const move = (node: SectionNode, position: number, parentId = node.parentId): void => {
     if (!canMove || pending) return;
     const data = new FormData();
     data.set("sectionId", node.id);
-    data.set("parentId", node.parentId ?? "");
+    data.set("parentId", parentId ?? "");
     data.set("position", String(position));
     startTransition(async () => {
       const result = await moveSectionAction(initialActionState, data);
@@ -59,6 +60,7 @@ export function ManuscriptSidebar({
       {list.map((node, groupIndex) => {
         const siblings = depth === 0 ? nodes : list;
         const index = siblings.findIndex((item) => item.id === node.id);
+        const targets = hierarchyTargets(node, nodes);
         const chapterIndex = chapters.findIndex((item) => item.id === node.id);
         return (
           <li key={node.id}>
@@ -142,6 +144,32 @@ export function ManuscriptSidebar({
                           aria-label={`Bajar ${node.title}`}
                         >
                           ↓ Bajar
+                        </button>
+                      </>
+                    ) : null}
+                    {canMove ? (
+                      <>
+                        <button
+                          type="button"
+                          disabled={pending || !targets.indent}
+                          onClick={(event) => {
+                            event.currentTarget.closest("details")?.removeAttribute("open");
+                            if (targets.indent)
+                              move(node, targets.indent.position, targets.indent.parentId);
+                          }}
+                        >
+                          Sangrar
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending || !targets.outdent}
+                          onClick={(event) => {
+                            event.currentTarget.closest("details")?.removeAttribute("open");
+                            if (targets.outdent)
+                              move(node, targets.outdent.position, targets.outdent.parentId);
+                          }}
+                        >
+                          Sacar de
                         </button>
                       </>
                     ) : null}

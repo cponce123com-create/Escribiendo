@@ -1,4 +1,5 @@
 "use server";
+import { compareEditorialSections } from "./reading-order";
 import { withSerializableRetry } from "./serializable";
 import { recomputeBookTotals } from "./statistics";
 import { createHash } from "node:crypto";
@@ -1036,9 +1037,10 @@ async function moveSectionWithinBook(
             id: { not: current.id },
           },
           orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
-          select: { id: true },
+          select: { id: true, title: true, type: true, parentId: true, sortOrder: true },
         });
 
+        siblings.sort(compareEditorialSections);
         const ordered = siblings.map((sibling) => sibling.id);
         ordered.splice(Math.min(position, ordered.length), 0, current.id);
 
