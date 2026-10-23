@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { filterCharacterCandidates } from "./character-analysis-quality";
+import {
+  analyzeAndFilterCharacterCandidates,
+  filterCharacterCandidates,
+} from "./character-analysis-quality";
 import {
   analyzeNarrative,
   type CharacterCandidate,
@@ -120,12 +123,10 @@ describe("quality gate for incremental character suggestions", () => {
       "María Fernanda Ríos llegó al pueblo. María Fernanda Ríos habló con Clara. " +
       "María Fernanda Ríos volvió a casa.";
 
-    const candidates = analyzeNarrative([{ title: "Capítulo tres", text: sectionText }]);
-    const filtered = filterCharacterCandidates(candidates, {
-      bookTitle: "Novela",
-      existingCharacterNames: [],
-      sectionText,
-    });
+    const filtered = analyzeAndFilterCharacterCandidates(
+      [{ title: "Capítulo tres", text: sectionText }],
+      { bookTitle: "Novela", existingCharacterNames: [] },
+    );
     const names = filtered.map((candidate) => candidate.name);
 
     expect(names).not.toContain("Hola");
