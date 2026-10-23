@@ -3334,3 +3334,98 @@ html[data-focus-mode="true"] .app-topbar {
     max-height: 220px;
   }
 }
+
+
+/* Aprovecha más espacio para escribir y compacta las columnas laterales. */
+.studio-workspace {
+  grid-template-columns: minmax(230px, 270px) minmax(0, 1fr) minmax(260px, 320px);
+}
+.studio-workspace--collapsed {
+  grid-template-columns: 24px minmax(0, 1fr) minmax(260px, 320px);
+}
+.studio-manuscript-nav {
+  padding: 18px 12px;
+  background: var(--surface-raised);
+  border-right-color: var(--line);
+}
+.studio-manuscript-nav[data-collapsed="true"] {
+  padding: 0;
+}
+.studio-manuscript-nav > header {
+  gap: 6px;
+  margin-bottom: 13px;
+}
+.studio-manuscript-nav h2 {
+  font-size: 20px;
+  letter-spacing: -0.025em;
+}
+.studio-section-group {
+  margin-bottom: 10px;
+}
+.studio-section-group > summary {
+  gap: 7px;
+  padding: 8px 7px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.studio-section-group > summary:hover {
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+.studio-group-count {
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  color: var(--ink-muted);
+  font-size: 10px;
+}
+.studio-section-row {
+  min-height: 32px;
+  border-radius: 7px;
+  font-size: 12px;
+}
+.studio-section-row:hover {
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+.studio-section-row.is-current {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-raised));
+  color: var(--accent-strong);
+  box-shadow: inset 3px 0 var(--accent);
+}
+.studio-section-row > a {
+  gap: 8px;
+  padding-block: 5px;
+}
+.studio-chapter-number {
+  width: 18px;
+}
+.studio-drag {
+  width: 19px;
+  font-size: 15px;
+}
+.studio-section-menu summary {
+  padding-inline: 6px;
+}
+.studio-inspector {
+  padding-inline: 9px;
+}
+.studio-card {
+  padding: 12px;
+}
+.studio-card h2 {
+  font-size: 18px;
+}
+@media (min-width: 1200px) and (max-width: 1450px) {
+  .studio-workspace {
+    grid-template-columns: minmax(205px, 230px) minmax(0, 1fr) minmax(245px, 275px);
+  }
+  .studio-workspace--collapsed {
+    grid-template-columns: 24px minmax(0, 1fr) minmax(245px, 275px);
+  }
+}
+@media (max-width: 1199px) and (min-width: 701px) {
+  .studio-workspace {
+    grid-template-columns: minmax(205px, 230px) minmax(0, 1fr);
+  }
+  .studio-workspace--collapsed {
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+}
