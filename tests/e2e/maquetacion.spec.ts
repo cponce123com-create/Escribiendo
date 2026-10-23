@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { auditar, resume } from "./support/axe";
 
@@ -12,7 +13,9 @@ import { auditar, resume } from "./support/axe";
  */
 test.describe.configure({ mode: "serial" });
 
-const BOOK_TITLE = "Manual de maquetación";
+const BOOK_TITLE = `Manual de maquetación ${randomUUID()}`;
+const PROFILE_TITLE = `A5 de trabajo ${randomUUID()}`;
+const RENAMED_PROFILE_TITLE = `A5 revisado ${randomUUID()}`;
 const SECTION_TITLE = "Capítulo de prueba";
 
 /** Abre la maquetación del libro creado por la primera prueba. */
@@ -83,7 +86,7 @@ test.describe("Maquetación", () => {
 
     await expect(page.getByRole("heading", { name: "Nuevo perfil de página" })).toBeVisible();
 
-    await page.getByLabel("Nombre del perfil").fill("A5 de trabajo");
+    await page.getByLabel("Nombre del perfil").fill(PROFILE_TITLE);
     await page.getByLabel("Formato").selectOption("A5");
     await page.getByLabel("Margen superior").fill("20");
     await page.getByLabel("Margen inferior").fill("20");
@@ -96,7 +99,7 @@ test.describe("Maquetación", () => {
     await expect(page.getByText("Perfil de página guardado.")).toBeVisible();
 
     await openAdvancedProfiles(page);
-    await expect(page.getByRole("heading", { name: "A5 de trabajo" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: PROFILE_TITLE })).toBeVisible();
   });
 
   test("una geometría imposible se rechaza con un motivo claro", async ({ page }) => {
@@ -127,13 +130,13 @@ test.describe("Maquetación", () => {
     // La lista puede contener más de un perfil: se busca el propio.
     await page
       .getByRole("listitem")
-      .filter({ hasText: "A5 de trabajo" })
+      .filter({ hasText: PROFILE_TITLE })
       .getByRole("link", { name: "Editar" })
       .click();
 
-    await expect(page.getByRole("heading", { name: "A5 de trabajo" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: PROFILE_TITLE })).toBeVisible();
 
-    await page.getByLabel("Nombre del perfil").fill("A5 revisado");
+    await page.getByLabel("Nombre del perfil").fill(RENAMED_PROFILE_TITLE);
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
     await expect(page.getByText("Perfil de página actualizado.")).toBeVisible();
@@ -265,7 +268,8 @@ test.describe("Maquetación", () => {
         encabezado:
           cajaEncabezado && cajaHojaEncabezado
             ? {
-                arriba: cajaEncabezado.top - cajaHojaEncabezado.top,
+                arriba:
+                  cajaEncabezado.top - cajaHojaEncabezado.top - (hojaEncabezado?.clientTop ?? 0),
               }
             : null,
         encabezadoEnApertura: Boolean(encabezadoEnApertura),

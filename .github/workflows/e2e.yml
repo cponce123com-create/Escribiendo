@@ -70,7 +70,7 @@ jobs:
         run: pnpm build
 
       - name: Pruebas de extremo a extremo
-        run: pnpm exec playwright test --reporter=line
+        run: pnpm exec playwright test
 
       - name: Conservar informe, capturas y trazas
         if: always()

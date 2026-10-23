@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { auditar, resume } from "./support/axe";
 
@@ -10,7 +11,7 @@ import { auditar, resume } from "./support/axe";
  */
 test.describe.configure({ mode: "serial" });
 
-const BOOK_TITLE = "Manuscrito resiliente";
+const BOOK_TITLE = `Manuscrito resiliente ${randomUUID()}`;
 const SECTION_TITLE = "Capítulo de pruebas";
 
 /** Espera a que el editor esté listo. */
@@ -54,7 +55,9 @@ test.describe("Resiliencia del manuscrito", () => {
 
     await expect(panel).toHaveAttribute("data-collapsed", "true");
     await expect(panel.getByRole("button", { name: "Mostrar panel editorial" })).toBeVisible();
-    expect((await editor.boundingBox())?.width ?? 0).toBeGreaterThan(anchoAbierto);
+    await expect
+      .poll(async () => (await editor.boundingBox())?.width ?? 0)
+      .toBeGreaterThan(anchoAbierto);
 
     await page.reload();
     const panelTrasRecarga = page.getByRole("complementary", { name: "Panel editorial" });

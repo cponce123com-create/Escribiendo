@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RevisionList } from "@/components/books/revision-list";
 import { SectionEditor } from "@/components/books/section-editor";
+import { SectionTitleForm } from "@/components/books/section-title-form";
 import { SearchFragmentOnLoad } from "@/components/books/search-fragment-on-load";
 import { requireSession } from "@/lib/auth/session";
 import { canPerform } from "@/lib/books/permissions";
@@ -158,6 +159,14 @@ export default async function SectionPage({ params, searchParams }: SectionPageP
           }
           details={
             <div className="space-y-5">
+              <SectionTitleForm
+                sectionId={section.id}
+                title={section.title}
+                showTitle={section.showTitle}
+                showSectionType={section.showSectionType}
+                showSectionNumber={section.showSectionNumber}
+                canEdit={canEdit}
+              />
               <dl className="studio-detail-list">
                 <dt>Libro</dt>
                 <dd>{book?.title}</dd>

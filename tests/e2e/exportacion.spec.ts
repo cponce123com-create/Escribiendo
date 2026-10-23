@@ -15,7 +15,7 @@ import { inflateSync } from "node:zlib";
  */
 test.describe.configure({ mode: "serial" });
 
-const BOOK_TITLE = "Libro exportable";
+const BOOK_TITLE = `Libro exportable ${randomUUID()}`;
 const SECTION_TITLE = "Prólogo exportable";
 
 function unicodeFromHex(hex: string): string {
