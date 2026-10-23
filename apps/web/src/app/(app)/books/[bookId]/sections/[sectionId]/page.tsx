@@ -147,6 +147,7 @@ export default async function SectionPage({ params, searchParams }: SectionPageP
           bookId={bookId}
           sectionId={sectionId}
           notes={notes.filter((note) => !note.sectionId || note.sectionId === sectionId)}
+          canEdit={canEdit}
           history={
             <RevisionList
               sectionId={section.id}
