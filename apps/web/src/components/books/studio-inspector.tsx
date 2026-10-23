@@ -11,6 +11,7 @@ import { initialActionState } from "@/lib/action-state";
 import type { NoteSummary } from "@/lib/writing/notes";
 import { formatDateTime } from "@/lib/ui/format";
 import { StudioIcon } from "./studio-icon";
+import { ManuscriptSearchPanel } from "@/components/books/manuscript-search-panel";
 
 const TABS = ["Historial", "Notas", "Detalles"] as const;
 
@@ -20,12 +21,14 @@ export function StudioInspector({
   bookId,
   sectionId,
   notes,
+  canEdit,
 }: {
   history: ReactNode;
   details: ReactNode;
   bookId: string;
   sectionId: string;
   notes: NoteSummary[];
+  canEdit: boolean;
 }) {
   const [tab, setTab] = useState<(typeof TABS)[number]>("Historial");
   const [adding, setAdding] = useState(false);
@@ -44,6 +47,7 @@ export function StudioInspector({
   const historyHref = `/books/${bookId}/sections/${sectionId}/history`;
   return (
     <aside className="studio-inspector" aria-label="Panel editorial">
+      <ManuscriptSearchPanel bookId={bookId} canEdit={canEdit} />
       <div className="studio-tabs" role="tablist" aria-label="Información editorial">
         {TABS.map((label, index) => (
           <button
