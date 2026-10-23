@@ -43,6 +43,26 @@ test.describe("Resiliencia del manuscrito", () => {
     await expect(page.getByRole("heading", { name: SECTION_TITLE })).toBeVisible();
   });
 
+  test("el panel editorial se retrae, amplía el editor y recuerda su estado", async ({ page }) => {
+    await abrirSeccion(page, SECTION_TITLE);
+
+    const panel = page.getByRole("complementary", { name: "Panel editorial" });
+    const editor = page.locator(".studio-writing-column");
+    const anchoAbierto = (await editor.boundingBox())?.width ?? 0;
+
+    await panel.getByRole("button", { name: "Ocultar panel editorial" }).click();
+
+    await expect(panel).toHaveAttribute("data-collapsed", "true");
+    await expect(panel.getByRole("button", { name: "Mostrar panel editorial" })).toBeVisible();
+    expect((await editor.boundingBox())?.width ?? 0).toBeGreaterThan(anchoAbierto);
+
+    await page.reload();
+    const panelTrasRecarga = page.getByRole("complementary", { name: "Panel editorial" });
+    await expect(panelTrasRecarga).toHaveAttribute("data-collapsed", "true");
+    await panelTrasRecarga.getByRole("button", { name: "Mostrar panel editorial" }).click();
+    await expect(panelTrasRecarga).toHaveAttribute("data-collapsed", "false");
+  });
+
   test("la barra refleja el formato activo y habilita el historial cuando corresponde", async ({
     page,
   }) => {

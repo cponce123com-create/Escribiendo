@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState, type ReactNode } from "react";
+import { useActionState, useContext, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Dialog } from "@/components/forms/dialog";
 import { FormMessage } from "@/components/forms/form-message";
@@ -12,6 +12,7 @@ import type { NoteSummary } from "@/lib/writing/notes";
 import { formatDateTime } from "@/lib/ui/format";
 import { StudioIcon } from "./studio-icon";
 import { ManuscriptSearchPanel } from "@/components/books/manuscript-search-panel";
+import { InspectorPanelContext } from "@/components/books/manuscript-workspace";
 
 const TABS = ["Historial", "Notas", "Detalles"] as const;
 
@@ -31,6 +32,7 @@ export function StudioInspector({
   canEdit: boolean;
 }) {
   const [tab, setTab] = useState<(typeof TABS)[number]>("Historial");
+  const { collapsed: panelCollapsed, toggle: togglePanel } = useContext(InspectorPanelContext);
   const [adding, setAdding] = useState(false);
   const router = useRouter();
   const [state, action] = useActionState(
@@ -46,7 +48,33 @@ export function StudioInspector({
   );
   const historyHref = `/books/${bookId}/sections/${sectionId}/history`;
   return (
-    <aside className="studio-inspector" aria-label="Panel editorial">
+    <aside
+      className={`studio-inspector ${panelCollapsed ? "studio-inspector--collapsed" : ""}`}
+      aria-label="Panel editorial"
+      data-collapsed={panelCollapsed}
+    >
+      <button
+        type="button"
+        className="studio-inspector-restore"
+        aria-label="Mostrar panel editorial"
+        aria-expanded={false}
+        onClick={togglePanel}
+        title="Mostrar panel editorial"
+      >
+        <StudioIcon name="chevrons" />
+      </button>
+      <header className="studio-inspector-header">
+        <span>Panel editorial</span>
+        <button
+          type="button"
+          aria-label="Ocultar panel editorial"
+          aria-expanded={true}
+          onClick={togglePanel}
+          title="Ocultar panel editorial"
+        >
+          <StudioIcon name="chevrons" />
+        </button>
+      </header>
       <ManuscriptSearchPanel bookId={bookId} canEdit={canEdit} />
       <div className="studio-tabs" role="tablist" aria-label="Información editorial">
         {TABS.map((label, index) => (
