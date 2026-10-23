@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { tocDepthSchema } from "@escribiendo/templates";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { writeAuditLog } from "@/lib/auth/audit";
@@ -563,4 +564,66 @@ export async function updateEditionAction(
   revalidatePath(`/books/${book.id}/preview`);
 
   return successState("Plantilla aplicada al libro.");
+}
+
+export async function updateEditionTocAction(
+  _previousState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  let context: RequestContext;
+  try {
+    context = await assertServerActionOrigin();
+  } catch {
+    return errorState("No se ha podido validar la solicitud.");
+  }
+  const session = await getSession();
+  if (!session) redirect("/login");
+  try {
+    assertCanPerform(session.workspace.role, "layout:manage");
+  } catch {
+    return errorState("No tienes permisos para gestionar la maquetación.");
+  }
+  const bookId = uuidSchema.safeParse(formValue(formData, "bookId"));
+  const depth = tocDepthSchema.safeParse(formValue(formData, "tocDepth"));
+  if (!bookId.success || !depth.success)
+    return errorState("La configuración del índice no es válida.");
+  const edition = await prisma.bookEdition.findFirst({
+    where: { bookId: bookId.data, book: { workspaceId: session.workspace.id, deletedAt: null } },
+    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+    select: { id: true },
+  });
+  if (!edition) return errorState("Aplica primero una plantilla a este libro.");
+  const data = {
+    tocDepth: depth.data,
+    tocIncludeFrontMatter: formValue(formData, "tocIncludeFrontMatter") === "on",
+    tocIncludeBackMatter: formValue(formData, "tocIncludeBackMatter") === "on",
+  };
+  try {
+    const result = await prisma.bookEdition.updateMany({
+      where: {
+        id: edition.id,
+        bookId: bookId.data,
+        book: { workspaceId: session.workspace.id, deletedAt: null },
+      },
+      data,
+    });
+    if (result.count !== 1) return errorState("La edición ya no está disponible.");
+  } catch (error) {
+    logActionError("layout.toc_update_error", context, error);
+    return errorState("No se ha podido guardar la configuración del índice.");
+  }
+  await writeAuditLog(
+    {
+      action: "LAYOUT_EDITION_UPDATED",
+      entityType: "BookEdition",
+      entityId: edition.id,
+      workspaceId: session.workspace.id,
+      actorId: session.user.id,
+      metadata: data,
+    },
+    context,
+  );
+  for (const path of ["", "/layout", "/preview", "/export"])
+    revalidatePath(`/books/${bookId.data}${path}`);
+  return successState("Configuración del índice guardada.");
 }

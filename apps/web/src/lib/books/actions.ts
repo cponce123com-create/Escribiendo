@@ -1288,3 +1288,61 @@ async function collectDescendants(
 
   return collected;
 }
+
+export async function updateSectionOptionsAction(
+  _previousState: LibraryActionState,
+  formData: FormData,
+): Promise<LibraryActionState> {
+  let context: RequestContext;
+  try {
+    context = await assertServerActionOrigin();
+  } catch {
+    return errorState("No se ha podido validar la solicitud.");
+  }
+  const session = await getSession();
+  if (!session) redirect("/login");
+  try {
+    assertCanPerform(session.workspace.role, "section:update");
+  } catch {
+    return errorState("No tienes permisos para editar esta sección.");
+  }
+  const id = uuidSchema.safeParse(formValue(formData, "sectionId"));
+  if (!id.success) return errorState("La sección no es válida.");
+  const section = await loadSectionForSession(session, id.data);
+  if (!section) return errorState("La sección no existe en este espacio de trabajo.");
+  const data = {
+    includeInExport: formValue(formData, "includeInExport") === "on",
+    showInToc: formValue(formData, "showInToc") === "on",
+    pageBreakBefore: formValue(formData, "pageBreakBefore") === "on",
+    startOnOddPage: formValue(formData, "startOnOddPage") === "on",
+  };
+  try {
+    const result = await prisma.bookSection.updateMany({
+      where: {
+        id: section.id,
+        bookId: section.bookId,
+        deletedAt: null,
+        book: { workspaceId: session.workspace.id, deletedAt: null },
+      },
+      data,
+    });
+    if (result.count !== 1) return errorState("La sección ya no está disponible.");
+  } catch (error) {
+    logActionError("books.section_options_error", context, error);
+    return errorState("No se han podido guardar las opciones.");
+  }
+  await writeAuditLog(
+    {
+      action: "BOOK_SECTION_OPTIONS_UPDATED",
+      entityType: "BookSection",
+      entityId: section.id,
+      workspaceId: session.workspace.id,
+      actorId: session.user.id,
+      metadata: data,
+    },
+    context,
+  );
+  for (const path of ["", "/preview", "/export", `/sections/${section.id}`])
+    revalidatePath(`/books/${section.bookId}${path}`);
+  return successState("Opciones de sección guardadas.");
+}

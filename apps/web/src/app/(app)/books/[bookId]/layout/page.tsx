@@ -1,3 +1,4 @@
+import { EditionTocForm } from "@/components/layout/edition-toc-form";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -71,6 +72,14 @@ export default async function BookLayoutPage({ params, searchParams }: BookLayou
         </p>
       ) : null}
 
+      {canManage && edition ? (
+        <EditionTocForm
+          bookId={book.id}
+          depth={edition.tocDepth}
+          front={edition.tocIncludeFrontMatter}
+          back={edition.tocIncludeBackMatter}
+        />
+      ) : null}
       <section className="panel p-6" aria-label="plantilla del libro">
         <p className="meta-label">Plantilla del libro</p>
         <h2 className="mt-1.5 font-serif text-2xl text-ink">Elige una plantilla</h2>

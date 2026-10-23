@@ -92,6 +92,7 @@ import {
   deleteSectionAction,
   moveSectionAction,
   updateBookAction,
+  updateSectionOptionsAction,
 } from "./actions";
 import { getSession } from "@/lib/auth/session";
 import { assertServerActionOrigin } from "@/lib/security/request-context";
@@ -125,6 +126,48 @@ describe("books actions", () => {
     otherParent: "66666666-6666-4666-8666-666666666666",
     child: "77777777-7777-4777-8777-777777777777",
   } as const;
+
+  describe("updateSectionOptionsAction", () => {
+    it("guarda opciones solo en el libro y espacio de trabajo autorizados", async () => {
+      mockPrisma.bookSection.findFirst.mockResolvedValue({ id: ids.section, bookId: ids.book });
+      mockPrisma.bookSection.updateMany.mockResolvedValue({ count: 1 });
+      const result = await updateSectionOptionsAction(
+        { status: "idle" },
+        makeFormData({
+          sectionId: ids.section,
+          showInToc: "on",
+          startOnOddPage: "on",
+        }),
+      );
+      expect(result.status).toBe("success");
+      expect(mockPrisma.bookSection.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: ids.section,
+          bookId: ids.book,
+          deletedAt: null,
+          book: { workspaceId: mockSession.workspace.id, deletedAt: null },
+        },
+        data: {
+          includeInExport: false,
+          showInToc: true,
+          pageBreakBefore: false,
+          startOnOddPage: true,
+        },
+      });
+    });
+    it("rechaza un lector sin leer ni escribir la sección", async () => {
+      vi.mocked(getSession).mockResolvedValue({
+        ...mockSession,
+        workspace: { ...mockSession.workspace, role: "REVIEWER" },
+      });
+      const result = await updateSectionOptionsAction(
+        { status: "idle" },
+        makeFormData({ sectionId: ids.section }),
+      );
+      expect(result.status).toBe("error");
+      expect(mockPrisma.bookSection.updateMany).not.toHaveBeenCalled();
+    });
+  });
 
   describe("createBookAction", () => {
     it("crea un libro y redirige", async () => {

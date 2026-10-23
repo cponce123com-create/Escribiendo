@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RevisionList } from "@/components/books/revision-list";
 import { SectionEditor } from "@/components/books/section-editor";
+import { SectionOptionsForm } from "@/components/books/section-options-form";
 import { SectionTitleForm } from "@/components/books/section-title-form";
 import { SearchFragmentOnLoad } from "@/components/books/search-fragment-on-load";
 import { requireSession } from "@/lib/auth/session";
@@ -161,6 +162,7 @@ export default async function SectionPage({ params, searchParams }: SectionPageP
           }
           details={
             <div className="space-y-5">
+              <SectionOptionsForm sectionId={section.id} options={section} canEdit={canEdit} />
               <SectionTitleForm
                 sectionId={section.id}
                 title={section.title}
