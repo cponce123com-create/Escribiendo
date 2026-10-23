@@ -6,6 +6,7 @@ export {
   type PdfFontFamily,
   type PdfFontProgram,
   type PdfImage,
+  type PdfOutlineItem,
   type PdfPage,
   type PdfResult,
   type PdfRule,

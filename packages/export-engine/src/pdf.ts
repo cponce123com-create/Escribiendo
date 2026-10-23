@@ -53,6 +53,13 @@ export interface PdfRun {
    * espacios de la línea.
    */
   wordSpacing?: number;
+  /**
+   * Espacio extra entre caracteres, en puntos.
+   *
+   * Se aplica con el operador `Tc`; la medición previa ya lo incluye para que
+   * el ancho del tramo y el dibujo coincidan.
+   */
+  letterSpacingPt?: number;
   /** Ancho del tramo, para dibujar el subrayado y el tachado. */
   widthMm?: number;
   underline?: boolean;
@@ -100,6 +107,13 @@ export interface PdfPage {
   cropMarks?: boolean;
 }
 
+/** Entrada del marcador de navegación del PDF. */
+export interface PdfOutlineItem {
+  title: string;
+  /** Índice de página, empezando en cero. */
+  pageIndex: number;
+}
+
 export interface PdfDocument {
   title: string;
   author: string;
@@ -107,6 +121,8 @@ export interface PdfDocument {
   /** Fecha de creación. Se fija para que el resultado sea reproducible. */
   createdAt: Date;
   pages: PdfPage[];
+  /** Marcadores que muestran los visores de PDF. */
+  outline?: PdfOutlineItem[];
   /** Idioma del documento, por ejemplo `es`. */
   language?: string;
   /**
@@ -471,8 +487,46 @@ export function buildPdf(document: PdfDocument): PdfResult {
     contentNumbers.push(alloc());
   }
 
+  // Marcadores del PDF. Son el índice navegable del visor y usan la misma
+  // lista de secciones que el EPUB; las secciones excluidas del índice no
+  // llegan aquí.
+  const outlineItems = (document.outline ?? []).filter(
+    (item) =>
+      Number.isInteger(item.pageIndex) &&
+      item.pageIndex >= 0 &&
+      item.pageIndex < pageNumbers.length &&
+      item.title.trim().length > 0,
+  );
+  let outlineNumber: number | undefined;
+
+  if (outlineItems.length > 0) {
+    outlineNumber = alloc();
+    const itemNumbers = outlineItems.map(() => alloc());
+    const first = itemNumbers[0] ?? 0;
+    const last = itemNumbers[itemNumbers.length - 1] ?? 0;
+
+    itemNumbers.forEach((number, index) => {
+      const outline = outlineItems[index];
+      const pageNumber = pageNumbers[outline?.pageIndex ?? 0] ?? 0;
+      const previous = index > 0 ? ` /Prev ${itemNumbers[index - 1]} 0 R` : "";
+      const next =
+        index < itemNumbers.length - 1 ? ` /Next ${itemNumbers[index + 1]} 0 R` : "";
+
+      objects[number] = latin1ToBytes(
+        `<< /Title ${pdfTextString(outline?.title ?? "")} /Parent ${outlineNumber} 0 R ` +
+          `/Dest [${pageNumber} 0 R /Fit]${previous}${next} >>`,
+      );
+    });
+
+    objects[outlineNumber] = latin1ToBytes(
+      `<< /Type /Outlines /First ${first} 0 R /Last ${last} 0 R /Count ${itemNumbers.length} >>`,
+    );
+  }
+
   objects[catalogNumber] = latin1ToBytes(
-    `<< /Type /Catalog /Pages ${pagesNumber} 0 R /ViewerPreferences << /DisplayDocTitle true >> >>`,
+    `<< /Type /Catalog /Pages ${pagesNumber} 0 R ` +
+      (outlineNumber ? `/Outlines ${outlineNumber} 0 R /PageMode /UseOutlines ` : "") +
+      `/ViewerPreferences << /DisplayDocTitle true >> >>`,
   );
 
   const kids = pageNumbers.map((number) => `${number} 0 R`).join(" ");
@@ -773,6 +827,10 @@ function pageContent(
     const x = (trimXMm + run.xMm) * MM_TO_POINTS;
     const y = (mediaHeightMm - trimYMm - run.baselineMm) * MM_TO_POINTS;
     const rise = run.risePt !== undefined ? `${run.risePt.toFixed(3)} Ts ` : "";
+    // `Tc` forma parte del estado de texto y persiste entre objetos: se fija
+    // en cada tramo, incluido el valor cero, para que no se filtre al
+    // siguiente.
+    const characterSpacing = `${(run.letterSpacingPt ?? 0).toFixed(3)} Tc `;
     const embedded = embeddedFonts.get(fontKey(run.family, run.font));
 
     if (embedded) {
@@ -783,7 +841,7 @@ function pageContent(
       }
 
       parts.push(
-        `BT /${embedded.resourceName} ${run.sizePt.toFixed(2)} Tf ${rise}` +
+        `BT /${embedded.resourceName} ${run.sizePt.toFixed(2)} Tf ${characterSpacing}${rise}` +
           `1 0 0 1 ${x.toFixed(3)} ${y.toFixed(3)} Tm ` +
           `${embeddedTextOperator(embedded, preparado.cids, run.wordSpacing, run.sizePt)} ET`,
       );
@@ -798,7 +856,7 @@ function pageContent(
       }
 
       parts.push(
-        `BT /F${fontIndex} ${run.sizePt.toFixed(2)} Tf ${rise}${spacing}1 0 0 1 ${x.toFixed(3)} ${y.toFixed(3)} Tm (${preparado.text}) Tj ET`,
+        `BT /F${fontIndex} ${run.sizePt.toFixed(2)} Tf ${characterSpacing}${rise}${spacing}1 0 0 1 ${x.toFixed(3)} ${y.toFixed(3)} Tm (${preparado.text}) Tj ET`,
       );
     }
 

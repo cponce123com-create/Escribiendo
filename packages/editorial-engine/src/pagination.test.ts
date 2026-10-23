@@ -96,6 +96,69 @@ describe("textBlockSize", () => {
 });
 
 describe("paginate", () => {
+  it("compone el titulo de seccion y no lo repite como encabezado en su pagina", () => {
+    const resultado = paginate(
+      [
+        {
+          id: "t1",
+          kind: "title",
+          text: "Prologo",
+          sectionId: "s1",
+          sectionTitle: "Prologo",
+          startsChapter: true,
+        },
+        bloque("b1", "Primera linea del prologo.", {
+          sectionId: "s1",
+          sectionTitle: "Prologo",
+        }),
+        bloque("b2", palabras(200), {
+          sectionId: "s1",
+          sectionTitle: "Prologo",
+        }),
+      ],
+      { ...GEOMETRY, chapterStartsRecto: false },
+      TIPOGRAFIA,
+    );
+
+    expect(resultado.pages[0]?.blocks[0]?.kind).toBe("title");
+    expect(resultado.pages[0]?.runningHead).toBeNull();
+    expect(resultado.pages.some((page) => page.runningHead === "Prologo")).toBe(true);
+  });
+
+  it("compone un libro de mas de cien paginas conservando titulos y encabezados", () => {
+    const bloques: LayoutBlock[] = [];
+
+    for (let index = 0; index < 120; index += 1) {
+      const sectionId = `s${index}`;
+      const title = `Capitulo ${index + 1}`;
+
+      bloques.push({
+        id: `${sectionId}-t`,
+        kind: "title",
+        text: title,
+        sectionId,
+        sectionTitle: title,
+        startsChapter: index > 0,
+      });
+      bloques.push(
+        bloque(`${sectionId}-b`, palabras(80), {
+          sectionId,
+          sectionTitle: title,
+        }),
+      );
+    }
+
+    const resultado = paginate(bloques, { ...GEOMETRY, chapterStartsRecto: false }, TIPOGRAFIA);
+
+    expect(resultado.pages.length).toBeGreaterThanOrEqual(100);
+    expect(resultado.pages.filter((page) => page.blocks.some((b) => b.kind === "title"))).toHaveLength(
+      120,
+    );
+    expect(
+      resultado.pages.every((page) => page.runningHead === null || page.runningHead.startsWith("Capitulo ")),
+    ).toBe(true);
+  });
+
   it("coloca un texto corto en una sola página", () => {
     const resultado = paginate([bloque("b1", "una página")], GEOMETRY, TIPOGRAFIA);
 

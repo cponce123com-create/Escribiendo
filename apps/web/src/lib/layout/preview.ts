@@ -10,7 +10,9 @@ import {
   type TypographyConfig,
 } from "@escribiendo/editorial-engine";
 import { bookToBlocks, isChapterType, seccionesExportables, type PreviewSection } from "./blocks";
+import { outlineFromPages } from "@/lib/export/pdf-pages";
 import { loadPdfFonts } from "@/lib/export/fonts";
+import { sectionDisplayTitles } from "./section-title";
 import {
   getBookEdition,
   getDefaultLayoutProfile,
@@ -33,6 +35,8 @@ export interface PreviewPage extends LaidOutPage {
 
 export interface PreviewResult {
   pages: PreviewPage[];
+  /** Índice navegable, con el índice de página empezando en cero. */
+  outline: { title: string; pageIndex: number }[];
   diagnostics: LayoutDiagnostic[];
   profile: LayoutProfileSummary;
   template: TemplateSummary | null;
@@ -71,6 +75,10 @@ export async function loadPreviewSections(
       startOnOddPage: true,
       pageBreakBefore: true,
       includeInExport: true,
+      showInToc: true,
+      showTitle: true,
+      showSectionType: true,
+      showSectionNumber: true,
     },
   });
 
@@ -85,6 +93,10 @@ export async function loadPreviewSections(
     startOnOddPage: section.startOnOddPage,
     pageBreakBefore: section.pageBreakBefore,
     includeInExport: section.includeInExport,
+    showInToc: section.showInToc,
+    showTitle: section.showTitle,
+    showSectionType: section.showSectionType,
+    showSectionNumber: section.showSectionNumber,
   }));
 }
 
@@ -122,6 +134,7 @@ export async function buildPreview(
   }
 
   const sections = await loadPreviewSections(session, bookId);
+  const displayTitles = sectionDisplayTitles(sections);
   const blocks = bookToBlocks(sections);
 
   // La tipografía de la plantilla prima sobre la del perfil: la plantilla
@@ -169,6 +182,13 @@ export async function buildPreview(
 
   return {
     pages,
+    outline: outlineFromPages(
+      result.pages,
+      sections.map((section) => ({
+        ...section,
+        displayTitle: displayTitles.get(section.id) ?? null,
+      })),
+    ),
     diagnostics: result.diagnostics,
     profile,
     template: edition?.template ?? null,

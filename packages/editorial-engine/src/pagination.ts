@@ -27,6 +27,7 @@ import {
  */
 
 export type LayoutBlockKind =
+  | "title"
   | "body"
   | "firstParagraph"
   | "heading1"
@@ -188,6 +189,7 @@ function toMm(points: number): number {
 
 function styleFor(config: TypographyConfig, kind: LayoutBlockKind): TypographyStyle {
   switch (kind) {
+    case "title":
     case "heading1":
       return config.heading1;
     case "heading2":
@@ -273,7 +275,12 @@ export function paginate(
       totalHeightMm: heightMm,
       footnotes: currentFootnotes,
       footnotesHeightMm,
-      runningHead: blank ? null : currentRunningHead,
+      // La página que abre un capítulo lleva el título en el cuerpo; repetirlo
+      // como encabezado sería una duplicación visible.
+      runningHead:
+        blank || currentBlocks.some((block) => block.kind === "title")
+          ? null
+          : currentRunningHead,
       blank,
     });
 
@@ -481,7 +488,7 @@ export function paginate(
       hyphenation: style.hyphenation,
       // Los títulos se componen en negrita: si se midieran como redonda, la
       // línea cabría en el cálculo y se saldría en el papel.
-      bold: block.kind.startsWith("heading"),
+      bold: block.kind === "title" || block.kind.startsWith("heading"),
       ...(measure ? { measure } : {}),
     };
 

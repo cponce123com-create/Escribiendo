@@ -1,17 +1,27 @@
 import { describe, expect, it } from "vitest";
 import { bookToBlocks, seccionesExportables, sectionToBlocks, type PreviewSection } from "./blocks";
 
-/** Sección mínima con el contenido indicado. */
-function seccion(content: unknown): PreviewSection {
+/**
+ * Sección mínima para probar la conversión del contenido.
+ *
+ * El título va vacío a propósito: las pruebas de contenido no deben mezclar
+ * el bloque editorial de título. Las pruebas de título lo pasan de forma
+ * explícita.
+ */
+function seccion(content: unknown, title = ""): PreviewSection {
   return {
     id: "s1",
-    title: "Prólogo",
+    title,
     type: "CHAPTER",
     content,
     isChapter: true,
     startOnOddPage: false,
     pageBreakBefore: false,
     includeInExport: true,
+    showInToc: true,
+    showTitle: true,
+    showSectionType: false,
+    showSectionNumber: false,
   };
 }
 
@@ -20,6 +30,95 @@ function documento(...nodes: unknown[]): unknown {
 }
 
 describe("sectionToBlocks", () => {
+  it("inserta el titulo editorial como primer bloque y evita la sangria inicial", () => {
+    const bloques = sectionToBlocks(
+      seccion(
+        documento({
+          type: "paragraph",
+          content: [{ type: "text", text: "El contenido empieza aqui." }],
+        }),
+        "Prologo",
+      ),
+    );
+
+    expect(bloques.map((bloque) => bloque.kind)).toEqual(["title", "firstParagraph"]);
+    expect(bloques[0]?.text).toBe("Prologo");
+    expect(bloques[1]?.text).toBe("El contenido empieza aqui.");
+  });
+
+  it("no duplica el titulo cuando el contenido ya abre con un encabezado equivalente", () => {
+    const bloques = sectionToBlocks(
+      seccion(
+        documento(
+          { type: "paragraph", content: [{ type: "text", text: "" }] },
+          {
+            type: "heading",
+            attrs: { level: 1 },
+            content: [{ type: "text", text: "  PRÓLOGO  " }],
+          },
+          { type: "paragraph", content: [{ type: "text", text: "Cuerpo." }] },
+        ),
+        "Prologo",
+      ),
+    );
+
+    expect(bloques.map((bloque) => bloque.kind)).toEqual(["heading1", "body"]);
+  });
+
+  it("compone etiqueta y numero de capítulo sin numerar el prologo", () => {
+    const contenido = documento({
+      type: "paragraph",
+      content: [{ type: "text", text: "Cuerpo." }],
+    });
+    const prologo: PreviewSection = {
+      ...seccion(contenido, "Prólogo"),
+      id: "p1",
+      type: "PROLOGUE",
+      showSectionType: true,
+    };
+    const primero: PreviewSection = {
+      ...seccion(contenido, "El despertar"),
+      id: "c1",
+      type: "CHAPTER",
+      showSectionType: true,
+      showSectionNumber: true,
+    };
+    const segundo: PreviewSection = {
+      ...seccion(contenido, "La vuelta"),
+      id: "c2",
+      type: "CHAPTER",
+      showSectionNumber: true,
+    };
+
+    const bloques = bookToBlocks([prologo, primero, segundo]);
+    const titulos = bloques.filter((bloque) => bloque.kind === "title").map((bloque) => bloque.text);
+
+    expect(titulos).toEqual(["Prólogo", "Capítulo 1 — El despertar", "2 — La vuelta"]);
+  });
+
+  it("no inserta el titulo cuando el autor lo oculta", () => {
+    const bloques = bookToBlocks([
+      {
+        ...seccion(
+          documento({ type: "paragraph", content: [{ type: "text", text: "Cuerpo." }] }),
+          "Prólogo",
+        ),
+        showTitle: false,
+      },
+    ]);
+
+    expect(bloques.some((bloque) => bloque.kind === "title")).toBe(false);
+    expect(bloques[0]?.kind).toBe("body");
+  });
+
+  it("conserva el titulo aunque el contenido guardado no se pueda leer", () => {
+    const bloques = sectionToBlocks(seccion({ type: "doc", content: "invalido" }, "Epílogo"));
+
+    expect(bloques).toHaveLength(1);
+    expect(bloques[0]?.kind).toBe("title");
+    expect(bloques[0]?.text).toBe("Epílogo");
+  });
+
   it("conserva la negrita y la cursiva en tramos separados", () => {
     const bloques = sectionToBlocks(
       seccion(

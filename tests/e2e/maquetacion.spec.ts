@@ -234,26 +234,39 @@ test.describe("Maquetación", () => {
     await expect(page.getByRole("heading", { name: "Vista previa paginada" })).toBeVisible();
 
     const medida = await page.evaluate(() => {
-      const hoja = document.querySelector<HTMLElement>('[aria-label^="Página "]');
+      const hoja = document.querySelector<HTMLElement>('[aria-label="Página 1"]');
 
       if (!hoja) {
         return null;
       }
 
       const cajaHoja = hoja.getBoundingClientRect();
+      const texto = hoja.querySelector<HTMLElement>("[data-page-text]");
+      const cajaTexto = texto?.getBoundingClientRect();
+      const encabezado = Array.from(
+        document.querySelectorAll<HTMLElement>("[data-page-running-head]"),
+      ).find((elemento) => elemento.textContent?.includes("Capítulo de prueba"));
+      const cajaEncabezado = encabezado?.getBoundingClientRect();
+      const hojaEncabezado = encabezado?.closest<HTMLElement>('[aria-label^="Página "]');
+      const cajaHojaEncabezado = hojaEncabezado?.getBoundingClientRect();
+      const encabezadoEnApertura = hoja.querySelector("[data-page-running-head]");
 
       return {
         ancho: cajaHoja.width,
         alto: cajaHoja.height,
-        hijos: Array.from(hoja.children).map((hijo) => {
-          const caja = hijo.getBoundingClientRect();
-          return {
-            texto: (hijo.textContent ?? "").slice(0, 40),
-            arriba: caja.top - cajaHoja.top,
-            izquierda: caja.left - cajaHoja.left,
-            ancho: caja.width,
-          };
-        }),
+        texto: cajaTexto
+          ? {
+              arriba: cajaTexto.top - cajaHoja.top,
+              ancho: cajaTexto.width,
+            }
+          : null,
+        encabezado:
+          cajaEncabezado && cajaHojaEncabezado
+            ? {
+                arriba: cajaEncabezado.top - cajaHojaEncabezado.top,
+              }
+            : null,
+        encabezadoEnApertura: Boolean(encabezadoEnApertura),
       };
     });
 
@@ -267,18 +280,55 @@ test.describe("Maquetación", () => {
     expect(Math.abs((medida?.ancho ?? 0) - 148 * pxPorMm)).toBeLessThanOrEqual(tolerancia);
     expect(Math.abs((medida?.alto ?? 0) - 210 * pxPorMm)).toBeLessThanOrEqual(tolerancia);
 
-    const texto = medida?.hijos.find((hijo) => hijo.texto.includes("El velo de la tarde caía"));
-    const encabezado = medida?.hijos.find((hijo) => hijo.texto.includes(SECTION_TITLE));
-
-    expect(texto).toBeDefined();
+    expect(medida?.texto).not.toBeNull();
     // Margen superior de 20 mm y ancho del área de texto: 148 − 18 − 14.
-    expect(Math.abs((texto?.arriba ?? 0) - 20 * pxPorMm)).toBeLessThanOrEqual(tolerancia);
-    expect(Math.abs((texto?.ancho ?? 0) - (148 - 18 - 14) * pxPorMm)).toBeLessThanOrEqual(
+    expect(Math.abs((medida?.texto?.arriba ?? 0) - 20 * pxPorMm)).toBeLessThanOrEqual(tolerancia);
+    expect(
+      Math.abs((medida?.texto?.ancho ?? 0) - (148 - 18 - 14) * pxPorMm),
+    ).toBeLessThanOrEqual(tolerancia);
+
+    // El encabezado de página está a 10 mm del borde superior en las páginas
+    // de continuación. La página que abre capítulo no lo repite.
+    expect(medida?.encabezado).not.toBeNull();
+    expect(Math.abs((medida?.encabezado?.arriba ?? 0) - 10 * pxPorMm)).toBeLessThanOrEqual(
       tolerancia,
     );
+    expect(medida?.encabezadoEnApertura).toBe(false);
+  });
 
-    // El encabezado de página está a 10 mm del borde superior.
-    expect(encabezado).toBeDefined();
-    expect(Math.abs((encabezado?.arriba ?? 0) - 10 * pxPorMm)).toBeLessThanOrEqual(tolerancia);
+  test("el título editorial se renombra y muestra tipo y número", async ({ page }) => {
+    await page.goto("/books");
+    await page.getByRole("link", { name: BOOK_TITLE }).click();
+    await page.getByRole("link", { name: SECTION_TITLE }).click();
+
+    await page.getByLabel("Título en el libro").fill("El despertar");
+    await page.getByLabel("Tipo de sección", { exact: true }).check();
+    await page.getByLabel("Número", { exact: true }).check();
+    await page.getByRole("button", { name: "Guardar título" }).click();
+
+    await expect(page.getByText(/Titulo actualizado/)).toBeVisible();
+
+    await openLayout(page);
+    await page.getByRole("link", { name: "Ver la vista previa paginada" }).click();
+
+    await expect(page.getByRole("heading", { name: "Vista previa paginada" })).toBeVisible();
+    await expect(page.getByText("Capítulo 1 — El despertar").first()).toBeVisible();
+  });
+
+  test("ocultar el título no rompe el índice ni el encabezado", async ({ page }) => {
+    await page.goto("/books");
+    await page.getByRole("link", { name: BOOK_TITLE }).click();
+    await page.getByRole("link", { name: "El despertar" }).click();
+
+    await page.getByLabel("Título", { exact: true }).uncheck();
+    await page.getByRole("button", { name: "Guardar título" }).click();
+    await expect(page.getByText(/Titulo actualizado/)).toBeVisible();
+
+    await openLayout(page);
+    await page.getByRole("link", { name: "Ver la vista previa paginada" }).click();
+
+    const paginas = page.getByRole("region", { name: "páginas" });
+    await expect(paginas.locator('[data-block-kind="title"]')).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "índice" })).toContainText("El despertar");
   });
 });

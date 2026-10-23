@@ -77,6 +77,27 @@ export default async function BookPreviewPage({ params }: BookPreviewPageProps) 
         </div>
       </section>
 
+      {preview.outline.length > 0 ? (
+        <section className="panel p-6" aria-label="índice">
+          <p className="meta-label">Índice</p>
+          <h2 className="mt-1.5 font-serif text-2xl text-ink">Secciones del libro</h2>
+          <ol className="mt-5 space-y-2 text-sm text-ink-soft">
+            {preview.outline.map((item) => (
+              <li key={`${item.pageIndex}-${item.title}`} className="flex gap-4">
+                <span className="w-10 shrink-0 text-right font-mono text-xs text-ink-muted">
+                  {item.pageIndex + 1}
+                </span>
+                <span>{item.title}</span>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-4 text-xs leading-relaxed text-ink-muted">
+            Los números remiten a la página de esta vista previa. El PDF exportado lleva los mismos
+            marcadores y el EPUB reproduce esta jerarquía en su índice.
+          </p>
+        </section>
+      ) : null}
+
       <section aria-label="páginas">
         <PaginatedPreview pages={pages} profile={profile} typography={preview.typography} />
       </section>

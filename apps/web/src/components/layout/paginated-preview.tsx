@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import type { LayoutProfileSummary } from "@/lib/layout/profiles";
 import type { PreviewPage } from "@/lib/layout/preview";
 import type { LaidOutBlock, TypographyConfig } from "@escribiendo/editorial-engine";
@@ -15,11 +16,25 @@ import type { LaidOutBlock, TypographyConfig } from "@escribiendo/editorial-engi
 /** Píxeles por milímetro a 96 dpi, la resolución de referencia del CSS. */
 const PX_PER_MM = 96 / 25.4;
 
+/**
+ * La vista previa usa las mismas caras que se incrustan en el PDF.
+ *
+ * No es una preferencia estética: el motor mide con las tablas `hmtx` de
+ * Liberation y el navegador tiene que dibujar con esas mismas métricas. Si
+ * aquí se usara otra fuente, los cortes de línea serían distintos.
+ */
 const FAMILIAS: Record<string, string> = {
-  serif: "var(--font-serif)",
-  "sans-serif": "var(--font-ui)",
-  monospace: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+  serif: '"Liberation Serif", "Times New Roman", serif',
+  "sans-serif": '"Liberation Sans", Arial, sans-serif',
+  monospace: '"Liberation Mono", "Courier New", monospace',
 };
+
+/** Propiedades que equiparan el dibujo del navegador al escritor de PDF. */
+const METRICAS_PDF = {
+  fontKerning: "none",
+  fontVariantLigatures: "none",
+  fontFeatureSettings: '"kern" 0, "liga" 0, "clig" 0',
+} satisfies CSSProperties;
 
 interface PaginatedPreviewProps {
   pages: PreviewPage[];
@@ -43,7 +58,8 @@ export function PaginatedPreview({ pages, profile, typography }: PaginatedPrevie
             pageHeight={pageHeight}
           />
           <figcaption className="text-xs text-ink-muted">
-            Página {page.index} · folio {page.folio} · {page.side === "recto" ? "par" : "impar"}
+            Página {page.index} · folio {page.folio} ·{" "}
+            {page.side === "recto" ? "recto (impar)" : "verso (par)"}
             {page.blank ? " · en blanco" : ""}
           </figcaption>
         </figure>
@@ -91,12 +107,15 @@ function PageSheet({ page, profile, typography, pageWidth, pageHeight }: PageShe
     >
       {page.runningHead ? (
         <div
+          data-page-running-head
           className="absolute text-center text-ink/70"
           style={{
             top: `${profile.headerDistanceMm * PX_PER_MM}px`,
             left: `${leftMarginMm * PX_PER_MM}px`,
             width: `${textWidthMm * PX_PER_MM}px`,
+            fontFamily: FAMILIAS[typography.body.fontFamily] ?? FAMILIAS.serif,
             fontSize: "8pt",
+            ...METRICAS_PDF,
           }}
         >
           {page.runningHead}
@@ -105,6 +124,7 @@ function PageSheet({ page, profile, typography, pageWidth, pageHeight }: PageShe
 
       {page.blank ? null : (
         <div
+          data-page-text
           className="absolute"
           style={{
             top: `${profile.marginTopMm * PX_PER_MM}px`,
@@ -135,7 +155,9 @@ function PageSheet({ page, profile, typography, pageWidth, pageHeight }: PageShe
             bottom: `${profile.footerDistanceMm * PX_PER_MM}px`,
             left: `${leftMarginMm * PX_PER_MM}px`,
             width: `${textWidthMm * PX_PER_MM}px`,
+            fontFamily: FAMILIAS[typography.body.fontFamily] ?? FAMILIAS.serif,
             fontSize: "9pt",
+            ...METRICAS_PDF,
           }}
         >
           {page.folio}
@@ -168,6 +190,7 @@ function FootnoteArea({ page, typography, topMm, leftMm, widthMm }: FootnoteArea
         fontFamily: FAMILIAS[typography.body.fontFamily] ?? FAMILIAS.serif,
         fontSize: `${fontSizePt}pt`,
         lineHeight: `${lineHeightPt}pt`,
+        ...METRICAS_PDF,
       }}
     >
       <div
@@ -203,6 +226,7 @@ function PreviewBlock({ block }: { block: LaidOutBlock }) {
 
   return (
     <div
+      data-block-kind={block.kind}
       style={{
         fontFamily: FAMILIAS[style.fontFamily] ?? FAMILIAS.serif,
         fontSize: `${style.fontSizePt}pt`,
@@ -211,10 +235,12 @@ function PreviewBlock({ block }: { block: LaidOutBlock }) {
         textAlign: alignment,
         textTransform: style.uppercase ? "uppercase" : undefined,
         fontVariantCaps: style.smallCaps ? "small-caps" : undefined,
+        fontWeight: block.kind === "title" || block.kind.startsWith("heading") ? 700 : undefined,
         marginTop: `${block.spaceBeforeMm * PX_PER_MM}px`,
         marginBottom: `${block.spaceAfterMm * PX_PER_MM}px`,
         marginLeft: block.kind === "blockquote" ? "1.5em" : undefined,
         fontStyle: block.kind === "blockquote" ? "italic" : undefined,
+        ...METRICAS_PDF,
       }}
     >
       {block.kind === "rule" ? (
@@ -271,10 +297,19 @@ function PreviewBlock({ block }: { block: LaidOutBlock }) {
                 lineHeight: `${block.imageLayout.captionLineHeightMm * PX_PER_MM}px`,
                 marginTop: `${block.imageLayout.captionGapMm * PX_PER_MM}px`,
                 fontStyle: "italic",
-                textAlign: "center",
+                textAlign:
+                  block.image?.alignment === "left"
+                    ? "left"
+                    : block.image?.alignment === "right"
+                      ? "right"
+                      : "center",
               }}
             >
-              {block.imageLayout.captionLines.join(" ")}
+              {block.imageLayout.captionLines.map((line, index) => (
+                <div key={`${block.id}-caption-${index}`} style={{ whiteSpace: "nowrap" }}>
+                  {line}
+                </div>
+              ))}
             </figcaption>
           ) : null}
         </figure>
@@ -290,7 +325,9 @@ function PreviewBlock({ block }: { block: LaidOutBlock }) {
                 // Cada línea es un bloque propio, así que el justificado del
                 // navegador no se aplica: hay que pedirlo explícitamente. La
                 // última línea del párrafo se deja suelta, como en un libro.
-                textAlignLast: style.alignment === "justify" && !esUltima ? "justify" : alignment,
+                whiteSpace: "nowrap",
+                textAlignLast:
+                  style.alignment === "justify" ? (esUltima ? "left" : "justify") : alignment,
                 ...(line.overflow ? { color: "var(--color-danger, #b3261e)" } : {}),
               }}
             >
@@ -335,7 +372,6 @@ function PreviewBlock({ block }: { block: LaidOutBlock }) {
                     );
                   })
                 : line.text}
-              {line.hyphenated ? "‑" : ""}
             </div>
           );
         })

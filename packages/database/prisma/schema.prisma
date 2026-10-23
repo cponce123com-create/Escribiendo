@@ -273,6 +273,12 @@ model BookSection {
   version          Int       @default(1)
   sortOrder        Int       @default(0)
   showInToc        Boolean   @default(true)
+  /// El titulo editorial se inserta en el cuerpo de la seccion.
+  showTitle        Boolean   @default(true)
+  /// El titulo se acompana con la etiqueta del tipo (Capitulo, Prologo...).
+  showSectionType  Boolean   @default(false)
+  /// El titulo se acompana con el numero correlativo del tipo.
+  showSectionNumber Boolean  @default(false)
   includeInExport  Boolean   @default(true)
   pageBreakBefore  Boolean   @default(false)
   startOnOddPage   Boolean   @default(false)

@@ -1,5 +1,95 @@
 @import "tailwindcss";
 
+/*
+ * Las páginas de la vista previa se dibujan con las mismas caras que el PDF
+ * incrusta. No son fuentes de interfaz: son las métricas reales que usa el
+ * motor de paginación para decidir los cortes de línea.
+ */
+@font-face {
+  font-family: "Liberation Serif";
+  src: url("/fonts/liberation/LiberationSerif-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Liberation Serif";
+  src: url("/fonts/liberation/LiberationSerif-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Liberation Serif";
+  src: url("/fonts/liberation/LiberationSerif-Italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: "Liberation Serif";
+  src: url("/fonts/liberation/LiberationSerif-BoldItalic.ttf") format("truetype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: "Liberation Sans";
+  src: url("/fonts/liberation/LiberationSans-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Liberation Sans";
+  src: url("/fonts/liberation/LiberationSans-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Liberation Sans";
+  src: url("/fonts/liberation/LiberationSans-Italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: "Liberation Sans";
+  src: url("/fonts/liberation/LiberationSans-BoldItalic.ttf") format("truetype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: "Liberation Mono";
+  src: url("/fonts/liberation/LiberationMono-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Liberation Mono";
+  src: url("/fonts/liberation/LiberationMono-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Liberation Mono";
+  src: url("/fonts/liberation/LiberationMono-Italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: "Liberation Mono";
+  src: url("/fonts/liberation/LiberationMono-BoldItalic.ttf") format("truetype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: block;
+}
+
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme inline {

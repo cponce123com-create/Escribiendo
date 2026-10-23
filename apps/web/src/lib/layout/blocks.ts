@@ -12,6 +12,7 @@ import {
 } from "@escribiendo/editorial-engine";
 import { editorialImageFromNode } from "./image";
 import { inlineRuns, listRuns, trimRuns, type FootnoteCounter } from "./inline";
+import { displayTitleForSection, sectionDisplayTitles } from "./section-title";
 
 /**
  * Conversión del manuscrito a bloques de maquetación.
@@ -34,6 +35,16 @@ export interface PreviewSection {
   pageBreakBefore: boolean;
   /** La sección entra en la maqueta y en la exportación. */
   includeInExport: boolean;
+  /** La sección aparece en el índice. */
+  showInToc: boolean;
+  /** El título editorial se inserta en el cuerpo. */
+  showTitle: boolean;
+  /** El título se acompaña con la etiqueta del tipo. */
+  showSectionType: boolean;
+  /** El título se acompaña con el número correlativo. */
+  showSectionNumber: boolean;
+  /** Título ya compuesto con etiqueta y número, si procede. */
+  displayTitle?: string | null;
 }
 
 /**
@@ -78,11 +89,37 @@ export function sectionToBlocks(
   // propia sección; el libro completo debe pasar un contador desde bookToBlocks.
   const counter = footnotes ?? { next: 1 };
   let index = 0;
+  let document: TiptapDocument | null = null;
+
+  try {
+    document = parseTiptapDocument(section.content);
+  } catch {
+    // Un contenido inválido no debe ocultar el título editorial: se conserva
+    // el título y se deja el cuerpo vacío para que la maqueta lo muestre.
+  }
+
+  const baseTitle = section.displayTitle === undefined ? section.title : section.displayTitle;
+  const title =
+    baseTitle === null
+      ? null
+      : displayTitleForSection(baseTitle, document, [section.title]);
 
   const registration = (): Pick<LayoutBlock, "sectionId" | "sectionTitle"> => ({
     sectionId: section.id,
     sectionTitle: section.title,
   });
+
+  if (title) {
+    blocks.push({
+      id: `${section.id}-${index}`,
+      kind: "title",
+      text: title,
+      runs: [{ text: title }],
+      ...registration(),
+      firstOfSection: true,
+    });
+    index += 1;
+  }
 
   const pushRuns = (kind: LayoutBlockKind, runs: InlineRun[]): void => {
     const limpios = trimRuns(runs);
@@ -92,9 +129,14 @@ export function sectionToBlocks(
       return;
     }
 
+    // La primera línea del cuerpo tras el título abre el capítulo sin sangría,
+    // igual que cuando el capítulo no tenía un bloque de título.
+    const effectiveKind: LayoutBlockKind =
+      kind === "body" && title !== null && index === 1 ? "firstParagraph" : kind;
+
     blocks.push({
       id: `${section.id}-${index}`,
-      kind,
+      kind: effectiveKind,
       text,
       runs: limpios,
       ...registration(),
@@ -134,11 +176,7 @@ export function sectionToBlocks(
     index += 1;
   };
 
-  let document: TiptapDocument;
-
-  try {
-    document = parseTiptapDocument(section.content);
-  } catch {
+  if (!document) {
     return blocks;
   }
 
@@ -198,10 +236,14 @@ export function sectionToBlocks(
 export function bookToBlocks(sections: PreviewSection[]): LayoutBlock[] {
   const blocks: LayoutBlock[] = [];
   const footnotes: FootnoteCounter = { next: 1 };
+  const titles = sectionDisplayTitles(sections);
   let chapterSeen = false;
 
   for (const section of sections) {
-    const sectionBlocks = sectionToBlocks(section, footnotes);
+    const sectionBlocks = sectionToBlocks(
+      { ...section, displayTitle: titles.get(section.id) ?? null },
+      footnotes,
+    );
     const opensChapter = section.isChapter && (chapterSeen || section.startOnOddPage);
 
     if (section.isChapter) {

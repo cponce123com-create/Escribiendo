@@ -507,6 +507,129 @@ export async function createSectionAction(
   redirect(`/books/${book.id}/sections/${sectionId}`);
 }
 
+/**
+ * Cambia el titulo editorial de una seccion.
+ *
+ * El titulo forma parte del contenido exportado y del indice; por eso se
+ * revalidan tambien la vista previa y la exportacion. No se incrementa la
+ * version del manuscrito: el texto no ha cambiado y el editor abierto no debe
+ * entrar en conflicto por un renombrado.
+ */
+export async function renameSectionAction(
+  _previousState: LibraryActionState,
+  formData: FormData,
+): Promise<LibraryActionState> {
+  let context: RequestContext | undefined;
+
+  try {
+    context = await assertServerActionOrigin();
+  } catch {
+    return errorState("No se ha podido validar la solicitud.");
+  }
+
+  const session = await getSession();
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  try {
+    assertCanPerform(session.workspace.role, "section:update");
+  } catch {
+    return errorState("No tienes permisos para cambiar el titulo de la seccion.");
+  }
+
+  const sectionId = uuidSchema.safeParse(formValue(formData, "sectionId"));
+  const title = z
+    .string()
+    .trim()
+    .min(1, "El titulo es obligatorio.")
+    .max(300, "El titulo no puede superar los 300 caracteres.");
+
+  if (!sectionId.success) {
+    return errorState("La seccion no es valida.");
+  }
+
+  const parsedTitle = title.safeParse(formValue(formData, "title"));
+
+  if (!parsedTitle.success) {
+    return errorState(firstZodError(parsedTitle.error), zodFieldErrors(parsedTitle.error));
+  }
+
+  const section = await prisma.bookSection.findFirst({
+    where: {
+      id: sectionId.data,
+      deletedAt: null,
+      book: { workspaceId: session.workspace.id, deletedAt: null },
+    },
+    select: {
+      id: true,
+      bookId: true,
+      title: true,
+      showTitle: true,
+      showSectionType: true,
+      showSectionNumber: true,
+    },
+  });
+
+  if (!section) {
+    return errorState("La seccion no existe en este espacio de trabajo.");
+  }
+
+  const showTitle = formData.get("showTitle") === "on";
+  const showSectionType = formData.get("showSectionType") === "on";
+  const showSectionNumber = formData.get("showSectionNumber") === "on";
+  const unchanged =
+    section.title === parsedTitle.data &&
+    section.showTitle === showTitle &&
+    section.showSectionType === showSectionType &&
+    section.showSectionNumber === showSectionNumber;
+
+  if (unchanged) {
+    return successState("El titulo ya esta actualizado.");
+  }
+
+  try {
+    await prisma.bookSection.update({
+      where: { id: section.id },
+      data: {
+        title: parsedTitle.data,
+        showTitle,
+        showSectionType,
+        showSectionNumber,
+      },
+    });
+  } catch (error) {
+    logActionError("books.section_rename_error", context, error);
+    return errorState("No se ha podido guardar el titulo. Intentalo de nuevo.");
+  }
+
+  await writeAuditLog(
+    {
+      action: "BOOK_SECTION_RENAMED",
+      entityType: "BookSection",
+      entityId: section.id,
+      workspaceId: session.workspace.id,
+      actorId: session.user.id,
+      metadata: {
+        previousTitle: section.title,
+        title: parsedTitle.data,
+        showTitle,
+        showSectionType,
+        showSectionNumber,
+      },
+    },
+    context,
+  );
+
+  revalidatePath(`/books/${section.bookId}`);
+  revalidatePath(`/books/${section.bookId}/sections/${section.id}`);
+  revalidatePath(`/books/${section.bookId}/preview`);
+  revalidatePath(`/books/${section.bookId}/export`);
+
+  return successState("Titulo actualizado. La vista previa y las exportaciones ya lo incluyen.");
+}
+
 export async function saveSectionAction(
   _previousState: SectionSaveState,
   formData: FormData,

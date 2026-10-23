@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RevisionList } from "@/components/books/revision-list";
 import { SectionEditor } from "@/components/books/section-editor";
+import { SectionTitleForm } from "@/components/books/section-title-form";
 import { requireSession } from "@/lib/auth/session";
 import { canPerform } from "@/lib/books/permissions";
 import { getSection, getBook, listRevisions } from "@/lib/books/queries";
@@ -64,6 +65,16 @@ export default async function SectionPage({ params }: SectionPageProps) {
         <h1 className="font-serif text-[clamp(1.8rem,3.5vw,2.6rem)] leading-[1.05] text-ink">
           {section.title}
         </h1>
+
+        <SectionTitleForm
+          sectionId={section.id}
+          title={section.title}
+          showTitle={section.showTitle}
+          showSectionType={section.showSectionType}
+          showSectionNumber={section.showSectionNumber}
+          canEdit={canEdit}
+        />
+
         <p className="text-xs text-ink-muted">
           {SECTION_TYPE_LABELS[section.type] ?? section.type} · {formatNumber(section.wordCount)}{" "}
           palabras · versión {section.version}

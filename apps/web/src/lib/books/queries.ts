@@ -204,6 +204,9 @@ export interface SectionDetail {
   version: number;
   sortOrder: number;
   showInToc: boolean;
+  showTitle: boolean;
+  showSectionType: boolean;
+  showSectionNumber: boolean;
   includeInExport: boolean;
   pageBreakBefore: boolean;
   startOnOddPage: boolean;
@@ -244,6 +247,9 @@ export async function getSection(
       version: true,
       sortOrder: true,
       showInToc: true,
+      showTitle: true,
+      showSectionType: true,
+      showSectionNumber: true,
       includeInExport: true,
       pageBreakBefore: true,
       startOnOddPage: true,
