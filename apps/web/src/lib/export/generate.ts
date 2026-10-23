@@ -4,6 +4,7 @@ import {
   buildDocx,
   buildEpub,
   buildPdf,
+  type ExportImage,
   type ExportDocumentModel,
   type ExportImageMap,
   type ImageTarget,
@@ -81,6 +82,8 @@ export interface GenerateInput {
   dropCaps?: boolean;
   /** Imágenes ya resueltas, para pruebas o para una exportación reproducible. */
   images?: ExportImageMap;
+  /** Portada del libro, cuando existe. */
+  cover?: ExportImage;
   /** Fecha de creación del documento; fija el resultado para que sea reproducible. */
   createdAt: Date;
 }
@@ -138,6 +141,9 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
   const sources = sectionBlocks.flatMap((blocks) =>
     blocks.flatMap((block) => (block.image?.src ? [block.image.src] : [])),
   );
+  if (input.cover?.src) {
+    sources.push(input.cover.src);
+  }
   const target: ImageTarget =
     input.format === "EPUB3" ? "epub" : input.format === "DOCX" ? "docx" : "pdf";
   const loadedImages = await loadExportImages({
@@ -211,6 +217,28 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
     );
     const pdfPages = pdfComposition.pdfPages;
 
+    const cover = input.cover;
+    const coverAsset = cover?.src ? loadedImages.assets.get(cover.src) : undefined;
+    if (coverAsset) {
+      pdfPages.unshift({
+        widthMm: input.profile.pageWidthMm,
+        heightMm: input.profile.pageHeightMm,
+        runs: [],
+        images: [
+          {
+            topMm: 0,
+            xMm: 0,
+            widthMm: input.profile.pageWidthMm,
+            heightMm: input.profile.pageHeightMm,
+            data: coverAsset.data,
+            pixelWidth: coverAsset.width,
+            pixelHeight: coverAsset.height,
+            alt: cover?.alt ?? `Portada de ${input.title}`,
+          },
+        ],
+      });
+    }
+
     pageCount = pdfPages.length;
 
     const pdf = buildPdf({
@@ -249,6 +277,7 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
         .slice(0, 32)
         .replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/u, "$1-$2-$3-$4-$5")}`,
       chapters,
+      cover: input.cover,
     };
 
     bytes =

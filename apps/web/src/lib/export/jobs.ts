@@ -12,6 +12,7 @@ import {
 } from "./manuscript";
 import { trabajoInterrumpido } from "./job-estado";
 import { liberarHuecoDeExportacion, reservarHuecoDeExportacion } from "./slot";
+import { getBookCover } from "@/lib/books/covers";
 
 /**
  * Cola de trabajos de exportación.
@@ -141,12 +142,14 @@ export async function requestExport(
   const versions = await currentSectionVersions(session, bookId);
   const manuscript = await loadManuscript(session, bookId, versions);
   const context = await exportContext(session, bookId);
+  const cover = await getBookCover(session, bookId);
   const layoutSnapshot = {
     profile: context.profile,
     typography: context.typography,
     runningHeadTemplate: context.runningHeadTemplate,
     bookTitle: book.title,
     dropCaps,
+    cover: cover ? { url: cover.url, crop: cover.crop } : null,
   };
 
   // La huella incluye el formato y la maqueta: cambian el archivo, de modo
@@ -264,6 +267,7 @@ async function generarExportJob(session: SessionContext, jobId: string): Promise
     const versions = (job.sectionVersions ?? []) as unknown as SectionVersion[];
     const sections = await loadManuscript(session, job.bookId, versions);
     const context = await exportContext(session, job.bookId);
+    const cover = await getBookCover(session, job.bookId);
     const snapshot = readExportLayoutSnapshot(job.options);
 
     const file = await generateFile({
@@ -276,6 +280,7 @@ async function generarExportJob(session: SessionContext, jobId: string): Promise
       runningHeadTemplate: snapshot ? snapshot.runningHeadTemplate : context.runningHeadTemplate,
       bookTitle: snapshot?.bookTitle || book.title,
       dropCaps: snapshot?.dropCaps ?? false,
+      cover: cover ? { src: cover.url, alt: `Portada de ${book.title}` } : undefined,
       createdAt: job.createdAt,
     });
 

@@ -3,10 +3,10 @@ import Link from "next/link";
 import { requireSession } from "@/lib/auth/session";
 import { canPerform } from "@/lib/books/permissions";
 import { countBooks, listBooks, type BookSort } from "@/lib/books/queries";
-import { BOOK_STATUS_LABELS } from "@/lib/ui/format";
-import { formatNumber } from "@/lib/ui/format";
+import { BOOK_STATUS_LABELS, formatDate, formatNumber } from "@/lib/ui/format";
 import { LibraryIcon } from "@/components/icons";
 import { DeleteBookButton } from "@/components/books/delete-book-button";
+import { coverObjectPosition } from "@/lib/books/covers";
 
 export const metadata: Metadata = {
   title: "Biblioteca",
@@ -156,47 +156,78 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
           {books.map((book) => (
             <li key={book.id} className="panel p-5">
               <Link href={`/books/${book.id}`} className="block transition-colors hover:opacity-80">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="eyebrow">{BOOK_STATUS_LABELS[book.status]}</p>
-                    <h2 className="mt-2 font-serif text-xl text-ink">{book.title}</h2>
-                    {book.subtitle ? (
-                      <p className="mt-1 text-sm italic text-ink-soft">{book.subtitle}</p>
-                    ) : null}
-                    <p className="mt-2 text-xs text-ink-muted">
-                      {book.penName ? `${book.penName} · ` : ""}
-                      {book.authorName}
-                      {book.genre ? ` · ${book.genre}` : ""}
-                    </p>
+                <div className="grid gap-4 sm:grid-cols-[5.5rem_minmax(0,1fr)]">
+                  <div className="book-cover-thumb">
+                    {book.cover ? (
+                      // Cloudinary entrega la imagen ya optimizada; no necesita otra transformación.
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={book.cover.url}
+                        alt={`Portada de ${book.title}`}
+                        className="book-cover-thumb-image"
+                        style={{ objectPosition: coverObjectPosition(book.cover.crop) }}
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span className="book-cover-placeholder">Sin portada definitiva</span>
+                    )}
                   </div>
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="eyebrow">{BOOK_STATUS_LABELS[book.status]}</p>
+                      <h2 className="mt-2 font-serif text-xl text-ink">{book.title}</h2>
+                      {book.subtitle ? (
+                        <p className="mt-1 text-sm italic text-ink-soft">{book.subtitle}</p>
+                      ) : null}
+                      <p className="mt-2 text-xs text-ink-muted">
+                        {book.penName ? `${book.penName} · ` : ""}
+                        {book.authorName}
+                        {book.genre ? ` · ${book.genre}` : ""}
+                      </p>
+                      <p className="mt-2 text-xs text-ink-muted">
+                        Modificado {formatDate(book.updatedAt)}
+                      </p>
+                    </div>
 
-                  <dl className="grid shrink-0 grid-cols-3 gap-5 text-right">
-                    <div>
-                      <dt className="meta-label">Palabras</dt>
-                      <dd className="mt-1 font-serif text-lg tabular-nums text-ink">
-                        {formatNumber(book.wordCount)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="meta-label">Secciones</dt>
-                      <dd className="mt-1 font-serif text-lg tabular-nums text-ink">
-                        {formatNumber(book.sectionCount)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="meta-label">Progreso</dt>
-                      <dd className="mt-1 font-serif text-lg tabular-nums text-ink">
-                        {book.targetWordCount ? `${book.writingProgress}%` : "—"}
-                      </dd>
-                    </div>
-                  </dl>
+                    <dl className="grid shrink-0 grid-cols-3 gap-5 text-right">
+                      <div>
+                        <dt className="meta-label">Palabras</dt>
+                        <dd className="mt-1 font-serif text-lg tabular-nums text-ink">
+                          {formatNumber(book.wordCount)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="meta-label">Secciones</dt>
+                        <dd className="mt-1 font-serif text-lg tabular-nums text-ink">
+                          {formatNumber(book.sectionCount)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="meta-label">Progreso</dt>
+                        <dd className="mt-1 font-serif text-lg tabular-nums text-ink">
+                          {book.targetWordCount ? `${book.writingProgress}%` : "—"}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
                 </div>
               </Link>
               {canDelete && book.status === "DRAFT" ? (
                 <div className="mt-4 flex justify-end border-t border-line pt-4">
-                  <DeleteBookButton bookId={book.id} title={book.title} />
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Link className="btn btn-primary btn-sm" href={`/books/${book.id}`}>
+                      Continuar escribiendo
+                    </Link>
+                    <DeleteBookButton bookId={book.id} title={book.title} />
+                  </div>
                 </div>
-              ) : null}
+              ) : (
+                <div className="mt-4 flex justify-end border-t border-line pt-4">
+                  <Link className="btn btn-secondary btn-sm" href={`/books/${book.id}`}>
+                    Continuar escribiendo
+                  </Link>
+                </div>
+              )}
             </li>
           ))}
         </ul>

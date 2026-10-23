@@ -3,6 +3,7 @@ import type { BookStatus, Prisma } from "@escribiendo/database";
 import { prisma } from "@/lib/db";
 import type { SessionContext } from "@/lib/auth/session";
 import { buildSectionTree, type SectionNode } from "./section-tree";
+import { getBookCovers, type BookCoverSummary } from "./covers";
 
 /**
  * Lecturas de la biblioteca.
@@ -36,6 +37,7 @@ export interface BookListItem {
   updatedAt: Date;
   createdAt: Date;
   sectionCount: number;
+  cover: BookCoverSummary | null;
 }
 
 function orderBy(sort: BookSort): Prisma.BookOrderByWithRelationInput[] {
@@ -95,6 +97,8 @@ export async function listBooks(
     },
   });
 
+  const covers = await getBookCovers(session, books.map((book) => book.id));
+
   return books.map((book) => ({
     id: book.id,
     title: book.title,
@@ -111,6 +115,7 @@ export async function listBooks(
     updatedAt: book.updatedAt,
     createdAt: book.createdAt,
     sectionCount: book._count.sections,
+    cover: covers.get(book.id) ?? null,
   }));
 }
 
@@ -138,6 +143,7 @@ export interface BookDetail {
   createdAt: Date;
   updatedAt: Date;
   createdBy: { id: string; name: string };
+  cover: BookCoverSummary | null;
 }
 
 /** Ficha de un libro, o `null` si no existe en este espacio de trabajo. */
@@ -168,7 +174,8 @@ export async function getBook(session: SessionContext, bookId: string): Promise<
     return null;
   }
 
-  return { ...book, writingProgress: Number(book.writingProgress) };
+  const cover = await getBookCovers(session, [book.id]);
+  return { ...book, writingProgress: Number(book.writingProgress), cover: cover.get(book.id) ?? null };
 }
 
 /** Árbol de secciones de un libro. */
