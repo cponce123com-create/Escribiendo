@@ -9,7 +9,13 @@ import { canPerform } from "@/lib/books/permissions";
 import { getBook, getSectionTree } from "@/lib/books/queries";
 import { flattenSectionTree } from "@/lib/books/section-tree";
 import { coverObjectPosition } from "@/lib/books/covers";
-import { BOOK_STATUS_LABELS, SECTION_TYPE_LABELS, formatDate, formatNumber } from "@/lib/ui/format";
+import {
+  BOOK_STATUS_LABELS,
+  SECTION_TYPE_LABELS,
+  formatDate,
+  formatNumber,
+  formatPercent,
+} from "@/lib/ui/format";
 
 export const metadata: Metadata = {
   title: "Ficha del libro",
@@ -154,7 +160,7 @@ export default async function BookPage({ params }: BookPageProps) {
         <div className="stat-card">
           <p className="meta-label">Progreso</p>
           <p className="mt-4 font-serif text-3xl tabular-nums text-ink">
-            {book.targetWordCount ? `${book.writingProgress.toFixed(2)}%` : "—"}
+            {book.targetWordCount ? formatPercent(book.writingProgress) : "—"}
           </p>
           <p className="mt-1 text-xs text-ink-muted">
             {BOOK_STATUS_LABELS[book.status] ?? book.status}

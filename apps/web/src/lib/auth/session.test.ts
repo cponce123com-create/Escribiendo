@@ -61,10 +61,23 @@ vi.mock("@/lib/auth/tokens", () => ({
 
 vi.mock("@/lib/errors", () => ({
   isAppError: vi.fn((e) => e?.name === "ConfigurationError"),
-  ConfigurationError: class extends Error { constructor(m: string) { super(m); this.name = "ConfigurationError"; } },
+  ConfigurationError: class extends Error {
+    constructor(m: string) {
+      super(m);
+      this.name = "ConfigurationError";
+    }
+  },
 }));
 
-import { createSession, destroyCurrentSession, revokeOtherSessions, getSession, switchWorkspace, requireSession, requireWorkspaceAdmin } from "./session";
+import {
+  createSession,
+  destroyCurrentSession,
+  revokeOtherSessions,
+  getSession,
+  switchWorkspace,
+  requireSession,
+  requireWorkspaceAdmin,
+} from "./session";
 import type { SessionContext } from "./session";
 
 describe("auth session", () => {
@@ -109,12 +122,12 @@ describe("auth session", () => {
             userId: "user-1",
             tokenHash: "hash-test-token",
           }),
-        })
+        }),
       );
       expect(mockCookies.set).toHaveBeenCalledWith(
         "escribiendo_session",
         "test-token",
-        expect.objectContaining({ httpOnly: true, path: "/" })
+        expect.objectContaining({ httpOnly: true, path: "/" }),
       );
     });
 
@@ -126,7 +139,7 @@ describe("auth session", () => {
       expect(mockPrisma.session.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ workspaceId: "ws-2" }),
-        })
+        }),
       );
     });
   });
@@ -244,7 +257,7 @@ describe("auth session", () => {
     it("lanza ConfigurationError si falta esquema BD", async () => {
       mockCookies.get.mockReturnValue({ value: "test-token" });
       const { esEsquemaDesactualizado } = await import("@escribiendo/database");
-      (esEsquemaDesactualizado as any).mockReturnValue(true);
+      vi.mocked(esEsquemaDesactualizado).mockReturnValue(true);
       mockPrisma.session.findUnique.mockRejectedValue(new Error("P2021"));
 
       await expect(getSession()).rejects.toMatchObject({ name: "ConfigurationError" });
@@ -290,7 +303,9 @@ describe("auth session", () => {
   describe("requireSession", () => {
     it("lanza redirect si no hay sesión", async () => {
       const { redirect } = await import("next/navigation");
-      (redirect as any).mockImplementation(() => { throw new Error("REDIRECT"); });
+      vi.mocked(redirect).mockImplementation(() => {
+        throw new Error("REDIRECT");
+      });
 
       mockCookies.get.mockReturnValue(undefined);
 
@@ -331,7 +346,9 @@ describe("auth session", () => {
 
     it("redirige si no es admin", async () => {
       const { redirect } = await import("next/navigation");
-      (redirect as any).mockImplementation(() => { throw new Error("REDIRECT"); });
+      vi.mocked(redirect).mockImplementation(() => {
+        throw new Error("REDIRECT");
+      });
 
       const session: SessionContext = {
         sessionId: "s1",

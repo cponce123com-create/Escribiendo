@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TYPOGRAPHY_CONFIG, paginate, type PageGeometry } from "@escribiendo/editorial-engine";
+import {
+  DEFAULT_TYPOGRAPHY_CONFIG,
+  paginate,
+  type PageGeometry,
+} from "@escribiendo/editorial-engine";
 import { outlineFromPages } from "./pdf-pages";
 
 const GEOMETRY: PageGeometry = {

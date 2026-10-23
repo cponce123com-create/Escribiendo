@@ -55,7 +55,15 @@ vi.mock("@/lib/books/covers", () => ({
   getBookCovers: vi.fn().mockResolvedValue(new Map()),
 }));
 
-import { listBooks, countBooks, getBook, getSectionTree, getSection, listRevisions, getRevisionContent } from "./queries";
+import {
+  listBooks,
+  countBooks,
+  getBook,
+  getSectionTree,
+  getSection,
+  listRevisions,
+  getRevisionContent,
+} from "./queries";
 
 describe("books queries", () => {
   beforeEach(() => {
@@ -105,7 +113,7 @@ describe("books queries", () => {
       expect(mockPrisma.book.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ workspaceId: "workspace-1", deletedAt: null }),
-        })
+        }),
       );
     });
 
@@ -117,7 +125,7 @@ describe("books queries", () => {
       expect(mockPrisma.book.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ status: "COMPLETE" }),
-        })
+        }),
       );
     });
 
@@ -130,7 +138,11 @@ describe("books queries", () => {
       expect(call.where).toHaveProperty("OR");
       const orConditions = call.where.OR;
       expect(orConditions).toHaveLength(5);
-      expect(orConditions.some((c: any) => c.title?.contains === "mi libro")).toBe(true);
+      expect(
+        orConditions.some(
+          (c: { title?: { contains?: string } }) => c.title?.contains === "mi libro",
+        ),
+      ).toBe(true);
     });
 
     it("ordena por reciente por defecto", async () => {
@@ -141,7 +153,7 @@ describe("books queries", () => {
       expect(mockPrisma.book.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           orderBy: [{ updatedAt: "desc" }],
-        })
+        }),
       );
     });
 
@@ -153,7 +165,7 @@ describe("books queries", () => {
       expect(mockPrisma.book.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           orderBy: [{ title: "asc" }],
-        })
+        }),
       );
     });
 
@@ -165,7 +177,7 @@ describe("books queries", () => {
       expect(mockPrisma.book.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           orderBy: [{ wordCount: "desc" }, { title: "asc" }],
-        })
+        }),
       );
     });
   });
@@ -193,7 +205,7 @@ describe("books queries", () => {
       expect(mockPrisma.book.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: "book-999", workspaceId: "workspace-1", deletedAt: null },
-        })
+        }),
       );
     });
 
@@ -250,7 +262,7 @@ describe("books queries", () => {
             bookId: "book-1",
             book: { workspaceId: "workspace-1", deletedAt: null },
           }),
-        })
+        }),
       );
     });
   });
@@ -270,7 +282,7 @@ describe("books queries", () => {
             deletedAt: null,
             book: { workspaceId: "workspace-1", deletedAt: null },
           }),
-        })
+        }),
       );
     });
 
@@ -299,7 +311,7 @@ describe("books queries", () => {
               book: { id: "book-1", workspaceId: "workspace-1", deletedAt: null },
             },
           }),
-        })
+        }),
       );
     });
   });
@@ -320,7 +332,7 @@ describe("books queries", () => {
               book: { id: "book-1", workspaceId: "workspace-1", deletedAt: null },
             },
           }),
-        })
+        }),
       );
     });
   });

@@ -14,6 +14,8 @@ import { resolveRunningHeads } from "./running-heads";
 import { previewLineDrawings, type PreviewLineDrawing } from "./preview-drawing";
 import { loadPdfFonts } from "@/lib/export/fonts";
 import { outlineFromPages } from "@/lib/export/pdf-pages";
+import { getBookCover } from "@/lib/books/covers";
+import type { CoverCrop } from "@/lib/books/cover-shared";
 import {
   getBookEdition,
   getDefaultLayoutProfile,
@@ -43,6 +45,13 @@ export interface PreviewOutlineItem {
   pageIndex: number;
 }
 
+/** Portada que abre el archivo, con el recorte elegido por el autor. */
+export interface PreviewCover {
+  url: string;
+  alt: string;
+  crop: CoverCrop;
+}
+
 export interface PreviewResult {
   pages: PreviewPage[];
   diagnostics: LayoutDiagnostic[];
@@ -51,6 +60,10 @@ export interface PreviewResult {
   typography: TypographyConfig;
   /** Índice del libro: las secciones visibles, con su página. */
   outline: PreviewOutlineItem[];
+  /** Portada que abre el archivo, si el libro tiene una. */
+  cover: PreviewCover | null;
+  /** Si la composición incluye la inicial capitular, como el PDF. */
+  dropCaps: boolean;
   /** Secciones que se han compuesto. */
   sectionCount: number;
   /** Palabras del manuscrito. */
@@ -75,7 +88,7 @@ export async function loadPreviewSections(
       deletedAt: null,
       book: { workspaceId: session.workspace.id, deletedAt: null },
     },
-    orderBy: [{ sortOrder: "asc" }, { title: "asc" }],
+    orderBy: [{ sortOrder: "asc" }, { title: "asc" }, { id: "asc" }],
     select: {
       id: true,
       title: true,
@@ -126,6 +139,12 @@ export function geometryFromProfile(profile: LayoutProfileSummary): PageGeometry
   };
 }
 
+/** Opciones de composición de la vista previa. */
+export interface PreviewOptions {
+  /** Compone la inicial capitular del primer párrafo, como el PDF. */
+  dropCaps?: boolean;
+}
+
 /**
  * Compone la vista previa de un libro.
  *
@@ -135,6 +154,7 @@ export function geometryFromProfile(profile: LayoutProfileSummary): PageGeometry
 export async function buildPreview(
   session: SessionContext,
   bookId: string,
+  options: PreviewOptions = {},
 ): Promise<PreviewResult | null> {
   const edition = await getBookEdition(session, bookId);
   const profile = edition?.profile ?? (await getDefaultLayoutProfile(session));
@@ -143,8 +163,9 @@ export async function buildPreview(
     return null;
   }
 
+  const dropCaps = options.dropCaps === true;
   const sections = await loadPreviewSections(session, bookId);
-  const blocks = bookToBlocks(sections);
+  const blocks = bookToBlocks(sections, { dropCaps });
 
   // La tipografía de la plantilla prima sobre la del perfil: la plantilla
   // describe el estilo editorial y el perfil la geometría.
@@ -185,9 +206,17 @@ export async function buildPreview(
     };
   });
 
+  // La portada ocupa la primera página del archivo: el índice se desplaza
+  // para que sus números apunten a la página física, igual que en el PDF.
+  const cover = await getBookCover(session, bookId);
+  const coverShift = cover ? 1 : 0;
+
   // El índice que se enseña aquí es el mismo que llevarán los marcadores del
   // PDF exportado: una sola historia entre pantalla y archivo.
-  const outline = outlineFromPages(result.pages, sections);
+  const outline = outlineFromPages(result.pages, sections).map((item) => ({
+    ...item,
+    pageIndex: item.pageIndex + coverShift,
+  }));
 
   return {
     pages,
@@ -196,6 +225,10 @@ export async function buildPreview(
     template: edition?.template ?? null,
     typography,
     outline,
+    cover: cover
+      ? { url: cover.url, alt: `Portada de ${tituloLibro || "el libro"}`, crop: cover.crop }
+      : null,
+    dropCaps,
     sectionCount: sections.length,
     wordCount: blocks.reduce((total, block) => total + (block.text.match(/\S+/gu)?.length ?? 0), 0),
     usingDefaultProfile: !edition?.profile,

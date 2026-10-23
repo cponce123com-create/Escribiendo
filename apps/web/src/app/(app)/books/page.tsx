@@ -3,7 +3,7 @@ import Link from "next/link";
 import { requireSession } from "@/lib/auth/session";
 import { canPerform } from "@/lib/books/permissions";
 import { countBooks, listBooks, type BookSort } from "@/lib/books/queries";
-import { BOOK_STATUS_LABELS, formatDate, formatNumber } from "@/lib/ui/format";
+import { BOOK_STATUS_LABELS, formatDate, formatNumber, formatPercent } from "@/lib/ui/format";
 import { LibraryIcon } from "@/components/icons";
 import { DeleteBookButton } from "@/components/books/delete-book-button";
 import { coverObjectPosition } from "@/lib/books/covers";
@@ -205,7 +205,7 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
                       <div>
                         <dt className="meta-label">Progreso</dt>
                         <dd className="mt-1 font-serif text-lg tabular-nums text-ink">
-                          {book.targetWordCount ? `${book.writingProgress.toFixed(2)}%` : "—"}
+                          {book.targetWordCount ? formatPercent(book.writingProgress) : "—"}
                         </dd>
                       </div>
                     </dl>

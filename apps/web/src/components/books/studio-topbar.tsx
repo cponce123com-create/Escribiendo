@@ -46,8 +46,8 @@ export function StudioSearch() {
       </button>
       <input
         ref={input}
-        aria-label="Buscar en el manuscrito"
-        placeholder="Buscar en el manuscrito…"
+        aria-label="Buscar en el capítulo actual"
+        placeholder="Buscar en el capítulo actual…"
         value={query}
         onChange={(event) => {
           const nextQuery = event.target.value;

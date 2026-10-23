@@ -265,35 +265,35 @@ Las siguientes reglas son **inmutables en tiempo de ejecución**; cualquier escr
 directa en base de datos o cambio de código debe respetarlas. Se aplican en las
 Server Actions y, donde es posible, con constraints `CHECK` en PostgreSQL.
 
-| Invariante | Dónde se aplica | Qué impide |
-| --- | --- | --- |
-| **Progreso derivado** | `recomputeBookTotals` (actions.ts:73) | `wordCount`, `chapterCount`, `writingProgress` **nunca** se escriben a mano; siempre se recalculan desde `book_sections` y `targetWordCount`. |
-| **Revisiones inmutables** | Trigger PG + `persistSectionContent` (actions.ts:133) | Una revisión existente **no se modifica**; restaurar crea una revisión nueva con `reason: "RESTORE"`. |
-| **Transiciones de estado válidas** | `canTransitionTo` (status.ts:24) + `changeBookStatusAction` (actions.ts:1095) | No se puede saltar de `DRAFT`/`IN_PROGRESS` a `COMPLETE` sin pasar por `REVIEW`; `ARCHIVED` solo vuelve a `DRAFT`. |
-| **Aislamiento multi-tenant** | Todas las queries/actions (`workspaceId` de sesión) | Ninguna consulta ni mutación cruza datos entre workspaces. |
-| **Soft-delete consistente** | Todas las queries (`deletedAt: null`) + actions | Los borrados lógicos se filtran siempre; `deleteSectionAction` borra en cascada descendientes. |
-| **Concurrencia optimista en secciones** | `saveSectionAction` (actions.ts:679) | Si la versión del servidor ≠ versión esperada, se devuelve conflicto; solo `force: true` lo sobrescribe. |
-| **Autosave throttle** | `saveSectionAction` (actions.ts:702) | Mínimo 45 s entre autoguardados de la misma sección. |
-| **Dedup análisis de personajes** | `saveSectionAction` (actions.ts:748) | `CharacterAnalysisTask` único por `(sectionId, contentHash)`. |
-| **Idempotencia exportaciones** | `ExportJob` unique `(bookId, idempotencyKey)` | Reintentar la misma exportación no crea duplicados. |
-| **Email normalizado** | `emailSchema` (shared/validation.ts:21) | Emails siempre en lowercase antes de escribir; `UNIQUE` efectivamente case-insensitive. |
-| **Eliminación solo admin** | `canPerform` (permissions.ts:90) | `book:delete` y `section:delete` requieren `OWNER`/`ADMIN`. |
-| **Exportación solo editorial** | `canPerform` (permissions.ts:72) | `export:create` y `layout:manage` requieren `OWNER`/`ADMIN`/`EDITOR` (`PUBLISH_ROLES`). |
+| Invariante                              | Dónde se aplica                                                               | Qué impide                                                                                                                                    |
+| --------------------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Progreso derivado**                   | `recomputeBookTotals` (actions.ts:73)                                         | `wordCount`, `chapterCount`, `writingProgress` **nunca** se escriben a mano; siempre se recalculan desde `book_sections` y `targetWordCount`. |
+| **Revisiones inmutables**               | Trigger PG + `persistSectionContent` (actions.ts:133)                         | Una revisión existente **no se modifica**; restaurar crea una revisión nueva con `reason: "RESTORE"`.                                         |
+| **Transiciones de estado válidas**      | `canTransitionTo` (status.ts:24) + `changeBookStatusAction` (actions.ts:1095) | No se puede saltar de `DRAFT`/`IN_PROGRESS` a `COMPLETE` sin pasar por `REVIEW`; `ARCHIVED` solo vuelve a `DRAFT`.                            |
+| **Aislamiento multi-tenant**            | Todas las queries/actions (`workspaceId` de sesión)                           | Ninguna consulta ni mutación cruza datos entre workspaces.                                                                                    |
+| **Soft-delete consistente**             | Todas las queries (`deletedAt: null`) + actions                               | Los borrados lógicos se filtran siempre; `deleteSectionAction` borra en cascada descendientes.                                                |
+| **Concurrencia optimista en secciones** | `saveSectionAction` (actions.ts:679)                                          | Si la versión del servidor ≠ versión esperada, se devuelve conflicto; solo `force: true` lo sobrescribe.                                      |
+| **Autosave throttle**                   | `saveSectionAction` (actions.ts:702)                                          | Mínimo 45 s entre autoguardados de la misma sección.                                                                                          |
+| **Dedup análisis de personajes**        | `saveSectionAction` (actions.ts:748)                                          | `CharacterAnalysisTask` único por `(sectionId, contentHash)`.                                                                                 |
+| **Idempotencia exportaciones**          | `ExportJob` unique `(bookId, idempotencyKey)`                                 | Reintentar la misma exportación no crea duplicados.                                                                                           |
+| **Email normalizado**                   | `emailSchema` (shared/validation.ts:21)                                       | Emails siempre en lowercase antes de escribir; `UNIQUE` efectivamente case-insensitive.                                                       |
+| **Eliminación solo admin**              | `canPerform` (permissions.ts:90)                                              | `book:delete` y `section:delete` requieren `OWNER`/`ADMIN`.                                                                                   |
+| **Exportación solo editorial**          | `canPerform` (permissions.ts:72)                                              | `export:create` y `layout:manage` requieren `OWNER`/`ADMIN`/`EDITOR` (`PUBLISH_ROLES`).                                                       |
 
 ### Reglas de autorización por rol
 
-| Acción | OWNER | ADMIN | EDITOR | AUTHOR | REVIEWER |
-| --- | --- | --- | --- | --- | --- |
-| `book:create/update/changeStatus` | ✅ | ✅ | ✅ | ✅ | ❌ |
-| `book:delete` | ✅ | ✅ | ❌ | ❌ | ❌ |
-| `book:approve` | ✅ | ✅ | ✅ | ❌ | ❌ |
-| `section:create/update/move` | ✅ | ✅ | ✅ | ✅ | ❌ |
-| `section:delete` | ✅ | ✅ | ❌ | ❌ | ❌ |
-| `revision:restore` | ✅ | ✅ | ✅ | ❌ | ❌ |
-| `comment:create` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `comment:resolve` | ✅ | ✅ | ✅ | ✅ | ❌ |
-| `layout:manage` / `export:create` | ✅ | ✅ | ✅ | ❌ | ❌ |
-| `team:manage` / `audit:export` | ✅ | ✅ | ❌ | ❌ | ❌ |
-| `story:manage` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Acción                            | OWNER | ADMIN | EDITOR | AUTHOR | REVIEWER |
+| --------------------------------- | ----- | ----- | ------ | ------ | -------- |
+| `book:create/update/changeStatus` | ✅    | ✅    | ✅     | ✅     | ❌       |
+| `book:delete`                     | ✅    | ✅    | ❌     | ❌     | ❌       |
+| `book:approve`                    | ✅    | ✅    | ✅     | ❌     | ❌       |
+| `section:create/update/move`      | ✅    | ✅    | ✅     | ✅     | ❌       |
+| `section:delete`                  | ✅    | ✅    | ❌     | ❌     | ❌       |
+| `revision:restore`                | ✅    | ✅    | ✅     | ❌     | ❌       |
+| `comment:create`                  | ✅    | ✅    | ✅     | ✅     | ✅       |
+| `comment:resolve`                 | ✅    | ✅    | ✅     | ✅     | ❌       |
+| `layout:manage` / `export:create` | ✅    | ✅    | ✅     | ❌     | ❌       |
+| `team:manage` / `audit:export`    | ✅    | ✅    | ❌     | ❌     | ❌       |
+| `story:manage`                    | ✅    | ✅    | ✅     | ✅     | ❌       |
 
 > **Nota**: Esta tabla es la fuente de verdad; el tipo `LibraryAction` sale de `ACCIONES` en `permissions.ts`.

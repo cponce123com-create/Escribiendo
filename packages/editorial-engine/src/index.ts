@@ -48,7 +48,12 @@ export {
   type InlineRun,
   type RichLine,
 } from "./rich-text";
-export { baselineCorrectionPt, textLinePlacement, type TextLinePlacement } from "./drawing";
+export {
+  baselineCorrectionPt,
+  dropCapCorrectionPt,
+  textLinePlacement,
+  type TextLinePlacement,
+} from "./drawing";
 export {
   DEFAULT_IMAGE_WIDTH_PERCENT,
   IMAGE_CAPTION_GAP_MM,

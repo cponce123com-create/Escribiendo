@@ -114,6 +114,19 @@ export function formatNumber(value: number): string {
   return new Intl.NumberFormat("es-ES").format(value);
 }
 
+const PERCENT_FORMATTER = new Intl.NumberFormat("es-ES", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/**
+ * Formatea un porcentaje con la coma decimal española y dos decimales, que es
+ * la precisión con la que se guarda el progreso del libro.
+ */
+export function formatPercent(value: number): string {
+  return `${PERCENT_FORMATTER.format(value)}%`;
+}
+
 /**
  * Resume el agente de usuario para la lista de sesiones. No intenta ser un
  * detector de dispositivos exhaustivo; solo evita mostrar cadenas enormes.

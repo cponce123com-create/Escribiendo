@@ -1,5 +1,4 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { z } from "zod";
 
 const { mockPrisma, mockSession, mockContext } = vi.hoisted(() => {
   const mockPrisma = {
@@ -87,8 +86,13 @@ vi.mock("@/lib/logger", () => ({
   logger: { error: vi.fn(), warn: vi.fn() },
 }));
 
-import { createBookAction, createSectionAction, deleteSectionAction, moveSectionAction } from "./actions";
-import type { LibraryActionState } from "./action-state";
+import {
+  createBookAction,
+  createSectionAction,
+  deleteSectionAction,
+  moveSectionAction,
+  updateBookAction,
+} from "./actions";
 import { getSession } from "@/lib/auth/session";
 import { assertServerActionOrigin } from "@/lib/security/request-context";
 import { redirect } from "next/navigation";
@@ -145,7 +149,7 @@ describe("books actions", () => {
             workspaceId: "workspace-1",
             createdById: "user-1",
           }),
-        })
+        }),
       );
       // La acción redirige a la ficha del libro. En Next.js `redirect` corta
       // la ejecución: no existe un estado de éxito que devolver.
@@ -153,8 +157,7 @@ describe("books actions", () => {
     });
 
     it("rechaza si el usuario no tiene permisos", async () => {
-      const { getSession } = await import("@/lib/auth/session");
-      (getSession as any).mockResolvedValueOnce({
+      vi.mocked(getSession).mockResolvedValueOnce({
         ...mockSession,
         workspace: { ...mockSession.workspace, role: "REVIEWER" },
       });
@@ -304,18 +307,16 @@ describe("books actions", () => {
     it("reintenta si PostgreSQL aborta por conflicto de serialización", async () => {
       let attempts = 0;
 
-      mockPrisma.$transaction.mockImplementation(
-        async (cb: (tx: typeof mockPrisma) => unknown) => {
-          attempts += 1;
-          const value = await cb(mockPrisma);
+      mockPrisma.$transaction.mockImplementation(async (cb: (tx: typeof mockPrisma) => unknown) => {
+        attempts += 1;
+        const value = await cb(mockPrisma);
 
-          if (attempts === 1) {
-            throw Object.assign(new Error("conflicto"), { code: "P2034" });
-          }
+        if (attempts === 1) {
+          throw Object.assign(new Error("conflicto"), { code: "P2034" });
+        }
 
-          return value;
-        },
-      );
+        return value;
+      });
       mockPrisma.bookSection.findFirst.mockImplementation(
         async ({ where }: { where: { id?: string } }) =>
           where.id === ids.section ? sectionRow() : null,
@@ -360,12 +361,80 @@ describe("books actions", () => {
         }),
       );
     });
+
+    it("recalcula los totales del libro al crear una sección", async () => {
+      mockPrisma.book.findFirst.mockResolvedValue({ id: ids.book });
+      mockPrisma.bookSection.findFirst.mockResolvedValue(null);
+      mockPrisma.bookSection.create.mockResolvedValue({ id: ids.section });
+      mockPrisma.$transaction.mockImplementation(async (cb: (tx: typeof mockPrisma) => unknown) =>
+        cb(mockPrisma),
+      );
+      mockPrisma.bookSection.aggregate.mockResolvedValue({ _sum: { wordCount: 0 } });
+      mockPrisma.bookSection.count.mockResolvedValue(3);
+      mockPrisma.book.findUniqueOrThrow.mockResolvedValue({ targetWordCount: 50_000 });
+      mockPrisma.book.update.mockResolvedValue({});
+
+      await createSectionAction(
+        { status: "idle" },
+        makeFormData({ bookId: ids.book, title: "Capítulo", type: "CHAPTER" }),
+      );
+
+      expect(mockPrisma.bookSection.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ bookId: ids.book, type: "CHAPTER" }),
+        }),
+      );
+      // La ficha del libro debe ver el capítulo nuevo sin esperar al próximo
+      // guardado del manuscrito.
+      expect(mockPrisma.book.update).toHaveBeenCalledWith({
+        where: { id: ids.book },
+        data: { wordCount: 0, chapterCount: 3, writingProgress: 0 },
+      });
+      expect(redirect).toHaveBeenCalledWith(`/books/${ids.book}/sections/${ids.section}`);
+    });
+  });
+
+  describe("updateBookAction", () => {
+    it("recalcula el progreso cuando cambia el objetivo de palabras", async () => {
+      mockPrisma.$transaction.mockImplementation(async (cb: (tx: typeof mockPrisma) => unknown) =>
+        cb(mockPrisma),
+      );
+      mockPrisma.book.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.bookSection.aggregate.mockResolvedValue({ _sum: { wordCount: 50_000 } });
+      mockPrisma.bookSection.count.mockResolvedValue(10);
+      mockPrisma.book.findUniqueOrThrow.mockResolvedValue({ targetWordCount: 60_000 });
+      mockPrisma.book.update.mockResolvedValue({});
+
+      const result = await updateBookAction(
+        { status: "idle" },
+        makeFormData({
+          bookId: ids.book,
+          title: "Mi libro",
+          authorName: "Autor",
+          language: "es",
+          targetWordCount: "60000",
+        }),
+      );
+
+      expect(result.status).toBe("success");
+      expect(mockPrisma.book.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ targetWordCount: 60_000 }),
+        }),
+      );
+      // 50.000 palabras sobre un objetivo de 60.000 son un 83,33 %, no el
+      // porcentaje que se calculó con el objetivo anterior.
+      expect(mockPrisma.book.update).toHaveBeenCalledWith({
+        where: { id: ids.book },
+        data: { wordCount: 50_000, chapterCount: 10, writingProgress: 83.33 },
+      });
+    });
   });
 
   describe("deleteSectionAction", () => {
     beforeEach(() => {
-      mockPrisma.$transaction.mockImplementation(
-        async (cb: (tx: typeof mockPrisma) => unknown) => cb(mockPrisma),
+      mockPrisma.$transaction.mockImplementation(async (cb: (tx: typeof mockPrisma) => unknown) =>
+        cb(mockPrisma),
       );
       mockPrisma.bookSection.aggregate.mockResolvedValue({ _sum: { wordCount: 0 } });
       mockPrisma.bookSection.count.mockResolvedValue(0);
@@ -385,10 +454,7 @@ describe("books actions", () => {
         .mockResolvedValueOnce([{ id: ids.child }])
         .mockResolvedValueOnce([]);
 
-      await deleteSectionAction(
-        { status: "idle" },
-        makeFormData({ sectionId: ids.section }),
-      );
+      await deleteSectionAction({ status: "idle" }, makeFormData({ sectionId: ids.section }));
 
       expect(mockPrisma.bookSection.findMany).toHaveBeenCalledWith(
         expect.objectContaining({

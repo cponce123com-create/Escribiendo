@@ -108,18 +108,13 @@ export interface SectionTitleInput {
  *
  * Si el autor ya escribió la etiqueta en el título, no se repite.
  */
-export function composeSectionTitle(
-  section: SectionTitleInput,
-  number?: number,
-): string | null {
+export function composeSectionTitle(section: SectionTitleInput, number?: number): string | null {
   if (!section.showTitle) {
     return null;
   }
 
   const title = section.title.trim();
-  const label = section.showSectionType
-    ? (SECTION_TYPE_LABELS[section.type] ?? "").trim()
-    : "";
+  const label = section.showSectionType ? (SECTION_TYPE_LABELS[section.type] ?? "").trim() : "";
   const numberText =
     section.showSectionNumber && number !== undefined && number > 0 ? String(number) : "";
   const prefix = [label, numberText].filter(Boolean).join(" ");
