@@ -110,6 +110,9 @@ export function SectionEditor({
 
   const machineRef = useRef(machine);
   const versionRef = useRef(version);
+  const latestContentRef = useRef(JSON.stringify(content));
+  const flushPendingRef = useRef<() => void>(() => undefined);
+  const flushAfterRequestRef = useRef(false);
   const localVersionRef = useRef(0);
   /** Número de la petición en curso: descarta respuestas fuera de orden. */
   const requestRef = useRef(0);
@@ -151,7 +154,8 @@ export function SectionEditor({
         ...(canEdit ? {} : { "aria-readonly": "true" }),
       },
     },
-    onUpdate: () => {
+    onUpdate: ({ editor: current }) => {
+      latestContentRef.current = JSON.stringify(current.getJSON());
       if (!canEdit) {
         return;
       }
@@ -341,7 +345,7 @@ export function SectionEditor({
       const formData = new FormData();
       formData.set("sectionId", sectionId);
       formData.set("version", String(versionRef.current));
-      formData.set("content", JSON.stringify(editorActual.getJSON()));
+      formData.set("content", latestContentRef.current);
       formData.set("intent", intent);
 
       if (forzar) {
@@ -402,6 +406,11 @@ export function SectionEditor({
         }
 
         dispatch({ type: "sync-offline" });
+      } finally {
+        if (flushAfterRequestRef.current && peticion === requestRef.current) {
+          flushAfterRequestRef.current = false;
+          flushPendingRef.current();
+        }
       }
     },
     [bookId, canEdit, dispatch, editor, router, sectionId, userId],
@@ -499,9 +508,42 @@ export function SectionEditor({
     };
   }, [dispatch, sincronizar]);
 
+  // Conserva una instantánea antes de abandonar la página, incluso durante un envío.
+  useEffect(() => {
+    flushPendingRef.current = () => {
+      if (!canEdit || !hasUnsavedWork(machineRef.current)) return;
+      void saveDraft({
+        key: `${userId}:${bookId}:${sectionId}`,
+        userId,
+        bookId,
+        sectionId,
+        baseVersion: versionRef.current,
+        serverVersion: versionRef.current,
+        localVersion: localVersionRef.current,
+        content: latestContentRef.current,
+        updatedAt: new Date().toISOString(),
+        syncState: "local",
+      });
+      if (machineRef.current.state === "syncing") {
+        flushAfterRequestRef.current = true;
+      } else if (machineRef.current.state !== "conflict") {
+        void sincronizar("manual");
+      }
+    };
+  }, [bookId, canEdit, sectionId, sincronizar, userId]);
+
+  useEffect(() => {
+    const onHidden = () => {
+      if (document.visibilityState === "hidden") flushPendingRef.current();
+    };
+    document.addEventListener("visibilitychange", onHidden);
+    return () => document.removeEventListener("visibilitychange", onHidden);
+  }, []);
+
   // Limpieza de los temporizadores al desmontar.
   useEffect(
     () => () => {
+      flushPendingRef.current();
       if (localTimer.current !== null) {
         window.clearTimeout(localTimer.current);
       }
