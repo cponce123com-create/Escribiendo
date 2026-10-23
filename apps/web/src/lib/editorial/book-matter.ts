@@ -14,6 +14,7 @@ import {
 } from "@escribiendo/templates";
 import type { SessionContext } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { sectionToBlocks } from "@/lib/layout/blocks";
 import type { MatterLayout, PreviewSection } from "@/lib/layout/blocks";
 import { legalPageToBlocks, tocToBlocks } from "./matter-blocks";
 
@@ -41,6 +42,7 @@ export interface BookMatter {
   hasCopyrightSection: boolean;
   legalPageMode?: "TEMPLATE" | "MANUAL" | "DISABLED";
   legalPageSectionId?: string | null;
+  manualLegalLayout?: MatterLayout;
   legalTemplateVersion?: number;
   frozenLegal?: ReturnType<typeof buildLegalPage>;
 }
@@ -317,7 +319,56 @@ export async function loadBookMatter(
     ["cc-by", "cc-by-sa", "cc-by-nc", "cc-by-nc-nd", "cc0"].includes(license)
   )
     legal.license = license as LegalPageInput["license"];
-  const mode = settingString(edition?.settings, "legalPageMode");
+  const rows = await prisma.editorialMatter.findMany({
+    where: {
+      bookId,
+      kind: "COPYRIGHT",
+      deletedAt: null,
+      book: { workspaceId: session.workspace.id, deletedAt: null },
+    },
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+  });
+  const legalRow =
+    rows.find((row) => settingsRecord(row.data).editionId === edition?.id) ??
+    rows.find((row) => !settingsRecord(row.data).editionId);
+  const mode =
+    settingString(edition?.settings, "legalPageMode") ??
+    (legalRow?.enabled === false ? "DISABLED" : legalRow?.mode);
+  const manualId = settingString(edition?.settings, "legalPageSectionId") ?? legalRow?.sectionId;
+  let manualLegalLayout: MatterLayout | undefined;
+  if (mode === "MANUAL" && manualId) {
+    const section = await prisma.bookSection.findFirst({
+      where: {
+        id: manualId,
+        bookId,
+        deletedAt: null,
+        book: { workspaceId: session.workspace.id, deletedAt: null },
+      },
+      select: { id: true, title: true, type: true, content: true },
+    });
+    if (section) {
+      const blocks = sectionToBlocks({
+        ...section,
+        isChapter: false,
+        startOnOddPage: false,
+        pageBreakBefore: true,
+        includeInExport: true,
+        showInToc: false,
+        showTitle: false,
+        showSectionType: false,
+        showSectionNumber: false,
+      });
+      manualLegalLayout = {
+        id: section.id,
+        blocks: blocks.map((block, index) => ({
+          ...block,
+          sectionId: section.id,
+          firstOfSection: index === 0,
+          breaksBefore: index === 0,
+        })),
+      };
+    }
+  }
   const tocSources: TocSource[] = sections.map((section) => ({
     id: section.id,
     title: section.title,
@@ -343,7 +394,8 @@ export async function loadBookMatter(
         : mode === "TEMPLATE"
           ? "TEMPLATE"
           : undefined,
-    legalPageSectionId: settingString(edition?.settings, "legalPageSectionId"),
+    legalPageSectionId: manualId,
+    ...(manualLegalLayout ? { manualLegalLayout } : {}),
     legalTemplateVersion:
       typeof settingsRecord(edition?.settings).legalPageTemplateVersion === "number"
         ? (settingsRecord(edition?.settings).legalPageTemplateVersion as number)
@@ -366,6 +418,8 @@ export function composeMatter(
   pageBySection: ReadonlyMap<string, number>,
 ): ComposedMatter {
   const front: MatterLayout[] = [];
+  if (matter.legalPageMode === "MANUAL" && matter.manualLegalLayout)
+    front.push(matter.manualLegalLayout);
 
   if (
     matter.legalPageMode !== "DISABLED" &&
@@ -416,4 +470,17 @@ export function composeMatter(
       .flatMap((matterLayout) => matterLayout.blocks.map((block) => block.text))
       .join("|"),
   };
+}
+
+/** Excluye únicamente las materias sustituidas de la composición, nunca del manuscrito. */
+export function sectionsForMatter<T extends { id: string; type: string }>(
+  sections: readonly T[],
+  matter: BookMatter | null,
+): T[] {
+  if (!matter) return [...sections];
+  return sections.filter((section) => {
+    if (matter.legalPageMode && section.type === "COPYRIGHT") return false;
+    if (matter.legalPageMode === "MANUAL" && section.id === matter.legalPageSectionId) return false;
+    return true;
+  });
 }

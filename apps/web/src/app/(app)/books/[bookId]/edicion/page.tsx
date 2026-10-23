@@ -78,7 +78,7 @@ export default async function EditionMatterPage({
           Object.keys(LEGAL_FIELD_LABELS).map((key) => [
             key,
             (matter?.legal as unknown as Record<string, string | number | null> | null)?.[key] ??
-              "",
+              (key === "copyrightYear" ? null : ""),
           ]),
         )}
         sections={sections.map((section) => ({ id: section.id, title: section.title }))}

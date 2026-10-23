@@ -1,5 +1,6 @@
 "use client";
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionState, useCallback, useEffect, useState, useTransition } from "react";
+import type { PreviewResult } from "@/lib/layout/preview";
 import Link from "next/link";
 import { LEGAL_FIELD_LABELS } from "@/lib/editorial/template-settings";
 import { useRouter } from "next/navigation";
@@ -19,7 +20,7 @@ import { MatterSheet } from "./matter-sheet";
 import { LegalClausesField } from "./legal-clauses-field";
 
 type PreviewData = {
-  preview: import("@/lib/layout/preview").PreviewResult | null;
+  preview: PreviewResult | null;
   warnings: NonNullable<Awaited<ReturnType<typeof legalGalleryPreview>>>["warnings"];
 } | null;
 export function LegalTemplateGallery({
@@ -38,7 +39,7 @@ export function LegalTemplateGallery({
 }: {
   bookId: string;
   cards: Array<{
-    preview: import("@/lib/layout/preview").PreviewResult | null;
+    preview: PreviewResult | null;
     warnings: NonNullable<PreviewData>["warnings"];
     slug: string;
   }>;
@@ -57,6 +58,7 @@ export function LegalTemplateGallery({
   const [fields, setFields] = useState(initialFields);
   const [slug, setSlug] = useState(selected);
   const [open, setOpen] = useState(false);
+  const closeDialog = useCallback(() => setOpen(false), []);
   const [clauses, setClauses] = useState(initialClauses);
   const [license, setLicense] = useState(initialLicense);
   const [current, setCurrent] = useState<PreviewData>(
@@ -128,7 +130,10 @@ export function LegalTemplateGallery({
                   name="legal-gallery"
                   value={item.slug}
                   checked={slug === item.slug}
-                  onChange={() => choose(item.slug)}
+                  onChange={() => {
+                    setSlug(item.slug);
+                    setCurrent(cards.find((card) => card.slug === item.slug) ?? null);
+                  }}
                 />
                 <strong>{item.name}</strong>
               </div>
@@ -190,7 +195,7 @@ export function LegalTemplateGallery({
       <Dialog
         abierto={open}
         titulo={LEGAL_TEMPLATE_CATALOG.find((item) => item.slug === slug)?.name ?? "Página legal"}
-        onCerrar={() => setOpen(false)}
+        onCerrar={closeDialog}
       >
         <div className="max-h-[70vh] space-y-4 overflow-y-auto">
           <MatterSheet preview={current?.preview ?? null} />

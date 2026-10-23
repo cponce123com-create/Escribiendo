@@ -19,6 +19,8 @@ import {
   type PreviewSection,
 } from "./blocks";
 import {
+  sectionsForMatter,
+  type BookMatter,
   EMPTY_MATTER,
   composeMatter,
   loadBookMatter,
@@ -158,7 +160,7 @@ export function geometryFromProfile(profile: LayoutProfileSummary): PageGeometry
 export interface PreviewOptions {
   /** Compone la inicial capitular del primer párrafo, como el PDF. */
   dropCaps?: boolean;
-  matterOverride?: import("@/lib/editorial/book-matter").BookMatter;
+  matterOverride?: BookMatter;
 }
 
 /**
@@ -195,7 +197,11 @@ export async function buildPreview(
   const cover = await getBookCover(session, bookId);
   const geometry = { ...geometryFromProfile(profile), physicalPageOffset: cover ? 1 : 0 };
   const compose = (front: readonly MatterLayout[], back: readonly MatterLayout[]): LayoutBlock[] =>
-    bookToBlocks(sections, { dropCaps, frontMatter: front, backMatter: back });
+    bookToBlocks(sectionsForMatter(sections, matter), {
+      dropCaps,
+      frontMatter: front,
+      backMatter: back,
+    });
 
   // Primera pasada: materias sin páginas. Después se estabiliza el índice,
   // porque sus propias páginas desplazan el cuerpo que numera.

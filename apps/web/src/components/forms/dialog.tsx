@@ -31,7 +31,24 @@ export function Dialog({ abierto, titulo, descripcion, onCerrar, children }: Dia
       return;
     }
 
+    const previousFocus = document.activeElement as HTMLElement | null;
     const alPulsar = (evento: KeyboardEvent): void => {
+      if (evento.key === "Tab") {
+        const focusable = Array.from(
+          contenedor.current?.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex="0"]',
+          ) ?? [],
+        );
+        const first = focusable[0],
+          last = focusable.at(-1);
+        if (evento.shiftKey && document.activeElement === first) {
+          evento.preventDefault();
+          last?.focus();
+        } else if (!evento.shiftKey && document.activeElement === last) {
+          evento.preventDefault();
+          first?.focus();
+        }
+      }
       if (evento.key === "Escape") {
         onCerrar();
       }
@@ -40,7 +57,10 @@ export function Dialog({ abierto, titulo, descripcion, onCerrar, children }: Dia
     document.addEventListener("keydown", alPulsar);
     contenedor.current?.querySelector<HTMLElement>("input, textarea, button")?.focus();
 
-    return () => document.removeEventListener("keydown", alPulsar);
+    return () => {
+      document.removeEventListener("keydown", alPulsar);
+      previousFocus?.focus();
+    };
   }, [abierto, onCerrar]);
 
   if (!abierto) {

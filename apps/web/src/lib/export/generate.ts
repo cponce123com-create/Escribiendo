@@ -13,6 +13,7 @@ import { paginate, withTypographyDefaults, type PageGeometry } from "@escribiend
 import { getBookEdition, getDefaultLayoutProfile } from "@/lib/layout/profiles";
 import { bookToBlocks, isChapterType, type MatterLayout } from "@/lib/layout/blocks";
 import {
+  sectionsForMatter,
   EMPTY_MATTER,
   composeMatter,
   pageFolioBySection,
@@ -219,7 +220,7 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
       showSectionNumber: section.showSectionNumber,
     }));
     const compose = (front: readonly MatterLayout[], back: readonly MatterLayout[]) =>
-      bookToBlocks(previewSections, {
+      bookToBlocks(sectionsForMatter(previewSections, input.matter ?? null), {
         dropCaps: input.dropCaps === true,
         frontMatter: front,
         backMatter: back,

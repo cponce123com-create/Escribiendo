@@ -1,3 +1,4 @@
+import type { BookMatter } from "@/lib/editorial/book-matter";
 import type { PdfLayoutProfile } from "./pdf-layout";
 import type { RunningHeadTemplate } from "@/lib/layout/running-heads";
 import type { CoverCrop } from "@/lib/books/cover-shared";
@@ -10,7 +11,7 @@ export interface ExportCoverSnapshot {
 
 /** Datos de maquetación que fijan la apariencia de una exportación. */
 export interface ExportLayoutSnapshot {
-  matter?: import("@/lib/editorial/book-matter").BookMatter | null;
+  matter?: BookMatter | null;
   profile: PdfLayoutProfile | null;
   typography: unknown;
   runningHeadTemplate: RunningHeadTemplate | null;
@@ -95,9 +96,7 @@ export function readExportLayoutSnapshot(options: unknown): ExportLayoutSnapshot
   const hasCoverSnapshot = "cover" in layout;
 
   return {
-    ...("matter" in layout
-      ? { matter: layout.matter as import("@/lib/editorial/book-matter").BookMatter | null }
-      : {}),
+    ...("matter" in layout ? { matter: layout.matter as BookMatter | null } : {}),
     profile: layout.profile as PdfLayoutProfile | null,
     typography: layout.typography,
     runningHeadTemplate,
