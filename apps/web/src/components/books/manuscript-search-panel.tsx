@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { searchBookManuscriptAction, replaceBookManuscriptAction } from "@/lib/books/manuscript-search-actions";
 import type { ManuscriptMatch } from "@/lib/books/manuscript-search";
@@ -10,10 +10,12 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
   const [replacement, setReplacement] = useState("");
   const [matches, setMatches] = useState<ManuscriptMatch[]>([]);
   const [message, setMessage] = useState("");
+  const searchRequest = useRef(0);
   const [pending, startTransition] = useTransition();
   const total = useMemo(() => matches.reduce((sum, item) => sum + item.count, 0), [matches]);
 
   useEffect(() => {
+    const requestId = ++searchRequest.current;
     const needle = query.trim();
     if (!needle) {
       setMatches([]);
@@ -23,11 +25,15 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
     const timer = window.setTimeout(() => {
       startTransition(async () => {
         const result = await searchBookManuscriptAction(bookId, needle);
+        if (searchRequest.current !== requestId) return;
         setMatches(result);
         setMessage(result.length ? `${result.reduce((sum, item) => sum + item.count, 0)} coincidencias en ${result.length} secciones` : "No se encontraron coincidencias.");
       });
     }, 220);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      searchRequest.current += 1;
+    };
   }, [bookId, query]);
 
   const replaceAll = (): void => {
