@@ -64,8 +64,8 @@ export default async function CharactersPage({ searchParams }: CharactersPagePro
         </p>
       </header>
 
-      <section className="panel p-5" aria-label="Filtros de personajes">
-        <form method="get" className="grid gap-4 sm:grid-cols-[2fr_1.4fr_2fr_auto] sm:items-end">
+      <section className="panel filter-panel p-5" aria-label="Filtros de personajes">
+        <form method="get" className="studio-filters">
           <div>
             <label className="field-label" htmlFor="character-book">
               Libro
@@ -118,7 +118,7 @@ export default async function CharactersPage({ searchParams }: CharactersPagePro
             />
           </div>
 
-          <div className="flex gap-2">
+          <div className="studio-filter-actions">
             <button type="submit" className="btn btn-secondary">
               Filtrar
             </button>

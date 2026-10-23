@@ -53,8 +53,8 @@ export default async function PlanningPage({ searchParams }: PlanningPageProps) 
         </p>
       </header>
 
-      <section className="panel p-5" aria-label="Filtros de planificación">
-        <form method="get" className="grid gap-4 sm:grid-cols-[2fr_2fr_auto] sm:items-end">
+      <section className="panel filter-panel p-5" aria-label="Filtros de planificación">
+        <form method="get" className="studio-filters studio-filters-compact">
           <div>
             <label className="field-label" htmlFor="plan-book">
               Libro
@@ -88,7 +88,7 @@ export default async function PlanningPage({ searchParams }: PlanningPageProps) 
             />
           </div>
 
-          <div className="flex gap-2">
+          <div className="studio-filter-actions">
             <button type="submit" className="btn btn-secondary">
               Filtrar
             </button>

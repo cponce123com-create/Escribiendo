@@ -73,15 +73,21 @@ export default async function StatsPage() {
 
           <ul className="mt-5 space-y-1.5">
             {stats.days.map((day) => (
-              <li key={day.date} className="flex items-center gap-3 text-xs">
-                <span className="w-24 shrink-0 font-mono text-ink-muted">{day.date}</span>
-                <span
-                  className="h-3 shrink-0 rounded-sm bg-accent/70"
-                  style={{
-                    width: `${maxWords > 0 ? Math.max(2, (day.words / maxWords) * 100) : 2}%`,
-                  }}
-                />
-                <span className="shrink-0 tabular-nums text-ink-soft">{day.words}</span>
+              <li key={day.date} className="writing-activity-row text-xs">
+                <time dateTime={day.date} className="font-mono text-ink-muted">
+                  {day.date}
+                </time>
+                <span className="writing-activity-track" aria-hidden="true">
+                  <span
+                    className="writing-activity-bar"
+                    style={{
+                      width: `${maxWords > 0 ? Math.min(100, Math.max(0, (day.words / maxWords) * 100)) : 0}%`,
+                    }}
+                  />
+                </span>
+                <span className="writing-activity-value tabular-nums text-ink-soft">
+                  {formatNumber(day.words)}
+                </span>
               </li>
             ))}
           </ul>
