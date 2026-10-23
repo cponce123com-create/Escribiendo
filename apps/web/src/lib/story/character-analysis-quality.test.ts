@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   analyzeAndFilterCharacterCandidates,
   filterCharacterCandidates,
+  obsoleteCharacterSuggestionIds,
 } from "./character-analysis-quality";
 import {
   analyzeNarrative,
@@ -131,6 +132,27 @@ describe("quality gate for incremental character suggestions", () => {
 
     expect(names).not.toContain("Hola");
     expect(names).toContain("María Fernanda Ríos");
+  });
+
+  it("retira sugerencias pendientes que el filtro actualizado rechaza", () => {
+    const sectionText =
+      "—Hola, Clara —dijo Andrés. —Hola, Andrés —respondió Clara. —Hola, Clara —repitió Andrés. " +
+      "María Fernanda Ríos llegó al pueblo. María Fernanda Ríos habló con Clara. " +
+      "María Fernanda Ríos volvió a casa.";
+    const candidates = analyzeAndFilterCharacterCandidates(
+      [{ title: "Capítulo tres", text: sectionText }],
+      { bookTitle: "Novela", existingCharacterNames: [] },
+    );
+
+    expect(
+      obsoleteCharacterSuggestionIds(
+        [
+          { id: "hola", normalizedName: "hola" },
+          { id: "maria-fernanda", normalizedName: "maria fernanda rios" },
+        ],
+        candidates,
+      ),
+    ).toEqual(["hola"]);
   });
 
   it("keeps repeated, well-formed names while suppressing common words", () => {
