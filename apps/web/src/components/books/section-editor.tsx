@@ -28,6 +28,7 @@ import { SectionConflictPanel } from "@/components/books/section-conflict";
 import { EditorToolbar } from "@/components/books/editor-toolbar";
 import { SectionImageControls } from "@/components/books/section-image-controls";
 import { EditorialFootnote } from "@/components/editor/editorial-footnote";
+import { ManuscriptSearchHighlights, manuscriptSearchPluginKey } from "@/components/editor/manuscript-search-highlights";
 import { EditorialImage } from "@/components/editor/editorial-image";
 import { StudioIcon } from "./studio-icon";
 import { readingMinutes, textMatches } from "@/lib/books/studio";
@@ -130,6 +131,7 @@ export function SectionEditor({
       }),
       EditorialImage,
       EditorialFootnote,
+      ManuscriptSearchHighlights,
     ],
     content,
     // El editor se inicializa en el cliente: sin esta opción, Next.js
@@ -171,6 +173,7 @@ export function SectionEditor({
     const search = (event: Event): void => {
       if (!(event instanceof CustomEvent) || typeof event.detail !== "string" || !editor) return;
       const query = event.detail;
+      editor.view.dispatch(editor.state.tr.setMeta(manuscriptSearchPluginKey, query));
       const matches: Array<{ from: number; to: number }> = [];
       editor.state.doc.descendants((node, position) => {
         if (node.isTextblock) {
