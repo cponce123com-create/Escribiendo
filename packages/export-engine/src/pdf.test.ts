@@ -203,6 +203,59 @@ describe("buildPdf", () => {
     // 60 mm de línea base son 150 mm: 425,197 puntos.
     expect(text).toContain("1 0 0 1 51.024 425.197 Tm");
   });
+
+  it("escribe los marcadores de navegacion y los enlaza con sus paginas", () => {
+    const text = asText(
+      buildPdf({
+        ...DOCUMENT,
+        outline: [
+          { title: "Capitulo uno", pageIndex: 0 },
+          { title: "Capitulo dos", pageIndex: 1 },
+        ],
+      }),
+    );
+
+    expect(text).toContain("/Type /Outlines");
+    expect(text).toContain("/PageMode /UseOutlines");
+    // Los títulos se escriben en UTF-16 para no depender de WinAnsi.
+    expect(text).toContain("/Title <FEFF");
+    expect(text).toContain("/Dest [8 0 R /Fit]");
+    expect(text).toContain("/Next 14 0 R");
+  });
+
+  it("aplica el espaciado entre caracteres y lo reinicia en cada tramo", () => {
+    const text = contenido(
+      buildPdf({
+        ...DOCUMENT,
+        pages: [
+          {
+            widthMm: 148,
+            heightMm: 210,
+            runs: [
+              {
+                text: "Con espacio",
+                font: "regular",
+                sizePt: 11,
+                xMm: 18,
+                baselineMm: 40,
+                letterSpacingPt: 1.25,
+              },
+              {
+                text: "Sin espacio",
+                font: "regular",
+                sizePt: 11,
+                xMm: 18,
+                baselineMm: 60,
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    expect(text).toContain("1.250 Tc");
+    expect(text).toContain("0.000 Tc");
+  });
 });
 
 describe("toWinAnsi", () => {

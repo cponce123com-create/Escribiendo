@@ -38,6 +38,8 @@ export interface ExportBlock {
   text: string;
   /** Tramos con formato. Si falta, se usa `text` tal cual. */
   runs?: ExportInlineRun[];
+  /** Nivel del encabezado de contenido, de 1 a 4. */
+  level?: number;
   /** Referencia de la imagen, cuando `kind` es `image`. */
   image?: ExportImage;
 }
@@ -45,6 +47,10 @@ export interface ExportBlock {
 export interface ExportChapter {
   id: string;
   title: string;
+  /** Si falta, se incluye en el índice. */
+  showInToc?: boolean;
+  /** Sección padre, para reproducir la jerarquía del índice. */
+  parentId?: string | null;
   /** `false` evita agregar automáticamente el título de la sección. */
   showTitle?: boolean;
   /** Compone una inicial destacada en el primer párrafo del capítulo. */
@@ -218,7 +224,8 @@ function chapterXhtml(
     }
 
     if (block.kind === "heading") {
-      body.push(`<h2>${inlineContent(block)}</h2>`);
+      const level = Math.min(4, Math.max(1, block.level ?? 2));
+      body.push(`<h${level}>${inlineContent(block)}</h${level}>`);
       continue;
     }
 
@@ -422,12 +429,50 @@ export function buildEpub(
     ),
   });
 
-  const navItems = chapters
-    .map(
-      (chapter, index) =>
-        `      <li><a href="text/chapter-${String(index + 1).padStart(3, "0")}.xhtml">${escapeXml(chapter.title)}</a></li>`,
-    )
-    .join("\n");
+  // El índice reproduce la jerarquía de secciones, pero solo con las que el
+  // autor ha dejado visibles. Si un padre está oculto, sus hijos visibles se
+  // enganchan al primer ancestro visible para no perder información.
+  const chapterIndex = new Map(chapters.map((chapter, index) => [chapter.id, index]));
+  const byId = new Map(chapters.map((chapter) => [chapter.id, chapter]));
+  const visible = chapters.filter((chapter) => chapter.showInToc !== false);
+  const visibleIds = new Set(visible.map((chapter) => chapter.id));
+  const children = new Map<string, ExportChapter[]>();
+  const roots: ExportChapter[] = [];
+
+  for (const chapter of visible) {
+    let parentId = chapter.parentId ?? null;
+    const visitados = new Set<string>();
+
+    while (parentId && !visibleIds.has(parentId) && !visitados.has(parentId)) {
+      visitados.add(parentId);
+      parentId = byId.get(parentId)?.parentId ?? null;
+    }
+
+    if (parentId && visibleIds.has(parentId) && parentId !== chapter.id) {
+      const siblings = children.get(parentId) ?? [];
+      siblings.push(chapter);
+      children.set(parentId, siblings);
+    } else {
+      roots.push(chapter);
+    }
+  }
+
+  const renderNav = (items: readonly ExportChapter[], trail: ReadonlySet<string>): string =>
+    items
+      .filter((chapter) => !trail.has(chapter.id))
+      .map((chapter) => {
+        const index = chapterIndex.get(chapter.id) ?? 0;
+        const descendants = children.get(chapter.id) ?? [];
+        const nested =
+          descendants.length > 0
+            ? `\n        <ol>\n${renderNav(descendants, new Set([...trail, chapter.id]))}\n        </ol>\n      `
+            : "";
+
+        return `      <li><a href="text/chapter-${String(index + 1).padStart(3, "0")}.xhtml">${escapeXml(chapter.title)}</a>${nested}</li>`;
+      })
+      .join("\n");
+
+  const navItems = renderNav(roots, new Set());
 
   entries.push({
     name: "EPUB/nav.xhtml",

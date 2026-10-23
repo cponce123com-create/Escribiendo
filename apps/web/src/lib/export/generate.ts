@@ -18,6 +18,7 @@ import { sectionToBlocks } from "./manuscript";
 import { loadExportImages } from "./images";
 import { loadPdfFonts } from "./fonts";
 import { toPdfPages, type PdfLayoutProfile } from "./pdf-layout";
+import { outlineFromPages } from "./pdf-pages";
 import { chaptersForReflowableFormats } from "./chapter-titles";
 import type { RunningHeadTemplate } from "@/lib/layout/running-heads";
 
@@ -198,6 +199,10 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
         startOnOddPage: section.startOnOddPage,
         pageBreakBefore: section.pageBreakBefore,
         includeInExport: section.includeInExport,
+        showInToc: section.showInToc,
+        showTitle: section.showTitle,
+        showSectionType: section.showSectionType,
+        showSectionNumber: section.showSectionNumber,
       })),
       { dropCaps: input.dropCaps === true },
     );
@@ -241,12 +246,21 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
 
     pageCount = pdfPages.length;
 
+    // Marcadores del PDF: se calculan sobre las páginas del motor y se
+    // desplazan si la portada ocupa la primera página. Así el índice del
+    // archivo apunta a la página real, no a la del motor.
+    const outline = outlineFromPages(composition.pages, input.sections).map((item) => ({
+      ...item,
+      pageIndex: item.pageIndex + (coverAsset ? 1 : 0),
+    }));
+
     const pdf = buildPdf({
       title: input.title,
       author: input.author,
       subject: input.format === "PDF_PRINT" ? "Documento para imprenta" : "Documento digital",
       createdAt: input.createdAt,
       language: "es",
+      ...(outline.length > 0 ? { outline } : {}),
       pages:
         input.format === "PDF_PRINT"
           ? pdfPages.map((page) => ({ ...page, cropMarks: true }))

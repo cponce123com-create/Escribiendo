@@ -300,6 +300,68 @@ test.describe("Exportación", () => {
     expect(pagina).not.toContain("Marta) Tj");
   });
 
+  test("el PDF respeta la visualización del tipo y el número del título", async ({ page }) => {
+    await page.goto("/books");
+    await page.getByRole("link", { name: BOOK_TITLE }).click();
+    await page.getByRole("link", { name: SECTION_TITLE }).click();
+
+    await page.getByLabel("Tipo de sección", { exact: true }).check();
+    await page.getByLabel("Número", { exact: true }).check();
+    await page.getByRole("button", { name: "Guardar título" }).click();
+    await expect(page.getByText(/Titulo actualizado/)).toBeVisible();
+
+    await page.goto("/books");
+    await page.getByRole("link", { name: BOOK_TITLE }).click();
+    await page
+      .getByRole("navigation", { name: "Acciones del libro" })
+      .getByRole("link", { name: "Maquetación" })
+      .click();
+    await page.getByRole("link", { name: "Ver la vista previa paginada" }).click();
+    const resumen = await page.getByText(/\d+ páginas con la plantilla/).innerText();
+    const paginasVistaPrevia = Number(resumen.match(/(\d+) páginas/u)?.[1]);
+
+    await page.goto("/books");
+    await page.getByRole("link", { name: BOOK_TITLE }).click();
+    await page
+      .getByRole("navigation", { name: "Acciones del libro" })
+      .getByRole("link", { name: "Exportación" })
+      .click();
+
+    await page
+      .getByRole("listitem")
+      .filter({ hasText: "PDF digital" })
+      .getByRole("button", { name: "Generar" })
+      .click();
+
+    await expect(page.getByText("Archivo generado.")).toBeVisible();
+
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("link", { name: "Descargar" }).click(),
+    ]);
+    const ruta = await download.path();
+
+    if (!ruta) {
+      throw new Error("No se ha descargado el archivo.");
+    }
+
+    const contenido = readFileSync(ruta).toString("latin1");
+    const extraido = extractPdfText(descomprimirFlujos(contenido));
+
+    expect(extraido).toContain("Capítulo 1");
+    expect(extraido).toContain(SECTION_TITLE);
+    // El título se inserta una sola vez: el manuscrito no empieza con un
+    // encabezado equivalente.
+    expect(extraido.match(new RegExp(SECTION_TITLE, "gu"))?.length ?? 0).toBe(1);
+
+    // El PDF y la vista previa cuentan las mismas páginas y el archivo lleva
+    // los marcadores de navegación de las secciones visibles.
+    const paginasPdf = Number(contenido.match(/\/Type \/Pages \/Count (\d+)/u)?.[1]);
+    expect(paginasPdf).toBe(paginasVistaPrevia);
+    expect(contenido).toContain("/Outlines");
+    expect(contenido).toContain("/PageMode /UseOutlines");
+  });
+
   test("el PDF de imprenta lleva sangrado y marcas de corte", async ({ page }) => {
     await page.goto("/books");
     await page.getByRole("link", { name: BOOK_TITLE }).click();

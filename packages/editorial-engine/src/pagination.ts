@@ -27,6 +27,7 @@ import {
  */
 
 export type LayoutBlockKind =
+  | "title"
   | "body"
   | "firstParagraph"
   | "chapterTitle"
@@ -197,7 +198,7 @@ export const CHAPTER_TITLE_SINK_PT = 36;
 
 /** Indica si la clase de bloque se compone en negrita. */
 export function isHeadingKind(kind: LayoutBlockKind): boolean {
-  return kind === "chapterTitle" || kind.startsWith("heading");
+  return kind === "title" || kind === "chapterTitle" || kind.startsWith("heading");
 }
 
 function toMm(points: number): number {
@@ -206,6 +207,7 @@ function toMm(points: number): number {
 
 function styleFor(config: TypographyConfig, kind: LayoutBlockKind): TypographyStyle {
   switch (kind) {
+    case "title":
     case "heading1":
     case "chapterTitle":
       return config.heading1;
@@ -292,7 +294,12 @@ export function paginate(
       totalHeightMm: heightMm,
       footnotes: currentFootnotes,
       footnotesHeightMm,
-      runningHead: blank ? null : currentRunningHead,
+      // La página que abre un capítulo lleva el título en el cuerpo; repetirlo
+      // como encabezado sería una duplicación visible.
+      runningHead:
+        blank || currentBlocks.some((block) => block.kind === "title")
+          ? null
+          : currentRunningHead,
       blank,
     });
 

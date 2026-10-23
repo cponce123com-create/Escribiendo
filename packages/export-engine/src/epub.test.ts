@@ -154,6 +154,39 @@ describe("buildEpub", () => {
     expect(nav).toContain(`<a href="text/chapter-002.xhtml">Marta</a>`);
   });
 
+  it("reproduce la jerarquia del indice y respeta las secciones ocultas", () => {
+    const nav =
+      entryText(
+        buildEpub(
+          {
+            ...DOCUMENTO,
+            chapters: [
+              { id: "p", title: "Parte primera", parentId: null, blocks: [] },
+              { id: "c1", title: "Capitulo uno", parentId: "p", blocks: [] },
+              {
+                id: "c2",
+                title: "Capitulo oculto",
+                parentId: "p",
+                showInToc: false,
+                blocks: [],
+              },
+              { id: "c3", title: "Capitulo tres", parentId: "c2", blocks: [] },
+            ],
+          },
+          FECHA,
+        ),
+        "EPUB/nav.xhtml",
+      ) ?? "";
+
+    expect(nav).toContain("Parte primera");
+    expect(nav).toContain("Capitulo uno");
+    expect(nav).toContain("Capitulo tres");
+    expect(nav).not.toContain("Capitulo oculto");
+    expect(nav).toContain("<ol>");
+    expect(nav.indexOf("Capitulo uno")).toBeGreaterThan(nav.indexOf("Parte primera"));
+    expect(nav.indexOf("Capitulo tres")).toBeGreaterThan(nav.indexOf("Capitulo uno"));
+  });
+
   it("escapa los caracteres especiales del XML", () => {
     const conXml = buildEpub(
       {

@@ -38,7 +38,7 @@ pnpm test
 Vitest recorre `apps/**/*.test.ts`, `packages/**/*.test.ts` y
 `scripts/**/*.test.ts`. No necesita base de datos ni navegador.
 
-Resultado vigente: **337 pruebas en 36 archivos** (22 de octubre de 2026).
+Resultado vigente: **354 pruebas en 37 archivos** (22 de octubre de 2026).
 Cobertura actual (Fases 1 a 3):
 
 | Archivo                                                   | Qué verifica                                                                                                                                                                                                |
@@ -60,12 +60,14 @@ Cobertura actual (Fases 1 a 3):
 | `packages/book-schema/src/tiptap.test.ts`                 | Normalización y validación del documento Tiptap.                                                                                                                                                            |
 | `packages/book-schema/src/diff.test.ts`                   | Comparación de revisiones por palabras: texto idéntico, palabras añadidas y eliminadas, reconstrucción del original y del nuevo, y sustitución completa por encima del límite.                              |
 | `packages/editorial-engine/src/measure.test.ts`           | Medición del texto: anchos por tipo de carácter, reparto en líneas, palabras que desbordan la caja y guionado por guion.                                                                                    |
-| `packages/editorial-engine/src/pagination.test.ts`        | Composición en páginas: reparto del texto, medidor real, párrafos que ocupan más de una página, aperturas de capítulo en página par, viudas, huérfanas, folios y encabezados.                               |
+| `packages/editorial-engine/src/pagination.test.ts`        | Composición en páginas: reparto del texto, medidor real, párrafos que ocupan más de una página, aperturas de capítulo en página par, viudas, huérfanas, folios, encabezados, títulos editoriales y un libro de 120 capítulos. |
 | `packages/editorial-engine/src/layout-validation.test.ts` | Validación de la geometría de página y de los formatos.                                                                                                                                                     |
-| `packages/export-engine/src/pdf.test.ts`                  | Escritura de PDF: cabecera, objetos, fuentes estándar de reserva, escapado del texto, metadatos, cajas de recorte y sangre, marcas de corte y reproducibilidad.                                             |
+| `packages/export-engine/src/pdf.test.ts`                  | Escritura de PDF: cabecera, objetos, fuentes estándar de reserva, escapado del texto, metadatos, cajas de recorte y sangre, marcas de corte, espaciado entre caracteres, marcadores de navegación y reproducibilidad. |
 | `packages/export-engine/src/pdf-fonts.test.ts`            | Fuentes TrueType: lectura de `cmap`/`hmtx`, signos del español, carácter ausente, objetos `Type0`/`FontFile2`/`ToUnicode`, caras usadas y determinismo.                                                     |
 | `packages/export-engine/src/zip.test.ts`                  | ZIP: firma, entradas sin comprimir, nombres, CRC-32 de referencia y la entrada `mimetype` colocada en primer lugar.                                                                                         |
-| `packages/export-engine/src/epub.test.ts`                 | EPUB 3 y DOCX: entradas del paquete, `mimetype` en primer lugar, manifiesto, spine, navegación, estilos, XML escapado y reproducibilidad.                                                                   |
+| `packages/export-engine/src/epub.test.ts`                 | EPUB 3: entradas del paquete, `mimetype` en primer lugar, manifiesto, spine, jerarquía de navegación, exclusión de secciones ocultas, estilos, XML escapado y reproducibilidad.                              |
+| `apps/web/src/lib/layout/blocks.test.ts`                 | Conversión de Tiptap a bloques: título editorial, deduplicación con encabezados equivalentes, etiqueta y número correlativo, visibilidad, notas, imágenes y saltos.                                        |
+| `apps/web/src/lib/export/pdf-pages.test.ts`              | Puente vista previa → PDF: cada línea conserva su texto y su línea base, encabezados, marcadores del índice y espaciado entre caracteres.                                                                  |
 | `apps/web/src/lib/editor/sync.test.ts`                    | Máquina de estados de la sincronización: transiciones, espera de reintento creciente, cuándo toca sincronizar y la invariante «no se dice «guardado» mientras no lo está».                                  |
 | `apps/web/src/lib/editor/drafts.test.ts`                  | Almacén de borradores locales: guardar, recuperar, borrar, listar, aislar por cuenta y funcionar sin IndexedDB.                                                                                             |
 

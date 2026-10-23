@@ -53,6 +53,18 @@ const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <w:pPr><w:spacing w:before="200" w:after="120"/><w:outlineLvl w:val="1"/></w:pPr>
     <w:rPr><w:b/><w:sz w:val="28"/></w:rPr>
   </w:style>
+  <w:style w:type="paragraph" w:styleId="Ttulo3">
+    <w:name w:val="heading 3"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr><w:spacing w:before="160" w:after="100"/><w:outlineLvl w:val="2"/></w:pPr>
+    <w:rPr><w:b/><w:sz w:val="24"/></w:rPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Ttulo4">
+    <w:name w:val="heading 4"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr><w:spacing w:before="140" w:after="80"/><w:outlineLvl w:val="3"/></w:pPr>
+    <w:rPr><w:b/><w:sz w:val="22"/></w:rPr>
+  </w:style>
   <w:style w:type="paragraph" w:styleId="Cita">
     <w:name w:val="Quote"/>
     <w:basedOn w:val="Normal"/>
@@ -413,7 +425,8 @@ export function buildDocx(
       }
 
       if (block.kind === "heading") {
-        body.push(blockParagraph(block, "Ttulo2", links));
+        const level = Math.min(4, Math.max(1, block.level ?? 2));
+        body.push(blockParagraph(block, `Ttulo${level}`, links));
         continue;
       }
 

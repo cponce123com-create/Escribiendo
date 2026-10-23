@@ -12,6 +12,7 @@ import {
 } from "@escribiendo/editorial-engine";
 import { editorialImageFromNode } from "./image";
 import { inlineRuns, listRuns, trimRuns, type FootnoteCounter } from "./inline";
+import { sectionDisplayTitles } from "./section-title";
 
 /**
  * Conversión del manuscrito a bloques de maquetación.
@@ -34,6 +35,14 @@ export interface PreviewSection {
   pageBreakBefore: boolean;
   /** La sección entra en la maqueta y en la exportación. */
   includeInExport: boolean;
+  /** El título editorial entra en el índice. */
+  showInToc: boolean;
+  /** El título editorial se muestra en el cuerpo. */
+  showTitle: boolean;
+  /** El título se acompaña con la etiqueta del tipo. */
+  showSectionType: boolean;
+  /** El título se acompaña con el número correlativo. */
+  showSectionNumber: boolean;
 }
 
 const SECTION_TYPES_WITH_TITLE = new Set([
@@ -58,10 +67,6 @@ export function sectionShowsTitle(type: string, title: string): boolean {
   return SECTION_TYPES_WITH_TITLE.has(type.toUpperCase()) && title.trim().length > 0;
 }
 
-function normalizeTitle(value: string): string {
-  return value.replace(/\s+/gu, "").toLocaleLowerCase("es");
-}
-
 /** Detecta si el primer bloque del cuerpo ya repite el nombre de la sección. */
 export function repeatsSectionTitle(
   blocks: readonly Pick<LayoutBlock, "text">[],
@@ -70,6 +75,10 @@ export function repeatsSectionTitle(
   const first = blocks[0]?.text;
 
   return first !== undefined && normalizeTitle(first) === normalizeTitle(sectionTitle);
+}
+
+function normalizeTitle(value: string): string {
+  return value.replace(/\s+/gu, "").toLocaleLowerCase("es");
 }
 
 /**
@@ -104,6 +113,9 @@ function headingKind(node: TiptapNode): LayoutBlockKind {
 
 /**
  * Convierte el contenido de una sección en bloques de maquetación.
+ *
+ * Es una traducción pura del contenido. El título editorial no se inserta aquí:
+ * lo compone y deduplica bookToBlocks, que tiene visión del libro completo.
  */
 export function sectionToBlocks(
   section: PreviewSection,
@@ -114,6 +126,15 @@ export function sectionToBlocks(
   // propia sección; el libro completo debe pasar un contador desde bookToBlocks.
   const counter = footnotes ?? { next: 1 };
   let index = 0;
+  let document: TiptapDocument;
+
+  try {
+    document = parseTiptapDocument(section.content);
+  } catch {
+    // Un contenido ilegible no debe romper la composición del libro: la sección
+    // queda vacía y bookToBlocks conserva igualmente su título editorial.
+    return blocks;
+  }
 
   const registration = (): Pick<LayoutBlock, "sectionId" | "sectionTitle"> => ({
     sectionId: section.id,
@@ -170,14 +191,6 @@ export function sectionToBlocks(
     index += 1;
   };
 
-  let document: TiptapDocument;
-
-  try {
-    document = parseTiptapDocument(section.content);
-  } catch {
-    return blocks;
-  }
-
   for (const node of document.content ?? []) {
     switch (node.type) {
       case "heading":
@@ -228,28 +241,37 @@ export function sectionToBlocks(
 /**
  * Compone los bloques de todas las secciones de un libro.
  *
- * La primera sección no es un capítulo: es la parte preliminar. A partir de
- * ahí, cada sección de tipo capítulo abre en página par.
+ * El título editorial se compone aquí con la etiqueta y el número que haya
+ * elegido el autor, se deduplica contra el contenido y se descarta cuando el
+ * tipo de sección no lo presenta (dedicatoria, cubierta, créditos).
  */
 export function bookToBlocks(
-  sections: PreviewSection[],
+  sections: readonly PreviewSection[],
   options: { dropCaps?: boolean } = {},
 ): LayoutBlock[] {
   const blocks: LayoutBlock[] = [];
   const footnotes: FootnoteCounter = { next: 1 };
+  const titles = sectionDisplayTitles(sections);
   let chapterSeen = false;
 
   for (const section of sections) {
     const sectionBlocks = sectionToBlocks(section, footnotes);
     const opensChapter = section.isChapter && (chapterSeen || section.startOnOddPage);
-    const showsTitle = sectionShowsTitle(section.type, section.title);
-    const repeatsTitle = showsTitle && repeatsSectionTitle(sectionBlocks, section.title);
+    const visibleTitle = titles.get(section.id) ?? null;
+    // Convención editorial (por tipo) y elección del autor: el título compuesto
+    // solo aparece cuando las dos lo permiten.
+    const showsTitle = sectionShowsTitle(section.type, section.title) && visibleTitle !== null;
+    const composed = visibleTitle ?? section.title.trim();
+    const repeatsTitle =
+      showsTitle &&
+      (repeatsSectionTitle(sectionBlocks, section.title) ||
+        (visibleTitle !== null && repeatsSectionTitle(sectionBlocks, visibleTitle)));
     const contentBlocks = repeatsTitle ? sectionBlocks.slice(1) : sectionBlocks;
     const titleBlock: LayoutBlock | null = showsTitle
       ? {
           id: `${section.id}-title`,
           kind: section.type.toUpperCase() === "SUBCHAPTER" ? "heading2" : "chapterTitle",
-          text: section.title.trim(),
+          text: composed,
           ...registrationFor(section),
           firstOfSection: true,
         }
