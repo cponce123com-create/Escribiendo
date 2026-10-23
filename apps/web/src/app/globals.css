@@ -3271,3 +3271,66 @@ html[data-focus-mode="true"] .app-topbar {
     display: none;
   }
 }
+
+
+/* Búsqueda viva del manuscrito. */
+.manuscript-search {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 14px;
+}
+.manuscript-search h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+.manuscript-search-replace {
+  display: grid;
+  gap: 8px;
+}
+.manuscript-search-results {
+  display: grid;
+  gap: 7px;
+  max-height: min(38vh, 360px);
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.manuscript-search-results a {
+  display: grid;
+  gap: 4px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.manuscript-search-results a:hover,
+.manuscript-search-results a:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.manuscript-search-results span,
+.manuscript-search-results small {
+  color: var(--ink-muted);
+  font-size: 11px;
+}
+.manuscript-search-results small {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+.manuscript-editor .ProseMirror .manuscript-search-match {
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+  color: inherit;
+}
+@media (max-width: 760px) {
+  .manuscript-search-results {
+    max-height: 220px;
+  }
+}
