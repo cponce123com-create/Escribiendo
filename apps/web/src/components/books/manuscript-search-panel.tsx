@@ -11,13 +11,13 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
   const [matches, setMatches] = useState<ManuscriptMatch[]>([]);
   const [message, setMessage] = useState("");
   const searchRequest = useRef(0);
-  const searchRequest = useRef(0);
   const [pending, startTransition] = useTransition();
   const total = useMemo(() => matches.reduce((sum, item) => sum + item.count, 0), [matches]);
 
   useEffect(() => {
     const requestId = ++searchRequest.current;
     const needle = query.trim();
+    window.dispatchEvent(new CustomEvent("studio-search-highlight", { detail: needle }));
     if (!needle) {
       setMatches([]);
       setMessage("");
