@@ -50,8 +50,12 @@ export function StudioSearch() {
         placeholder="Buscar en el manuscrito…"
         value={query}
         onChange={(event) => {
-          setQuery(event.target.value);
+          const nextQuery = event.target.value;
+          setQuery(nextQuery);
           setResult("");
+          window.dispatchEvent(
+            new CustomEvent("studio-search-highlight", { detail: nextQuery }),
+          );
         }}
       />
       <kbd>Ctrl / ⌘ K</kbd>
