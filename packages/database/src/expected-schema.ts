@@ -14,6 +14,15 @@ export const COLUMNAS_ESPERADAS: ReadonlyArray<{ tabla: string; columna: string 
   { tabla: "story_plan_items", columna: "kind" },
   { tabla: "story_characters", columna: "role" },
   { tabla: "story_worlds", columna: "kind" },
+  { tabla: "editorial_profiles", columna: "slug" },
+  { tabla: "book_editorial_metadata", columna: "rightsHolder" },
+  { tabla: "book_contributors", columna: "role" },
+  { tabla: "book_identifiers", columna: "normalizedValue" },
+  { tabla: "editorial_matters", columna: "templateVersion" },
+  { tabla: "book_editions", columna: "publisherProfileId" },
+  { tabla: "book_editions", columna: "editorialPreset" },
+  { tabla: "book_editions", columna: "tocDepth" },
+  { tabla: "book_editions", columna: "frontMatterRoman" },
 ];
 
 export interface ColumnaDisponible {

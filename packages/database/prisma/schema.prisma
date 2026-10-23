@@ -99,6 +99,7 @@ model Workspace {
   characterAnalysisTasks CharacterAnalysisTask[]
   characterSuggestions   StoryCharacterSuggestion[]
   storyWorlds            StoryWorld[]
+  editorialProfiles      EditorialProfile[]
 
   @@index([ownerId])
   @@index([deletedAt])
@@ -270,6 +271,10 @@ model Book {
   storyWorlds               StoryWorld[]
   characterAnalysisTasks    CharacterAnalysisTask[]
   storyCharacterSuggestions StoryCharacterSuggestion[]
+  editorialMetadata         BookEditorialMetadata?
+  contributors              BookContributor[]
+  identifiers               BookIdentifier[]
+  editorialMatters          EditorialMatter[]
 
   @@index([workspaceId, deletedAt])
   @@index([workspaceId, status])
@@ -279,31 +284,31 @@ model Book {
 }
 
 model BookSection {
-  id              String      @id @default(uuid()) @db.Uuid
-  bookId          String      @db.Uuid
-  parentId        String?     @db.Uuid
-  type            SectionType
-  title           String      @db.VarChar(300)
-  content         Json        @default("{}")
-  wordCount       Int         @default(0)
-  version         Int         @default(1)
-  sortOrder       Int         @default(0)
-  showInToc       Boolean     @default(true)
+  id                String      @id @default(uuid()) @db.Uuid
+  bookId            String      @db.Uuid
+  parentId          String?     @db.Uuid
+  type              SectionType
+  title             String      @db.VarChar(300)
+  content           Json        @default("{}")
+  wordCount         Int         @default(0)
+  version           Int         @default(1)
+  sortOrder         Int         @default(0)
+  showInToc         Boolean     @default(true)
   /// El titulo editorial se inserta en el cuerpo de la seccion.
-  showTitle       Boolean     @default(true)
+  showTitle         Boolean     @default(true)
   /// El titulo se acompana con la etiqueta del tipo (Capitulo, Prologo...).
-  showSectionType Boolean     @default(false)
+  showSectionType   Boolean     @default(false)
   /// El titulo se acompana con el numero correlativo del tipo.
-  showSectionNumber Boolean   @default(false)
-  includeInExport Boolean     @default(true)
-  pageBreakBefore Boolean     @default(false)
-  startOnOddPage  Boolean     @default(false)
-  isHidden        Boolean     @default(false)
+  showSectionNumber Boolean     @default(false)
+  includeInExport   Boolean     @default(true)
+  pageBreakBefore   Boolean     @default(false)
+  startOnOddPage    Boolean     @default(false)
+  isHidden          Boolean     @default(false)
   /// Persona a la que se asigna el trabajo de esta sección.
-  assigneeId      String?     @db.Uuid
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  deletedAt       DateTime?
+  assigneeId        String?     @db.Uuid
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  deletedAt         DateTime?
 
   book                   Book                       @relation(fields: [bookId], references: [id], onDelete: Cascade)
   parent                 BookSection?               @relation("SectionHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
@@ -314,6 +319,7 @@ model BookSection {
   notes                  WritingNote[]
   comments               EditorialComment[]
   assignee               User?                      @relation("SectionAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  editorialMatters       EditorialMatter[]
 
   @@index([bookId, parentId, sortOrder])
   @@index([bookId, type])
@@ -364,30 +370,46 @@ enum EditionStatus {
 }
 
 model BookEdition {
-  id                  String        @id @default(uuid()) @db.Uuid
-  bookId              String        @db.Uuid
-  layoutProfileId     String?       @db.Uuid
-  editorialTemplateId String?       @db.Uuid
-  name                String        @db.VarChar(160)
-  format              BookFormat    @default(A5)
-  status              EditionStatus @default(DRAFT)
-  isDefault           Boolean       @default(false)
-  pageCount           Int?
-  paperStock          String?       @db.VarChar(120)
-  spineWidthMm        Decimal?      @db.Decimal(6, 2)
-  settings            Json          @default("{}")
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
+  id                    String              @id @default(uuid()) @db.Uuid
+  bookId                String              @db.Uuid
+  layoutProfileId       String?             @db.Uuid
+  editorialTemplateId   String?             @db.Uuid
+  name                  String              @db.VarChar(160)
+  format                BookFormat          @default(A5)
+  status                EditionStatus       @default(DRAFT)
+  isDefault             Boolean             @default(false)
+  pageCount             Int?
+  paperStock            String?             @db.VarChar(120)
+  spineWidthMm          Decimal?            @db.Decimal(6, 2)
+  settings              Json                @default("{}")
+  publisherProfileId    String?             @db.Uuid
+  publicationDate       DateTime?
+  printedBy             String?             @db.VarChar(200)
+  printRun              Int?
+  legalDepositStatus    LegalDepositStatus?
+  editorialPreset       String?             @db.VarChar(80)
+  tocDepth              String?             @db.VarChar(40)
+  frontMatterStyle      String?             @db.VarChar(40)
+  frontMatterRoman      Boolean             @default(true)
+  showFrontMatterFolios Boolean             @default(false)
+  bodyStartOnPageOne    Boolean             @default(true)
+  tocIncludeFrontMatter Boolean             @default(true)
+  tocIncludeBackMatter  Boolean             @default(true)
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
 
   book              Book               @relation(fields: [bookId], references: [id], onDelete: Cascade)
   layoutProfile     LayoutProfile?     @relation(fields: [layoutProfileId], references: [id], onDelete: SetNull)
   editorialTemplate EditorialTemplate? @relation(fields: [editorialTemplateId], references: [id], onDelete: SetNull)
+  publisherProfile  EditorialProfile?  @relation(fields: [publisherProfileId], references: [id], onDelete: SetNull)
+  identifiers       BookIdentifier[]
   exportJobs        ExportJob[]
 
   @@unique([bookId, name])
   @@index([bookId, isDefault])
   @@index([layoutProfileId])
   @@index([editorialTemplateId])
+  @@index([publisherProfileId])
   @@map("book_editions")
 }
 
@@ -922,4 +944,205 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Preliminares, derechos y datos de publicación
+// ---------------------------------------------------------------------------
+
+/// Elemento editorial estructurado: página legal, índice, dedicatoria, etc.
+///
+/// No guarda contenido Tiptap. Los datos viven en `data` y, cuando el elemento
+/// es narrativo (prólogo, apéndice...), se enlaza a una `BookSection`.
+enum EditorialMatterKind {
+  HALF_TITLE
+  TITLE_PAGE
+  COPYRIGHT
+  CREDITS
+  DEDICATION
+  EPIGRAPH
+  TABLE_OF_CONTENTS
+  LIST_OF_ILLUSTRATIONS
+  LIST_OF_TABLES
+  FOREWORD
+  PREFACE
+  PROLOGUE
+  INTRODUCTION
+  EPILOGUE
+  CONCLUSION
+  APPENDIX
+  ANNEX
+  GLOSSARY
+  BIBLIOGRAPHY
+  ANALYTICAL_INDEX
+  ACKNOWLEDGMENTS
+  ABOUT_AUTHOR
+  OTHER_BOOKS
+  COLOPHON
+}
+
+/// Cómo se obtiene el contenido del elemento.
+/// AUTOMATIC: se compone desde metadatos; TEMPLATE: plantilla + datos;
+/// CUSTOM: datos editados; MANUAL: sección enlazada; DISABLED: no se compone.
+enum EditorialMatterMode {
+  AUTOMATIC
+  TEMPLATE
+  CUSTOM
+  MANUAL
+  DISABLED
+}
+
+enum BookContributorRole {
+  COAUTHOR
+  EDITOR
+  PROOFREADER
+  TRANSLATOR
+  ILLUSTRATOR
+  COVER_DESIGNER
+  TYPESETTER
+  PROLOGUE_AUTHOR
+  CONTRIBUTOR
+  OTHER
+}
+
+enum BookIdentifierType {
+  ISBN_13
+  ISBN_10
+  DOI
+  LEGAL_DEPOSIT
+  OTHER
+}
+
+enum BookIdentifierStatus {
+  PENDING
+  CHECKSUM_VALID
+  DECLARED
+  CONFIRMED
+  INVALID
+}
+
+enum LegalDepositStatus {
+  PENDING
+  IN_PROGRESS
+  NUMBER_PROVIDED
+  DOCUMENTS_REVIEWED
+  READY_FOR_REVIEW
+}
+
+/// Datos de la obra que no pertenecen al manuscrito ni a una edición concreta.
+model BookEditorialMetadata {
+  id                 String   @id @default(uuid()) @db.Uuid
+  bookId             String   @unique @db.Uuid
+  rightsHolder       String?  @db.VarChar(200)
+  imageRightsHolder  String?  @db.Text
+  originalTitle      String?  @db.VarChar(300)
+  originalLanguage   String?  @db.VarChar(10)
+  translatorCredit   String?  @db.VarChar(200)
+  editionNumber      Int?
+  editionLabel       String?  @db.VarChar(60)
+  publicationCountry String?  @db.VarChar(2)
+  publicationCity    String?  @db.VarChar(120)
+  publicationYear    Int?
+  rightsNotes        String?  @db.Text
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@map("book_editorial_metadata")
+}
+
+/// Ficha reutilizable de un sello, editorial o persona que publica.
+model EditorialProfile {
+  id           String    @id @default(uuid()) @db.Uuid
+  workspaceId  String    @db.Uuid
+  name         String    @db.VarChar(160)
+  slug         String    @db.VarChar(80)
+  imprint      String?   @db.VarChar(160)
+  legalName    String?   @db.VarChar(200)
+  taxId        String?   @db.VarChar(40)
+  contactEmail String?   @db.VarChar(320)
+  website      String?   @db.VarChar(300)
+  logoUrl      String?   @db.Text
+  address      String?   @db.VarChar(300)
+  city         String?   @db.VarChar(120)
+  country      String    @default("PE") @db.VarChar(2)
+  isPublic     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  editions  BookEdition[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId, deletedAt])
+  @@map("editorial_profiles")
+}
+
+model BookContributor {
+  id         String              @id @default(uuid()) @db.Uuid
+  bookId     String              @db.Uuid
+  role       BookContributorRole
+  name       String              @db.VarChar(200)
+  creditName String?             @db.VarChar(200)
+  sortOrder  Int                 @default(0)
+  visible    Boolean             @default(true)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([bookId, role, name])
+  @@index([bookId, role, sortOrder])
+  @@map("book_contributors")
+}
+
+model BookIdentifier {
+  id              String               @id @default(uuid()) @db.Uuid
+  bookId          String               @db.Uuid
+  editionId       String?              @db.Uuid
+  type            BookIdentifierType
+  value           String               @db.VarChar(80)
+  normalizedValue String               @db.VarChar(80)
+  status          BookIdentifierStatus @default(PENDING)
+  note            String?              @db.VarChar(300)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  book    Book         @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  edition BookEdition? @relation(fields: [editionId], references: [id], onDelete: SetNull)
+
+  @@unique([bookId, type, normalizedValue])
+  @@index([bookId, type])
+  @@index([editionId, type])
+  @@index([normalizedValue])
+  @@map("book_identifiers")
+}
+
+model EditorialMatter {
+  id              String              @id @default(uuid()) @db.Uuid
+  bookId          String              @db.Uuid
+  sectionId       String?             @db.Uuid
+  kind            EditorialMatterKind
+  mode            EditorialMatterMode @default(AUTOMATIC)
+  enabled         Boolean             @default(true)
+  title           String?             @db.VarChar(300)
+  templateSlug    String?             @db.VarChar(80)
+  templateVersion Int?
+  data            Json                @default("{}")
+  sortOrder       Int                 @default(0)
+  showInToc       Boolean             @default(true)
+  includeInExport Boolean             @default(true)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  deletedAt       DateTime?
+
+  book    Book         @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  section BookSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+
+  @@index([bookId, kind, sortOrder])
+  @@index([bookId, enabled])
+  @@index([sectionId])
+  @@map("editorial_matters")
 }

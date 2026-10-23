@@ -5,6 +5,7 @@ import {
   sectionShowsTitle,
   seccionesExportables,
   sectionToBlocks,
+  type MatterLayout,
   type PreviewSection,
 } from "./blocks";
 
@@ -429,5 +430,55 @@ describe("seccionesExportables", () => {
     ]);
 
     expect(exportables).toHaveLength(1);
+  });
+});
+
+describe("materias en la maqueta", () => {
+  const materia = (id: string, text: string): MatterLayout => ({
+    id,
+    blocks: [{ id: `${id}-0`, kind: "body", text }],
+  });
+
+  it("compone los preliminares antes del cuerpo y abre página tras ellos", () => {
+    const cuerpo = {
+      ...seccion(documento({ type: "paragraph", content: [{ type: "text", text: "Cuerpo." }] })),
+      type: "SUBCHAPTER",
+      isChapter: false,
+    };
+
+    const bloques = bookToBlocks([cuerpo], { frontMatter: [materia("portadilla", "Título")] });
+
+    expect(bloques.map((bloque) => bloque.text)).toEqual(["Título", "Prólogo", "Cuerpo."]);
+    expect(bloques[0]?.breaksBefore).toBe(true);
+    expect(bloques[1]?.breaksBefore).toBe(true);
+  });
+
+  it("cierra la maqueta con las materias finales", () => {
+    const bloques = bookToBlocks([seccion(documento())], {
+      backMatter: [materia("colofon", "Colofón")],
+    });
+    const colofon = bloques.at(-1);
+
+    expect(colofon?.text).toBe("Colofón");
+    expect(colofon?.breaksBefore).toBe(true);
+  });
+
+  it("una materia sin bloques no altera la maqueta", () => {
+    const section = seccion(documento());
+    const sinMateria = bookToBlocks([section]);
+    const conMateriaVacia = bookToBlocks([section], {
+      frontMatter: [{ id: "vacia", blocks: [] }],
+    });
+
+    expect(conMateriaVacia).toEqual(sinMateria);
+  });
+
+  it("no toca el salto del capítulo que ya abre página", () => {
+    const chapter = { ...seccion(documento()), startOnOddPage: true };
+
+    const bloques = bookToBlocks([chapter], { frontMatter: [materia("creditos", "Créditos")] });
+
+    expect(bloques[1]?.startsChapter).toBe(true);
+    expect(bloques[1]?.breaksBefore).toBe(false);
   });
 });

@@ -62,6 +62,26 @@ const SECTION_TYPES_WITH_TITLE = new Set([
   "SUBCHAPTER",
 ]);
 
+/**
+ * Materia editorial ya compuesta, lista para entrar en la maqueta.
+ *
+ * El identificador es el de la materia y no el de una sección: permite auditar
+ * qué bloque vino de los preliminares y no del manuscrito.
+ */
+export interface MatterLayout {
+  id: string;
+  blocks: readonly LayoutBlock[];
+}
+
+export interface BookBlocksOptions {
+  /** Compone la inicial capitular del primer párrafo de cada capítulo. */
+  dropCaps?: boolean;
+  /** Preliminares, en orden editorial y ya compuestos. */
+  frontMatter?: readonly MatterLayout[];
+  /** Materias finales, en orden editorial y ya compuestas. */
+  backMatter?: readonly MatterLayout[];
+}
+
 /** Indica si el tipo de sección presenta el título guardado. */
 export function sectionShowsTitle(type: string, title: string): boolean {
   return SECTION_TYPES_WITH_TITLE.has(type.toUpperCase()) && title.trim().length > 0;
@@ -247,12 +267,21 @@ export function sectionToBlocks(
  */
 export function bookToBlocks(
   sections: readonly PreviewSection[],
-  options: { dropCaps?: boolean } = {},
+  options: BookBlocksOptions = {},
 ): LayoutBlock[] {
   const blocks: LayoutBlock[] = [];
   const footnotes: FootnoteCounter = { next: 1 };
   const titles = sectionDisplayTitles(sections);
+  const frontMatter = options.frontMatter ?? [];
   let chapterSeen = false;
+
+  for (const matter of frontMatter) {
+    appendMatter(blocks, matter);
+  }
+
+  // Donde empieza el cuerpo: después de los preliminares, que nunca comparten
+  // página con el primer capítulo.
+  const bodyStart = blocks.length;
 
   for (const section of sections) {
     const sectionBlocks = sectionToBlocks(section, footnotes);
@@ -316,7 +345,35 @@ export function bookToBlocks(
     });
   }
 
+  // Un capítulo que empieza pegado a la última página de los preliminares
+  // parece parte de ellos: el cuerpo abre siempre página nueva.
+  if (bodyStart > 0 && bodyStart < blocks.length) {
+    const firstBody = blocks[bodyStart];
+
+    if (firstBody && firstBody.breaksBefore !== true && firstBody.startsChapter !== true) {
+      blocks[bodyStart] = { ...firstBody, breaksBefore: true };
+    }
+  }
+
+  for (const matter of options.backMatter ?? []) {
+    appendMatter(blocks, matter);
+  }
+
   return blocks;
+}
+
+/**
+ * Incorpora una materia a la maqueta.
+ *
+ * La materia siempre abre página: una dedicatoria al pie de un capítulo es un
+ * error de imprenta, no un ahorro de papel. Una materia sin bloques no deja una
+ * página en blanco: lo más probable es que no esté lista, y su generador ya
+ * emite el aviso.
+ */
+function appendMatter(target: LayoutBlock[], matter: MatterLayout): void {
+  matter.blocks.forEach((block, index) => {
+    target.push(index === 0 ? { ...block, breaksBefore: true } : block);
+  });
 }
 
 function registrationFor(section: PreviewSection): Pick<LayoutBlock, "sectionId" | "sectionTitle"> {

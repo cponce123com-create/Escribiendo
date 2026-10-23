@@ -9,6 +9,7 @@ import { breakRunsIntoLines, type InlineFootnote, type InlineRun } from "./rich-
 import {
   DEFAULT_TYPOGRAPHY_CONFIG,
   withTypographyDefaults,
+  type TextAlignment,
   type TypographyConfig,
   type TypographyStyle,
 } from "./typography";
@@ -69,6 +70,14 @@ export interface LayoutBlock {
   breaksBefore?: boolean;
   /** Referencia de la imagen, cuando `kind` es `image`. */
   image?: EditorialImage;
+  /**
+   * Alineación propia del bloque, que prevalece sobre la de su clase.
+   *
+   * Las páginas estructuradas (portadilla, dedicatoria, créditos) usan la
+   * misma clase tipográfica que el cuerpo pero no siempre la misma alineación:
+   * centrar una dedicatoria no debe obligar a inventar un estilo nuevo.
+   */
+  alignment?: TextAlignment;
 }
 
 export interface PageGeometry {
@@ -421,13 +430,18 @@ export function paginate(
     }
 
     const baseStyle = styleFor(typography, block.kind);
-    const style =
+    const chapterStyle =
       block.kind === "chapterTitle"
         ? {
             ...baseStyle,
             spaceBeforePt: baseStyle.spaceBeforePt + CHAPTER_TITLE_SINK_PT,
           }
         : baseStyle;
+    // La alineación del bloque manda sobre la de su clase: así una página
+    // centrada no obliga a crear un estilo tipográfico por cada materia.
+    const style: TypographyStyle = block.alignment
+      ? { ...chapterStyle, alignment: block.alignment }
+      : chapterStyle;
     const spaceBeforeMm = toMm(style.spaceBeforePt);
     const spaceAfterMm = toMm(style.spaceAfterPt);
     const lineHeight = lineHeightMm(style);
