@@ -1,9 +1,12 @@
 import "server-only";
+import { buildTocEntries } from "@escribiendo/templates";
 import { createHash } from "node:crypto";
 import {
   buildDocx,
   buildEpub,
   buildPdf,
+  type ExportChapter,
+  type ExportBlock,
   type ExportImage,
   type ExportDocumentModel,
   type ExportImageMap,
@@ -11,8 +14,14 @@ import {
 } from "@escribiendo/export-engine";
 import { paginate, withTypographyDefaults, type PageGeometry } from "@escribiendo/editorial-engine";
 import { getBookEdition, getDefaultLayoutProfile } from "@/lib/layout/profiles";
-import { bookToBlocks, isChapterType, type MatterLayout } from "@/lib/layout/blocks";
 import {
+  sectionToBlocks as layoutSectionToBlocks,
+  bookToBlocks,
+  isChapterType,
+  type MatterLayout,
+} from "@/lib/layout/blocks";
+import {
+  sectionsForMatter,
   EMPTY_MATTER,
   composeMatter,
   pageFolioBySection,
@@ -219,7 +228,7 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
       showSectionNumber: section.showSectionNumber,
     }));
     const compose = (front: readonly MatterLayout[], back: readonly MatterLayout[]) =>
-      bookToBlocks(previewSections, {
+      bookToBlocks(sectionsForMatter(previewSections, input.matter ?? null), {
         dropCaps: input.dropCaps === true,
         frontMatter: front,
         backMatter: back,
@@ -330,12 +339,61 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
     fuentesIncrustadas = pdf.fuentesIncrustadas;
     fuentesOmitidas = pdf.fuentesOmitidas;
   } else {
+    const reflowSections = sectionsForMatter(input.sections, input.matter ?? null);
+    const reflowBlocks = reflowSections.map((section) => {
+      const blocks =
+        sectionBlocks[input.sections.findIndex((item) => item.id === section.id)] ?? [];
+      const layoutBlocks = layoutSectionToBlocks({
+        ...section,
+        isChapter: isChapterType(section.type),
+      });
+      const headingIds = new Map<string, string[]>();
+      for (const block of layoutBlocks) {
+        if (block.kind.startsWith("heading")) {
+          const ids = headingIds.get(block.text) ?? [];
+          ids.push(block.id);
+          headingIds.set(block.text, ids);
+        }
+      }
+      return blocks.map((block) => ({
+        ...block,
+        ...(block.kind === "heading" ? { id: headingIds.get(block.text)?.shift() } : {}),
+        ...(section.type === "DEDICATION" ? { alignment: "right" as const } : {}),
+      }));
+    });
     const chapters = chaptersForReflowableFormats(
-      input.sections,
-      sectionBlocks,
+      reflowSections,
+      reflowBlocks,
       input.dropCaps === true,
     );
 
+    // Materias generadas por la misma ruta; en formatos refluibles no hay folios físicos.
+    const generated = input.matter ? composeMatter(input.matter, new Map()) : EMPTY_MATTER;
+    const generatedChapters: ExportChapter[] = generated.front
+      .filter((item) => input.format !== "EPUB3" || item.id !== "matter-toc")
+      .map((item) => ({
+        id: item.id,
+        title:
+          item.id === "matter-toc"
+            ? (input.matter?.tocParameters?.tocTitle ?? "Índice")
+            : "Página legal",
+        showTitle: false,
+        showInToc: false,
+        blocks: item.blocks.map((block) => ({
+          kind: (["title", "chapterTitle", "heading1", "heading2", "heading3"].includes(block.kind)
+            ? "heading"
+            : block.kind === "rule"
+              ? "rule"
+              : "body") as ExportBlock["kind"],
+          text: block.text,
+          ...(block.runs ? { runs: block.runs } : {}),
+          ...(["left", "center", "right"].includes(block.alignment ?? "")
+            ? { alignment: block.alignment as "left" | "center" | "right" }
+            : {}),
+          level: block.kind === "heading2" ? 2 : 1,
+        })),
+      }));
+    chapters.unshift(...generatedChapters);
     const model: ExportDocumentModel = {
       title: input.title,
       author: input.author,
@@ -346,6 +404,24 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
         .slice(0, 32)
         .replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/u, "$1-$2-$3-$4-$5")}`,
       chapters,
+      ...(input.matter
+        ? {
+            toc: {
+              title: input.matter.tocParameters?.tocTitle ?? "Índice",
+              entries: buildTocEntries(input.matter.tocSources, input.matter.tocOptions).map(
+                (entry) => ({
+                  ...entry,
+                  sectionId:
+                    reflowSections.find(
+                      (section) =>
+                        section.id === entry.sourceId ||
+                        entry.sourceId.startsWith(`${section.id}-`),
+                    )?.id ?? entry.sourceId,
+                }),
+              ),
+            },
+          }
+        : {}),
       cover: input.cover,
     };
 

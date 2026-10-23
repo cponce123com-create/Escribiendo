@@ -313,7 +313,9 @@ function blockParagraph(
 ): string {
   const style = styleId ? `<w:pStyle w:val="${styleId}"/>` : "";
   const frame = dropCap ? '<w:framePr w:dropCap="drop" w:lines="3" w:wrap="around"/>' : "";
-  const properties = style || frame ? `<w:pPr>${style}${frame}</w:pPr>` : "";
+  const alignment = block.alignment ? `<w:jc w:val="${block.alignment}"/>` : "";
+  const properties =
+    style || frame || alignment ? `<w:pPr>${style}${frame}${alignment}</w:pPr>` : "";
 
   return `<w:p>${properties}${inlineXml(block, links)}</w:p>`;
 }

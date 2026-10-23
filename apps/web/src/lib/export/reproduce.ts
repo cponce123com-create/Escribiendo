@@ -55,7 +55,10 @@ export async function resolveExportJobInput(
 
   const title = snapshot?.bookTitle || book.title;
   const author = snapshot?.authorName || book.authorName;
-  const matter = await loadBookMatter(session, job.bookId, sections);
+  const matter =
+    snapshot && "matter" in snapshot
+      ? snapshot.matter
+      : await loadBookMatter(session, job.bookId, sections);
 
   return {
     format: job.format,

@@ -224,3 +224,43 @@ describe("auditoría del índice", () => {
     expect(warnings.map((warning) => warning.code)).toContain("SIN_PARTES");
   });
 });
+
+it("respeta profundidad de encabezados y las exclusiones de sección", () => {
+  const sources = [
+    { id: "c", title: "Capítulo", level: 1, group: "body" as const, showInToc: true },
+    {
+      id: "h1",
+      title: "Encabezado",
+      level: 2,
+      headingLevel: 1,
+      group: "body" as const,
+      showInToc: true,
+    },
+    {
+      id: "h2",
+      title: "Subapartado",
+      level: 3,
+      headingLevel: 2,
+      group: "body" as const,
+      showInToc: true,
+    },
+    { id: "off", title: "Oculto", level: 1, group: "body" as const, showInToc: false },
+    {
+      id: "noexport",
+      title: "Excluido",
+      level: 1,
+      group: "body" as const,
+      showInToc: true,
+      includeInExport: false,
+    },
+  ];
+  expect(buildTocEntries(sources, { depth: "chapters-h1" }).map((entry) => entry.sourceId)).toEqual(
+    ["c", "h1"],
+  );
+  expect(
+    buildTocEntries(sources, { depth: "chapters-h1-h2" }).map((entry) => entry.sourceId),
+  ).toEqual(["c", "h1", "h2"]);
+  expect(
+    buildTocEntries(sources, { depth: "parts-chapters" }).map((entry) => entry.sourceId),
+  ).toEqual(["c"]);
+});

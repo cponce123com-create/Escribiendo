@@ -146,3 +146,19 @@ export {
   type OtherBooksInput,
   type TitlePageInput,
 } from "./matter-content";
+
+export {
+  LEGAL_TEMPLATE_CATALOG,
+  CREATIVE_COMMONS_LICENSES,
+  missingLegalFields,
+} from "./legal-page";
+export type { LegalTemplateMetadata, LegalRequiredField } from "./legal-page";
+export { legalClausesSchema, LEGAL_CLAUSES_MAX_CHARS } from "./legal-clauses";
+export {
+  TOC_TEMPLATE_CATALOG,
+  tocTemplateSchema,
+  tocTemplateSlugs,
+  tocParametersSchema,
+  tocParametersFrom,
+} from "./toc-catalog";
+export type { TocTemplateSlug, TocParameters } from "./toc-catalog";

@@ -113,3 +113,18 @@ describe("instantánea de exportación", () => {
     expect(snapshot?.cover).toBeNull();
   });
 });
+
+it("conserva los bloques y versión de página legal capturados", () => {
+  const matter = {
+    legalTemplateVersion: 1,
+    frozenLegal: {
+      template: "copyright-minimal",
+      templateVersion: 1,
+      ready: true,
+      warnings: [],
+      blocks: [{ role: "small", text: "© 2026 Titular original." }],
+    },
+  };
+  const result = readExportLayoutSnapshot({ layout: { profile: null, typography: {}, matter } });
+  expect(result?.matter).toEqual(matter);
+});

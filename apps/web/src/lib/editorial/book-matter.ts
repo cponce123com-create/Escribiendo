@@ -1,6 +1,10 @@
 import "server-only";
+import { cache } from "react";
+import { legalFieldsSchema, settingsRecord } from "./template-settings";
 import type { LaidOutPage } from "@escribiendo/editorial-engine";
 import {
+  tocParametersFrom,
+  type TocParameters,
   buildLegalPage,
   buildTocEntries,
   legalPageTemplates,
@@ -13,6 +17,7 @@ import {
 } from "@escribiendo/templates";
 import type { SessionContext } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { sectionToBlocks } from "@/lib/layout/blocks";
 import type { MatterLayout, PreviewSection } from "@/lib/layout/blocks";
 import { legalPageToBlocks, tocToBlocks } from "./matter-blocks";
 
@@ -26,16 +31,26 @@ import { legalPageToBlocks, tocToBlocks } from "./matter-blocks";
  */
 
 export interface BookMatter {
+  /** Solo para la galería: permite ver los bloques disponibles y sus avisos. */
+  previewIncompleteLegal?: boolean;
   /** Secciones canónicas, en orden editorial. */
   tocSources: TocSource[];
   tocOptions: BuildTocOptions;
+  tocParameters?: TocParameters;
+  tocTemplateVersion?: number;
   /** Datos de la página legal; `null` si el libro no tiene título o autoría. */
   legal: LegalPageInput | null;
   legalMode: "print" | "digital";
   /** El manuscrito ya incluye una sección de índice. */
   hasTocSection: boolean;
+  tocMode?: "AUTOMATIC" | "MANUAL" | "DISABLED";
   /** El manuscrito ya incluye una página de créditos. */
   hasCopyrightSection: boolean;
+  legalPageMode?: "TEMPLATE" | "MANUAL" | "DISABLED";
+  legalPageSectionId?: string | null;
+  manualLegalLayout?: MatterLayout;
+  legalTemplateVersion?: number;
+  frozenLegal?: ReturnType<typeof buildLegalPage>;
 }
 
 export interface ComposedMatter {
@@ -154,6 +169,7 @@ export function pageFolioBySection(pages: readonly LaidOutPage[]): Map<string, n
 
   pages.forEach((page) => {
     for (const block of page.blocks) {
+      if (!map.has(block.id)) map.set(block.id, page.folio);
       if (block.sectionId && block.firstOfSection && !map.has(block.sectionId)) {
         map.set(block.sectionId, page.folio);
       }
@@ -169,13 +185,13 @@ export function pageFolioBySection(pages: readonly LaidOutPage[]): Map<string, n
  * Devuelve `null` cuando el libro no pertenece al espacio de trabajo: la
  * composición no debe inventar materias para un libro ajeno.
  */
-export async function loadBookMatter(
+async function readBookMatter(
   session: SessionContext,
   bookId: string,
-  sections: readonly Pick<
+  sections: readonly (Pick<
     PreviewSection,
     "id" | "title" | "type" | "showInToc" | "includeInExport"
-  >[],
+  > & { content?: unknown })[],
 ): Promise<BookMatter | null> {
   const book = await prisma.book.findFirst({
     where: { id: bookId, workspaceId: session.workspace.id, deletedAt: null },
@@ -267,7 +283,7 @@ export async function loadBookMatter(
           title,
           subtitle: book.subtitle,
           author,
-          rightsHolder: metadata?.rightsHolder ?? author,
+          rightsHolder: metadata?.rightsHolder ?? null,
           copyrightYear:
             metadata?.publicationYear ?? edition?.publicationDate?.getUTCFullYear() ?? null,
           editionNumber: metadata?.editionNumber ?? null,
@@ -293,22 +309,147 @@ export async function loadBookMatter(
           contributors,
           imageCredits: metadata?.imageRightsHolder ?? null,
           logoUrl: publisher?.logoUrl ?? null,
-          customClauses: [],
+          customClauses: Array.isArray(settingsRecord(edition?.settings).legalPageClauses)
+            ? (settingsRecord(edition?.settings).legalPageClauses as string[])
+            : [],
           formatLabel: edition?.format ?? null,
         };
 
+  const fields = legalFieldsSchema.safeParse(
+    settingsRecord(edition?.settings).legalPageFields ?? {},
+  );
+  if (legal && fields.success) Object.assign(legal, fields.data);
+  const license = settingsRecord(edition?.settings).legalPageLicense;
+  if (
+    legal &&
+    typeof license === "string" &&
+    ["cc-by", "cc-by-sa", "cc-by-nc", "cc-by-nc-nd", "cc0"].includes(license)
+  )
+    legal.license = license as LegalPageInput["license"];
+  const rows = await prisma.editorialMatter.findMany({
+    where: {
+      bookId,
+      kind: "COPYRIGHT",
+      deletedAt: null,
+      book: { workspaceId: session.workspace.id, deletedAt: null },
+    },
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+  });
+  const legalRow =
+    rows.find((row) => settingsRecord(row.data).editionId === edition?.id) ??
+    rows.find((row) => !settingsRecord(row.data).editionId);
+  if (legal && !settingString(edition?.settings, "legalPageTemplate")) {
+    const savedTemplate = legalTemplateFrom(legalRow?.templateSlug ?? null);
+    if (savedTemplate) legal.template = savedTemplate;
+  }
+  const mode =
+    settingString(edition?.settings, "legalPageMode") ??
+    (legalRow?.enabled === false ? "DISABLED" : legalRow?.mode);
+  const manualId = settingString(edition?.settings, "legalPageSectionId") ?? legalRow?.sectionId;
+  let manualLegalLayout: MatterLayout | undefined;
+  if (mode === "MANUAL" && manualId) {
+    const section = await prisma.bookSection.findFirst({
+      where: {
+        id: manualId,
+        bookId,
+        deletedAt: null,
+        book: { workspaceId: session.workspace.id, deletedAt: null },
+      },
+      select: { id: true, title: true, type: true, content: true },
+    });
+    if (section) {
+      const blocks = sectionToBlocks({
+        ...section,
+        isChapter: false,
+        startOnOddPage: false,
+        pageBreakBefore: true,
+        includeInExport: true,
+        showInToc: false,
+        showTitle: false,
+        showSectionType: false,
+        showSectionNumber: false,
+      });
+      manualLegalLayout = {
+        id: section.id,
+        blocks: blocks.map((block, index) => ({
+          ...block,
+          sectionId: section.id,
+          firstOfSection: index === 0,
+          breaksBefore: index === 0,
+        })),
+      };
+    }
+  }
   const tocSources: TocSource[] = sections.map((section) => ({
     id: section.id,
+    sectionType: section.type,
     title: section.title,
     level: tocLevel(section.type),
     group: tocGroup(section.type),
-    showInToc: section.showInToc,
+    showInToc:
+      section.showInToc && section.type !== "TABLE_OF_CONTENTS" && section.type !== "COPYRIGHT",
     includeInExport: section.includeInExport,
     enabled: true,
   }));
 
+  // Los encabezados usan ids de bloque reales; el folio se obtiene de la composición.
+  sections.forEach((section) => {
+    if (!section.content || section.type === "TABLE_OF_CONTENTS" || section.type === "COPYRIGHT")
+      return;
+    const blocks = sectionToBlocks({
+      ...section,
+      content: section.content,
+      isChapter: false,
+      startOnOddPage: false,
+      pageBreakBefore: false,
+      showTitle: true,
+      showSectionType: false,
+      showSectionNumber: false,
+    });
+    const sourceIndex = tocSources.findIndex((source) => source.id === section.id);
+    const headings = blocks
+      .filter((block) => ["heading1", "heading2", "heading3"].includes(block.kind))
+      .map((block) => ({
+        id: block.id,
+        title: block.text,
+        level: Number(block.kind.at(-1)) + 1,
+        headingLevel: Number(block.kind.at(-1)),
+        group: tocGroup(section.type),
+        showInToc: section.showInToc,
+        includeInExport: section.includeInExport,
+      }));
+    tocSources.splice(sourceIndex + 1, 0, ...headings);
+  });
+  const tocRows = await prisma.editorialMatter.findMany({
+    where: {
+      bookId,
+      kind: "TABLE_OF_CONTENTS",
+      deletedAt: null,
+      book: { workspaceId: session.workspace.id, deletedAt: null },
+    },
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+  });
+  const tocRow =
+    tocRows.find((row) => settingsRecord(row.data).editionId === edition?.id) ??
+    tocRows.find((row) => !settingsRecord(row.data).editionId);
   return {
+    tocMode:
+      tocRow?.mode === "MANUAL"
+        ? "MANUAL"
+        : tocRow?.mode === "DISABLED" || tocRow?.enabled === false
+          ? "DISABLED"
+          : "AUTOMATIC",
     tocSources,
+    tocParameters: tocParametersFrom({
+      ...settingsRecord(edition?.settings),
+      ...(!settingString(edition?.settings, "tocTemplate") && tocRow?.templateSlug
+        ? { tocTemplate: tocRow.templateSlug }
+        : {}),
+    }),
+    tocTemplateVersion:
+      typeof settingsRecord(edition?.settings).tocTemplateVersion === "number"
+        ? (settingsRecord(edition?.settings).tocTemplateVersion as number)
+        : undefined,
     tocOptions: {
       depth: tocDepthFrom(edition?.tocDepth ?? settingString(edition?.settings, "tocDepth")),
       includeFrontMatter: edition?.tocIncludeFrontMatter ?? true,
@@ -316,11 +457,25 @@ export async function loadBookMatter(
       skipEmptyTitles: true,
     },
     legal,
-    legalMode: legalTemplate === "copyright-digital" ? "digital" : "print",
+    legalPageMode:
+      mode === "MANUAL" || mode === "DISABLED"
+        ? mode
+        : mode === "TEMPLATE"
+          ? "TEMPLATE"
+          : undefined,
+    legalPageSectionId: manualId,
+    ...(manualLegalLayout ? { manualLegalLayout } : {}),
+    legalTemplateVersion:
+      typeof settingsRecord(edition?.settings).legalPageTemplateVersion === "number"
+        ? (settingsRecord(edition?.settings).legalPageTemplateVersion as number)
+        : undefined,
+    legalMode: legal?.template === "copyright-digital" ? "digital" : "print",
     hasTocSection: sections.some((section) => section.type.toUpperCase() === "TABLE_OF_CONTENTS"),
     hasCopyrightSection: sections.some((section) => section.type.toUpperCase() === "COPYRIGHT"),
   };
 }
+
+export const loadBookMatter = cache(readBookMatter);
 
 /**
  * Compone las materias automáticas con las páginas ya calculadas.
@@ -334,21 +489,31 @@ export function composeMatter(
   pageBySection: ReadonlyMap<string, number>,
 ): ComposedMatter {
   const front: MatterLayout[] = [];
+  if (matter.legalPageMode === "MANUAL" && matter.manualLegalLayout)
+    front.push(matter.manualLegalLayout);
 
-  if (!matter.hasCopyrightSection && matter.legal) {
-    const composed = buildLegalPage(matter.legal, { mode: matter.legalMode });
-    const blocks = legalPageToBlocks(composed, {
-      id: "matter-copyright",
-      sectionTitle: "Créditos",
-      pageBreakBefore: true,
-    });
+  if (
+    matter.legalPageMode !== "DISABLED" &&
+    matter.legalPageMode !== "MANUAL" &&
+    (!matter.hasCopyrightSection || matter.legalPageMode === "TEMPLATE") &&
+    matter.legal
+  ) {
+    const composed = matter.frozenLegal ?? buildLegalPage(matter.legal, { mode: matter.legalMode });
+    const blocks = legalPageToBlocks(
+      matter.previewIncompleteLegal ? { ...composed, ready: true } : composed,
+      {
+        id: "matter-copyright",
+        sectionTitle: "Créditos",
+        pageBreakBefore: true,
+      },
+    );
 
     if (blocks.length > 0) {
       front.push({ id: "matter-copyright", blocks });
     }
   }
 
-  if (!matter.hasTocSection) {
+  if (matter.tocMode !== "MANUAL" && matter.tocMode !== "DISABLED") {
     const entries = buildTocEntries(
       matter.tocSources.map((source) => {
         const folio = pageBySection.get(source.id);
@@ -359,7 +524,8 @@ export function composeMatter(
     );
     const blocks = tocToBlocks(entries, {
       id: "matter-toc",
-      heading: "Índice",
+      heading: matter.tocParameters?.tocTitle ?? "Índice",
+      parameters: matter.tocParameters,
       pageBreakBefore: true,
       widthChars: 58,
     });
@@ -376,4 +542,23 @@ export function composeMatter(
       .flatMap((matterLayout) => matterLayout.blocks.map((block) => block.text))
       .join("|"),
   };
+}
+
+/** Excluye únicamente las materias sustituidas de la composición, nunca del manuscrito. */
+export function sectionsForMatter<T extends { id: string; type: string }>(
+  sections: readonly T[],
+  matter: BookMatter | null,
+): T[] {
+  if (!matter) return [...sections];
+  return sections.filter((section) => {
+    if (
+      matter.tocMode !== "MANUAL" &&
+      matter.tocMode !== "DISABLED" &&
+      section.type === "TABLE_OF_CONTENTS"
+    )
+      return false;
+    if (matter.legalPageMode && section.type === "COPYRIGHT") return false;
+    if (matter.legalPageMode === "MANUAL" && section.id === matter.legalPageSectionId) return false;
+    return true;
+  });
 }

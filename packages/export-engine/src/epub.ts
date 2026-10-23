@@ -34,6 +34,8 @@ export interface ExportInlineRun {
 }
 
 export interface ExportBlock {
+  id?: string;
+  alignment?: "left" | "center" | "right";
   kind: ExportBlockKind;
   text: string;
   /** Tramos con formato. Si falta, se usa `text` tal cual. */
@@ -65,6 +67,10 @@ export interface ExportDocumentModel {
   /** Identificador único y estable de la obra. */
   identifier: string;
   chapters: ExportChapter[];
+  toc?: {
+    title: string;
+    entries: readonly { sourceId: string; title: string; level: number; sectionId: string }[];
+  };
   cover?: ExportImage;
 }
 
@@ -225,7 +231,9 @@ function chapterXhtml(
 
     if (block.kind === "heading") {
       const level = Math.min(4, Math.max(1, block.level ?? 2));
-      body.push(`<h${level}>${inlineContent(block)}</h${level}>`);
+      body.push(
+        `<h${level}${block.id ? ` id="${escapeXml(block.id)}"` : ""}>${inlineContent(block)}</h${level}>`,
+      );
       continue;
     }
 
@@ -236,7 +244,9 @@ function chapterXhtml(
 
     const dropCapClass = chapter.dropCap && !dropCapApplied && block.kind === "body";
     if (dropCapClass) dropCapApplied = true;
-    body.push(`<p${dropCapClass ? ' class="drop-cap"' : ""}>${inlineContent(block)}</p>`);
+    body.push(
+      `<p${block.alignment ? ` style="text-align:${block.alignment}"` : ""}${dropCapClass ? ' class="drop-cap"' : ""}>${inlineContent(block)}</p>`,
+    );
   }
 
   if (footnotes.length > 0) {
@@ -472,7 +482,43 @@ export function buildEpub(
       })
       .join("\n");
 
-  const navItems = renderNav(roots, new Set());
+  let navItems = renderNav(roots, new Set());
+  if (document.toc) {
+    type NavEntry = { title: string; href: string; level: number; children: NavEntry[] };
+    const navRoots: NavEntry[] = [];
+    const stack: NavEntry[] = [];
+    for (const entry of document.toc.entries) {
+      const index = chapterIndex.get(entry.sectionId);
+      if (index === undefined) continue;
+      const chapter = chapters[index]!;
+      const anchor =
+        entry.sourceId !== entry.sectionId &&
+        chapter.blocks.some((block) => block.id === entry.sourceId)
+          ? `#${entry.sourceId}`
+          : "";
+      const item: NavEntry = {
+        title: entry.title,
+        level: entry.level,
+        href: `text/chapter-${String(index + 1).padStart(3, "0")}.xhtml${anchor}`,
+        children: [],
+      };
+      while (stack.length && stack.at(-1)!.level >= item.level) stack.pop();
+      if (stack.length) stack.at(-1)!.children.push(item);
+      else navRoots.push(item);
+      stack.push(item);
+    }
+    const render = (items: NavEntry[]): string =>
+      items
+        .map(
+          (item) =>
+            `<li><a href="${escapeXml(item.href)}">${escapeXml(item.title)}</a>${item.children.length ? `<ol>${render(item.children)}</ol>` : ""}</li>`,
+        )
+        .join("\n");
+    navItems = render(navRoots);
+  }
+  if (!navItems && chapters[0])
+    navItems = `<li><a href="text/chapter-001.xhtml">${escapeXml(chapters[0].title || "Inicio")}</a></li>`;
+  const navTitle = escapeXml(document.toc?.title ?? "Índice");
 
   entries.push({
     name: "EPUB/nav.xhtml",
@@ -480,10 +526,10 @@ export function buildEpub(
       `<?xml version="1.0" encoding="utf-8"?>\n` +
         `<!DOCTYPE html>\n` +
         `<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="${escapeXml(document.language)}" xml:lang="${escapeXml(document.language)}">\n` +
-        `<head>\n<title>Índice</title>\n</head>\n` +
+        `<head>\n<title>${navTitle}</title>\n</head>\n` +
         `<body>\n` +
         `  <nav epub:type="toc" id="toc">\n` +
-        `    <h1>Índice</h1>\n` +
+        `    <h1>${navTitle}</h1>\n` +
         `    <ol>\n${navItems}\n    </ol>\n` +
         `  </nav>\n` +
         `</body>\n</html>\n`,

@@ -43,6 +43,10 @@ export type LayoutBlockKind =
   | "image";
 
 export interface LayoutBlock {
+  styleOverride?: Partial<
+    Pick<TypographyStyle, "fontSizePt" | "lineHeight" | "spaceAfterPt" | "firstLineIndentMm">
+  >;
+  tocEntry?: { title: string; label: string; leaders: boolean };
   id: string;
   kind: LayoutBlockKind;
   text: string;
@@ -429,7 +433,7 @@ export function paginate(
       currentRunningHead = block.sectionTitle;
     }
 
-    const baseStyle = styleFor(typography, block.kind);
+    const baseStyle = { ...styleFor(typography, block.kind), ...block.styleOverride };
     const chapterStyle =
       block.kind === "chapterTitle"
         ? {
@@ -546,7 +550,7 @@ export function paginate(
       ...(measure ? { measure } : {}),
     };
 
-    const lines: LaidOutLine[] =
+    let lines: LaidOutLine[] =
       block.runs && block.runs.length > 0
         ? breakRunsIntoLines(block.runs, breakOptions)
         : breakIntoLines(block.text, breakOptions).map((line) => ({
@@ -554,6 +558,26 @@ export function paginate(
             segments: [{ text: line.text }],
           }));
 
+    if (block.tocEntry) {
+      const entry = block.tocEntry;
+      const measureString = (text: string) => measureTextMm(text, { ...breakOptions });
+      const labelWidth = measureString(entry.label);
+      const titles = breakIntoLines(entry.title, {
+        ...breakOptions,
+        lineWidthMm: Math.max(10, widthMm - labelWidth - measureString("  ")),
+      });
+      lines = titles.map((line, index) => {
+        if (index !== titles.length - 1) return { ...line, segments: [{ text: line.text }] };
+        const remaining = Math.max(
+          0,
+          widthMm - (index === 0 ? indentMm : 0) - measureString(line.text) - labelWidth,
+        );
+        const unit = entry.leaders ? "." : "\u2002";
+        const count = Math.max(1, Math.floor(remaining / Math.max(0.01, measureString(unit))));
+        const text = `${line.text}${unit.repeat(count)}${entry.label}`;
+        return { ...line, text, segments: [{ text }] };
+      });
+    }
     if (lines.length === 0) {
       continue;
     }

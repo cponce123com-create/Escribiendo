@@ -204,7 +204,7 @@ export function buildDedicationPage(input: DedicationInput): DedicationCompositi
 
   const position = input.verticalPosition ?? (template === "minimal" ? "upper" : "center");
   const top = position === "upper" ? 2 : position === "center" ? 6 : 11;
-  const alignment = input.alignment ?? "center";
+  const alignment = input.alignment ?? "right";
 
   const blocks: MatterBlock[] = [...spacers(top)];
   if (template === "classic") {
@@ -212,7 +212,14 @@ export function buildDedicationPage(input: DedicationInput): DedicationCompositi
   }
   for (const paragraph of paragraphs(text)) {
     blocks.push({
-      role: template === "literary" ? "italic" : alignment === "left" ? "body" : "center",
+      role:
+        alignment === "right"
+          ? "right"
+          : template === "literary"
+            ? "italic"
+            : alignment === "left"
+              ? "body"
+              : "center",
       text: paragraph,
     });
   }

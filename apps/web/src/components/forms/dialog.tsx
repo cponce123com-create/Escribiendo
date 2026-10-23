@@ -31,16 +31,38 @@ export function Dialog({ abierto, titulo, descripcion, onCerrar, children }: Dia
       return;
     }
 
+    const previousFocus = document.activeElement as HTMLElement | null;
     const alPulsar = (evento: KeyboardEvent): void => {
+      if (evento.key === "Tab") {
+        const focusable = Array.from(
+          contenedor.current?.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), input:not([disabled]):not([type="hidden"]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex="0"]',
+          ) ?? [],
+        );
+        const first = focusable[0],
+          last = focusable.at(-1);
+        if (evento.shiftKey && document.activeElement === first) {
+          evento.preventDefault();
+          last?.focus();
+        } else if (!evento.shiftKey && document.activeElement === last) {
+          evento.preventDefault();
+          first?.focus();
+        }
+      }
       if (evento.key === "Escape") {
         onCerrar();
       }
     };
 
     document.addEventListener("keydown", alPulsar);
-    contenedor.current?.querySelector<HTMLElement>("input, textarea, button")?.focus();
+    contenedor.current
+      ?.querySelector<HTMLElement>('button, input:not([type="hidden"]), textarea, select, a[href]')
+      ?.focus();
 
-    return () => document.removeEventListener("keydown", alPulsar);
+    return () => {
+      document.removeEventListener("keydown", alPulsar);
+      previousFocus?.focus();
+    };
   }, [abierto, onCerrar]);
 
   if (!abierto) {
@@ -65,6 +87,14 @@ export function Dialog({ abierto, titulo, descripcion, onCerrar, children }: Dia
         aria-describedby={descripcion ? descripcionId : undefined}
         className="panel w-full max-w-lg space-y-4 p-6 shadow-lg"
       >
+        <button
+          type="button"
+          className="button button-secondary float-right"
+          onClick={onCerrar}
+          aria-label="Cerrar diálogo"
+        >
+          Cerrar
+        </button>
         <div className="space-y-1">
           <h2 id={tituloId} className="font-serif text-xl text-ink">
             {titulo}

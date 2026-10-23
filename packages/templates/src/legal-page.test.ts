@@ -209,3 +209,34 @@ describe("página legal", () => {
     expect(text).toContain("Depósito legal en trámite");
   });
 });
+
+describe("catálogo legal", () => {
+  it("cada plantilla tiene versión y no inventa campos ausentes", async () => {
+    const { LEGAL_TEMPLATE_CATALOG, missingLegalFields } = await import("./legal-page");
+    expect(LEGAL_TEMPLATE_CATALOG).toHaveLength(7);
+    for (const item of LEGAL_TEMPLATE_CATALOG) {
+      expect(item.version).toBeGreaterThan(0);
+      expect(item.requiredFields.length).toBeGreaterThan(0);
+      const input = { template: item.slug, title: "", author: "" };
+      expect(missingLegalFields(input).length).toBeGreaterThan(0);
+      const page = buildLegalPage(input);
+      expect(page.ready).toBe(false);
+      expect(page.blocks.some((block) => /©|N.º undefined|2026/.test(block.text))).toBe(false);
+    }
+  });
+  it("Creative Commons usa nombre y URL sin cláusula de derechos reservados", () => {
+    const page = buildLegalPage({
+      template: "copyright-creative-commons",
+      title: "Obra",
+      author: "Autora",
+      rightsHolder: "Autora",
+      copyrightYear: 2026,
+      license: "cc-by",
+    });
+    expect(page.ready).toBe(true);
+    expect(page.blocks.map((b) => b.text).join(" ")).toContain(
+      "https://creativecommons.org/licenses/by/4.0/deed.es",
+    );
+    expect(page.blocks.map((b) => b.text).join(" ")).not.toContain("reservados");
+  });
+});
