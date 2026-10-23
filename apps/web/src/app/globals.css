@@ -124,15 +124,15 @@
   --font-ui: "Inter Variable", "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-display:
     "Newsreader Variable", "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-  --canvas: #f5f0e7;
-  --surface: #fcfaf5;
-  --surface-raised: #fffdf9;
+  --canvas: #f6f3ed;
+  --surface: #fcfaf6;
+  --surface-raised: #fffefb;
   --ink: #1c1915;
   --ink-soft: #5b544b;
-  --ink-muted: #887e71;
+  --ink-muted: #756c62;
   --line: rgba(28, 25, 21, 0.12);
   --line-strong: rgba(28, 25, 21, 0.23);
-  --accent: #942f25;
+  --accent: #a43d29;
   --accent-strong: #7a2118;
   --accent-contrast: #fff8f0;
   --success: #2f6a50;
@@ -144,7 +144,7 @@
   --panel-dark: #191612;
   --panel-dark-soft: #221e18;
   --shadow-soft: 0 18px 45px rgba(45, 35, 25, 0.08);
-  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.7), 0 12px 36px rgba(45, 35, 25, 0.06);
+  --shadow-card: 0 2px 4px rgba(92, 58, 31, 0.025), 0 8px 24px rgba(92, 58, 31, 0.045);
 }
 
 [data-theme="dark"] {
@@ -368,7 +368,7 @@
     justify-content: center;
     gap: 0.55rem;
     border: 1px solid transparent;
-    border-radius: 0.28rem;
+    border-radius: 0.6rem;
     padding: 0.68rem 1.05rem;
     font-size: 0.875rem;
     font-weight: 580;
@@ -810,7 +810,7 @@
     min-height: 2.55rem;
     align-items: center;
     gap: 0.7rem;
-    border-radius: 0.28rem;
+    border-radius: 0.6rem;
     padding: 0.55rem 0.65rem;
     color: var(--ink-soft);
     font-size: 0.84rem;
@@ -2584,5 +2584,596 @@ html[data-focus-mode="true"] .app-topbar {
 @media (min-width: 64rem) {
   .app-shell--sidebar-collapsed > div {
     grid-column: 2;
+  }
+}
+
+/* Lenguaje editorial compartido por el estudio, los formularios y el acceso. */
+@layer components {
+  .panel,
+  .stat-card {
+    background: var(--surface-raised);
+    box-shadow: var(--shadow-card);
+  }
+  .field-input {
+    border-radius: 0.6rem;
+    background: var(--surface-raised);
+  }
+  .field-input:focus {
+    box-shadow: 0 0 0 3px var(--focus-ring);
+  }
+  .nav-item {
+    border-radius: 0.65rem;
+    min-height: 2.65rem;
+  }
+  .nav-item[aria-current="page"] {
+    background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+    color: var(--accent);
+  }
+  .brand-mark {
+    border-radius: 0.65rem;
+    background: var(--surface-raised);
+    box-shadow: var(--shadow-card);
+  }
+  .auth-form-wrap .btn {
+    min-height: 3rem;
+  }
+}
+.standard-search-slot {
+  flex: 1;
+  max-width: 34rem;
+  margin-inline: auto;
+}
+.editorial-studio .standard-search-slot {
+  display: none;
+}
+.library-search {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  background: var(--surface-raised);
+  padding: 0.35rem 0.7rem;
+}
+.library-search > svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--ink-muted);
+  flex-shrink: 0;
+}
+.library-search input {
+  width: 100%;
+  min-width: 0;
+  font-size: 0.78rem;
+  padding: 0.35rem 0;
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+}
+.library-search button {
+  border: 1px solid var(--line);
+  border-radius: 0.3rem;
+  min-width: 1.7rem;
+  color: var(--ink-soft);
+}
+.workspace-menu {
+  position: relative;
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+}
+.workspace-menu summary {
+  cursor: pointer;
+}
+.workspace-menu > div {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 18rem;
+  z-index: 40;
+}
+.frontend-studio .app-topbar {
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+}
+.frontend-studio .app-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--surface);
+}
+.frontend-studio .app-sidebar .brand-name {
+  font-size: 1rem;
+  letter-spacing: 0.1em;
+}
+.frontend-studio .app-sidebar .brand-sub {
+  font-size: 0.46rem;
+}
+.frontend-studio .nav-item {
+  font-size: 0.82rem;
+  padding-inline: 0.85rem;
+}
+.frontend-studio .nav-item[aria-current="page"] {
+  position: relative;
+}
+.frontend-studio .app-sidebar .nav-item[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  left: -1rem;
+  top: 0.7rem;
+  bottom: 0.7rem;
+  width: 3px;
+  border-radius: 4px;
+  background: var(--accent);
+}
+.frontend-studio .nav-item-future {
+  opacity: 1;
+  font-size: 0.75rem;
+}
+.frontend-studio .phase-chip {
+  font-size: 0.48rem;
+  letter-spacing: 0;
+}
+.sidebar-quote {
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  padding: 1.3rem 0.5rem;
+  text-align: center;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  background: color-mix(in srgb, var(--accent) 3%, var(--surface));
+}
+.frontend-studio #contenido {
+  padding: 1.3rem;
+}
+.frontend-studio #contenido > div > header {
+  padding: 0.75rem 0 1.25rem;
+  border-bottom: 1px solid var(--line);
+}
+.frontend-studio #contenido > div > header h1 {
+  font-weight: 560;
+}
+.frontend-studio #contenido .panel {
+  border-radius: 1rem;
+}
+.frontend-studio footer {
+  font-size: 0.65rem;
+}
+.dashboard-grid {
+  display: grid;
+  gap: 1.25rem;
+  max-width: 1500px;
+  margin: auto;
+}
+.dashboard-primary,
+.dashboard-secondary {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+.dashboard-hero {
+  isolation: isolate;
+  position: relative;
+  overflow: hidden;
+  min-height: 290px;
+  padding: 2rem;
+  background: var(--surface);
+}
+.dashboard-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background: url("/images/studio/writing-desk.webp") right center / cover no-repeat;
+}
+.dashboard-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    90deg,
+    var(--surface) 8%,
+    color-mix(in srgb, var(--surface) 95%, transparent) 39%,
+    color-mix(in srgb, var(--surface) 10%, transparent) 100%
+  );
+}
+.dashboard-hero-copy {
+  max-width: 33rem;
+}
+.dashboard-hero h1 {
+  font-size: clamp(2rem, 3vw, 3.1rem);
+  max-width: 30rem;
+  margin: 1.25rem 0 0.85rem;
+  font-weight: 600;
+}
+.dashboard-hero-copy > p:last-of-type {
+  max-width: 27rem;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  line-height: 1.65;
+}
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+.dashboard-stats .stat-card {
+  min-height: 108px;
+  display: flex;
+  gap: 0.8rem;
+  padding: 1rem;
+  align-items: center;
+}
+.dashboard-icon {
+  width: 2.3rem;
+  height: 2.3rem;
+  border-radius: 0.6rem;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  color: var(--accent);
+}
+.dashboard-icon svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.dashboard-value {
+  font-family: var(--font-display);
+  font-size: 1.9rem;
+  line-height: 1.2;
+  margin-top: 0.3rem;
+}
+.dashboard-stats .meta-label {
+  font-size: 0.6rem;
+}
+.dashboard-stats .text-xs {
+  font-size: 0.62rem;
+}
+.dashboard-panel-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.2rem 1.4rem;
+  border-bottom: 1px solid var(--line);
+}
+.dashboard-panel-heading h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  line-height: 1.5;
+}
+.dashboard-panel-heading svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+.dashboard-panel-heading a {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  font-size: 0.7rem;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.dashboard-book {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  margin-inline: 1.4rem;
+  padding: 1.3rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.dashboard-book-cover {
+  width: 5.2rem;
+  height: 7rem;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem;
+  border-radius: 3px 7px 7px 3px;
+  box-shadow:
+    inset 4px 0 0 #ffffff24,
+    3px 4px 8px #00000015;
+  background: #3e514b;
+  color: #f9f3e8;
+  text-align: center;
+}
+.dashboard-book-cover-1 {
+  background: #865949;
+}
+.dashboard-book-cover-2 {
+  background: #3b5263;
+}
+.dashboard-book-cover svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+.dashboard-book-cover span {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  line-height: 1.1;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+.dashboard-book-title {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 550;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.dashboard-badge {
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  color: var(--accent);
+  font-size: 0.58rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.3rem;
+}
+.dashboard-create {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  margin: 1rem 1.4rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: 0.6rem;
+  padding: 0.7rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+.dashboard-create:hover {
+  background: var(--surface);
+  color: var(--accent);
+}
+.dashboard-empty {
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--ink-soft);
+}
+.dashboard-empty h3 {
+  font-size: 1.7rem;
+  margin-block: 1rem 0.5rem;
+}
+.dashboard-empty p {
+  font-size: 0.85rem;
+}
+.dashboard-tip {
+  display: flex;
+  gap: 1.2rem;
+  align-items: center;
+  padding: 1.2rem;
+}
+.dashboard-tip-image {
+  width: 5rem;
+  height: 5rem;
+  flex-shrink: 0;
+  border-radius: 0.6rem;
+  background: url("/images/studio/writing-desk.webp") right center / auto 100%;
+}
+.dashboard-tip h2 {
+  font-size: 1.3rem;
+  margin-block: 0.4rem;
+}
+.dashboard-tip p:last-child {
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+}
+.dashboard-tip > a {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.dashboard-week {
+  padding: 1.3rem 1.4rem;
+}
+.dashboard-week h2 {
+  font-size: 2.5rem;
+  margin-block: 1rem 0.6rem;
+}
+.dashboard-week h2 span {
+  font-size: 1.7rem;
+}
+.dashboard-landscape {
+  height: 70px;
+  margin-top: 1rem;
+  border-radius: 0.8rem;
+  background: url("/images/studio/mountain-header.webp") center 54% / cover;
+  opacity: 0.85;
+}
+.dashboard-week ul {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin-top: 1rem;
+}
+.dashboard-week li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.68rem;
+  color: var(--ink-soft);
+}
+.dashboard-week li > span:last-child {
+  display: grid;
+  place-items: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  color: var(--ink-muted);
+}
+.dashboard-week li > .day-active {
+  background: var(--accent);
+  color: var(--accent-contrast) !important;
+  border-color: transparent !important;
+}
+.dashboard-small-title {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.dashboard-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+.dashboard-actions a {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  padding: 0.8rem 0.65rem;
+  font-size: 0.72rem;
+}
+.dashboard-actions a:hover {
+  background: var(--surface);
+  border-color: var(--accent);
+}
+.dashboard-actions svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.dashboard-progress {
+  padding: 1.4rem;
+  background: color-mix(in srgb, var(--accent) 3%, var(--surface-raised));
+}
+.dashboard-progress h2 {
+  font-size: 1.8rem;
+  margin-block: 1rem 0.5rem;
+}
+.dashboard-progress blockquote {
+  margin-top: 1.2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1.1rem;
+  color: var(--ink-soft);
+}
+[data-theme="dark"] .dashboard-hero::before {
+  opacity: 0.3;
+}
+@media (min-width: 64rem) {
+  .frontend-studio {
+    grid-template-columns: 278px minmax(0, 1fr);
+  }
+  .frontend-studio.app-shell--sidebar-collapsed {
+    grid-template-columns: 0 minmax(0, 1fr);
+  }
+  .frontend-studio .standard-workspace-label {
+    flex-shrink: 0;
+    max-width: 15rem;
+  }
+  .frontend-studio .standard-workspace-label .meta-label {
+    font-size: 0.55rem;
+  }
+}
+@media (min-width: 80rem) {
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 2.1fr) minmax(290px, 1fr);
+  }
+  .dashboard-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .dashboard-stats .stat-card {
+    gap: 0.5rem;
+    padding: 0.8rem;
+  }
+  .dashboard-stats .dashboard-icon {
+    width: 1.9rem;
+    height: 1.9rem;
+  }
+}
+@media (max-width: 79.99rem) {
+  .dashboard-secondary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+  .dashboard-tip {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 47.99rem) {
+  .standard-search-slot {
+    display: none;
+  }
+  .frontend-studio #contenido {
+    padding: 1rem;
+  }
+  .dashboard-hero {
+    padding: 1.5rem;
+  }
+  .dashboard-hero::after {
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+  }
+  .dashboard-secondary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dashboard-book {
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    margin-inline: 1rem;
+  }
+  .dashboard-book > .btn {
+    margin-left: auto;
+  }
+  .dashboard-panel-heading {
+    flex-wrap: wrap;
+    padding: 1rem;
+  }
+  .dashboard-tip-image {
+    display: none;
+  }
+  .dashboard-stats .stat-card {
+    padding: 0.75rem;
+    gap: 0.5rem;
+  }
+}
+@media (max-width: 47.99rem) {
+  .dashboard-book {
+    display: grid;
+    grid-template-columns: 4.5rem minmax(0, 1fr);
+    align-items: start;
+  }
+  .dashboard-book-cover {
+    width: 4.5rem;
+    height: 6.3rem;
+  }
+  .dashboard-book > .btn {
+    grid-column: 2;
+    justify-self: start;
+    margin-left: 0;
+  }
+  .dashboard-book-title {
+    font-size: 1.2rem;
+  }
+}
+/* El estado plegado prevalece sobre la utilidad responsive lg:flex. */
+@media (min-width: 64rem) {
+  .app-shell--sidebar-collapsed > .app-sidebar {
+    display: none;
   }
 }

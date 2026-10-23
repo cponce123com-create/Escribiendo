@@ -155,10 +155,7 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
         <ul className="space-y-3">
           {books.map((book) => (
             <li key={book.id} className="panel p-5">
-              <Link
-                href={`/books/${book.id}`}
-                className="block transition-colors hover:opacity-80"
-              >
+              <Link href={`/books/${book.id}`} className="block transition-colors hover:opacity-80">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="min-w-0">
                     <p className="eyebrow">{BOOK_STATUS_LABELS[book.status]}</p>

@@ -53,7 +53,7 @@ export function AppShell({ sidebar, children }: { sidebar: ReactNode; children: 
   return (
     <SidebarContext.Provider value={{ collapsed, toggle }}>
       <div
-        className={`app-shell min-h-svh ${studio ? "editorial-studio" : ""} ${collapsed ? "app-shell--sidebar-collapsed" : ""}`}
+        className={`app-shell min-h-svh ${studio ? "editorial-studio" : "frontend-studio"} ${collapsed ? "app-shell--sidebar-collapsed" : ""}`}
       >
         <a href="#contenido" className="skip-link">
           Saltar al contenido

@@ -1,5 +1,7 @@
 import { StudioSearch, StudioNotifications } from "@/components/books/studio-topbar";
 import Link from "next/link";
+import { LibrarySearch } from "@/components/app/library-search";
+import { WorkspaceSwitcher } from "@/components/app/workspace-switcher";
 import { NavLinks } from "@/components/app/nav-links";
 import { Logo } from "@/components/brand/logo";
 import { AppSidebarToggle } from "@/components/app/app-shell";
@@ -30,10 +32,21 @@ export function AppTopbar({ session }: AppTopbarProps) {
         </div>
 
         <div className="standard-workspace-label hidden min-w-0 lg:block">
-          <p className="meta-label">Estudio privado</p>
+          <p className="meta-label">Mi espacio de trabajo</p>
           <p className="truncate text-sm font-medium text-ink">{session.workspace.name}</p>
+          {session.workspaces.length > 1 && (
+            <details className="workspace-menu">
+              <summary>Cambiar de estudio</summary>
+              <div className="panel p-4">
+                <WorkspaceSwitcher activo={session.workspace} estudios={session.workspaces} />
+              </div>
+            </details>
+          )}
         </div>
 
+        <div className="standard-search-slot">
+          <LibrarySearch />
+        </div>
         <div className="ml-auto flex items-center gap-2">
           <ThemeToggle />
           <div className="studio-notification-slot">
