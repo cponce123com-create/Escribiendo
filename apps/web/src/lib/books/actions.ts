@@ -1129,6 +1129,11 @@ export async function deleteSectionAction(
   );
 
   revalidatePath(`/books/${section.bookId}`);
+  revalidatePath(`/books/${section.bookId}/preview`);
+  revalidatePath(`/books/${section.bookId}/export`);
+  if (formValue(formData, "stayInEditor") === "on") {
+    return successState("Sección y subsecciones eliminadas.");
+  }
 
   redirect(`/books/${section.bookId}`);
 }

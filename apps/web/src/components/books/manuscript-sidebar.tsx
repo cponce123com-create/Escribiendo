@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
-import { moveSectionAction } from "@/lib/books/actions";
+import { ConfirmButton } from "@/components/forms/confirm-button";
+import { deleteSectionAction, moveSectionAction } from "@/lib/books/actions";
 import { initialActionState } from "@/lib/action-state";
 import { flattenSectionTree, type SectionNode } from "@/lib/books/section-tree";
 import { groupSections } from "@/lib/books/studio";
@@ -16,6 +17,7 @@ interface ManuscriptSidebarProps {
   nodes: SectionNode[];
   activeSectionId: string;
   canMove: boolean;
+  canDelete: boolean;
   canCreate: boolean;
   collapsed: boolean;
   onToggle: () => void;
@@ -27,6 +29,7 @@ export function ManuscriptSidebar({
   nodes,
   activeSectionId,
   canMove,
+  canDelete,
   canCreate,
   collapsed,
   onToggle,
@@ -103,40 +106,74 @@ export function ManuscriptSidebar({
                 )}
                 <span>{node.title}</span>
               </Link>
-              {canMove ? (
+              {canMove || canDelete ? (
                 <details className="studio-section-menu">
                   <summary aria-label={`Opciones de ${node.title}`} title="Opciones de la sección">
                     ⋮
                   </summary>
                   <div>
-                    <button
-                      type="button"
-                      disabled={pending || groupIndex === 0}
-                      onClick={(event) => {
-                        event.currentTarget.closest("details")?.removeAttribute("open");
-                        move(
-                          node,
-                          siblings.findIndex((item) => item.id === list[groupIndex - 1]?.id),
-                        );
-                      }}
-                      aria-label={`Subir ${node.title}`}
-                    >
-                      ↑ Subir
-                    </button>
-                    <button
-                      type="button"
-                      disabled={pending || groupIndex === list.length - 1}
-                      onClick={(event) => {
-                        event.currentTarget.closest("details")?.removeAttribute("open");
-                        move(
-                          node,
-                          siblings.findIndex((item) => item.id === list[groupIndex + 1]?.id),
-                        );
-                      }}
-                      aria-label={`Bajar ${node.title}`}
-                    >
-                      ↓ Bajar
-                    </button>
+                    {canMove ? (
+                      <>
+                        <button
+                          type="button"
+                          disabled={pending || groupIndex === 0}
+                          onClick={(event) => {
+                            event.currentTarget.closest("details")?.removeAttribute("open");
+                            move(
+                              node,
+                              siblings.findIndex((item) => item.id === list[groupIndex - 1]?.id),
+                            );
+                          }}
+                          aria-label={`Subir ${node.title}`}
+                        >
+                          ↑ Subir
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending || groupIndex === list.length - 1}
+                          onClick={(event) => {
+                            event.currentTarget.closest("details")?.removeAttribute("open");
+                            move(
+                              node,
+                              siblings.findIndex((item) => item.id === list[groupIndex + 1]?.id),
+                            );
+                          }}
+                          aria-label={`Bajar ${node.title}`}
+                        >
+                          ↓ Bajar
+                        </button>
+                      </>
+                    ) : null}
+                    {canDelete ? (
+                      <form
+                        action={async (data) => {
+                          const result = await deleteSectionAction(initialActionState, data);
+                          setMessage(result.message ?? "");
+                          if (result.status === "success") router.refresh();
+                        }}
+                      >
+                        <input type="hidden" name="sectionId" value={node.id} />
+                        {!flattenSectionTree([node]).some(
+                          (child) => child.id === activeSectionId,
+                        ) ? (
+                          <input type="hidden" name="stayInEditor" value="on" />
+                        ) : null}
+                        <ConfirmButton
+                          label="Eliminar"
+                          confirmLabel="Confirmar eliminación"
+                          description={`Se eliminará «${node.title}»${node.children.length ? ` y ${flattenSectionTree(node.children).length} subsecciones` : ""}.`}
+                          className="btn btn-danger btn-sm"
+                        >
+                          <span className="text-xs text-ink-soft">
+                            Se eliminará esta sección
+                            {node.children.length
+                              ? ` y ${flattenSectionTree(node.children).length} subsecciones`
+                              : ""}
+                            .
+                          </span>
+                        </ConfirmButton>
+                      </form>
+                    ) : null}
                   </div>
                 </details>
               ) : null}

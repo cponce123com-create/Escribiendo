@@ -78,6 +78,7 @@ export default async function SectionPage({ params, searchParams }: SectionPageP
       nodes={sectionTree}
       activeSectionId={section.id}
       canMove={canMove}
+      canDelete={canPerform(session.workspace.role, "section:delete")}
       canCreate={canPerform(session.workspace.role, "section:create")}
       editor={
         <>
