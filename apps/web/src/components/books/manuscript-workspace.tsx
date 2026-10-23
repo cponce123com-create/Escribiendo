@@ -31,6 +31,7 @@ interface ManuscriptWorkspaceProps {
   nodes: SectionNode[];
   activeSectionId: string;
   canMove: boolean;
+  canCreate: boolean;
   editor: ReactNode;
   details: ReactNode;
 }
@@ -41,6 +42,7 @@ export function ManuscriptWorkspace({
   nodes,
   activeSectionId,
   canMove,
+  canCreate,
   editor,
   details,
 }: ManuscriptWorkspaceProps) {
@@ -63,22 +65,17 @@ export function ManuscriptWorkspace({
   };
 
   return (
-    <div
-      className={`grid items-start gap-4 transition-[grid-template-columns] duration-300 ease-out xl:gap-5 ${
-        collapsed
-          ? "xl:grid-cols-[3.5rem_minmax(0,1.8fr)_minmax(15rem,0.8fr)]"
-          : "xl:grid-cols-[16rem_minmax(0,1.6fr)_minmax(15rem,0.8fr)]"
-      }`}
-    >
+    <div className={`studio-workspace ${collapsed ? "studio-workspace--collapsed" : ""}`}>
       <ManuscriptSidebar
         bookId={bookId}
         nodes={nodes}
         activeSectionId={activeSectionId}
         canMove={canMove}
+        canCreate={canCreate}
         collapsed={collapsed}
         onToggle={toggleSidebar}
       />
-      <section className="min-w-0" aria-label="Manuscrito">
+      <section className="studio-writing-column min-w-0" aria-label="Manuscrito">
         {editor}
       </section>
       {details}
