@@ -194,3 +194,11 @@ Estado de publicación: **propuesta para revisión, sin merge ni despliegue auto
 - 41 archivos en el PR inicial: código, pruebas, workflow y documentación. Los cambios de formato ajenos a la lógica se identifican en la descripción. Ningún archivo binario o migración existente está incluido.
 - El PR no está integrado. El build local pasó; la comprobación remota se consulta en GitHub y puede seguir pendiente. No se afirma despliegue.
 - Una actualización posterior de documentación registra estos datos sin modificar el código validado.
+
+### Revisión adicional con E2E remoto
+
+GitHub ejecutó el workflow `39999800040` sobre PostgreSQL 17 desechable: las migraciones y el build pasaron; el resultado fue **42 pruebas aprobadas, 8 fallidas, 5 inestables y 37 no ejecutadas** debido a dependencias de suites seriales. El resultado no se considera aprobado. La verificación principal remota (workflow `39999800126`) sí pasó completa.
+
+Se identificaron selectores ambiguos después de añadir búsquedas y menús, controles de título movidos a la pestaña Detalles, selección de enlaces de personajes en una prueba de orden y el selector de estudios dentro de un menú cerrado. Se corrigieron los selectores/interacciones para probar los mismos comportamientos en su ubicación real; no se eliminaron aserciones de producto. La prueba nueva detectó desbordamiento en móvil: se compactó la marca del encabezado y se acotaron sus hijos flex. Se reforzó el contraste del menú oscuro. El atajo de búsqueda anuncia `aria-keyshortcuts` cuando su listener está activo, para poder comprobarlo después de la hidratación.
+
+Se añadió conservación de capturas, trazas e informe de Playwright incluso cuando el E2E falla. Estos cambios requieren una nueva ejecución del E2E; no se presentan los fallos de la primera pasada como resueltos hasta su verificación. La valoración 7,85 sigue siendo provisional y la entrega permanece en borrador.

@@ -71,3 +71,13 @@ jobs:
 
       - name: Pruebas de extremo a extremo
         run: pnpm exec playwright test --reporter=line
+
+      - name: Conservar informe, capturas y trazas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

@@ -172,6 +172,8 @@ test.describe("Equipo", () => {
 
     await page.goto("/dashboard");
 
+    await page.locator("details.workspace-menu > summary").click();
+
     // El selector ofrece los dos estudios.
     const selector = page.getByLabel("Cambiar de espacio de trabajo");
 
@@ -190,6 +192,8 @@ test.describe("Equipo", () => {
     // Y a partir de ahora se trabaja en el estudio nuevo.
     await page.goto("/team");
     await expect(page.getByText(estudio.name).first()).toBeVisible();
+
+    await page.locator("details.workspace-menu > summary").click();
 
     // Se vuelve al estudio de siempre.
     await selector.selectOption(original);

@@ -3601,3 +3601,46 @@ html[data-focus-mode="true"] .app-topbar {
     flex-basis: 100%;
   }
 }
+
+/* Keep the application header within narrow viewports, without clipping content. */
+.app-topbar .studio-topbar-inner {
+  min-width: 0;
+}
+.standard-search-slot {
+  min-width: 0;
+}
+@media (max-width: 47.99rem) {
+  .frontend-studio .studio-topbar-inner {
+    gap: 0.5rem;
+  }
+  .frontend-studio .app-topbar .brand {
+    gap: 0.5rem;
+    min-width: 0;
+  }
+  .frontend-studio .app-topbar .brand-mark {
+    width: 2rem;
+    height: 2rem;
+    flex: none;
+  }
+  .frontend-studio .app-topbar .brand-name {
+    font-size: 0.875rem;
+    letter-spacing: 0.04em;
+  }
+  .frontend-studio .app-topbar .brand-sub {
+    display: none;
+  }
+  .book-detail-header {
+    min-width: 0;
+  }
+}
+[data-theme="dark"] .frontend-studio .app-sidebar {
+  background: #181612;
+}
+[data-theme="dark"] .frontend-studio .app-sidebar .nav-item,
+[data-theme="dark"] .frontend-studio .app-sidebar .btn-ghost {
+  color: #f0e9dc;
+  transition: background-color 150ms ease;
+}
+[data-theme="dark"] .frontend-studio .app-sidebar .nav-item[aria-current="page"] {
+  color: #ee9a83;
+}

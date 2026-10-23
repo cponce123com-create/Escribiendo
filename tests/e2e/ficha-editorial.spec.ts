@@ -14,9 +14,18 @@ test("ficha editorial: acciones uniformes, portada accesible y seis tamaños de 
   await expect(page.getByRole("link", { name: "Agregar portada" })).toBeVisible();
   for (const width of [375, 390, 768, 1024, 1440, 1920]) {
     await page.setViewportSize({ width, height: 1000 });
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-      true,
-    );
+    const layout = await page.evaluate(() => ({
+      fits: document.documentElement.scrollWidth <= innerWidth,
+      offenders: [...document.querySelectorAll("body *")]
+        .filter((node) => node.getBoundingClientRect().right > innerWidth + 1)
+        .slice(0, 8)
+        .map((node) => ({
+          tag: node.tagName,
+          class: node.className,
+          right: node.getBoundingClientRect().right,
+        })),
+    }));
+    expect(layout.fits, JSON.stringify({ width, ...layout })).toBe(true);
     const heights = await page
       .locator(".book-detail-actions .btn")
       .evaluateAll((nodes) => nodes.map((node) => Math.round(node.getBoundingClientRect().height)));

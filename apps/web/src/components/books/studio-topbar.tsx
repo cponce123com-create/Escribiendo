@@ -21,6 +21,7 @@ export function StudioSearch() {
     const onResult = (event: Event) => {
       if (event instanceof CustomEvent && typeof event.detail === "string") setResult(event.detail);
     };
+    input.current?.setAttribute("aria-keyshortcuts", "Control+k Meta+k");
     window.addEventListener("keydown", onKey);
     window.addEventListener("studio-search-result", onResult);
     return () => {
