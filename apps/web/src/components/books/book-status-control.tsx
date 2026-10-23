@@ -17,7 +17,7 @@ function StatusSubmit() {
   const { pending } = useFormStatus();
 
   return (
-    <button type="submit" className="btn btn-secondary btn-sm" disabled={pending}>
+    <button type="submit" className="btn btn-secondary" disabled={pending}>
       {pending ? "Cambiando…" : "Cambiar estado"}
     </button>
   );
