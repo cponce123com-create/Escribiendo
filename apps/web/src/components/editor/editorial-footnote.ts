@@ -1,4 +1,4 @@
-import { MAX_FOOTNOTE_LENGTH } from "@escribiendo/book-schema";
+import { FOOTNOTE_EDIT_EVENT } from "@/lib/editor/footnote-edit";
 import { Node, mergeAttributes } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view";
@@ -158,30 +158,12 @@ export const EditorialFootnote = Node.create({
               return false;
             }
 
-            const current = typeof node.attrs.note === "string" ? node.attrs.note : "";
-            const next = window.prompt("Texto de la nota al pie", current);
-
-            if (next === null) {
-              return true;
-            }
-
-            if (next.trim().length === 0) {
-              view.dispatch(view.state.tr.delete(pos, pos + node.nodeSize));
-              return true;
-            }
-
-            if (next.trim().length > MAX_FOOTNOTE_LENGTH) {
-              window.alert(`La nota no puede superar los ${MAX_FOOTNOTE_LENGTH} caracteres.`);
-              return true;
-            }
-
-            view.dispatch(
-              view.state.tr.setNodeMarkup(pos, undefined, {
-                ...node.attrs,
-                note: next.trim(),
+            if (!view.editable) return true;
+            view.dom.dispatchEvent(
+              new CustomEvent(FOOTNOTE_EDIT_EVENT, {
+                detail: { id: node.attrs.id, pos, note: node.attrs.note },
               }),
             );
-
             return true;
           },
         },

@@ -1,4 +1,5 @@
 "use client";
+import { FOOTNOTE_EDIT_EVENT, parseFootnoteEdit } from "@/lib/editor/footnote-edit";
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -87,6 +88,7 @@ export function SectionEditor({
    */
   const [dialogo, setDialogo] = useState<{
     tipo: "enlace" | "nota";
+    noteId?: string;
     valor: string;
     /** Selección en el momento de abrir el diálogo, para poder volver a ella. */
     desde: number;
@@ -224,6 +226,26 @@ export function SectionEditor({
       window.removeEventListener("keydown", escape);
     };
   }, [editor]);
+
+  useEffect(() => {
+    if (!editor || !canEdit) return;
+    const openNote = (event: Event) => {
+      const detail = parseFootnoteEdit((event as CustomEvent<unknown>).detail);
+      if (!detail) return;
+      const node = editor.state.doc.nodeAt(detail.pos);
+      if (node?.type.name !== "footnote" || node.attrs.id !== detail.id) return;
+      setDialogo({
+        tipo: "nota",
+        valor: detail.note,
+        noteId: detail.id,
+        desde: detail.pos,
+        hasta: detail.pos + node.nodeSize,
+      });
+    };
+    const dom = editor.view.dom;
+    dom.addEventListener(FOOTNOTE_EDIT_EVENT, openNote);
+    return () => dom.removeEventListener(FOOTNOTE_EDIT_EVENT, openNote);
+  }, [canEdit, editor]);
 
   // --- Recuperación del borrador local -------------------------------------
 
@@ -765,6 +787,18 @@ export function SectionEditor({
                 return;
               }
 
+              if (dialogo.noteId) {
+                const node = editor.state.doc.nodeAt(dialogo.desde);
+                if (node?.type.name !== "footnote" || node.attrs.id !== dialogo.noteId) return;
+                editor
+                  .chain()
+                  .focus()
+                  .setNodeSelection(dialogo.desde)
+                  .updateEditorialFootnote({ note: nota })
+                  .run();
+                setDialogo(null);
+                return;
+              }
               const id = globalThis.crypto.randomUUID();
 
               editor
@@ -808,6 +842,25 @@ export function SectionEditor({
               >
                 Cancelar
               </button>
+              {dialogo.noteId ? (
+                <button
+                  type="button"
+                  className="btn btn-danger btn-sm"
+                  onClick={() => {
+                    if (!editor) return;
+                    const node = editor.state.doc.nodeAt(dialogo.desde);
+                    if (node?.type.name !== "footnote" || node.attrs.id !== dialogo.noteId) return;
+                    editor
+                      .chain()
+                      .focus()
+                      .deleteRange({ from: dialogo.desde, to: dialogo.desde + node.nodeSize })
+                      .run();
+                    setDialogo(null);
+                  }}
+                >
+                  Eliminar nota
+                </button>
+              ) : null}
               <button
                 type="submit"
                 className="btn btn-primary btn-sm"
@@ -816,7 +869,7 @@ export function SectionEditor({
                   dialogo.valor.trim().length > MAX_FOOTNOTE_LENGTH
                 }
               >
-                Insertar nota
+                {dialogo.noteId ? "Guardar nota" : "Insertar nota"}
               </button>
             </div>
           </form>
