@@ -8,6 +8,7 @@ import { storyIdSchema } from "./validation";
 import { formValue, errorState, successState } from "@/lib/form-helpers";
 import type { ActionState } from "@/lib/action-state";
 import { writeAuditLog } from "@/lib/auth/audit";
+import { characterAnalysisError } from "./character-analysis-errors";
 const plain = (v: unknown): string => {
   if (!v || typeof v !== "object") return "";
   const n = v as { text?: unknown; content?: unknown[] };
@@ -363,6 +364,7 @@ export async function deleteCharacterEvent(_prev: ActionState, fd: FormData): Pr
 }
 
 export async function getCharacterSuggestions(bookId: string) {
+  try {
   const session = await getSession();
   if (!session) return { ok: false as const, error: "Inicia sesión para continuar." };
   if (!(await storyBookExists(session, bookId)))
@@ -401,9 +403,17 @@ export async function getCharacterSuggestions(bookId: string) {
     pendingTaskIds: pendingTasks.map((task) => task.id),
     tasks: Object.fromEntries(tasks.map((task) => [task.status, task._count._all])),
   };
+  } catch (error) {
+    console.error(
+      "story.character_suggestions_load_error",
+      error instanceof Error ? error.name : "UnknownError",
+    );
+    return { ok: false as const, error: characterAnalysisError(error) };
+  }
 }
 
 export async function queueBookCharacterAnalysis(bookId: string) {
+  try {
   const start = await beginStoryAction();
   if (!start.ok) return { ok: false as const, error: start.state.message ?? "Permiso denegado." };
   if (!(await storyBookExists(start.session, bookId)))
@@ -442,6 +452,13 @@ export async function queueBookCharacterAnalysis(bookId: string) {
     start.context,
   );
   return { ok: true as const, taskIds, count: taskIds.length };
+  } catch (error) {
+    console.error(
+      "story.character_analysis_queue_error",
+      error instanceof Error ? error.name : "UnknownError",
+    );
+    return { ok: false as const, error: characterAnalysisError(error) };
+  }
 }
 
 export async function reviewCharacterSuggestion(
