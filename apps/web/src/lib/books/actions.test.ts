@@ -151,7 +151,7 @@ describe("books actions", () => {
             workspaceId: "workspace-1",
             createdById: "user-1",
           }),
-        })
+        }),
       );
       // La acción redirige a la ficha del libro. En Next.js `redirect` corta
       // la ejecución: no existe un estado de éxito que devolver.
@@ -310,18 +310,16 @@ describe("books actions", () => {
     it("reintenta si PostgreSQL aborta por conflicto de serialización", async () => {
       let attempts = 0;
 
-      mockPrisma.$transaction.mockImplementation(
-        async (cb: (tx: typeof mockPrisma) => unknown) => {
-          attempts += 1;
-          const value = await cb(mockPrisma);
+      mockPrisma.$transaction.mockImplementation(async (cb: (tx: typeof mockPrisma) => unknown) => {
+        attempts += 1;
+        const value = await cb(mockPrisma);
 
-          if (attempts === 1) {
-            throw Object.assign(new Error("conflicto"), { code: "P2034" });
-          }
+        if (attempts === 1) {
+          throw Object.assign(new Error("conflicto"), { code: "P2034" });
+        }
 
-          return value;
-        },
-      );
+        return value;
+      });
       mockPrisma.bookSection.findFirst.mockImplementation(
         async ({ where }: { where: { id?: string } }) =>
           where.id === ids.section ? sectionRow() : null,
@@ -371,8 +369,8 @@ describe("books actions", () => {
       mockPrisma.book.findFirst.mockResolvedValue({ id: ids.book });
       mockPrisma.bookSection.findFirst.mockResolvedValue(null);
       mockPrisma.bookSection.create.mockResolvedValue({ id: ids.section });
-      mockPrisma.$transaction.mockImplementation(
-        async (cb: (tx: typeof mockPrisma) => unknown) => cb(mockPrisma),
+      mockPrisma.$transaction.mockImplementation(async (cb: (tx: typeof mockPrisma) => unknown) =>
+        cb(mockPrisma),
       );
       mockPrisma.bookSection.aggregate.mockResolvedValue({ _sum: { wordCount: 0 } });
       mockPrisma.bookSection.count.mockResolvedValue(3);
@@ -401,8 +399,8 @@ describe("books actions", () => {
 
   describe("updateBookAction", () => {
     it("recalcula el progreso cuando cambia el objetivo de palabras", async () => {
-      mockPrisma.$transaction.mockImplementation(
-        async (cb: (tx: typeof mockPrisma) => unknown) => cb(mockPrisma),
+      mockPrisma.$transaction.mockImplementation(async (cb: (tx: typeof mockPrisma) => unknown) =>
+        cb(mockPrisma),
       );
       mockPrisma.book.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.bookSection.aggregate.mockResolvedValue({ _sum: { wordCount: 50_000 } });
@@ -438,8 +436,8 @@ describe("books actions", () => {
 
   describe("deleteSectionAction", () => {
     beforeEach(() => {
-      mockPrisma.$transaction.mockImplementation(
-        async (cb: (tx: typeof mockPrisma) => unknown) => cb(mockPrisma),
+      mockPrisma.$transaction.mockImplementation(async (cb: (tx: typeof mockPrisma) => unknown) =>
+        cb(mockPrisma),
       );
       mockPrisma.bookSection.aggregate.mockResolvedValue({ _sum: { wordCount: 0 } });
       mockPrisma.bookSection.count.mockResolvedValue(0);
@@ -459,10 +457,7 @@ describe("books actions", () => {
         .mockResolvedValueOnce([{ id: ids.child }])
         .mockResolvedValueOnce([]);
 
-      await deleteSectionAction(
-        { status: "idle" },
-        makeFormData({ sectionId: ids.section }),
-      );
+      await deleteSectionAction({ status: "idle" }, makeFormData({ sectionId: ids.section }));
 
       expect(mockPrisma.bookSection.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
