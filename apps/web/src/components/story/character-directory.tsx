@@ -9,6 +9,7 @@ import { TextField } from "@/components/forms/text-field";
 import { TextareaField } from "@/components/forms/textarea-field";
 import { UsersIcon } from "@/components/icons";
 import { CharacterAnalyzer } from "@/components/story/character-analyzer";
+import { CharacterIntelligencePanel } from "@/components/story/character-intelligence-panel";
 import { initialActionState } from "@/lib/action-state";
 import {
   createCharacterAction,
@@ -323,6 +324,13 @@ export function CharacterDirectory({
                 <p className="mt-3 text-xs text-ink-muted">
                   Actualizado el {formatDateTime(character.updatedAt)} · {character.createdByName}
                 </p>
+                {character.bookId ? (
+                  <CharacterIntelligencePanel
+                    character={character}
+                    bookId={character.bookId}
+                    canManage={canManage}
+                  />
+                ) : null}
 
                 {canManage ? (
                   <form action={deleteAction} className="mt-3 border-t border-line pt-3">

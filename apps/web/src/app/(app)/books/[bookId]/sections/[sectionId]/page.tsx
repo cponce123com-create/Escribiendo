@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RevisionList } from "@/components/books/revision-list";
 import { SectionEditor } from "@/components/books/section-editor";
+import { SearchFragmentOnLoad } from "@/components/books/search-fragment-on-load";
 import { requireSession } from "@/lib/auth/session";
 import { canPerform } from "@/lib/books/permissions";
 import { getBook, getSection, getSectionTree, listRevisions } from "@/lib/books/queries";
@@ -29,6 +30,7 @@ export const metadata: Metadata = {
 
 interface SectionPageProps {
   params: Promise<{ bookId: string; sectionId: string }>;
+  searchParams: Promise<{ find?: string }>;
 }
 
 /** Normaliza el contenido guardado: un documento inválido se abre vacío. */
@@ -40,9 +42,10 @@ function safeContent(value: unknown): TiptapDocument {
   }
 }
 
-export default async function SectionPage({ params }: SectionPageProps) {
+export default async function SectionPage({ params, searchParams }: SectionPageProps) {
   const session = await requireSession();
   const { bookId, sectionId } = await params;
+  const { find = "" } = await searchParams;
 
   const section = await getSection(session, bookId, sectionId);
 
@@ -77,6 +80,7 @@ export default async function SectionPage({ params }: SectionPageProps) {
       canCreate={canPerform(session.workspace.role, "section:create")}
       editor={
         <>
+          <SearchFragmentOnLoad query={find} />
           <header className="studio-chapter-hero">
             <div className="studio-chapter-eyebrow">
               <span>
