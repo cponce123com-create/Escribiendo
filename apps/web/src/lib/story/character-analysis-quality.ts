@@ -1,4 +1,8 @@
-import { analyzeNarrative, type CharacterCandidate, type NarrativeSection } from "./character-analysis";
+import {
+  analyzeNarrative,
+  type CharacterCandidate,
+  type NarrativeSection,
+} from "./character-analysis";
 export function normalizeCharacterName(value: string): string {
   return value
     .normalize("NFD")
