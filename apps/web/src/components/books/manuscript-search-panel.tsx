@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { searchBookManuscriptAction, replaceBookManuscriptAction } from "@/lib/books/manuscript-search-actions";
 import type { ManuscriptMatch } from "@/lib/books/manuscript-search";
 
@@ -12,7 +11,6 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
   const [matches, setMatches] = useState<ManuscriptMatch[]>([]);
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
-  const router = useRouter();
   const total = useMemo(() => matches.reduce((sum, item) => sum + item.count, 0), [matches]);
 
   useEffect(() => {
@@ -33,12 +31,17 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
   }, [bookId, query]);
 
   const replaceAll = (): void => {
+    const activeEditor = document.querySelector(".manuscript-editor[data-dirty=\\"true\\"]");
+    if (activeEditor) {
+      setMessage("Guarda primero los cambios pendientes del capítulo abierto.");
+      return;
+    }
     if (!total || pending || !window.confirm(`Se reemplazarán ${total} coincidencias en todo el libro. Guarda primero los cambios pendientes del capítulo abierto. ¿Continuar?`)) return;
     startTransition(async () => {
       const result = await replaceBookManuscriptAction(bookId, query, replacement);
       setMessage(result.error ?? `Se reemplazaron ${result.count} coincidencias en todo el libro.`);
       setReplacement("");
-      router.refresh();
+      if (result.count > 0 && !result.error) window.location.reload();
     });
   };
 
