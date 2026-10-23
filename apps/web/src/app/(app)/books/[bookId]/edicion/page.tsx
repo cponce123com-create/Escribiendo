@@ -1,4 +1,12 @@
 import { LEGAL_FIELD_LABELS } from "@/lib/editorial/template-settings";
+import { TocTemplateGallery } from "@/components/layout/toc-template-gallery";
+import { buildTocPreview } from "@/lib/editorial/toc-preview";
+import {
+  TOC_TEMPLATE_CATALOG,
+  tocParametersFrom,
+  auditEditorialStructure,
+  resolveEditorialStructure,
+} from "@escribiendo/templates";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/auth/session";
@@ -51,6 +59,24 @@ export default async function EditionMatterPage({
       };
     }),
   );
+  const tocParameters = {
+    ...(matter?.tocParameters ?? tocParametersFrom({})),
+    tocDepth: matter?.tocOptions.depth ?? "chapters-h1",
+    tocIncludeFrontMatter: matter?.tocOptions.includeFrontMatter ?? true,
+    tocIncludeBackMatter: matter?.tocOptions.includeBackMatter ?? true,
+  };
+  const tocCards = await Promise.all(
+    TOC_TEMPLATE_CATALOG.map(async (item) => ({
+      slug: item.slug,
+      preview: await buildTocPreview(session, bookId, item.parameters),
+    })),
+  );
+  const diagnostics = auditEditorialStructure(resolveEditorialStructure(), {
+    hasBodySections: matter?.tocSources.some((source) => source.group === "body") ?? false,
+    hasRightsHolder: Boolean(matter?.legal?.rightsHolder),
+    hasIsbn: Boolean(matter?.legal?.isbn),
+    hasPublicationYear: Boolean(matter?.legal?.copyrightYear),
+  });
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <header className="space-y-3">
@@ -63,6 +89,14 @@ export default async function EditionMatterPage({
           vista previa y el PDF.
         </p>
       </header>
+      <TocTemplateGallery
+        bookId={bookId}
+        cards={tocCards}
+        initial={tocParameters}
+        canManage={canPerform(session.workspace.role, "layout:manage")}
+        warning={diagnostics.find((item) => item.code === "INDICE_SIN_CUERPO")?.message ?? null}
+        manual={matter?.tocMode === "MANUAL"}
+      />
       <LegalTemplateGallery
         bookId={bookId}
         cards={cards}

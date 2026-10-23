@@ -1,9 +1,11 @@
 "use server";
 import {
+  tocParametersSchema,
   buildLegalPage,
   legalClausesSchema,
   legalPageTemplateSchema,
 } from "@escribiendo/templates";
+import { buildTocPreview } from "./toc-preview";
 import { getSession } from "@/lib/auth/session";
 import { buildPreview, loadPreviewSections } from "@/lib/layout/preview";
 import { loadBookMatter } from "./book-matter";
@@ -57,4 +59,13 @@ export async function legalGalleryPreview(
     },
     warnings: result.warnings,
   };
+}
+
+export async function tocGalleryPreview(bookId: string, raw: unknown) {
+  await assertServerActionOrigin();
+  const session = await getSession();
+  if (!session) throw new Error("Inicia sesión para ver el índice.");
+  const id = z.string().uuid().parse(bookId);
+  const parameters = tocParametersSchema.parse(raw);
+  return buildTocPreview(session, id, parameters);
 }
