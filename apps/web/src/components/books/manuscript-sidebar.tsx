@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
 import { ConfirmButton } from "@/components/forms/confirm-button";
 import { deleteSectionAction, moveSectionAction } from "@/lib/books/actions";
+import type { ActionState } from "@/lib/action-state";
 import { initialActionState } from "@/lib/action-state";
 import { flattenSectionTree, type SectionNode } from "@/lib/books/section-tree";
 import { groupSections } from "@/lib/books/studio";
@@ -36,7 +37,7 @@ export function ManuscriptSidebar({
 }: ManuscriptSidebarProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<ActionState>(initialActionState);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const flat = flattenSectionTree(nodes);
@@ -49,7 +50,7 @@ export function ManuscriptSidebar({
     data.set("position", String(position));
     startTransition(async () => {
       const result = await moveSectionAction(initialActionState, data);
-      setMessage(result.message ?? "");
+      setMessage(result);
       if (result.status === "success") router.refresh();
     });
   };
@@ -148,7 +149,7 @@ export function ManuscriptSidebar({
                       <form
                         action={async (data) => {
                           const result = await deleteSectionAction(initialActionState, data);
-                          setMessage(result.message ?? "");
+                          setMessage(result);
                           if (result.status === "success") router.refresh();
                         }}
                       >
@@ -245,9 +246,14 @@ export function ManuscriptSidebar({
           </div>
         </>
       ) : null}
-      <p className="sr-only" role="status">
-        {pending ? "Guardando el orden…" : message}
-      </p>
+      {pending || message.message ? (
+        <p
+          className={`alert ${message.status === "error" ? "alert-error" : "alert-success"}`}
+          role="status"
+        >
+          {pending ? "Guardando el orden…" : message.message}
+        </p>
+      ) : null}
       {adding ? (
         <Dialog
           abierto
