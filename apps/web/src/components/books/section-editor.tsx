@@ -363,6 +363,15 @@ export function SectionEditor({
           return;
         }
 
+        if (resultado.analysisTaskId) {
+          void fetch("/api/story-analysis/process", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ taskId: resultado.analysisTaskId }),
+            keepalive: true,
+          }).catch(() => undefined);
+        }
+
         const versionGuardada = resultado.savedVersion ?? versionRef.current;
         versionRef.current = versionGuardada;
 

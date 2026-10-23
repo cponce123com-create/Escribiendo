@@ -66,7 +66,9 @@ export function CharacterDirectory({
       <FormMessage state={createState} />
       <FormMessage state={updateState} />
       <FormMessage state={deleteState} />
-      {canManage && defaultBookId ? <CharacterAnalyzer bookId={defaultBookId} /> : null}
+      {canManage && defaultBookId ? (
+        <CharacterAnalyzer bookId={defaultBookId} characters={characters} />
+      ) : null}
 
       {canManage ? (
         <section className="panel p-5" aria-labelledby="new-character-title">

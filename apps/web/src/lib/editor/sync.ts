@@ -48,6 +48,7 @@ export interface SectionSaveState {
   fieldErrors?: Record<string, string>;
   /** Versión guardada en el servidor, si se ha guardado. */
   savedVersion?: number | null;
+  analysisTaskId?: string | null;
   /** El servidor ha pospuesto el guardado automático. */
   throttled?: boolean;
   /** El servidor tiene otra versión. */
