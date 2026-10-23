@@ -20,7 +20,14 @@ const SOURCES: TocSource[] = [
   { id: "sc-1", title: "Escena primera", level: 2, group: "body", showInToc: true, pageIndex: 14 },
   { id: "ch-2", title: "Capítulo 2", level: 1, group: "body", showInToc: false, pageIndex: 30 },
   { id: "appendix", title: "Apéndice", level: 1, group: "back", showInToc: true, pageIndex: 90 },
-  { id: "hidden", title: "Material interno", level: 1, group: "body", showInToc: true, includeInExport: false },
+  {
+    id: "hidden",
+    title: "Material interno",
+    level: 1,
+    group: "body",
+    showInToc: true,
+    includeInExport: false,
+  },
 ];
 
 describe("índice automático", () => {
@@ -37,7 +44,12 @@ describe("índice automático", () => {
     const withParts = buildTocEntries(SOURCES, { depth: "parts-chapters" });
     const withoutParts = buildTocEntries(SOURCES, { depth: "chapters-h1" });
 
-    expect(withParts.map((entry) => entry.sourceId)).toEqual(["front", "part-1", "ch-1", "appendix"]);
+    expect(withParts.map((entry) => entry.sourceId)).toEqual([
+      "front",
+      "part-1",
+      "ch-1",
+      "appendix",
+    ]);
     expect(withoutParts.map((entry) => entry.sourceId)).toEqual(["front", "ch-1", "appendix"]);
   });
 
@@ -142,7 +154,13 @@ describe("estabilización del índice", () => {
         calls += 1;
         return {
           entries: [
-            { sourceId: "ch-1", title: "Capítulo 1", level: 1, group: "body", label: String(10 + tocPages) },
+            {
+              sourceId: "ch-1",
+              title: "Capítulo 1",
+              level: 1,
+              group: "body",
+              label: String(10 + tocPages),
+            },
           ],
           pageCount: 2,
           signature: `sig-${tocPages}`,
@@ -161,7 +179,13 @@ describe("estabilización del índice", () => {
       maxPasses: 3,
       layout: (tocPages) => ({
         entries: [
-          { sourceId: "ch-1", title: "Capítulo 1", level: 1, group: "body", label: String(tocPages) },
+          {
+            sourceId: "ch-1",
+            title: "Capítulo 1",
+            level: 1,
+            group: "body",
+            label: String(tocPages),
+          },
         ],
         pageCount: tocPages + 1,
         signature: `sig-${tocPages}`,

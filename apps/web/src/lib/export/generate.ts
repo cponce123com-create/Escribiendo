@@ -205,19 +205,19 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
     // ignorara el salto de página o la apertura en recto, los dos archivos
     // dirían cosas distintas.
     const previewSections = input.sections.map((section) => ({
-        id: section.id,
-        title: section.title,
-        type: section.type,
-        content: section.content,
-        isChapter: isChapterType(section.type),
-        startOnOddPage: section.startOnOddPage,
-        pageBreakBefore: section.pageBreakBefore,
-        includeInExport: section.includeInExport,
-        showInToc: section.showInToc,
-        showTitle: section.showTitle,
-        showSectionType: section.showSectionType,
-        showSectionNumber: section.showSectionNumber,
-      }));
+      id: section.id,
+      title: section.title,
+      type: section.type,
+      content: section.content,
+      isChapter: isChapterType(section.type),
+      startOnOddPage: section.startOnOddPage,
+      pageBreakBefore: section.pageBreakBefore,
+      includeInExport: section.includeInExport,
+      showInToc: section.showInToc,
+      showTitle: section.showTitle,
+      showSectionType: section.showSectionType,
+      showSectionNumber: section.showSectionNumber,
+    }));
     const compose = (front: readonly MatterLayout[], back: readonly MatterLayout[]) =>
       bookToBlocks(previewSections, {
         dropCaps: input.dropCaps === true,
@@ -228,7 +228,10 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
     const measure = pdfFonts?.measure;
     estimatedPagination = !pdfFonts;
 
-    const geometry = { ...geometryFromProfile(input.profile), physicalPageOffset: input.cover ? 1 : 0 };
+    const geometry = {
+      ...geometryFromProfile(input.profile),
+      physicalPageOffset: input.cover ? 1 : 0,
+    };
     const matter = input.matter ?? null;
     let composedMatter = matter ? composeMatter(matter, new Map()) : EMPTY_MATTER;
     let composition = paginate(

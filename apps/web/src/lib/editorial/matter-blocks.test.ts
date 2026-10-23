@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildDedicationPage, buildTitlePage, type LegalPageResult, type TocEntry } from "@escribiendo/templates";
+import {
+  buildDedicationPage,
+  buildTitlePage,
+  type LegalPageResult,
+  type TocEntry,
+} from "@escribiendo/templates";
 import {
   legalPageToBlocks,
   matterPageToBlocks,

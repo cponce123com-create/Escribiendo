@@ -158,10 +158,7 @@ export function roleBlocksToBlocks(
  * Una materia marcada como no lista no se compone: sus avisos explican qué
  * falta y el editor debe verlos antes de exportar.
  */
-export function matterPageToBlocks(
-  page: MatterPage,
-  options: MatterBlockOptions,
-): LayoutBlock[] {
+export function matterPageToBlocks(page: MatterPage, options: MatterBlockOptions): LayoutBlock[] {
   if (!page.ready) {
     return [];
   }
@@ -195,10 +192,7 @@ export interface TocBlockOptions extends MatterBlockOptions {
  * imprime sin número. La jerarquía se expresa con sangría de espacios em, que
  * se miden con la misma fuente que el resto del índice.
  */
-export function tocToBlocks(
-  entries: readonly TocEntry[],
-  options: TocBlockOptions,
-): LayoutBlock[] {
+export function tocToBlocks(entries: readonly TocEntry[], options: TocBlockOptions): LayoutBlock[] {
   const heading = normalizedText(options.heading ?? "") || "Índice";
   const widthChars = options.widthChars ?? 60;
   const blocks: LayoutBlock[] = [

@@ -65,7 +65,9 @@ describe("resolución de la estructura editorial", () => {
 
   it("el índice se marca como elegible según la definición", () => {
     const structure = resolveEditorialStructure({ preset: "novela-estandar" });
-    expect(structure.front.find((slot) => slot.kind === "TABLE_OF_CONTENTS")?.showInToc).toBe(false);
+    expect(structure.front.find((slot) => slot.kind === "TABLE_OF_CONTENTS")?.showInToc).toBe(
+      false,
+    );
     expect(structure.front.find((slot) => slot.kind === "DEDICATION")?.showInToc).toBe(true);
   });
 
