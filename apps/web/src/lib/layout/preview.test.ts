@@ -14,6 +14,12 @@ const { mockPrisma, mockBookToBlocks, mockGetBookCover, mockGetBookEdition, mock
     mockOutlineFromPages: vi.fn(),
   }));
 
+// Estas pruebas aíslan composición/reproducción de las materias automáticas.
+vi.mock("@/lib/editorial/book-matter", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  loadBookMatter: async () => null,
+}));
+
 vi.mock("server-only", () => ({}));
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
@@ -96,14 +102,22 @@ describe("vista previa paginada", () => {
     const preview = await buildPreview(session, "book-1", { dropCaps: true });
 
     expect(preview?.dropCaps).toBe(true);
-    expect(mockBookToBlocks).toHaveBeenCalledWith(expect.any(Array), { dropCaps: true });
+    expect(mockBookToBlocks).toHaveBeenCalledWith(expect.any(Array), {
+      dropCaps: true,
+      frontMatter: [],
+      backMatter: [],
+    });
   });
 
   it("no activa la inicial por defecto", async () => {
     const preview = await buildPreview(session, "book-1");
 
     expect(preview?.dropCaps).toBe(false);
-    expect(mockBookToBlocks).toHaveBeenCalledWith(expect.any(Array), { dropCaps: false });
+    expect(mockBookToBlocks).toHaveBeenCalledWith(expect.any(Array), {
+      dropCaps: false,
+      frontMatter: [],
+      backMatter: [],
+    });
   });
 
   it("desplaza el índice cuando la portada ocupa la primera página", async () => {
