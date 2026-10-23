@@ -43,7 +43,9 @@ export function NewSectionForm({ bookId, parents }: NewSectionFormProps) {
             className="field-input"
             defaultValue="CHAPTER"
           >
-            {BOOK_SECTION_TYPES.map((type) => (
+            {BOOK_SECTION_TYPES.filter(
+              (type) => type !== "TABLE_OF_CONTENTS" && type !== "COPYRIGHT",
+            ).map((type) => (
               <option key={type} value={type}>
                 {SECTION_TYPE_LABELS[type] ?? type}
               </option>

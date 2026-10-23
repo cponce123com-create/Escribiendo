@@ -334,6 +334,22 @@ describe("books actions", () => {
   });
 
   describe("createSectionAction", () => {
+    it.each(["TABLE_OF_CONTENTS", "COPYRIGHT"])(
+      "rechaza la sección automática %s",
+      async (type) => {
+        const result = await createSectionAction(
+          { status: "idle" },
+          makeFormData({
+            bookId: ids.book,
+            title: "Automática",
+            type,
+          }),
+        );
+        expect(result.status).toBe("error");
+        expect(result.message).toBe("El índice y la página de derechos se generan solos");
+        expect(mockPrisma.bookSection.create).not.toHaveBeenCalled();
+      },
+    );
     it("rechaza un padre de otro libro y no crea la sección", async () => {
       mockPrisma.book.findFirst.mockResolvedValue({ id: ids.book });
       mockPrisma.bookSection.findFirst.mockResolvedValue(null);

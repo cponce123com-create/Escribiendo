@@ -232,6 +232,9 @@ export function ManuscriptSidebar({
                     {flattenSectionTree(group.nodes).length}
                   </span>
                 </summary>
+                {group.label === "Preliminares" ? (
+                  <p className="studio-group-empty">Índice (automático)</p>
+                ) : null}
                 {group.nodes.length ? (
                   renderNodes(group.nodes, 0)
                 ) : (

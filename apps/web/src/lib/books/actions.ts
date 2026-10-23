@@ -432,6 +432,10 @@ export async function createSectionAction(
     return errorState("El tipo de sección no es válido.");
   }
 
+  if (type.data === "TABLE_OF_CONTENTS" || type.data === "COPYRIGHT") {
+    return errorState("El índice y la página de derechos se generan solos");
+  }
+
   const book = await prisma.book.findFirst({
     where: { id: bookId.data, workspaceId: session.workspace.id, deletedAt: null },
     select: { id: true },
