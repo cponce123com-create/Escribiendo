@@ -1,4 +1,5 @@
 "use server";
+import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
@@ -359,4 +360,227 @@ export async function deleteCharacterEvent(_prev: ActionState, fd: FormData): Pr
   await prisma.storyCharacterEvent.delete({ where: { id: item.id } });
   revalidatePath("/characters");
   return successState("Acontecimiento eliminado.");
+}
+
+export async function getCharacterSuggestions(bookId: string) {
+  const session = await getSession();
+  if (!session) return { ok: false as const, error: "Inicia sesión para continuar." };
+  if (!(await storyBookExists(session, bookId)))
+    return { ok: false as const, error: "Libro no disponible." };
+  await prisma.characterAnalysisTask.updateMany({
+    where: {
+      workspaceId: session.workspace.id,
+      bookId,
+      status: "PROCESSING",
+      updatedAt: { lt: new Date(Date.now() - 10 * 60 * 1000) },
+    },
+    data: { status: "PENDING" },
+  });
+  const [suggestions, tasks, pendingTasks] = await Promise.all([
+    prisma.storyCharacterSuggestion.findMany({
+      where: { workspaceId: session.workspace.id, bookId, status: "PENDING" },
+      include: { section: { select: { title: true } } },
+      orderBy: [{ stale: "asc" }, { confidence: "desc" }, { createdAt: "desc" }],
+      take: 100,
+    }),
+    prisma.characterAnalysisTask.groupBy({
+      by: ["status"],
+      where: { workspaceId: session.workspace.id, bookId },
+      _count: { _all: true },
+    }),
+    prisma.characterAnalysisTask.findMany({
+      where: { workspaceId: session.workspace.id, bookId, status: "PENDING" },
+      orderBy: { createdAt: "asc" },
+      take: 200,
+      select: { id: true },
+    }),
+  ]);
+  return {
+    ok: true as const,
+    suggestions,
+    pendingTaskIds: pendingTasks.map((task) => task.id),
+    tasks: Object.fromEntries(tasks.map((task) => [task.status, task._count._all])),
+  };
+}
+
+export async function queueBookCharacterAnalysis(bookId: string) {
+  const start = await beginStoryAction();
+  if (!start.ok) return { ok: false as const, error: start.state.message ?? "Permiso denegado." };
+  if (!(await storyBookExists(start.session, bookId)))
+    return { ok: false as const, error: "Libro no disponible." };
+  const sections = await prisma.bookSection.findMany({
+    where: { bookId, deletedAt: null, isHidden: false },
+    select: { id: true, type: true, content: true },
+  });
+  const taskIds: string[] = [];
+  for (const section of sections) {
+    const contentHash = createHash("sha256")
+      .update(JSON.stringify(section.content), "utf8")
+      .digest("hex");
+    const task = await prisma.characterAnalysisTask.upsert({
+      where: { sectionId_contentHash: { sectionId: section.id, contentHash } },
+      create: {
+        workspaceId: start.session.workspace.id,
+        bookId,
+        sectionId: section.id,
+        contentHash,
+      },
+      update: { status: "PENDING", completedAt: null },
+      select: { id: true },
+    });
+    taskIds.push(task.id);
+  }
+  await writeAuditLog(
+    {
+      action: "STORY_CHARACTER_ANALYSIS_QUEUED",
+      entityType: "Book",
+      entityId: bookId,
+      workspaceId: start.session.workspace.id,
+      actorId: start.session.user.id,
+      metadata: { sections: taskIds.length },
+    },
+    start.context,
+  );
+  return { ok: true as const, taskIds, count: taskIds.length };
+}
+
+export async function reviewCharacterSuggestion(
+  _previous: ActionState,
+  fd: FormData,
+): Promise<ActionState> {
+  const start = await beginStoryAction();
+  if (!start.ok) return start.state;
+  const id = storyIdSchema.safeParse(formValue(fd, "suggestionId"));
+  const decision = formValue(fd, "decision");
+  if (!id.success || !["accept", "discard", "merge"].includes(decision))
+    return errorState("La decisión no es válida.");
+  const suggestion = await prisma.storyCharacterSuggestion.findFirst({
+    where: { id: id.data, workspaceId: start.session.workspace.id, status: "PENDING" },
+  });
+  if (!suggestion) return errorState("La sugerencia ya se revisó o no está disponible.");
+  if (decision === "discard") {
+    await prisma.storyCharacterSuggestion.update({
+      where: { id: suggestion.id },
+      data: { status: "DISCARDED" },
+    });
+    await writeAuditLog(
+      {
+        action: "STORY_CHARACTER_SUGGESTION_DISCARDED",
+        entityType: "StoryCharacterSuggestion",
+        entityId: suggestion.id,
+        workspaceId: start.session.workspace.id,
+        actorId: start.session.user.id,
+        metadata: { bookId: suggestion.bookId, stale: suggestion.stale },
+      },
+      start.context,
+    );
+    revalidatePath("/characters");
+    return successState("Sugerencia descartada; la ficha del personaje no se modificó.");
+  }
+  let characterId = formValue(fd, "characterId");
+  let target = null as {
+    id: string;
+    age: string | null;
+    description: string | null;
+    notes: string | null;
+  } | null;
+  if (decision === "merge") {
+    const parsedTarget = storyIdSchema.safeParse(characterId);
+    if (!parsedTarget.success) return errorState("Elige una ficha de personaje para fusionar.");
+    target = await prisma.storyCharacter.findFirst({
+      where: {
+        id: parsedTarget.data,
+        workspaceId: start.session.workspace.id,
+        bookId: suggestion.bookId,
+        deletedAt: null,
+      },
+      select: { id: true, age: true, description: true, notes: true },
+    });
+    if (!target) return errorState("La ficha elegida no pertenece a este libro.");
+  } else {
+    const existing = await prisma.storyCharacter.findMany({
+      where: {
+        workspaceId: start.session.workspace.id,
+        bookId: suggestion.bookId,
+        deletedAt: null,
+      },
+      select: { id: true, name: true, age: true, description: true, notes: true },
+    });
+    const exact = existing.filter((item) => norm(item.name) === norm(suggestion.suggestedName));
+    const proposedName = norm(suggestion.suggestedName);
+    const variants = proposedName.includes(" ")
+      ? []
+      : existing.filter((item) => norm(item.name).split(/\s+/).includes(proposedName));
+    const matches = exact.length ? exact : variants;
+    if (matches.length > 1)
+      return errorState(
+        "El nombre podría corresponder a varias fichas; selecciona manualmente dónde fusionarlo.",
+      );
+    target = matches[0] ?? null;
+  }
+  const resolved = await prisma.$transaction(async (tx) => {
+    if (!target && decision === "accept") {
+      const created = await tx.storyCharacter.create({
+        data: {
+          workspaceId: start.session.workspace.id,
+          bookId: suggestion.bookId,
+          createdById: start.session.user.id,
+          name: suggestion.suggestedName,
+          role: "OTHER",
+          age: suggestion.suggestedAge,
+          description: suggestion.suggestedDescription,
+        },
+        select: { id: true },
+      });
+      characterId = created.id;
+    } else if (target) {
+      // Solo completa campos vacíos; no pisa ninguna modificación escrita por el autor.
+      await tx.storyCharacter.update({
+        where: { id: target.id },
+        data: {
+          ...(target.age === null && suggestion.suggestedAge
+            ? { age: suggestion.suggestedAge }
+            : {}),
+          ...(target.description === null && suggestion.suggestedDescription
+            ? { description: suggestion.suggestedDescription }
+            : {}),
+        },
+      });
+      characterId = target.id;
+    }
+    await tx.storyCharacterSuggestion.update({
+      where: { id: suggestion.id },
+      data: {
+        status: target || decision === "merge" ? "MERGED" : "ACCEPTED",
+        characterId: characterId || null,
+      },
+    });
+    return characterId;
+  });
+  await writeAuditLog(
+    {
+      action:
+        decision === "merge" || target
+          ? "STORY_CHARACTER_SUGGESTION_MERGED"
+          : "STORY_CHARACTER_SUGGESTION_ACCEPTED",
+      entityType: "StoryCharacterSuggestion",
+      entityId: suggestion.id,
+      workspaceId: start.session.workspace.id,
+      actorId: start.session.user.id,
+      metadata: {
+        bookId: suggestion.bookId,
+        characterId: resolved ?? null,
+        stale: suggestion.stale,
+      },
+    },
+    start.context,
+  );
+  revalidatePath("/characters");
+  return successState(
+    resolved
+      ? decision === "merge" || target
+        ? "Sugerencia fusionada sin reemplazar datos existentes."
+        : "Personaje añadido desde la sugerencia."
+      : "Sugerencia procesada.",
+  );
 }

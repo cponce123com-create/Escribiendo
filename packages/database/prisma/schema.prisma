@@ -84,19 +84,21 @@ model Workspace {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  owner              User                     @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
-  members            WorkspaceMember[]
-  invitations        WorkspaceInvitation[]
-  books              Book[]
-  layoutProfiles     LayoutProfile[]
-  editorialTemplates EditorialTemplate[]
-  assets             Asset[]
-  auditLogs          AuditLog[]
-  storyPlanItems     StoryPlanItem[]
-  storyCharacters    StoryCharacter[]
-  characterRelations StoryCharacterRelation[]
-  characterEvents    StoryCharacterEvent[]
-  storyWorlds        StoryWorld[]
+  owner                  User                       @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  members                WorkspaceMember[]
+  invitations            WorkspaceInvitation[]
+  books                  Book[]
+  layoutProfiles         LayoutProfile[]
+  editorialTemplates     EditorialTemplate[]
+  assets                 Asset[]
+  auditLogs              AuditLog[]
+  storyPlanItems         StoryPlanItem[]
+  storyCharacters        StoryCharacter[]
+  characterRelations     StoryCharacterRelation[]
+  characterEvents        StoryCharacterEvent[]
+  characterAnalysisTasks CharacterAnalysisTask[]
+  characterSuggestions   StoryCharacterSuggestion[]
+  storyWorlds            StoryWorld[]
 
   @@index([ownerId])
   @@index([deletedAt])
@@ -252,20 +254,22 @@ model Book {
   archivedAt      DateTime?
   deletedAt       DateTime?
 
-  workspace          Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
-  createdBy          User                     @relation("BookCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  sections           BookSection[]
-  editions           BookEdition[]
-  assets             BookAsset[]
-  exportJobs         ExportJob[]
-  notes              WritingNote[]
-  goals              WritingGoal[]
-  comments           EditorialComment[]
-  storyPlanItems     StoryPlanItem[]
-  storyCharacters    StoryCharacter[]
-  characterRelations StoryCharacterRelation[]
-  characterEvents    StoryCharacterEvent[]
-  storyWorlds        StoryWorld[]
+  workspace                 Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  createdBy                 User                       @relation("BookCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  sections                  BookSection[]
+  editions                  BookEdition[]
+  assets                    BookAsset[]
+  exportJobs                ExportJob[]
+  notes                     WritingNote[]
+  goals                     WritingGoal[]
+  comments                  EditorialComment[]
+  storyPlanItems            StoryPlanItem[]
+  storyCharacters           StoryCharacter[]
+  characterRelations        StoryCharacterRelation[]
+  characterEvents           StoryCharacterEvent[]
+  storyWorlds               StoryWorld[]
+  characterAnalysisTasks    CharacterAnalysisTask[]
+  storyCharacterSuggestions StoryCharacterSuggestion[]
 
   @@index([workspaceId, deletedAt])
   @@index([workspaceId, status])
@@ -295,13 +299,15 @@ model BookSection {
   updatedAt       DateTime    @updatedAt
   deletedAt       DateTime?
 
-  book      Book               @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  parent    BookSection?       @relation("SectionHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
-  children  BookSection[]      @relation("SectionHierarchy")
-  revisions SectionRevision[]
-  notes     WritingNote[]
-  comments  EditorialComment[]
-  assignee  User?              @relation("SectionAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  book                   Book                       @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  parent                 BookSection?               @relation("SectionHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children               BookSection[]              @relation("SectionHierarchy")
+  revisions              SectionRevision[]
+  characterAnalysisTasks CharacterAnalysisTask[]
+  characterSuggestions   StoryCharacterSuggestion[]
+  notes                  WritingNote[]
+  comments               EditorialComment[]
+  assignee               User?                      @relation("SectionAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
 
   @@index([bookId, parentId, sortOrder])
   @@index([bookId, type])
@@ -692,12 +698,13 @@ model StoryCharacter {
   updatedAt   DateTime      @updatedAt
   deletedAt   DateTime?
 
-  workspace         Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  book              Book?                    @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  createdBy         User?                    @relation("StoryCharacterCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  outgoingRelations StoryCharacterRelation[] @relation("CharacterRelationSource")
-  incomingRelations StoryCharacterRelation[] @relation("CharacterRelationTarget")
+  workspace         Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  book              Book?                      @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  createdBy         User?                      @relation("StoryCharacterCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  outgoingRelations StoryCharacterRelation[]   @relation("CharacterRelationSource")
+  incomingRelations StoryCharacterRelation[]   @relation("CharacterRelationTarget")
   events            StoryCharacterEvent[]
+  suggestions       StoryCharacterSuggestion[]
 
   @@index([workspaceId, bookId])
   @@index([workspaceId, role])
@@ -705,6 +712,70 @@ model StoryCharacter {
   @@index([createdById])
   @@index([deletedAt])
   @@map("story_characters")
+}
+
+enum CharacterAnalysisTaskStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  SUPERSEDED
+}
+
+enum CharacterSuggestionStatus {
+  PENDING
+  ACCEPTED
+  DISCARDED
+  MERGED
+}
+
+model CharacterAnalysisTask {
+  id          String                      @id @default(uuid()) @db.Uuid
+  workspaceId String                      @db.Uuid
+  bookId      String                      @db.Uuid
+  sectionId   String                      @db.Uuid
+  contentHash String                      @db.VarChar(64)
+  status      CharacterAnalysisTaskStatus @default(PENDING)
+  attempts    Int                         @default(0)
+  createdAt   DateTime                    @default(now())
+  updatedAt   DateTime                    @updatedAt
+  completedAt DateTime?
+  workspace   Workspace                   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  book        Book                        @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  section     BookSection                 @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@unique([sectionId, contentHash])
+  @@index([workspaceId, status, createdAt])
+  @@map("character_analysis_tasks")
+}
+
+model StoryCharacterSuggestion {
+  id                   String                    @id @default(uuid()) @db.Uuid
+  workspaceId          String                    @db.Uuid
+  bookId               String                    @db.Uuid
+  sectionId            String                    @db.Uuid
+  characterId          String?                   @db.Uuid
+  contentHash          String                    @db.VarChar(64)
+  normalizedName       String                    @db.VarChar(160)
+  suggestedName        String                    @db.VarChar(160)
+  suggestedAge         String?                   @db.VarChar(40)
+  suggestedDescription String?                   @db.Text
+  excerpt              String                    @db.Text
+  confidence           Float
+  mentions             Int                       @default(1)
+  status               CharacterSuggestionStatus @default(PENDING)
+  stale                Boolean                   @default(false)
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  workspace            Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  book                 Book                      @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  section              BookSection               @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  character            StoryCharacter?           @relation(fields: [characterId], references: [id], onDelete: SetNull)
+
+  @@unique([bookId, normalizedName])
+  @@index([workspaceId, bookId, status, stale])
+  @@index([characterId])
+  @@map("story_character_suggestions")
 }
 
 enum CharacterRelationshipKind {
