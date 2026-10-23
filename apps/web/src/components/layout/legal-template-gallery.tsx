@@ -109,7 +109,7 @@ export function LegalTemplateGallery({
   }
   return (
     <section className="space-y-5" aria-labelledby="legal-title">
-      <h2 id="legal-title" className="font-serif text-2xl">
+      <h2 id="legal-title" className="scroll-mt-28 font-serif text-2xl">
         Página legal
       </h2>
       <p className="alert" role="note">

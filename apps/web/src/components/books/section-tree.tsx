@@ -1,3 +1,4 @@
+import { sectionNavigationHref } from "@/lib/editorial/navigation";
 import Link from "next/link";
 import { SECTION_TYPE_LABELS, formatNumber } from "@/lib/ui/format";
 import type { SectionNode } from "@/lib/books/section-tree";
@@ -25,12 +26,15 @@ export function SectionTree({ bookId, nodes, activeSectionId }: SectionTreeProps
 
   const renderNodes = (list: SectionNode[], depth: number): React.ReactNode => {
     return list.map((node) => {
-      const href = `/books/${bookId}/sections/${node.id}`;
+      const href = sectionNavigationHref(bookId, node);
       const isActive = node.id === activeSectionId;
 
       return (
         <li key={node.id}>
           <Link
+            prefetch={
+              node.type === "COPYRIGHT" || node.type === "TABLE_OF_CONTENTS" ? false : undefined
+            }
             href={href}
             aria-current={isActive ? "page" : undefined}
             className={`flex items-center justify-between gap-3 rounded-sm px-3 py-2 text-sm transition-colors ${

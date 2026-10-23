@@ -62,7 +62,7 @@ export function TocTemplateGallery({
   }
   return (
     <section className="space-y-5" aria-labelledby="toc-title">
-      <h2 id="toc-title" className="font-serif text-2xl">
+      <h2 id="toc-title" className="scroll-mt-28 font-serif text-2xl">
         Índice automático
       </h2>
       <p className="text-sm text-ink-soft">

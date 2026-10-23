@@ -1,6 +1,11 @@
+import {
+  editorialMatterKind,
+  sectionNavigationHref,
+  editorialGalleryHref,
+} from "@/lib/editorial/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { RevisionList } from "@/components/books/revision-list";
 import { SectionEditor } from "@/components/books/section-editor";
 import { SectionOptionsForm } from "@/components/books/section-options-form";
@@ -32,7 +37,7 @@ export const metadata: Metadata = {
 
 interface SectionPageProps {
   params: Promise<{ bookId: string; sectionId: string }>;
-  searchParams: Promise<{ find?: string }>;
+  searchParams: Promise<{ find?: string; editLegacy?: string }>;
 }
 
 /** Normaliza el contenido guardado: un documento inválido se abre vacío. */
@@ -47,13 +52,16 @@ function safeContent(value: unknown): TiptapDocument {
 export default async function SectionPage({ params, searchParams }: SectionPageProps) {
   const session = await requireSession();
   const { bookId, sectionId } = await params;
-  const { find = "" } = await searchParams;
+  const { find = "", editLegacy } = await searchParams;
 
   const section = await getSection(session, bookId, sectionId);
 
   if (!section) {
     notFound();
   }
+
+  const matterKind = editorialMatterKind(section.type);
+  if (matterKind && editLegacy !== "1" && !find) redirect(sectionNavigationHref(bookId, section));
 
   const [book, revisions, miembros, imagenes, sectionTree, notes] = await Promise.all([
     getBook(session, bookId),
@@ -84,6 +92,17 @@ export default async function SectionPage({ params, searchParams }: SectionPageP
       editor={
         <>
           <SearchFragmentOnLoad query={find} />
+          {matterKind ? (
+            <p className="alert" role="status">
+              Estás editando el contenido anterior de esta sección.{" "}
+              <Link
+                className="underline"
+                href={editorialGalleryHref(bookId, matterKind, section.id)}
+              >
+                Abrir plantillas y vista previa
+              </Link>
+            </p>
+          ) : null}
           <header className="studio-chapter-hero">
             <div className="studio-chapter-eyebrow">
               <span>
@@ -126,6 +145,7 @@ export default async function SectionPage({ params, searchParams }: SectionPageP
                 <nav>
                   <Link href={`/books/${bookId}/preview`}>Vista previa</Link>
                   <Link href={`/books/${bookId}/layout`}>Maquetación</Link>
+                  <Link href={editorialGalleryHref(bookId, "legal")}>Página legal e índice</Link>
                   <Link href={`/books/${bookId}/export`}>Exportar libro</Link>
                   <Link href={`/books/${bookId}`}>Gestionar secciones</Link>
                 </nav>
