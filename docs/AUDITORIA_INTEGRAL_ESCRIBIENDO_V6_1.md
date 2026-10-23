@@ -185,3 +185,12 @@ Rama de intervención: `improvement/escribiendo-v6-1`. Base remota: `04a42dee98e
 Los commits remotos y el enlace de revisión se registran en el PR. El directorio local preserva su commit de sincronización, que no sustituye la historia remota. El envío utiliza un commit con el `main` remoto como padre y solo archivos cuyo contenido cambió realmente frente a esa base; excluye caches, binarios y migraciones existentes.
 
 Estado de publicación: **propuesta para revisión, sin merge ni despliegue automático por esta intervención**. Un push o PR no demuestra que Render haya actualizado la web. La URL, commit y resultados remotos deben consultarse en el PR antes de publicar.
+
+### Registro concreto de entrega
+
+- Commit de implementación remoto: `43ae7382a34b0db6eedf0634b83804c73c2da8eb`.
+- Push mediante actualización de objetos/ref de GitHub: confirmado; rama `improvement/escribiendo-v6-1`.
+- [PR #47 — v6.1: protege el orden editorial, las exportaciones y el reemplazo global](https://github.com/cponce123com-create/Escribiendo/pull/47), creado como borrador.
+- 41 archivos en el PR inicial: código, pruebas, workflow y documentación. Los cambios de formato ajenos a la lógica se identifican en la descripción. Ningún archivo binario o migración existente está incluido.
+- El PR no está integrado. El build local pasó; la comprobación remota se consulta en GitHub y puede seguir pendiente. No se afirma despliegue.
+- Una actualización posterior de documentación registra estos datos sin modificar el código validado.
