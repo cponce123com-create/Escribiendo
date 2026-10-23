@@ -112,6 +112,10 @@ export function SectionEditor({
 
   const machineRef = useRef(machine);
   const versionRef = useRef(version);
+  const sectionTitleRef = useRef(sectionTitle);
+  useEffect(() => {
+    sectionTitleRef.current = sectionTitle;
+  }, [sectionTitle]);
   const latestContentRef = useRef(JSON.stringify(content));
   const flushPendingRef = useRef<() => void>(() => undefined);
   const flushAfterRequestRef = useRef(false);
@@ -273,7 +277,7 @@ export function SectionEditor({
         setConflict({
           serverVersion: versionRef.current,
           serverContent: JSON.stringify(editor.getJSON() as TiptapDocument),
-          serverTitle: sectionTitle,
+          serverTitle: sectionTitleRef.current,
           serverAuthor: null,
         });
         dispatch({ type: "sync-conflict" });
@@ -305,7 +309,7 @@ export function SectionEditor({
     return () => {
       vivo = false;
     };
-  }, [bookId, canEdit, dispatch, editor, sectionId, sectionTitle, userId]);
+  }, [bookId, canEdit, dispatch, editor, sectionId, userId]);
 
   // --- Guardado local ------------------------------------------------------
 
