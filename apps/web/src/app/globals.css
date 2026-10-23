@@ -3336,10 +3336,10 @@ html[data-focus-mode="true"] .app-topbar {
 
 /* Aprovecha más espacio para escribir y compacta las columnas laterales. */
 .studio-workspace {
-  grid-template-columns: minmax(230px, 270px) minmax(0, 1fr) minmax(260px, 320px);
+  grid-template-columns: minmax(210px, 245px) minmax(0, 1fr) minmax(240px, 290px);
 }
 .studio-workspace--collapsed {
-  grid-template-columns: 24px minmax(0, 1fr) minmax(260px, 320px);
+  grid-template-columns: 24px minmax(0, 1fr) minmax(240px, 290px);
 }
 .studio-manuscript-nav {
   padding: 18px 12px;
@@ -3413,15 +3413,15 @@ html[data-focus-mode="true"] .app-topbar {
 }
 @media (min-width: 1200px) and (max-width: 1450px) {
   .studio-workspace {
-    grid-template-columns: minmax(205px, 230px) minmax(0, 1fr) minmax(245px, 275px);
+    grid-template-columns: minmax(185px, 215px) minmax(0, 1fr) minmax(220px, 255px);
   }
   .studio-workspace--collapsed {
-    grid-template-columns: 24px minmax(0, 1fr) minmax(245px, 275px);
+    grid-template-columns: 24px minmax(0, 1fr) minmax(220px, 255px);
   }
 }
 @media (max-width: 1199px) and (min-width: 701px) {
   .studio-workspace {
-    grid-template-columns: minmax(205px, 230px) minmax(0, 1fr);
+    grid-template-columns: minmax(185px, 215px) minmax(0, 1fr);
   }
   .studio-workspace--collapsed {
     grid-template-columns: 24px minmax(0, 1fr);

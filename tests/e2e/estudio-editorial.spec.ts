@@ -24,6 +24,7 @@ test("estudio de referencia: búsqueda, paneles, notas, concentración y diseño
   const original = await manuscript.innerText();
   const search = page.getByRole("textbox", { name: "Buscar en el manuscrito", exact: true });
   await search.fill("tormenta");
+  await expect(manuscript.locator(".manuscript-search-match")).toHaveCount(2);
   await search.press("Enter");
   await expect(page.locator(".studio-search-result")).toHaveText("1 de 2 en este capítulo");
   await expect(manuscript).toHaveText(original);
