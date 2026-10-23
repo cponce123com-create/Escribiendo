@@ -1,7 +1,8 @@
 "use server";
 import { prisma } from "@/lib/db";
 import { beginStoryAction, storyBookExists } from "./action-helpers";
-import { analyzeNarrative, type NarrativeSection } from "./character-analysis";
+import type { NarrativeSection } from "./character-analysis";
+import { analyzeAndFilterCharacterCandidates } from "./character-analysis-quality";
 function flatten(value: unknown): string {
   if (!value || typeof value !== "object") return "";
   const node = value as { text?: unknown; content?: unknown[] };
@@ -44,30 +45,23 @@ export async function analyzeBookCharacters(bookId: string) {
       sections: 0,
       notice: "Aún no hay texto narrativo para analizar.",
     };
-  const candidates = analyzeNarrative(narrative);
+  const book = await prisma.book.findFirst({
+    where: { id: bookId, workspaceId: start.session.workspace.id, deletedAt: null },
+    select: { title: true },
+  });
+  if (!book) return { ok: false as const, error: "El libro no existe en este espacio de trabajo." };
+
   const existing = await prisma.storyCharacter.findMany({
     where: { workspaceId: start.session.workspace.id, bookId, deletedAt: null },
     select: { name: true },
   });
-  const names = new Set(
-    existing.map((x) =>
-      x.name
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toLowerCase(),
-    ),
-  );
+  const candidates = analyzeAndFilterCharacterCandidates(narrative, {
+    bookTitle: book.title,
+    existingCharacterNames: existing.map((character) => character.name),
+  });
   return {
     ok: true as const,
-    candidates: candidates.filter(
-      (c) =>
-        !names.has(
-          c.name
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .toLowerCase(),
-        ),
-    ),
+    candidates,
     sections: narrative.length,
     notice:
       "El análisis es local y orientativo. Revisa cada evidencia; los nombres no se fusionan automáticamente.",

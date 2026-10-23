@@ -1,4 +1,8 @@
-import type { CharacterCandidate } from "./character-analysis";
+import {
+  analyzeNarrative,
+  type CharacterCandidate,
+  type NarrativeSection,
+} from "./character-analysis";
 export function normalizeCharacterName(value: string): string {
   return value
     .normalize("NFD")
@@ -250,5 +254,16 @@ export function filterCharacterCandidates(
       !known.has(name) &&
       candidate.confidence >= minimum
     );
+  });
+}
+
+/** Ejecuta el detector y los filtros de calidad usados por el análisis de personajes. */
+export function analyzeAndFilterCharacterCandidates(
+  sections: NarrativeSection[],
+  input: { bookTitle: string; existingCharacterNames: string[] },
+): CharacterCandidate[] {
+  return filterCharacterCandidates(analyzeNarrative(sections), {
+    ...input,
+    sectionText: sections.map((section) => section.text).join("\n"),
   });
 }
