@@ -3,12 +3,11 @@ import { prisma } from "@/lib/db";
 import type { SessionContext } from "@/lib/auth/session";
 import type { ExportFormat, ExportStatus } from "@escribiendo/database";
 import { exportContext, generateFile, type ExportMetadata } from "./generate";
-import { readExportLayoutSnapshot } from "./layout-snapshot";
+import { resolveExportJobInput } from "./reproduce";
 import {
-  currentSectionVersions,
-  loadManuscript,
+  currentSectionSnapshots,
+  loadManuscriptFromSnapshot,
   manuscriptHash,
-  type SectionVersion,
 } from "./manuscript";
 import { trabajoInterrumpido } from "./job-estado";
 import { liberarHuecoDeExportacion, reservarHuecoDeExportacion } from "./slot";
@@ -139,8 +138,8 @@ export async function requestExport(
     throw new Error("El libro no existe en este espacio de trabajo.");
   }
 
-  const versions = await currentSectionVersions(session, bookId);
-  const manuscript = await loadManuscript(session, bookId, versions);
+  const snapshots = await currentSectionSnapshots(session, bookId);
+  const manuscript = await loadManuscriptFromSnapshot(session, bookId, snapshots);
   const context = await exportContext(session, bookId);
   const cover = await getBookCover(session, bookId);
   const layoutSnapshot = {
@@ -148,6 +147,7 @@ export async function requestExport(
     typography: context.typography,
     runningHeadTemplate: context.runningHeadTemplate,
     bookTitle: book.title,
+    authorName: book.authorName,
     dropCaps,
     cover: cover ? { url: cover.url, crop: cover.crop } : null,
   };
@@ -193,7 +193,7 @@ export async function requestExport(
         status: "PENDING",
         idempotencyKey,
         manuscriptHash: hash,
-        sectionVersions: versions as unknown as object,
+        sectionVersions: snapshots as unknown as object,
         options: { layout: layoutSnapshot } as unknown as object,
       },
       select: JOB_SELECT,
@@ -231,9 +231,9 @@ export async function processExportJob(
 /**
  * Genera el archivo del trabajo y guarda sus metadatos.
  *
- * La generación es reproducible: usa las versiones de las secciones que
- * guardó el trabajo, de modo que el archivo es el mismo aunque el manuscrito
- * haya cambiado después.
+ * La generación es reproducible: usa la instantánea editorial que guardó el
+ * trabajo (secciones, maquetación y portada), de modo que el archivo es el
+ * mismo aunque el libro haya cambiado después.
  */
 async function generarExportJob(session: SessionContext, jobId: string): Promise<ExportJobSummary> {
   const job = await prisma.exportJob.findFirst({
@@ -255,34 +255,8 @@ async function generarExportJob(session: SessionContext, jobId: string): Promise
   });
 
   try {
-    const book = await prisma.book.findFirst({
-      where: { id: job.bookId, workspaceId: session.workspace.id, deletedAt: null },
-      select: { id: true, title: true, authorName: true },
-    });
-
-    if (!book) {
-      throw new Error("El libro no existe en este espacio de trabajo.");
-    }
-
-    const versions = (job.sectionVersions ?? []) as unknown as SectionVersion[];
-    const sections = await loadManuscript(session, job.bookId, versions);
-    const context = await exportContext(session, job.bookId);
-    const cover = await getBookCover(session, job.bookId);
-    const snapshot = readExportLayoutSnapshot(job.options);
-
-    const file = await generateFile({
-      format: job.format,
-      title: book.title,
-      author: book.authorName,
-      sections,
-      profile: snapshot ? snapshot.profile : context.profile,
-      typography: snapshot ? snapshot.typography : context.typography,
-      runningHeadTemplate: snapshot ? snapshot.runningHeadTemplate : context.runningHeadTemplate,
-      bookTitle: snapshot?.bookTitle || book.title,
-      dropCaps: snapshot?.dropCaps ?? false,
-      cover: cover ? { src: cover.url, alt: `Portada de ${book.title}` } : undefined,
-      createdAt: job.createdAt,
-    });
+    const input = await resolveExportJobInput(session, job);
+    const file = await generateFile(input);
 
     const updated = await prisma.exportJob.update({
       where: { id: job.id },

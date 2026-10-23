@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/db";
-import { exportContext, generateFile } from "@/lib/export/generate";
-import { readExportLayoutSnapshot } from "@/lib/export/layout-snapshot";
-import { loadManuscript, type SectionVersion } from "@/lib/export/manuscript";
+import { generateFile } from "@/lib/export/generate";
+import { resolveExportJobInput } from "@/lib/export/reproduce";
 import { verifyDownload } from "@/lib/export/signature";
 import { liberarHuecoDeExportacion, reservarHuecoDeExportacion } from "@/lib/export/slot";
 
@@ -108,34 +107,10 @@ export async function GET(request: Request, context: RouteContext): Promise<Next
   }
 
   try {
-    const book = await prisma.book.findFirst({
-      where: { id: job.bookId, workspaceId: session.workspace.id, deletedAt: null },
-      select: { title: true, authorName: true },
-    });
-
-    if (!book) {
-      return NextResponse.json({ error: "El libro no existe." }, { status: 404 });
-    }
-
-    const versions = (job.sectionVersions ?? []) as unknown as SectionVersion[];
-    const sections = await loadManuscript(session, job.bookId, versions);
-    const contextData = await exportContext(session, job.bookId);
-    const snapshot = readExportLayoutSnapshot(job.options);
-
-    const file = await generateFile({
-      format: job.format,
-      title: book.title,
-      author: book.authorName,
-      sections,
-      profile: snapshot ? snapshot.profile : contextData.profile,
-      typography: snapshot ? snapshot.typography : contextData.typography,
-      runningHeadTemplate: snapshot
-        ? snapshot.runningHeadTemplate
-        : contextData.runningHeadTemplate,
-      bookTitle: snapshot?.bookTitle || book.title,
-      dropCaps: snapshot?.dropCaps ?? false,
-      createdAt: job.createdAt,
-    });
+    // La misma resolución que usa la generación: el archivo descargado es el
+    // que se generó, con su portada y su maqueta, no una versión nueva.
+    const input = await resolveExportJobInput(session, job);
+    const file = await generateFile(input);
 
     const options = (job.options ?? {}) as { fileName?: string };
     const fileName = safeFileName(options.fileName ?? file.fileName, file.fileName);
