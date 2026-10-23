@@ -283,9 +283,9 @@ test.describe("Maquetación", () => {
     expect(medida?.texto).not.toBeNull();
     // Margen superior de 20 mm y ancho del área de texto: 148 − 18 − 14.
     expect(Math.abs((medida?.texto?.arriba ?? 0) - 20 * pxPorMm)).toBeLessThanOrEqual(tolerancia);
-    expect(
-      Math.abs((medida?.texto?.ancho ?? 0) - (148 - 18 - 14) * pxPorMm),
-    ).toBeLessThanOrEqual(tolerancia);
+    expect(Math.abs((medida?.texto?.ancho ?? 0) - (148 - 18 - 14) * pxPorMm)).toBeLessThanOrEqual(
+      tolerancia,
+    );
 
     // El encabezado de página está a 10 mm del borde superior en las páginas
     // de continuación. La página que abre capítulo no lo repite.

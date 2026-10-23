@@ -297,9 +297,7 @@ export function paginate(
       // La página que abre un capítulo lleva el título en el cuerpo; repetirlo
       // como encabezado sería una duplicación visible.
       runningHead:
-        blank || currentBlocks.some((block) => block.kind === "title")
-          ? null
-          : currentRunningHead,
+        blank || currentBlocks.some((block) => block.kind === "title") ? null : currentRunningHead,
       blank,
     });
 

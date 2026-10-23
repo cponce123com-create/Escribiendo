@@ -96,9 +96,7 @@ describe("manuscrito de exportación", () => {
       const a = section({ id: "a", title: "A" });
       const b = section({ id: "b", title: "B" });
 
-      expect(manuscriptHash([a, b], "PDF:maqueta")).not.toBe(
-        manuscriptHash([b, a], "PDF:maqueta"),
-      );
+      expect(manuscriptHash([a, b], "PDF:maqueta")).not.toBe(manuscriptHash([b, a], "PDF:maqueta"));
     });
 
     it("cambia al cambiar la maqueta o la portada", () => {
@@ -167,9 +165,9 @@ describe("manuscrito de exportación", () => {
     it("falla si la sección ya no existe", async () => {
       mockPrisma.bookSection.findMany.mockResolvedValue([]);
 
-      await expect(
-        loadManuscriptFromSnapshot(session, "book-1", [snapshot()]),
-      ).rejects.toThrow("ya no existe");
+      await expect(loadManuscriptFromSnapshot(session, "book-1", [snapshot()])).rejects.toThrow(
+        "ya no existe",
+      );
     });
 
     it("falla si no se encuentra la revisión pedida", async () => {
@@ -185,9 +183,7 @@ describe("manuscrito de exportación", () => {
 
   describe("loadManuscriptForJob", () => {
     it("usa la instantánea completa cuando existe", async () => {
-      mockPrisma.bookSection.findMany.mockResolvedValue([
-        { id: "s1", version: 1, content: {} },
-      ]);
+      mockPrisma.bookSection.findMany.mockResolvedValue([{ id: "s1", version: 1, content: {} }]);
 
       const sections = await loadManuscriptForJob(session, "book-1", [snapshot()]);
 
@@ -212,9 +208,7 @@ describe("manuscrito de exportación", () => {
         },
       ]);
 
-      const sections = await loadManuscriptForJob(session, "book-1", [
-        { id: "s1", version: 1 },
-      ]);
+      const sections = await loadManuscriptForJob(session, "book-1", [{ id: "s1", version: 1 }]);
 
       expect(sections[0]?.title).toBe("Actual");
     });

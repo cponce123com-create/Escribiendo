@@ -500,8 +500,7 @@ function PreviewBlock({
                       style={{
                         fontWeight: marks.bold ? 700 : undefined,
                         fontStyle: marks.italic ? "italic" : undefined,
-                        textDecoration:
-                          decorations.length > 0 ? decorations.join(" ") : undefined,
+                        textDecoration: decorations.length > 0 ? decorations.join(" ") : undefined,
                         position: marks.superscript || marks.subscript ? "relative" : undefined,
                         top: marks.superscript
                           ? `${-style.fontSizePt * 0.38}pt`

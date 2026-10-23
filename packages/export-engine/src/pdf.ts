@@ -509,8 +509,7 @@ export function buildPdf(document: PdfDocument): PdfResult {
       const outline = outlineItems[index];
       const pageNumber = pageNumbers[outline?.pageIndex ?? 0] ?? 0;
       const previous = index > 0 ? ` /Prev ${itemNumbers[index - 1]} 0 R` : "";
-      const next =
-        index < itemNumbers.length - 1 ? ` /Next ${itemNumbers[index + 1]} 0 R` : "";
+      const next = index < itemNumbers.length - 1 ? ` /Next ${itemNumbers[index + 1]} 0 R` : "";
 
       objects[number] = latin1ToBytes(
         `<< /Title ${pdfTextString(outline?.title ?? "")} /Parent ${outlineNumber} 0 R ` +

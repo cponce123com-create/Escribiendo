@@ -97,7 +97,10 @@ export async function listBooks(
     },
   });
 
-  const covers = await getBookCovers(session, books.map((book) => book.id));
+  const covers = await getBookCovers(
+    session,
+    books.map((book) => book.id),
+  );
 
   return books.map((book) => ({
     id: book.id,
@@ -175,7 +178,11 @@ export async function getBook(session: SessionContext, bookId: string): Promise<
   }
 
   const cover = await getBookCovers(session, [book.id]);
-  return { ...book, writingProgress: Number(book.writingProgress), cover: cover.get(book.id) ?? null };
+  return {
+    ...book,
+    writingProgress: Number(book.writingProgress),
+    cover: cover.get(book.id) ?? null,
+  };
 }
 
 /** Árbol de secciones de un libro. */

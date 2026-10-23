@@ -2,22 +2,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_TYPOGRAPHY_STYLE } from "@escribiendo/editorial-engine";
 import type { SessionContext } from "@/lib/auth/session";
 
-const {
-  mockPrisma,
-  mockBookToBlocks,
-  mockGetBookCover,
-  mockGetBookEdition,
-  mockOutlineFromPages,
-} = vi.hoisted(() => ({
-  mockPrisma: {
-    bookSection: { findMany: vi.fn() },
-    book: { findFirst: vi.fn() },
-  },
-  mockBookToBlocks: vi.fn(),
-  mockGetBookCover: vi.fn(),
-  mockGetBookEdition: vi.fn(),
-  mockOutlineFromPages: vi.fn(),
-}));
+const { mockPrisma, mockBookToBlocks, mockGetBookCover, mockGetBookEdition, mockOutlineFromPages } =
+  vi.hoisted(() => ({
+    mockPrisma: {
+      bookSection: { findMany: vi.fn() },
+      book: { findFirst: vi.fn() },
+    },
+    mockBookToBlocks: vi.fn(),
+    mockGetBookCover: vi.fn(),
+    mockGetBookEdition: vi.fn(),
+    mockOutlineFromPages: vi.fn(),
+  }));
 
 vi.mock("server-only", () => ({}));
 

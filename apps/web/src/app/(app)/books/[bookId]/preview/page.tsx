@@ -21,8 +21,7 @@ export default async function BookPreviewPage({ params, searchParams }: BookPrev
   const session = await requireSession();
   const { bookId } = await params;
   const { dropCaps: dropCapsParam } = await searchParams;
-  const dropCaps =
-    (Array.isArray(dropCapsParam) ? dropCapsParam[0] : dropCapsParam) === "true";
+  const dropCaps = (Array.isArray(dropCapsParam) ? dropCapsParam[0] : dropCapsParam) === "true";
 
   const book = await getBook(session, bookId);
 

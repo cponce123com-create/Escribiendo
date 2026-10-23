@@ -153,11 +153,13 @@ describe("paginate", () => {
     const resultado = paginate(bloques, { ...GEOMETRY, chapterStartsRecto: false }, TIPOGRAFIA);
 
     expect(resultado.pages.length).toBeGreaterThanOrEqual(100);
-    expect(resultado.pages.filter((page) => page.blocks.some((b) => b.kind === "title"))).toHaveLength(
-      120,
-    );
     expect(
-      resultado.pages.every((page) => page.runningHead === null || page.runningHead.startsWith("Capitulo ")),
+      resultado.pages.filter((page) => page.blocks.some((b) => b.kind === "title")),
+    ).toHaveLength(120);
+    expect(
+      resultado.pages.every(
+        (page) => page.runningHead === null || page.runningHead.startsWith("Capitulo "),
+      ),
     ).toBe(true);
   });
 

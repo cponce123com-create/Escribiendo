@@ -4,11 +4,7 @@ import type { SessionContext } from "@/lib/auth/session";
 import type { ExportFormat, ExportStatus } from "@escribiendo/database";
 import { exportContext, generateFile, type ExportMetadata } from "./generate";
 import { resolveExportJobInput } from "./reproduce";
-import {
-  currentSectionSnapshots,
-  loadManuscriptFromSnapshot,
-  manuscriptHash,
-} from "./manuscript";
+import { currentSectionSnapshots, loadManuscriptFromSnapshot, manuscriptHash } from "./manuscript";
 import { trabajoInterrumpido } from "./job-estado";
 import { liberarHuecoDeExportacion, reservarHuecoDeExportacion } from "./slot";
 import { getBookCover } from "@/lib/books/covers";
