@@ -19,7 +19,7 @@ function isTextLeaf(value: unknown): value is TextLeaf {
   return record.type === "text" && typeof record.text === "string";
 }
 
-/** Busca coincidencias literales sin distinguir may�sculas en los nodos de texto. */
+/** Busca coincidencias literales sin distinguir mayúsculas en los nodos de texto. */
 export function findTextMatches(value: unknown, query: string): number {
   const normalized = query.trim().toLocaleLowerCase("es");
   if (!normalized) return 0;
@@ -45,7 +45,7 @@ export function excerptForQuery(value: unknown, query: string): string {
   const text = fragments.join(" ").replace(/\s+/g, " ").trim();
   const offset = text.toLocaleLowerCase("es").indexOf(query.trim().toLocaleLowerCase("es"));
   if (offset < 0) return text.slice(0, 140);
-  return `${offset > 24 ? "�w^~)�v" : ""}${text.slice(Math.max(0, offset - 24), offset + query.length + 72)}${offset + query.length + 72 < text.length ? "��y��y�" : ""}`;
+  return `${offset > 24 ? "…" : ""}${text.slice(Math.max(0, offset - 24), offset + query.length + 72)}${offset + query.length + 72 < text.length ? "…" : ""}`;
 }
 
 /** Reemplaza texto en nodos Tiptap y conserva sus marcas, atributos y estructura. */
