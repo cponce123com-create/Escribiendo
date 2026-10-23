@@ -1,5 +1,4 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { z } from "zod";
 
 const { mockPrisma, mockSession, mockContext } = vi.hoisted(() => {
   const mockPrisma = {
@@ -94,7 +93,6 @@ import {
   moveSectionAction,
   updateBookAction,
 } from "./actions";
-import type { LibraryActionState } from "./action-state";
 import { getSession } from "@/lib/auth/session";
 import { assertServerActionOrigin } from "@/lib/security/request-context";
 import { redirect } from "next/navigation";
@@ -159,8 +157,7 @@ describe("books actions", () => {
     });
 
     it("rechaza si el usuario no tiene permisos", async () => {
-      const { getSession } = await import("@/lib/auth/session");
-      (getSession as any).mockResolvedValueOnce({
+      vi.mocked(getSession).mockResolvedValueOnce({
         ...mockSession,
         workspace: { ...mockSession.workspace, role: "REVIEWER" },
       });
