@@ -36,6 +36,12 @@ export interface ExportSection {
   includeInExport: boolean;
   /** La sección aparece en el índice (y en los marcadores del PDF). */
   showInToc: boolean;
+  /** El título editorial se inserta en el cuerpo de la sección. */
+  showTitle: boolean;
+  /** El título se acompaña con la etiqueta del tipo (Capítulo, Prólogo...). */
+  showSectionType: boolean;
+  /** El título se acompaña con el número correlativo del tipo. */
+  showSectionNumber: boolean;
 }
 
 export interface SectionVersion {
@@ -113,6 +119,9 @@ export async function loadManuscript(
       pageBreakBefore: true,
       includeInExport: true,
       showInToc: true,
+      showTitle: true,
+      showSectionType: true,
+      showSectionNumber: true,
     },
   });
 
@@ -131,6 +140,9 @@ export async function loadManuscript(
       pageBreakBefore: section.pageBreakBefore,
       includeInExport: section.includeInExport,
       showInToc: section.showInToc,
+      showTitle: section.showTitle,
+      showSectionType: section.showSectionType,
+      showSectionNumber: section.showSectionNumber,
     }));
   }
 
@@ -167,6 +179,9 @@ export async function loadManuscript(
           pageBreakBefore: section.pageBreakBefore,
           includeInExport: section.includeInExport,
           showInToc: section.showInToc,
+          showTitle: section.showTitle,
+          showSectionType: section.showSectionType,
+          showSectionNumber: section.showSectionNumber,
         };
       }
 
@@ -188,6 +203,9 @@ export async function loadManuscript(
         pageBreakBefore: section.pageBreakBefore,
         includeInExport: section.includeInExport,
         showInToc: section.showInToc,
+        showTitle: section.showTitle,
+        showSectionType: section.showSectionType,
+        showSectionNumber: section.showSectionNumber,
       };
     });
 }

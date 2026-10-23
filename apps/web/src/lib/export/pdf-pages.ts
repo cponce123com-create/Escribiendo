@@ -33,13 +33,14 @@ export function outlineFromPages(
 
       seen.add(block.sectionId);
       const section = byId.get(block.sectionId);
-      // Si no se insertó el bloque de título porque el manuscrito ya abre con
-      // un encabezado equivalente, el marcador usa el título visible para no
-      // prometer en el índice una composición que el cuerpo no muestra.
-      const title =
-        block.kind === "title"
-          ? (section?.displayTitle ?? section?.title ?? "")
-          : (section?.title ?? "");
+      // El bloque de título (chapterTitle o el legado title) lleva el título
+      // compuesto del autor; si no se insertó porque el manuscrito ya abre con
+      // un encabezado equivalente, el marcador usa el título de la sección para
+      // no prometer en el índice una composición que el cuerpo no muestra.
+      const isEditorialTitle = block.kind === "title" || block.kind === "chapterTitle";
+      const title = isEditorialTitle
+        ? (section?.displayTitle ?? section?.title ?? "")
+        : (section?.title ?? "");
 
       if (section && section.showInToc && title.trim().length > 0) {
         outline.push({ title, pageIndex });

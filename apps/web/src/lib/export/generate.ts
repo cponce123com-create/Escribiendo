@@ -199,6 +199,10 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
         startOnOddPage: section.startOnOddPage,
         pageBreakBefore: section.pageBreakBefore,
         includeInExport: section.includeInExport,
+        showInToc: section.showInToc,
+        showTitle: section.showTitle,
+        showSectionType: section.showSectionType,
+        showSectionNumber: section.showSectionNumber,
       })),
       { dropCaps: input.dropCaps === true },
     );

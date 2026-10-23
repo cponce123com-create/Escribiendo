@@ -11,11 +11,11 @@ import {
 /**
  * Sección mínima para probar la conversión del contenido.
  *
- * El título va vacío a propósito: las pruebas de contenido no deben mezclar
- * el bloque editorial de título. Las pruebas de título lo pasan de forma
- * explícita.
+ * El título por defecto evita que las pruebas de bookToBlocks confundan una
+ * sección sin título con una que no presenta el suyo. Las pruebas de contenido
+ * no lo miran: sectionToBlocks es una traducción pura del cuerpo.
  */
-function seccion(content: unknown, title = ""): PreviewSection {
+function seccion(content: unknown, title = "Prólogo"): PreviewSection {
   return {
     id: "s1",
     title,
@@ -37,7 +37,7 @@ function documento(...nodes: unknown[]): unknown {
 }
 
 describe("sectionToBlocks", () => {
-  it("inserta el titulo editorial como primer bloque y evita la sangria inicial", () => {
+  it("convierte solo el contenido y deja la composición del título a bookToBlocks", () => {
     const bloques = sectionToBlocks(
       seccion(
         documento({
@@ -48,9 +48,9 @@ describe("sectionToBlocks", () => {
       ),
     );
 
-    expect(bloques.map((bloque) => bloque.kind)).toEqual(["title", "firstParagraph"]);
-    expect(bloques[0]?.text).toBe("Prologo");
-    expect(bloques[1]?.text).toBe("El contenido empieza aqui.");
+    expect(bloques.map((bloque) => bloque.kind)).toEqual(["body"]);
+    expect(bloques[0]?.text).toBe("El contenido empieza aqui.");
+    expect(bloques[0]?.firstOfSection).toBe(true);
   });
 
   it("no duplica el titulo cuando el contenido ya abre con un encabezado equivalente", () => {
@@ -98,7 +98,9 @@ describe("sectionToBlocks", () => {
     };
 
     const bloques = bookToBlocks([prologo, primero, segundo]);
-    const titulos = bloques.filter((bloque) => bloque.kind === "title").map((bloque) => bloque.text);
+    const titulos = bloques
+      .filter((bloque) => bloque.kind === "chapterTitle")
+      .map((bloque) => bloque.text);
 
     expect(titulos).toEqual(["Prólogo", "Capítulo 1 — El despertar", "2 — La vuelta"]);
   });
@@ -114,15 +116,15 @@ describe("sectionToBlocks", () => {
       },
     ]);
 
-    expect(bloques.some((bloque) => bloque.kind === "title")).toBe(false);
+    expect(bloques.some((bloque) => bloque.kind === "chapterTitle")).toBe(false);
     expect(bloques[0]?.kind).toBe("body");
   });
 
-  it("conserva el titulo aunque el contenido guardado no se pueda leer", () => {
-    const bloques = sectionToBlocks(seccion({ type: "doc", content: "invalido" }, "Epílogo"));
+  it("conserva el título compuesto aunque el contenido guardado no se pueda leer", () => {
+    const bloques = bookToBlocks([seccion({ type: "doc", content: "invalido" }, "Epílogo")]);
 
     expect(bloques).toHaveLength(1);
-    expect(bloques[0]?.kind).toBe("title");
+    expect(bloques[0]?.kind).toBe("chapterTitle");
     expect(bloques[0]?.text).toBe("Epílogo");
   });
 

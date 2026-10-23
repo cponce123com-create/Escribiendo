@@ -13,6 +13,7 @@ import { bookToBlocks, isChapterType, seccionesExportables, type PreviewSection 
 import { resolveRunningHeads } from "./running-heads";
 import { previewLineDrawings, type PreviewLineDrawing } from "./preview-drawing";
 import { loadPdfFonts } from "@/lib/export/fonts";
+import { outlineFromPages } from "@/lib/export/pdf-pages";
 import {
   getBookEdition,
   getDefaultLayoutProfile,
@@ -35,12 +36,21 @@ export interface PreviewPage extends LaidOutPage {
   drawnLines: PreviewLineDrawing[];
 }
 
+/** Entrada del índice (marcadores) que también llevará el PDF exportado. */
+export interface PreviewOutlineItem {
+  title: string;
+  /** Página, empezando en cero. */
+  pageIndex: number;
+}
+
 export interface PreviewResult {
   pages: PreviewPage[];
   diagnostics: LayoutDiagnostic[];
   profile: LayoutProfileSummary;
   template: TemplateSummary | null;
   typography: TypographyConfig;
+  /** Índice del libro: las secciones visibles, con su página. */
+  outline: PreviewOutlineItem[];
   /** Secciones que se han compuesto. */
   sectionCount: number;
   /** Palabras del manuscrito. */
@@ -75,6 +85,10 @@ export async function loadPreviewSections(
       startOnOddPage: true,
       pageBreakBefore: true,
       includeInExport: true,
+      showInToc: true,
+      showTitle: true,
+      showSectionType: true,
+      showSectionNumber: true,
     },
   });
 
@@ -89,6 +103,10 @@ export async function loadPreviewSections(
     startOnOddPage: section.startOnOddPage,
     pageBreakBefore: section.pageBreakBefore,
     includeInExport: section.includeInExport,
+    showInToc: section.showInToc,
+    showTitle: section.showTitle,
+    showSectionType: section.showSectionType,
+    showSectionNumber: section.showSectionNumber,
   }));
 }
 
@@ -167,12 +185,17 @@ export async function buildPreview(
     };
   });
 
+  // El índice que se enseña aquí es el mismo que llevarán los marcadores del
+  // PDF exportado: una sola historia entre pantalla y archivo.
+  const outline = outlineFromPages(result.pages, sections);
+
   return {
     pages,
     diagnostics: result.diagnostics,
     profile,
     template: edition?.template ?? null,
     typography,
+    outline,
     sectionCount: sections.length,
     wordCount: blocks.reduce((total, block) => total + (block.text.match(/\S+/gu)?.length ?? 0), 0),
     usingDefaultProfile: !edition?.profile,
