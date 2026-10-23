@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   geometry:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
@@ -27,7 +27,8 @@ jobs:
           node-version: 24.20.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm exec playwright install --only-shell chromium
+        timeout-minutes: 5
       - name: Comprobar geometría con datos aislados
         run: node --import tsx scripts/verify-interface.ts
         env:

@@ -46,7 +46,7 @@ describe("resolveRunningHeads", () => {
   it("usa el título de sección si no hay plantilla", () => {
     const block = page().blocks[0]!;
     const [resolved] = resolveRunningHeads(
-      [page({ blocks: [{ ...block, startsChapter: false }] })],
+      [page({ blocks: [{ ...block, kind: "body", startsChapter: false, firstOfSection: false }] })],
       null,
       "La obra",
     );
@@ -59,6 +59,8 @@ describe("resolveRunningHeads", () => {
       blocks: [
         {
           ...page().blocks[0]!,
+          kind: "body",
+          firstOfSection: false,
           startsChapter: false,
         },
       ],
@@ -69,6 +71,16 @@ describe("resolveRunningHeads", () => {
 
     expect(result[0]?.runningHead).toBe("La obra · Capítulo I");
     expect(result[1]?.runningHead).toBeNull();
+  });
+
+  it("no repite el encabezado en el primer capítulo aunque no fuerce un salto previo", () => {
+    const opening = page({ blocks: [{ ...page().blocks[0]!, startsChapter: false }] });
+    const [resolved] = resolveRunningHeads(
+      [opening],
+      { runningHead: { recto: "{libro}", verso: "{capitulo}" } },
+      "La obra",
+    );
+    expect(resolved?.runningHead).toBeNull();
   });
 
   it("no agrega encabezado a una página en blanco", () => {
