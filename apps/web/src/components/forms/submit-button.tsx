@@ -12,7 +12,7 @@ interface SubmitButtonProps {
 export function SubmitButton({
   label,
   pendingLabel,
-  className = "btn btn-primary btn-block",
+  className = "btn btn-primary",
   disabled = false,
 }: SubmitButtonProps) {
   const { pending } = useFormStatus();

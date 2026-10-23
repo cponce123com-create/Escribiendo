@@ -27,7 +27,7 @@ export function ConfirmButton({
   confirmLabel,
   description,
   children,
-  className = "btn btn-ghost btn-sm",
+  className = "btn btn-ghost",
 }: ConfirmButtonProps) {
   const [pidiendo, setPidiendo] = useState(false);
 
@@ -52,7 +52,7 @@ export function ConfirmButton({
       <button type="submit" className={className} title={description}>
         {confirmLabel}
       </button>
-      <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPidiendo(false)}>
+      <button type="button" className="btn btn-ghost" onClick={() => setPidiendo(false)}>
         Cancelar
       </button>
       {children}
