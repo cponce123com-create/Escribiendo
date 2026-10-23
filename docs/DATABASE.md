@@ -20,9 +20,10 @@ Las migraciones están versionadas en:
 packages/database/prisma/migrations/
 ├─ migration_lock.toml
 ├─ 20261020120000_init/                            # Fase 1: esquema completo
-│  └─ migration.sql
-└─ 20261020180000_add_writing_goals_and_comments/  # Fase 3: escritura asistida
-   └─ migration.sql
+├─ 20261020180000_add_writing_goals_and_comments/  # Fase 3: escritura asistida
+├─ 20261020190000_add_team_governance/             # Fase 6: equipo y gobernanza
+├─ 20261021210000_session_workspace/               # Espacio de trabajo en sesión
+└─ 20261022120000_add_story_tools/                 # Planificación, personajes y mundos
 ```
 
 La segunda migración es **aditiva**: crea el enum `CommentStatus` y las tablas
@@ -32,11 +33,18 @@ aplicarse sobre una base ya productive sin riesgo.
 
 Estado actual de las migraciones:
 
-| Migración                                       | Local | Neon |
-| ----------------------------------------------- | ----- | ---- |
-| `20261020120000_init`                           | Sí    | Sí   |
-| `20261020180000_add_writing_goals_and_comments` | Sí    | Sí   |
-| `20261020190000_add_team_governance`            | Sí    | Sí   |
+| Migración                                       | Local     | Neon      |
+| ----------------------------------------------- | --------- | --------- |
+| `20261020120000_init`                           | Sí        | Sí        |
+| `20261020180000_add_writing_goals_and_comments` | Sí        | Sí        |
+| `20261020190000_add_team_governance`            | Sí        | Sí        |
+| `20261021210000_session_workspace`              | Sí        | Sí        |
+| `20261022120000_add_story_tools`                | Pendiente | Pendiente |
+
+La migración de herramientas de historia está creada y validada contra el
+esquema, pero todavía no se ha aplicado a ninguna base de datos: hay que
+ejecutar `pnpm db:migrate` con las credenciales de Neon antes de desplegar el
+código.
 
 La migración de la Fase 3 se aplicó en Neon con la API SQL por HTTPS, dentro
 de un bloque `DO` transaccional y registrando la fila en `_prisma_migrations`
@@ -81,8 +89,9 @@ existen, de cuántas migraciones están aplicadas y de cuántas cuentas hay. Es 
 comando que hay que ejecutar **antes** de desplegar y **después** de migrar.
 
 También comprueba las **columnas concretas** que necesita el código
-(`sessions.workspaceId`, `export_jobs.idempotencyKey` y `books.writingProgress`).
-Si falta alguna, termina con error y la nombra:
+(`sessions.workspaceId`, `export_jobs.idempotencyKey`, `books.writingProgress`,
+`story_plan_items.kind`, `story_characters.role` y `story_worlds.kind`). Si
+falta alguna, termina con error y la nombra:
 
 ```
 ✗ Faltan columnas que la aplicación necesita: sessions.workspaceId.
@@ -277,6 +286,36 @@ NULL`): el trabajo no se pierde.
 Los índices que acompañan a las columnas nuevas evitan el recorrido completo
 de la tabla al listar por responsable.
 
+## Herramientas de historia
+
+La migración `20261022120000_add_story_tools` es **aditiva** y crea tres tablas
+para la biblia de la historia:
+
+- `story_plan_items`: ideas, actos, capítulos, escenas y secuencias. Tiene
+  `kind` (`ACT`, `CHAPTER`, `SCENE`, `SEQUENCE`, `OTHER`), `status` (`IDEA`,
+  `PLANNED`, `WRITING`, `DONE`) y un resumen libre.
+- `story_characters`: fichas de personaje con papel (`PROTAGONIST`,
+  `ANTAGONIST`, `SECONDARY`, `MENTOR`, `LOVE_INTEREST`, `OTHER`), edad, oficio,
+  descripción, personalidad, motivación, conflicto, arco y notas.
+- `story_worlds`: lugares, culturas, organizaciones, sistemas, objetos,
+  acontecimientos y otras reglas del mundo, con descripción, reglas y notas.
+
+Las tres comparten las mismas decisiones:
+
+- `workspaceId` es obligatorio y aísla los datos entre estudios.
+- `bookId` es opcional: permiten tanto material de un libro concreto como ideas
+  generales del estudio.
+- `createdById` se conserva con `ON DELETE SET NULL` para no perder la autoría
+  si se elimina una cuenta.
+- El borrado es lógico (`deletedAt`); las consultas y mutaciones siempre
+  filtran por el espacio de trabajo y por `deletedAt` nulo.
+- Escribir exige el permiso `story:manage` (propietario, administración,
+  edición y autoría). El rol de lectura editorial puede consultar, pero no
+  modificar.
+
+Cada mutación deja un registro de auditoría (`STORY_*`) sin copiar el contenido
+completo de la ficha.
+
 ## Modelo y convenciones
 
 - UUID en todas las claves primarias (`@db.Uuid`).
@@ -284,7 +323,8 @@ de la tabla al listar por responsable.
   es sensible a mayúsculas, pero la aplicación evita la ambigüedad.
 - Fechas en `timestamptz` (Prisma `DateTime`).
 - Borrado lógico mediante `deletedAt` en usuarios, espacios, libros, secciones,
-  perfiles, plantillas, assets, notas y comentarios editoriales.
+  perfiles, plantillas, assets, notas, comentarios editoriales, planificación,
+  personajes y mundos.
 - Los libros y secciones usan `onDelete: Cascade` solo para limpiezas
   administrativas; la aplicación prevé borrado lógico.
 - Las revisiones y la auditoría restringen el borrado del usuario creador

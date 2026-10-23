@@ -3,19 +3,26 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RevisionList } from "@/components/books/revision-list";
 import { SectionEditor } from "@/components/books/section-editor";
-import { SectionTitleForm } from "@/components/books/section-title-form";
+import { SearchFragmentOnLoad } from "@/components/books/search-fragment-on-load";
 import { requireSession } from "@/lib/auth/session";
 import { canPerform } from "@/lib/books/permissions";
-import { getSection, getBook, listRevisions } from "@/lib/books/queries";
+import { getBook, getSection, getSectionTree, listRevisions } from "@/lib/books/queries";
 import { listBookAssets } from "@/lib/books/assets";
 import {
   emptyTiptapDocument,
   parseTiptapDocument,
   type TiptapDocument,
 } from "@escribiendo/book-schema";
-import { SECTION_TYPE_LABELS, formatNumber } from "@/lib/ui/format";
+import { SECTION_TYPE_LABELS, formatNumber, formatDateTime } from "@/lib/ui/format";
 import { AssignSelect } from "@/components/team/assign-select";
 import { listMembers } from "@/lib/team/members";
+import { ManuscriptWorkspace } from "@/components/books/manuscript-workspace";
+
+import { StudioInspector } from "@/components/books/studio-inspector";
+import { StudioIcon } from "@/components/books/studio-icon";
+import { listBookNotes } from "@/lib/writing/notes";
+import { readingMinutes, sectionGroup } from "@/lib/books/studio";
+import { flattenSectionTree } from "@/lib/books/section-tree";
 
 export const metadata: Metadata = {
   title: "Manuscrito",
@@ -23,6 +30,7 @@ export const metadata: Metadata = {
 
 interface SectionPageProps {
   params: Promise<{ bookId: string; sectionId: string }>;
+  searchParams: Promise<{ find?: string }>;
 }
 
 /** Normaliza el contenido guardado: un documento inválido se abre vacío. */
@@ -34,9 +42,10 @@ function safeContent(value: unknown): TiptapDocument {
   }
 }
 
-export default async function SectionPage({ params }: SectionPageProps) {
+export default async function SectionPage({ params, searchParams }: SectionPageProps) {
   const session = await requireSession();
   const { bookId, sectionId } = await params;
+  const { find = "" } = await searchParams;
 
   const section = await getSection(session, bookId, sectionId);
 
@@ -44,55 +53,82 @@ export default async function SectionPage({ params }: SectionPageProps) {
     notFound();
   }
 
-  const [book, revisions, miembros, imagenes] = await Promise.all([
+  const [book, revisions, miembros, imagenes, sectionTree, notes] = await Promise.all([
     getBook(session, bookId),
     listRevisions(session, bookId, sectionId),
     listMembers(session),
     listBookAssets(session, bookId),
+    getSectionTree(session, bookId),
+    listBookNotes(session, bookId),
   ]);
 
   const canEdit = canPerform(session.workspace.role, "section:update");
   const canRestore = canPerform(session.workspace.role, "revision:restore");
+  const canMove = canPerform(session.workspace.role, "section:move");
 
+  const chapterNumber =
+    flattenSectionTree(sectionTree)
+      .filter((node) => node.type === "CHAPTER")
+      .findIndex((node) => node.id === section.id) + 1;
+  const historyHref = `/books/${bookId}/sections/${section.id}/history`;
   return (
-    <div className="mx-auto max-w-6xl space-y-8">
-      <header className="space-y-3">
-        <p className="eyebrow">
-          <Link className="underline" href={`/books/${bookId}`}>
-            {book?.title ?? "Libro"}
-          </Link>
-        </p>
-        <h1 className="font-serif text-[clamp(1.8rem,3.5vw,2.6rem)] leading-[1.05] text-ink">
-          {section.title}
-        </h1>
-
-        <SectionTitleForm
-          sectionId={section.id}
-          title={section.title}
-          showTitle={section.showTitle}
-          showSectionType={section.showSectionType}
-          showSectionNumber={section.showSectionNumber}
-          canEdit={canEdit}
-        />
-
-        <p className="text-xs text-ink-muted">
-          {SECTION_TYPE_LABELS[section.type] ?? section.type} · {formatNumber(section.wordCount)}{" "}
-          palabras · versión {section.version}
-          {section.assignee ? ` · asignada a ${section.assignee.name}` : ""}
-        </p>
-
-        <nav className="flex flex-wrap gap-2" aria-label="Acciones de la sección">
-          <Link
-            className="btn btn-ghost btn-sm"
-            href={`/books/${bookId}/sections/${section.id}/history`}
-          >
-            Historial y comparador
-          </Link>
-        </nav>
-      </header>
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <section aria-label="Manuscrito">
+    <ManuscriptWorkspace
+      bookId={bookId}
+      nodes={sectionTree}
+      activeSectionId={section.id}
+      canMove={canMove}
+      canCreate={canPerform(session.workspace.role, "section:create")}
+      editor={
+        <>
+          <SearchFragmentOnLoad query={find} />
+          <header className="studio-chapter-hero">
+            <div className="studio-chapter-eyebrow">
+              <span>
+                {SECTION_TYPE_LABELS[section.type] ?? section.type}
+                {chapterNumber > 0 ? ` ${chapterNumber}` : ""}
+              </span>
+              <span aria-hidden="true">/</span>
+              <Link href={`/books/${bookId}`}>{sectionGroup(section.type)}</Link>
+            </div>
+            <h1>{section.title}</h1>
+            <p className="studio-chapter-description">
+              {book?.title ?? "Libro"}
+              {section.assignee ? ` · ${section.assignee.name}` : ""}
+            </p>
+            <div className="studio-chapter-meta">
+              <span className="studio-meta-pill">
+                <span className="studio-live-dot" />
+                {formatNumber(section.wordCount)} palabras
+              </span>
+              <span className="studio-meta-pill">
+                <StudioIcon name="book" />
+                {readingMinutes(section.wordCount)} min de lectura
+              </span>
+              <Link className="studio-meta-pill" href={historyHref}>
+                Versión {section.version} <span aria-hidden="true">⌄</span>
+              </Link>
+              <time dateTime={section.updatedAt.toISOString()}>
+                Última edición: {formatDateTime(section.updatedAt)}
+              </time>
+              <Link
+                className="studio-history-link"
+                aria-label="Historial y comparador"
+                href={historyHref}
+              >
+                <StudioIcon name="history" />
+                Historial y comparar
+              </Link>
+              <details className="studio-hero-menu">
+                <summary aria-label="Más acciones del libro">•••</summary>
+                <nav>
+                  <Link href={`/books/${bookId}/preview`}>Vista previa</Link>
+                  <Link href={`/books/${bookId}/layout`}>Maquetación</Link>
+                  <Link href={`/books/${bookId}/export`}>Exportar libro</Link>
+                  <Link href={`/books/${bookId}`}>Gestionar secciones</Link>
+                </nav>
+              </details>
+            </div>
+          </header>
           <SectionEditor
             sectionId={section.id}
             sectionTitle={section.title}
@@ -104,29 +140,32 @@ export default async function SectionPage({ params }: SectionPageProps) {
             canEdit={canEdit}
             bookAssets={imagenes}
           />
-        </section>
-
-        <aside className="panel p-6" aria-labelledby="revisions-title">
-          <p className="meta-label">Historial</p>
-          <h2 id="revisions-title" className="mt-1.5 font-serif text-2xl text-ink">
-            Revisiones
-          </h2>
-          <p className="mt-2 mb-5 text-sm leading-relaxed text-ink-muted">
-            Cada guardado crea una revisión. Las revisiones no se modifican nunca: restaurar una
-            versión anterior la copia como una versión nueva.
-          </p>
-
-          <RevisionList
-            sectionId={section.id}
-            revisions={revisions}
-            currentVersion={section.version}
-            canRestore={canRestore}
-          />
-
-          {canEdit ? (
-            <div className="mt-6 border-t border-line pt-5">
-              <p className="meta-label">Asignación</p>
-              <div className="mt-3">
+        </>
+      }
+      details={
+        <StudioInspector
+          bookId={bookId}
+          sectionId={sectionId}
+          notes={notes.filter((note) => !note.sectionId || note.sectionId === sectionId)}
+          history={
+            <RevisionList
+              sectionId={section.id}
+              revisions={revisions.slice(0, 3)}
+              currentVersion={section.version}
+              canRestore={canRestore}
+            />
+          }
+          details={
+            <div className="space-y-5">
+              <dl className="studio-detail-list">
+                <dt>Libro</dt>
+                <dd>{book?.title}</dd>
+                <dt>Tipo de sección</dt>
+                <dd>{SECTION_TYPE_LABELS[section.type]}</dd>
+                <dt>Exportación</dt>
+                <dd>{section.includeInExport ? "Incluida" : "Excluida"}</dd>
+              </dl>
+              {canEdit ? (
                 <AssignSelect
                   kind="section"
                   targetId={section.id}
@@ -134,11 +173,18 @@ export default async function SectionPage({ params }: SectionPageProps) {
                   members={miembros}
                   label="Responsable"
                 />
-              </div>
+              ) : null}
+              <p className="text-sm text-ink-muted">
+                El nombre del capítulo se imprime solo, con el estilo de título de la maqueta: no
+                hace falta escribirlo en el texto.
+              </p>
+              <Link className="btn btn-secondary btn-sm" href={`/books/${bookId}/layout`}>
+                Configurar maqueta
+              </Link>
             </div>
-          ) : null}
-        </aside>
-      </div>
-    </div>
+          }
+        />
+      }
+    />
   );
 }

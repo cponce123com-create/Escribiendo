@@ -45,6 +45,7 @@ apps/web
 ├─ src/app
 │  ├─ (auth)/login, /setup, /reset-password
 │  ├─ (app)/dashboard, /account, /notes, /stats
+│  ├─ (app)/planning, /characters, /worlds  # Biblia de la historia
 │  ├─ (app)/books            # Biblioteca, alta, ficha, edición
 │  ├─ (app)/books/[bookId]/notes       # Notas privadas del libro
 │  ├─ (app)/books/[bookId]/review      # Comentarios y flujo de revisión
@@ -63,6 +64,7 @@ apps/web
 │  ├─ account/      # Formularios de cuenta
 │  ├─ books/        # Biblioteca, editor, revisiones
 │  ├─ writing/      # Notas, objetivos, preferencias de escritura
+│  ├─ story/        # Planificación, personajes y mundos
 │  ├─ review/       # Comentarios editoriales y flujo de revisión
 │  ├─ layout/       # Perfiles de página, maqueta y vista previa
 │  ├─ export/       # Cola de trabajos, generación y descarga firmada
@@ -73,6 +75,7 @@ apps/web
 │  ├─ auth/         # Sesiones, contraseñas, tokens, acciones
 │  ├─ books/        # Biblioteca, secciones, revisiones, permisos
 │  ├─ writing/      # Notas, objetivos y estadísticas
+│  ├─ story/        # Planificación, personajes, mundos y acciones
 │  ├─ review/       # Comentarios editoriales y comparación de revisiones
 │  ├─ layout/       # Perfiles, plantillas, edición y vista previa
 │  ├─ cloudinary/   # Firma de subidas
@@ -157,6 +160,7 @@ El esquema completo vive en `packages/database/prisma/schema.prisma`.
 | Recursos    | `assets`, `book_assets`                                   | Cloudinary como único proveedor en Fase 1                 |
 | Exportación | `export_jobs`                                             | Cola idempotente; el archivo se genera al descargar       |
 | Escritura   | `writing_notes`                                           | Notas privadas por usuario/libro/sección                  |
+| Historia    | `story_plan_items`, `story_characters`, `story_worlds`    | Biblia del estudio; libro opcional; borrado lógico        |
 | Auditoría   | `audit_logs`                                              | Sin contenido de manuscritos ni secretos                  |
 
 Decisiones del esquema:

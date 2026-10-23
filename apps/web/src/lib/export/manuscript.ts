@@ -11,7 +11,6 @@ import {
 import { editorialImageFromNode } from "@/lib/layout/image";
 import { inlineRuns, trimRuns, type FootnoteCounter } from "@/lib/layout/inline";
 import { seccionesExportables } from "@/lib/layout/blocks";
-import { displayTitleForSection } from "@/lib/layout/section-title";
 import { createHash } from "node:crypto";
 
 /**
@@ -27,8 +26,6 @@ export interface ExportSection {
   id: string;
   title: string;
   type: string;
-  /** Sección padre, para reproducir la jerarquía del índice. */
-  parentId: string | null;
   content: unknown;
   version: number;
   /** La sección debe empezar en página par. */
@@ -37,16 +34,8 @@ export interface ExportSection {
   pageBreakBefore: boolean;
   /** La sección entra en los archivos exportados. */
   includeInExport: boolean;
-  /** La sección aparece en el índice del libro. */
+  /** La sección aparece en el índice (y en los marcadores del PDF). */
   showInToc: boolean;
-  /** El título editorial se inserta en el cuerpo. */
-  showTitle: boolean;
-  /** El título se acompaña con la etiqueta del tipo. */
-  showSectionType: boolean;
-  /** El título se acompaña con el número correlativo. */
-  showSectionNumber: boolean;
-  /** Título ya compuesto con etiqueta y número, si procede. */
-  displayTitle?: string | null;
 }
 
 export interface SectionVersion {
@@ -84,15 +73,6 @@ export function manuscriptHash(sections: ExportSection[], extra: string): string
   for (const section of sections) {
     hash.update(section.id);
     hash.update(`:${section.version}:`);
-    // El título editorial forma parte del archivo: renombrar una sección no
-    // puede reutilizar un PDF o un EPUB generado con el título anterior.
-    hash.update(section.title);
-    hash.update(section.includeInExport ? ":export" : ":hidden");
-    hash.update(section.showInToc ? ":toc" : ":no-toc");
-    hash.update(section.showTitle ? ":title" : ":no-title");
-    hash.update(section.showSectionType ? ":type" : ":no-type");
-    hash.update(section.showSectionNumber ? ":number" : ":no-number");
-    hash.update(":");
     hash.update(
       createHash("sha256")
         .update(JSON.stringify(section.content ?? null))
@@ -127,16 +107,12 @@ export async function loadManuscript(
       id: true,
       title: true,
       type: true,
-      parentId: true,
       content: true,
       version: true,
       startOnOddPage: true,
       pageBreakBefore: true,
       includeInExport: true,
       showInToc: true,
-      showTitle: true,
-      showSectionType: true,
-      showSectionNumber: true,
     },
   });
 
@@ -148,7 +124,6 @@ export async function loadManuscript(
     return exportables.map((section) => ({
       id: section.id,
       title: section.title,
-      parentId: section.parentId,
       type: section.type,
       content: section.content,
       version: section.version,
@@ -156,9 +131,6 @@ export async function loadManuscript(
       pageBreakBefore: section.pageBreakBefore,
       includeInExport: section.includeInExport,
       showInToc: section.showInToc,
-      showTitle: section.showTitle,
-      showSectionType: section.showSectionType,
-      showSectionNumber: section.showSectionNumber,
     }));
   }
 
@@ -188,7 +160,6 @@ export async function loadManuscript(
         return {
           id: section.id,
           title: section.title,
-          parentId: section.parentId,
           type: section.type,
           content: section.content,
           version: section.version,
@@ -196,9 +167,6 @@ export async function loadManuscript(
           pageBreakBefore: section.pageBreakBefore,
           includeInExport: section.includeInExport,
           showInToc: section.showInToc,
-          showTitle: section.showTitle,
-          showSectionType: section.showSectionType,
-          showSectionNumber: section.showSectionNumber,
         };
       }
 
@@ -213,7 +181,6 @@ export async function loadManuscript(
       return {
         id: section.id,
         title: revision.title,
-        parentId: section.parentId,
         type: section.type,
         content: revision.content,
         version,
@@ -221,9 +188,6 @@ export async function loadManuscript(
         pageBreakBefore: section.pageBreakBefore,
         includeInExport: section.includeInExport,
         showInToc: section.showInToc,
-        showTitle: section.showTitle,
-        showSectionType: section.showSectionType,
-        showSectionNumber: section.showSectionNumber,
       };
     });
 }
@@ -247,8 +211,6 @@ export interface ManuscriptBlock {
   kind: "title" | "heading" | "body" | "quote" | "pageBreak" | "rule" | "image";
   text: string;
   runs?: ManuscriptRun[];
-  /** Nivel del encabezado de contenido, de 1 a 4. */
-  level?: number;
   /** Referencia de la imagen, cuando `kind` es `image`. */
   image?: EditorialImage;
 }
@@ -281,34 +243,16 @@ export function sectionToBlocks(
   // Si se llama a una sección aislada, sus notas se numeran dentro de ella.
   // generateFile pasa un contador compartido para numerar todo el libro.
   const counter = footnotes ?? { next: 1 };
-  let document: TiptapDocument | null = null;
+
+  let document: TiptapDocument;
 
   try {
     document = parseTiptapDocument(section.content);
   } catch {
-    // El título sigue siendo válido aunque el contenido guardado esté
-    // corrupto; el exportador no debe hacerlo desaparecer.
-  }
-
-  const baseTitle = section.displayTitle === undefined ? section.title : section.displayTitle;
-  const title =
-    baseTitle === null
-      ? null
-      : displayTitleForSection(baseTitle, document, [section.title]);
-
-  if (title) {
-    blocks.push({ kind: "title", text: title, runs: [{ text: title }] });
-  }
-
-  if (!document) {
     return blocks;
   }
 
-  const pushRuns = (
-    kind: ManuscriptBlock["kind"],
-    runs: readonly InlineRun[],
-    level?: number,
-  ): void => {
+  const pushRuns = (kind: ManuscriptBlock["kind"], runs: readonly InlineRun[]): void => {
     const limpios = trimRuns(runs);
     const text = runsToText(limpios);
 
@@ -316,22 +260,13 @@ export function sectionToBlocks(
       return;
     }
 
-    blocks.push({
-      kind,
-      text,
-      runs: flattenRuns(limpios),
-      ...(level !== undefined ? { level } : {}),
-    });
+    blocks.push({ kind, text, runs: flattenRuns(limpios) });
   };
 
   for (const node of document.content ?? []) {
     switch (node.type) {
       case "heading":
-        pushRuns(
-          "heading",
-          inlineRuns(node, counter),
-          Math.min(4, Math.max(1, Number(node.attrs?.level ?? 1))),
-        );
+        pushRuns("heading", inlineRuns(node, counter));
         break;
 
       case "paragraph":

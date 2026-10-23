@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { bookToBlocks, seccionesExportables, sectionToBlocks, type PreviewSection } from "./blocks";
+import {
+  bookToBlocks,
+  repeatsSectionTitle,
+  sectionShowsTitle,
+  seccionesExportables,
+  sectionToBlocks,
+  type PreviewSection,
+} from "./blocks";
 
 /**
  * Sección mínima para probar la conversión del contenido.
@@ -326,6 +333,58 @@ describe("sectionToBlocks", () => {
 });
 
 describe("bookToBlocks", () => {
+  it("antepone el título y deja sin sangría el primer párrafo", () => {
+    const section: PreviewSection = {
+      ...seccion(documento({ type: "paragraph", content: [{ type: "text", text: "Texto." }] })),
+      startOnOddPage: true,
+    };
+    const blocks = bookToBlocks([section]);
+
+    expect(blocks.map((block) => block.kind)).toEqual(["chapterTitle", "body"]);
+    expect(blocks[0]?.startsChapter).toBe(true);
+    expect(blocks[0]?.breaksBefore).toBe(false);
+    expect(blocks[1]?.startsChapter).toBe(false);
+    expect(blocks[1]?.firstOfSection).toBe(true);
+  });
+
+  it("marca solo la inicial del primer párrafo de un capítulo cuando se activa", () => {
+    const section: PreviewSection = {
+      ...seccion(
+        documento({ type: "paragraph", content: [{ type: "text", text: "Una entrada." }] }),
+      ),
+      startOnOddPage: true,
+    };
+    const bloques = bookToBlocks([section], { dropCaps: true });
+    const cuerpo = bloques.find((bloque) => bloque.kind === "body");
+
+    expect(cuerpo?.dropCapCharacter).toBe("U");
+    expect(bookToBlocks([section])[1]?.dropCapCharacter).toBeUndefined();
+  });
+
+  it("quita un título de contenido repetido sin distinguir espacios ni mayúsculas", () => {
+    const section = seccion(
+      documento(
+        { type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: "PRÓLOGO" }] },
+        { type: "paragraph", content: [{ type: "text", text: "Texto." }] },
+      ),
+    );
+    const blocks = bookToBlocks([section]);
+
+    expect(blocks.map((block) => block.kind)).toEqual(["chapterTitle", "body"]);
+    expect(repeatsSectionTitle(blocks.slice(1), " pró logo ")).toBe(false);
+    expect(repeatsSectionTitle([{ text: " Pró\nlogo " }], "Prólogo")).toBe(true);
+  });
+
+  it("usa heading2 para subcapítulos y no añade títulos a secciones preliminares", () => {
+    const subchapter = { ...seccion(documento()), type: "SUBCHAPTER", title: "Una pausa" };
+    const dedication = { ...seccion(documento()), type: "DEDICATION", title: "A mi madre" };
+
+    expect(bookToBlocks([subchapter])[0]?.kind).toBe("heading2");
+    expect(bookToBlocks([dedication])).toEqual([]);
+    expect(sectionShowsTitle("ABOUT_AUTHOR", " Sobre el autor ")).toBe(true);
+    expect(sectionShowsTitle("COPYRIGHT", "Derechos")).toBe(false);
+  });
+
   it("marca el salto de página propio de la sección", () => {
     const conSalto: PreviewSection = {
       ...seccion(documento({ type: "paragraph", content: [{ type: "text", text: "Texto." }] })),

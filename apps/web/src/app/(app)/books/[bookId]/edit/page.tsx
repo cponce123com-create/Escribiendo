@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BookForm } from "@/components/books/book-form";
+import { CoverManager } from "@/components/books/cover-manager";
 import { requireSession } from "@/lib/auth/session";
 import { canPerform } from "@/lib/books/permissions";
 import { getBook } from "@/lib/books/queries";
@@ -60,6 +61,7 @@ export default async function EditBookPage({ params }: EditBookPageProps) {
           }}
         />
       </section>
+      <CoverManager bookId={book.id} bookTitle={book.title} initialCover={book.cover} />
     </div>
   );
 }

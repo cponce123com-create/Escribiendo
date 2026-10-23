@@ -31,6 +31,7 @@ export function documentoDePrueba(): ExportDocumentModel {
       {
         id: "capitulo-1",
         title: "Prólogo",
+        dropCap: true,
         blocks: [
           { kind: "title", text: "Prólogo" },
           {
@@ -97,6 +98,11 @@ export function documentoDePrueba(): ExportDocumentModel {
           { kind: "pageBreak", text: "" },
           { kind: "body", text: "Segunda parte del capítulo." },
         ],
+      },
+      {
+        id: "dedicatoria",
+        title: "Dedicatoria",
+        blocks: [{ kind: "body", text: "A quienes escriben incluso cuando cuesta." }],
       },
     ],
   };

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import type { SessionContext } from "@/lib/auth/session";
 import type { ExportFormat, ExportStatus } from "@escribiendo/database";
 import { exportContext, generateFile, type ExportMetadata } from "./generate";
+import { readExportLayoutSnapshot } from "./layout-snapshot";
 import {
   currentSectionVersions,
   loadManuscript,
@@ -11,6 +12,7 @@ import {
 } from "./manuscript";
 import { trabajoInterrumpido } from "./job-estado";
 import { liberarHuecoDeExportacion, reservarHuecoDeExportacion } from "./slot";
+import { getBookCover } from "@/lib/books/covers";
 
 /**
  * Cola de trabajos de exportación.
@@ -126,6 +128,7 @@ export async function requestExport(
   session: SessionContext,
   bookId: string,
   format: ExportFormat,
+  dropCaps = false,
 ): Promise<ExportJobSummary> {
   const book = await prisma.book.findFirst({
     where: { id: bookId, workspaceId: session.workspace.id, deletedAt: null },
@@ -139,10 +142,19 @@ export async function requestExport(
   const versions = await currentSectionVersions(session, bookId);
   const manuscript = await loadManuscript(session, bookId, versions);
   const context = await exportContext(session, bookId);
+  const cover = await getBookCover(session, bookId);
+  const layoutSnapshot = {
+    profile: context.profile,
+    typography: context.typography,
+    runningHeadTemplate: context.runningHeadTemplate,
+    bookTitle: book.title,
+    dropCaps,
+    cover: cover ? { url: cover.url, crop: cover.crop } : null,
+  };
 
   // La huella incluye el formato y la maqueta: cambian el archivo, de modo
   // que tienen que dar lugar a trabajos distintos.
-  const hash = manuscriptHash(manuscript, `${format}:${JSON.stringify(context.profile ?? {})}`);
+  const hash = manuscriptHash(manuscript, `${format}:${JSON.stringify(layoutSnapshot)}`);
   const idempotencyKey = `${format}:${hash}`.slice(0, 120);
 
   const existing = await prisma.exportJob.findFirst({
@@ -182,7 +194,7 @@ export async function requestExport(
         idempotencyKey,
         manuscriptHash: hash,
         sectionVersions: versions as unknown as object,
-        options: {},
+        options: { layout: layoutSnapshot } as unknown as object,
       },
       select: JOB_SELECT,
     }));
@@ -255,14 +267,20 @@ async function generarExportJob(session: SessionContext, jobId: string): Promise
     const versions = (job.sectionVersions ?? []) as unknown as SectionVersion[];
     const sections = await loadManuscript(session, job.bookId, versions);
     const context = await exportContext(session, job.bookId);
+    const cover = await getBookCover(session, job.bookId);
+    const snapshot = readExportLayoutSnapshot(job.options);
 
     const file = await generateFile({
       format: job.format,
       title: book.title,
       author: book.authorName,
       sections,
-      profile: context.profile,
-      typography: context.typography,
+      profile: snapshot ? snapshot.profile : context.profile,
+      typography: snapshot ? snapshot.typography : context.typography,
+      runningHeadTemplate: snapshot ? snapshot.runningHeadTemplate : context.runningHeadTemplate,
+      bookTitle: snapshot?.bookTitle || book.title,
+      dropCaps: snapshot?.dropCaps ?? false,
+      cover: cover ? { src: cover.url, alt: `Portada de ${book.title}` } : undefined,
       createdAt: job.createdAt,
     });
 
@@ -273,7 +291,11 @@ async function generarExportJob(session: SessionContext, jobId: string): Promise
         progress: 100,
         completedAt: new Date(),
         resultMetadata: file.metadata as unknown as object,
-        options: { fileName: file.fileName, mimeType: file.mimeType },
+        options: {
+          ...(job.options && typeof job.options === "object" ? job.options : {}),
+          fileName: file.fileName,
+          mimeType: file.mimeType,
+        },
         errorCode: null,
         errorMessage: null,
       },

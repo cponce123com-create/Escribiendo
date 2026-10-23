@@ -165,6 +165,8 @@ export interface BreakOptions extends MeasureOptions {
   lineWidthMm: number;
   /** Sangría de la primera línea, en milímetros. */
   firstLineIndentMm?: number;
+  /** Sangrías específicas por línea, para componer una inicial capitular. */
+  lineIndentsMm?: readonly number[];
   hyphenation?: boolean;
 }
 
@@ -190,7 +192,8 @@ export function breakIntoLines(text: string, options: BreakOptions): LineBreak[]
   let isFirstLine = true;
 
   const availableWidth = (): number => {
-    const indent = isFirstLine ? (options.firstLineIndentMm ?? 0) : 0;
+    const indent =
+      options.lineIndentsMm?.[lines.length] ?? (isFirstLine ? (options.firstLineIndentMm ?? 0) : 0);
     return options.lineWidthMm - indent;
   };
 

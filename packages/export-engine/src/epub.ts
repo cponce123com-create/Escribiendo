@@ -51,6 +51,10 @@ export interface ExportChapter {
   showInToc?: boolean;
   /** Sección padre, para reproducir la jerarquía del índice. */
   parentId?: string | null;
+  /** `false` evita agregar automáticamente el título de la sección. */
+  showTitle?: boolean;
+  /** Compone una inicial destacada en el primer párrafo del capítulo. */
+  dropCap?: boolean;
   blocks: ExportBlock[];
 }
 
@@ -61,6 +65,7 @@ export interface ExportDocumentModel {
   /** Identificador único y estable de la obra. */
   identifier: string;
   chapters: ExportChapter[];
+  cover?: ExportImage;
 }
 
 /** Fecha de modificación en el formato que exige EPUB 3 (`CCYY-MM-DDThh:mm:ssZ`). */
@@ -75,8 +80,10 @@ function modifiedStamp(date: Date): string {
 
 const STYLES = `body { font-family: serif; line-height: 1.5; margin: 1em; }
 h1 { font-size: 1.6em; margin: 1.2em 0 0.8em; }
+.chapter-title { text-align: center; break-before: page; page-break-before: always; }
 h2 { font-size: 1.25em; margin: 1.1em 0 0.6em; }
 p { margin: 0 0 0.35em; text-indent: 1.2em; }
+p.drop-cap::first-letter { float: left; font-size: 3em; line-height: 0.85; padding-right: 0.08em; }
 p.quote { margin-left: 1.5em; margin-right: 1.5em; font-style: italic; text-indent: 0; }
 hr.scene { border: 0; text-align: center; margin: 1.2em 0; }
 hr.scene::after { content: "* * *"; letter-spacing: 0.4em; }
@@ -85,6 +92,8 @@ figure.image.align-left { margin-left: 0; margin-right: auto; text-align: left; 
 figure.image.align-right { margin-left: auto; margin-right: 0; text-align: right; }
 figure.image img { max-width: 100%; height: auto; }
 figure.image figcaption, p.image-alt { font-size: 0.9em; font-style: italic; text-align: center; text-indent: 0; }
+body.cover-page { margin: 0; padding: 0; text-align: center; }
+body.cover-page img { display: block; width: 100%; height: 100vh; object-fit: contain; }
 div.pagebreak { page-break-after: always; }
 a.footnote-ref { text-decoration: none; }
 section.footnotes { margin-top: 2em; font-size: 0.82em; line-height: 1.35; }
@@ -171,6 +180,11 @@ function chapterXhtml(
 
   const footnotes = chapterFootnotes(chapter);
 
+  if (chapter.showTitle !== false) {
+    body.push(`<h1 class="chapter-title">${escapeXml(chapter.title)}</h1>`);
+  }
+
+  let dropCapApplied = false;
   for (const block of chapter.blocks) {
     if (block.kind === "pageBreak") {
       body.push('<div class="pagebreak"></div>');
@@ -220,7 +234,9 @@ function chapterXhtml(
       continue;
     }
 
-    body.push(`<p>${inlineContent(block)}</p>`);
+    const dropCapClass = chapter.dropCap && !dropCapApplied && block.kind === "body";
+    if (dropCapClass) dropCapApplied = true;
+    body.push(`<p${dropCapClass ? ' class="drop-cap"' : ""}>${inlineContent(block)}</p>`);
   }
 
   if (footnotes.length > 0) {
@@ -305,6 +321,17 @@ function collectEmbeddedImages(
   return { bySrc, entries };
 }
 
+function coverXhtml(document: ExportDocumentModel, href: string): string {
+  return (
+    `<?xml version="1.0" encoding="utf-8"?>\n` +
+    `<!DOCTYPE html>\n` +
+    `<html xmlns="http://www.w3.org/1999/xhtml" lang="${escapeXml(document.language)}" xml:lang="${escapeXml(document.language)}">\n` +
+    `<head><title>${escapeXml(document.title)}</title><link rel="stylesheet" type="text/css" href="style.css"/></head>\n` +
+    `<body class="cover-page"><img src="${escapeXml(href)}" alt="${escapeXml(document.cover?.alt ?? `Portada de ${document.title}`)}" /></body>\n` +
+    `</html>\n`
+  );
+}
+
 /**
  * Construye el EPUB 3.
  *
@@ -325,6 +352,8 @@ export function buildEpub(
       : [{ id: "c1", title: document.title, blocks: [] }];
 
   const embedded = collectEmbeddedImages(chapters, assets);
+  const coverAsset = document.cover?.src ? assets?.get(document.cover.src) : undefined;
+  const coverFileName = coverAsset ? `cover.${coverAsset.extension}` : null;
 
   entries.push({
     name: "mimetype",
@@ -349,6 +378,14 @@ export function buildEpub(
     `    <item id="style" href="style.css" media-type="text/css"/>`,
   ];
   const spine: string[] = [];
+
+  if (coverAsset && coverFileName) {
+    manifest.push(
+      `    <item id="cover-image" href="images/${coverFileName}" media-type="${escapeXml(coverAsset.mimeType)}" properties="cover-image"/>`,
+      `    <item id="cover" href="cover.xhtml" media-type="application/xhtml+xml"/>`,
+    );
+    spine.push(`    <itemref idref="cover" linear="no"/>`);
+  }
 
   chapters.forEach((chapter, index) => {
     const id = `chapter-${String(index + 1).padStart(3, "0")}`;
@@ -457,6 +494,14 @@ export function buildEpub(
     name: "EPUB/style.css",
     data: new TextEncoder().encode(STYLES),
   });
+
+  if (coverAsset && coverFileName) {
+    entries.push({
+      name: "EPUB/cover.xhtml",
+      data: new TextEncoder().encode(coverXhtml(document, `images/${coverFileName}`)),
+    });
+    entries.push({ name: `EPUB/images/${coverFileName}`, data: coverAsset.data });
+  }
 
   chapters.forEach((chapter, index) => {
     const id = `chapter-${String(index + 1).padStart(3, "0")}`;

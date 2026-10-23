@@ -10,9 +10,9 @@ import {
   type TypographyConfig,
 } from "@escribiendo/editorial-engine";
 import { bookToBlocks, isChapterType, seccionesExportables, type PreviewSection } from "./blocks";
-import { outlineFromPages } from "@/lib/export/pdf-pages";
+import { resolveRunningHeads } from "./running-heads";
+import { previewLineDrawings, type PreviewLineDrawing } from "./preview-drawing";
 import { loadPdfFonts } from "@/lib/export/fonts";
-import { sectionDisplayTitles } from "./section-title";
 import {
   getBookEdition,
   getDefaultLayoutProfile,
@@ -31,12 +31,12 @@ import {
 export interface PreviewPage extends LaidOutPage {
   /** Encabezado ya resuelto con los marcadores de la plantilla. */
   runningHead: string | null;
+  /** Posiciones de línea medidas con la misma fuente que el PDF. */
+  drawnLines: PreviewLineDrawing[];
 }
 
 export interface PreviewResult {
   pages: PreviewPage[];
-  /** Índice navegable, con el índice de página empezando en cero. */
-  outline: { title: string; pageIndex: number }[];
   diagnostics: LayoutDiagnostic[];
   profile: LayoutProfileSummary;
   template: TemplateSummary | null;
@@ -75,10 +75,6 @@ export async function loadPreviewSections(
       startOnOddPage: true,
       pageBreakBefore: true,
       includeInExport: true,
-      showInToc: true,
-      showTitle: true,
-      showSectionType: true,
-      showSectionNumber: true,
     },
   });
 
@@ -93,10 +89,6 @@ export async function loadPreviewSections(
     startOnOddPage: section.startOnOddPage,
     pageBreakBefore: section.pageBreakBefore,
     includeInExport: section.includeInExport,
-    showInToc: section.showInToc,
-    showTitle: section.showTitle,
-    showSectionType: section.showSectionType,
-    showSectionNumber: section.showSectionNumber,
   }));
 }
 
@@ -134,7 +126,6 @@ export async function buildPreview(
   }
 
   const sections = await loadPreviewSections(session, bookId);
-  const displayTitles = sectionDisplayTitles(sections);
   const blocks = bookToBlocks(sections);
 
   // La tipografía de la plantilla prima sobre la del perfil: la plantilla
@@ -159,36 +150,25 @@ export async function buildPreview(
       })
     )?.title ?? "";
 
-  const pages: PreviewPage[] = result.pages.map((page) => {
-    const seccion = page.blocks[0]?.sectionTitle ?? "";
-    const texto = plantilla
-      ? page.side === "recto"
-        ? plantilla.config.runningHead.recto
-        : plantilla.config.runningHead.verso
-      : "";
-
-    if (!texto) {
-      return { ...page, runningHead: page.runningHead };
-    }
+  const resolvedPages = resolveRunningHeads(result.pages, plantilla?.config ?? null, tituloLibro);
+  const pages: PreviewPage[] = resolvedPages.map((page) => {
+    const interior = profile.mirrorMargins ? page.side === "recto" : true;
+    const leftMm = interior ? profile.marginInnerMm + profile.gutterMm : profile.marginOuterMm;
 
     return {
       ...page,
-      runningHead: texto
-        .replaceAll("{libro}", tituloLibro)
-        .replaceAll("{capitulo}", seccion)
-        .trim(),
+      drawnLines: previewLineDrawings(
+        page,
+        result.textWidthMm,
+        leftMm,
+        fuentes?.measure,
+        profile.marginTopMm,
+      ),
     };
   });
 
   return {
     pages,
-    outline: outlineFromPages(
-      result.pages,
-      sections.map((section) => ({
-        ...section,
-        displayTitle: displayTitles.get(section.id) ?? null,
-      })),
-    ),
     diagnostics: result.diagnostics,
     profile,
     template: edition?.template ?? null,

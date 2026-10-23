@@ -4,26 +4,23 @@ import {
   buildDocx,
   buildEpub,
   buildPdf,
-  type ExportBlock,
-  type ExportChapter,
+  type ExportImage,
   type ExportDocumentModel,
   type ExportImageMap,
   type ImageTarget,
 } from "@escribiendo/export-engine";
-import {
-  paginate,
-  withTypographyDefaults,
-  type PageGeometry,
-} from "@escribiendo/editorial-engine";
+import { paginate, withTypographyDefaults, type PageGeometry } from "@escribiendo/editorial-engine";
 import { getBookEdition, getDefaultLayoutProfile } from "@/lib/layout/profiles";
 import { bookToBlocks, isChapterType } from "@/lib/layout/blocks";
-import { sectionDisplayTitles } from "@/lib/layout/section-title";
 import type { SessionContext } from "@/lib/auth/session";
 import type { ExportSection } from "./manuscript";
 import { sectionToBlocks } from "./manuscript";
 import { loadExportImages } from "./images";
 import { loadPdfFonts } from "./fonts";
-import { outlineFromPages, toPdfPages } from "./pdf-pages";
+import { toPdfPages, type PdfLayoutProfile } from "./pdf-layout";
+import { outlineFromPages } from "./pdf-pages";
+import { chaptersForReflowableFormats } from "./chapter-titles";
+import type { RunningHeadTemplate } from "@/lib/layout/running-heads";
 
 /**
  * Generación de los archivos de exportación.
@@ -76,24 +73,18 @@ export interface GenerateInput {
   author: string;
   sections: ExportSection[];
   /** Perfil de página; necesario para el PDF. */
-  profile: {
-    pageWidthMm: number;
-    pageHeightMm: number;
-    marginTopMm: number;
-    marginBottomMm: number;
-    marginInnerMm: number;
-    marginOuterMm: number;
-    gutterMm: number;
-    bleedMm: number;
-    headerDistanceMm: number;
-    footerDistanceMm: number;
-    mirrorMargins: boolean;
-    showPageNumbers: boolean;
-    chapterStartsRecto: boolean;
-  } | null;
+  profile: PdfLayoutProfile | null;
   typography: unknown;
+  /** Encabezados de página guardados en la plantilla editorial. */
+  runningHeadTemplate?: RunningHeadTemplate | null;
+  /** Título del libro usado para resolver `{libro}` en el encabezado. */
+  bookTitle?: string;
+  /** Activa una inicial capitular en el primer párrafo de cada capítulo. */
+  dropCaps?: boolean;
   /** Imágenes ya resueltas, para pruebas o para una exportación reproducible. */
   images?: ExportImageMap;
+  /** Portada del libro, cuando existe. */
+  cover?: ExportImage;
   /** Fecha de creación del documento; fija el resultado para que sea reproducible. */
   createdAt: Date;
 }
@@ -141,13 +132,7 @@ function geometryFromProfile(profile: NonNullable<GenerateInput["profile"]>): Pa
 export async function generateFile(input: GenerateInput): Promise<GeneratedFile> {
   const info = FORMAT_INFO[input.format];
   const footnoteCounter = { next: 1 };
-  const displayTitles = sectionDisplayTitles(input.sections);
-  const sectionBlocks = input.sections.map((section) =>
-    sectionToBlocks(
-      { ...section, displayTitle: displayTitles.get(section.id) ?? null },
-      footnoteCounter,
-    ),
-  );
+  const sectionBlocks = input.sections.map((section) => sectionToBlocks(section, footnoteCounter));
   const wordCount = sectionBlocks.reduce(
     (total, blocks) =>
       total + blocks.reduce((sum, block) => sum + (block.text.match(/\S+/gu)?.length ?? 0), 0),
@@ -157,6 +142,9 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
   const sources = sectionBlocks.flatMap((blocks) =>
     blocks.flatMap((block) => (block.image?.src ? [block.image.src] : [])),
   );
+  if (input.cover?.src) {
+    sources.push(input.cover.src);
+  }
   const target: ImageTarget =
     input.format === "EPUB3" ? "epub" : input.format === "DOCX" ? "docx" : "pdf";
   const loadedImages = await loadExportImages({
@@ -211,41 +199,56 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
         startOnOddPage: section.startOnOddPage,
         pageBreakBefore: section.pageBreakBefore,
         includeInExport: section.includeInExport,
-        showInToc: section.showInToc,
-        showTitle: section.showTitle,
-        showSectionType: section.showSectionType,
-        showSectionNumber: section.showSectionNumber,
-        displayTitle: displayTitles.get(section.id) ?? null,
       })),
+      { dropCaps: input.dropCaps === true },
     );
     const pdfFonts = await loadPdfFonts();
     const measure = pdfFonts?.measure;
     estimatedPagination = !pdfFonts;
 
     const composition = paginate(blocks, geometryFromProfile(input.profile), typography, measure);
-    // El PDF digital representa la página acabada: no debe crecer con el
-    // sangrado de imprenta, que solo tiene sentido en el archivo de impresión.
-    const bleedMm = input.format === "PDF_PRINT" ? input.profile.bleedMm : 0;
-    const pdfComposition = toPdfPages({
-      pages: composition.pages,
-      profile: input.profile,
-      typography,
-      images: loadedImages.assets,
-      bleedMm,
-      ...(measure ? { measure } : {}),
-    });
-    const pdfPages = pdfComposition.pdfPages;
-    const outline = outlineFromPages(
+    const pdfComposition = toPdfPages(
       composition.pages,
-      input.sections.map((section) => ({
-        id: section.id,
-        title: section.title,
-        showInToc: section.showInToc,
-        displayTitle: displayTitles.get(section.id) ?? null,
-      })),
+      input.profile,
+      typography,
+      loadedImages.assets,
+      measure,
+      input.runningHeadTemplate,
+      input.bookTitle ?? input.title,
     );
+    const pdfPages = pdfComposition.pdfPages;
+
+    const cover = input.cover;
+    const coverAsset = cover?.src ? loadedImages.assets.get(cover.src) : undefined;
+    if (coverAsset) {
+      pdfPages.unshift({
+        widthMm: input.profile.pageWidthMm,
+        heightMm: input.profile.pageHeightMm,
+        runs: [],
+        images: [
+          {
+            topMm: 0,
+            xMm: 0,
+            widthMm: input.profile.pageWidthMm,
+            heightMm: input.profile.pageHeightMm,
+            data: coverAsset.data,
+            pixelWidth: coverAsset.width,
+            pixelHeight: coverAsset.height,
+            alt: cover?.alt ?? `Portada de ${input.title}`,
+          },
+        ],
+      });
+    }
 
     pageCount = pdfPages.length;
+
+    // Marcadores del PDF: se calculan sobre las páginas del motor y se
+    // desplazan si la portada ocupa la primera página. Así el índice del
+    // archivo apunta a la página real, no a la del motor.
+    const outline = outlineFromPages(composition.pages, input.sections).map((item) => ({
+      ...item,
+      pageIndex: item.pageIndex + (coverAsset ? 1 : 0),
+    }));
 
     const pdf = buildPdf({
       title: input.title,
@@ -268,21 +271,11 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
     fuentesIncrustadas = pdf.fuentesIncrustadas;
     fuentesOmitidas = pdf.fuentesOmitidas;
   } else {
-    const chapters: ExportChapter[] = input.sections.map((section, index) => ({
-      id: section.id,
-      // El índice usa el mismo título visible que el cuerpo; si el autor lo
-      // oculta, conserva al menos el título de la sección para poder navegar.
-      title: displayTitles.get(section.id) ?? section.title,
-      showInToc: section.showInToc,
-      parentId: section.parentId,
-      blocks: (sectionBlocks[index] ?? []).map((block): ExportBlock => ({
-        kind: block.kind,
-        text: block.text,
-        ...(block.runs ? { runs: block.runs } : {}),
-        ...(block.level !== undefined ? { level: block.level } : {}),
-        ...(block.image ? { image: block.image } : {}),
-      })),
-    }));
+    const chapters = chaptersForReflowableFormats(
+      input.sections,
+      sectionBlocks,
+      input.dropCaps === true,
+    );
 
     const model: ExportDocumentModel = {
       title: input.title,
@@ -294,6 +287,7 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
         .slice(0, 32)
         .replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/u, "$1-$2-$3-$4-$5")}`,
       chapters,
+      cover: input.cover,
     };
 
     bytes =
@@ -332,6 +326,7 @@ export async function exportContext(
   author: string;
   profile: NonNullable<GenerateInput["profile"]> | null;
   typography: unknown;
+  runningHeadTemplate: RunningHeadTemplate | null;
 }> {
   const [edition, defaultProfile] = await Promise.all([
     getBookEdition(session, bookId),
@@ -342,11 +337,13 @@ export async function exportContext(
   const typography = edition?.template
     ? edition.template.config.typography
     : (profile?.typography ?? {});
+  const runningHeadTemplate = edition?.template?.config ?? null;
 
   return {
     title: edition?.name ?? "Manuscrito",
     author: "ESCRIBIENDO",
     profile,
     typography,
+    runningHeadTemplate,
   };
 }

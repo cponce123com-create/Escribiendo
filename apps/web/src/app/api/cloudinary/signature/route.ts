@@ -76,7 +76,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "La solicitud no es válida." }, { status: 400 });
   }
 
-  if (parsed.data.purpose === "interior") {
+  if (parsed.data.purpose === "interior" || parsed.data.purpose === "cover") {
     if (!parsed.data.bookId) {
       return NextResponse.json({ error: "Falta el libro de destino." }, { status: 400 });
     }
@@ -101,7 +101,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   const folder =
     parsed.data.purpose === "interior" && parsed.data.bookId
       ? `${config.uploadFolder}/workspaces/${session.workspace.id}/books/${parsed.data.bookId}/interior`
-      : `${config.uploadFolder}/workspaces/${session.workspace.id}/covers`;
+      : `${config.uploadFolder}/workspaces/${session.workspace.id}/books/${parsed.data.bookId}/cover`;
   const params = {
     timestamp,
     folder,

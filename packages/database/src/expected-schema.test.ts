@@ -9,7 +9,9 @@ describe("missingColumns", () => {
   });
 
   it("nombra la columna que falta", () => {
-    const disponibles = COLUMNAS_ESPERADAS.filter((columna) => columna.columna !== "workspaceId");
+    const disponibles = COLUMNAS_ESPERADAS.filter(
+      (columna) => !(columna.tabla === "sessions" && columna.columna === "workspaceId"),
+    );
 
     expect(missingColumns(disponibles)).toEqual([{ tabla: "sessions", columna: "workspaceId" }]);
   });
@@ -19,8 +21,11 @@ describe("missingColumns", () => {
       ...columna,
       columna: columna.columna.toLowerCase(),
     }));
+    const columnasConMayusculas = COLUMNAS_ESPERADAS.filter(
+      (columna) => columna.columna !== columna.columna.toLowerCase(),
+    );
 
-    expect(missingColumns(disponibles)).toHaveLength(COLUMNAS_ESPERADAS.length);
+    expect(missingColumns(disponibles)).toEqual(columnasConMayusculas);
   });
 
   it("no muta la lista de columnas esperadas", () => {

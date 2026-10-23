@@ -121,16 +121,20 @@ pnpm test:e2e
 
 ### 4.1 Cómo funciona
 
-1. `pnpm test:e2e` compila la aplicación y arranca el servidor de producción
-   (`scripts/e2e-server.ts`) en un puerto propio, el 3100, para no interferir
-   con un servidor de desarrollo en marcha.
-2. La preparación global (`tests/e2e/global-setup.ts`) **vacía todas las
-   tablas** de la base configurada en `DATABASE_URL`, de modo que la
-   instalación inicial vuelva a estar disponible y el flujo sea reproducible.
-3. El proyecto de preparación (`tests/e2e/auth.setup.ts`) crea la cuenta de
+1. `pnpm test:e2e` levanta PostgreSQL 17 aislado con `compose.e2e.yaml` en el
+   puerto local 55432. Requiere Docker Desktop o Docker Engine con Compose.
+2. El comando genera un token de instalación temporal, aplica las migraciones,
+   compila la aplicación y arranca el servidor de producción en el puerto 3100.
+3. La preparación global (`tests/e2e/global-setup.ts`) **vacía todas las
+   tablas** de esa base temporal, de modo que la instalación inicial vuelva a
+   estar disponible y el flujo sea reproducible.
+4. El proyecto de preparación (`tests/e2e/auth.setup.ts`) crea la cuenta de
    pruebas y guarda la sesión en disco; el resto de pruebas la reutiliza.
-4. Se ejecutan las pruebas en serie y con un único worker: comparten una sola
+5. Se ejecutan las pruebas en serie y con un único worker: comparten una sola
    base de datos desechable.
+6. Al terminar, incluso si falla una prueba, Docker Compose elimina el
+   contenedor y sus datos. No hace falta editar `.env` ni configurar a mano el
+   token E2E.
 
 **Por qué la compilación de producción y no el servidor de desarrollo**: en
 desarrollo, las herramientas de Next.js 16 aplican estilos en línea que la CSP
@@ -160,14 +164,18 @@ recomienda.
 
 ### 4.3 Variables de entorno
 
-| Variable                     | Obligatoria | Descripción                                                                        |
-| ---------------------------- | ----------- | ---------------------------------------------------------------------------------- |
-| `DATABASE_URL`               | Sí          | Base desechable de pruebas.                                                        |
-| `E2E_SETUP_TOKEN`            | Sí          | Token de instalación. Si no se define, se usa `SETUP_TOKEN`. Mínimo 32 caracteres. |
-| `E2E_USER_EMAIL`             | No          | Correo de la cuenta de pruebas. Por defecto `e2e@ejemplo.local`.                   |
-| `E2E_USER_PASSWORD`          | No          | Contraseña de la cuenta de pruebas.                                                |
-| `PLAYWRIGHT_BASE_URL`        | No          | Si se define, Playwright no arranca su propio servidor.                            |
-| `PLAYWRIGHT_SKIP_WEB_SERVER` | No          | Igual que el anterior, para servidores ya levantados.                              |
+La ejecución local crea `DATABASE_URL`, `DIRECT_URL` y `E2E_SETUP_TOKEN` por
+su cuenta. Para la ejecución en otro entorno, como CI, se mantienen estas
+variables:
+
+| Variable                     | Obligatoria | Descripción                                                                      |
+| ---------------------------- | ----------- | -------------------------------------------------------------------------------- |
+| `DATABASE_URL`               | Sí          | Base desechable de pruebas.                                                      |
+| `E2E_SETUP_TOKEN`            | Sí          | Token de instalación de al menos 32 caracteres; CI lo configura automáticamente. |
+| `E2E_USER_EMAIL`             | No          | Correo de la cuenta de pruebas. Por defecto `e2e@ejemplo.local`.                 |
+| `E2E_USER_PASSWORD`          | No          | Contraseña de la cuenta de pruebas.                                              |
+| `PLAYWRIGHT_BASE_URL`        | No          | Si se define, Playwright no arranca su propio servidor.                          |
+| `PLAYWRIGHT_SKIP_WEB_SERVER` | No          | Igual que el anterior, para servidores ya levantados.                            |
 
 ### 4.4 Qué cubren
 

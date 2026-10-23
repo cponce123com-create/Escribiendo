@@ -43,6 +43,95 @@ test.describe("Resiliencia del manuscrito", () => {
     await expect(page.getByRole("heading", { name: SECTION_TITLE })).toBeVisible();
   });
 
+  test("la barra refleja el formato activo y habilita el historial cuando corresponde", async ({
+    page,
+  }) => {
+    await abrirSeccion(page, SECTION_TITLE);
+
+    const deshacer = page.getByRole("button", { name: "Deshacer" });
+    const rehacer = page.getByRole("button", { name: "Rehacer" });
+
+    await expect(deshacer).toBeDisabled();
+    await expect(rehacer).toBeDisabled();
+
+    const cuerpo = page.locator(".ProseMirror");
+    await cuerpo.click();
+    await page.keyboard.type("Texto para probar el formato.");
+    await page.keyboard.press("Shift+Home");
+
+    const negrita = page.getByRole("button", { name: "Negrita" });
+    await negrita.click();
+    await expect(negrita).toHaveAttribute("aria-pressed", "true");
+    await expect(deshacer).toBeEnabled();
+
+    await deshacer.click();
+    await expect(rehacer).toBeEnabled();
+    await expect(negrita).toHaveAttribute("aria-pressed", "false");
+  });
+
+  test("navega entre capítulos y conserva el orden al reordenarlos", async ({ page }) => {
+    await abrirSeccion(page, SECTION_TITLE);
+    const navegacion = page.getByRole("complementary", { name: "Navegación del manuscrito" });
+
+    await expect(
+      navegacion.getByRole("link", { name: new RegExp(SECTION_TITLE, "u") }),
+    ).toHaveAttribute("aria-current", "page");
+
+    await page.goto("/books");
+    await page.getByRole("link", { name: BOOK_TITLE }).click();
+    await page.getByLabel("Título de la sección").fill("Segundo capítulo de pruebas");
+    await page.getByLabel("Tipo").selectOption("CHAPTER");
+    await page.getByRole("button", { name: "Añadir sección" }).click();
+    await page.getByRole("link", { name: /Segundo capítulo de pruebas/u }).click();
+
+    const nav = page.getByRole("complementary", { name: "Navegación del manuscrito" });
+    await nav.getByLabel("Opciones de Segundo capítulo de pruebas").click();
+    await nav.getByRole("button", { name: "Subir Segundo capítulo de pruebas" }).click();
+    await expect(nav.getByRole("link").first()).toContainText("Segundo capítulo de pruebas");
+    await nav.getByRole("link", { name: new RegExp(SECTION_TITLE, "u") }).click();
+    await expect(page.locator(".ProseMirror")).toBeVisible();
+    await expect(page).toHaveURL(new RegExp("/sections/"));
+  });
+
+  test("pliega y restaura la navegación del manuscrito", async ({ page }) => {
+    await abrirSeccion(page, SECTION_TITLE);
+
+    const navegacion = page.getByRole("complementary", { name: "Navegación del manuscrito" });
+    const ocultar = navegacion.getByRole("button", { name: "Ocultar navegación del manuscrito" });
+
+    await expect(
+      navegacion.getByRole("link", { name: new RegExp(SECTION_TITLE, "u") }),
+    ).toBeVisible();
+    await ocultar.click();
+
+    await expect(navegacion.getByRole("link")).toHaveCount(0);
+    await expect(
+      navegacion.getByRole("button", { name: "Mostrar navegación del manuscrito" }),
+    ).toHaveAttribute("aria-expanded", "false");
+
+    await navegacion.getByRole("button", { name: "Mostrar navegación del manuscrito" }).click();
+    await expect(
+      navegacion.getByRole("link", { name: new RegExp(SECTION_TITLE, "u") }),
+    ).toBeVisible();
+  });
+
+  test("pliega el menú principal y recuerda la preferencia", async ({ page }) => {
+    await abrirSeccion(page, SECTION_TITLE);
+
+    const barra = page.getByRole("complementary", { name: "Barra lateral principal" });
+    await expect(barra).toBeVisible();
+    await page.getByRole("button", { name: "Ocultar menú principal" }).click();
+    await expect(barra).toBeHidden();
+
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Mostrar menú principal" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    await page.getByRole("button", { name: "Mostrar menú principal" }).click();
+    await expect(barra).toBeVisible();
+  });
+
   test("el editor ofrece imágenes y la biblioteca del libro", async ({ page }) => {
     await abrirSeccion(page, SECTION_TITLE);
 
@@ -78,6 +167,7 @@ test.describe("Resiliencia del manuscrito", () => {
     await page.keyboard.type("Una llamada a nota.");
 
     // La nota se escribe en un diálogo propio, no en una ventana del navegador.
+    await page.locator(".studio-toolbar-more > summary").click();
     await page.getByRole("button", { name: "Nota al pie" }).click();
 
     const dialogo = page.getByRole("dialog", { name: "Nota al pie" });
@@ -124,6 +214,10 @@ test.describe("Resiliencia del manuscrito", () => {
 
     await expect(page.getByRole("dialog", { name: "Enlace" })).toHaveCount(0);
     await expect(page.locator('a[href="https://ejemplo.test/libro"]')).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "Enlace" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 
   test("el texto se guarda en el equipo al momento de escribir", async ({ page }) => {

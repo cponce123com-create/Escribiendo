@@ -94,6 +94,16 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   AUTH_PASSWORD_RESET_ISSUED_CLI: "Enlace de recuperación emitido",
   AUTH_OTHER_SESSIONS_REVOKED: "Otras sesiones cerradas",
   ACCOUNT_PROFILE_UPDATED: "Perfil actualizado",
+  STORY_PLAN_ITEM_CREATED: "Idea de planificación creada",
+  STORY_PLAN_ITEM_UPDATED: "Idea de planificación actualizada",
+  STORY_PLAN_ITEM_STATUS_CHANGED: "Estado del plan actualizado",
+  STORY_PLAN_ITEM_DELETED: "Idea de planificación eliminada",
+  STORY_CHARACTER_CREATED: "Personaje creado",
+  STORY_CHARACTER_UPDATED: "Personaje actualizado",
+  STORY_CHARACTER_DELETED: "Personaje eliminado",
+  STORY_WORLD_CREATED: "Mundo creado",
+  STORY_WORLD_UPDATED: "Mundo actualizado",
+  STORY_WORLD_DELETED: "Mundo eliminado",
 };
 
 export function auditActionLabel(action: string): string {

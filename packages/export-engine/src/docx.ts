@@ -44,7 +44,7 @@ const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
   <w:style w:type="paragraph" w:styleId="Ttulo1">
     <w:name w:val="heading 1"/>
     <w:basedOn w:val="Normal"/>
-    <w:pPr><w:spacing w:before="240" w:after="240"/><w:outlineLvl w:val="0"/></w:pPr>
+    <w:pPr><w:keepNext/><w:spacing w:before="720" w:after="240"/><w:outlineLvl w:val="0"/></w:pPr>
     <w:rPr><w:b/><w:sz w:val="36"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Ttulo2">
@@ -305,8 +305,15 @@ function paragraph(text: string, styleId: string | null): string {
 }
 
 /** Párrafo de Word a partir de un bloque con formato. */
-function blockParagraph(block: ExportBlock, styleId: string | null, links: string[]): string {
-  const properties = styleId ? `<w:pPr><w:pStyle w:val="${styleId}"/></w:pPr>` : "";
+function blockParagraph(
+  block: ExportBlock,
+  styleId: string | null,
+  links: string[],
+  dropCap = false,
+): string {
+  const style = styleId ? `<w:pStyle w:val="${styleId}"/>` : "";
+  const frame = dropCap ? '<w:framePr w:dropCap="drop" w:lines="3" w:wrap="around"/>' : "";
+  const properties = style || frame ? `<w:pPr>${style}${frame}</w:pPr>` : "";
 
   return `<w:p>${properties}${inlineXml(block, links)}</w:p>`;
 }
@@ -390,8 +397,11 @@ export function buildDocx(
   let imageIndex = 0;
 
   for (const chapter of document.chapters) {
-    // El título editorial llega como bloque `title` desde el modelo canónico.
-    // Insertarlo también aquí lo duplicaría en todos los capítulos.
+    if (chapter.showTitle !== false) {
+      body.push(paragraph(chapter.title, "Ttulo1"));
+    }
+
+    let dropCapApplied = false;
     for (const block of chapter.blocks) {
       if (block.kind === "pageBreak") {
         body.push('<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
@@ -425,7 +435,9 @@ export function buildDocx(
         continue;
       }
 
-      body.push(blockParagraph(block, null, links));
+      const dropCap = chapter.dropCap && !dropCapApplied && block.kind === "body";
+      if (dropCap) dropCapApplied = true;
+      body.push(blockParagraph(block, null, links, dropCap));
     }
   }
 

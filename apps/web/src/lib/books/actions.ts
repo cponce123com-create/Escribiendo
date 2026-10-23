@@ -1,4 +1,5 @@
 "use server";
+import { createHash } from "node:crypto";
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -742,6 +743,27 @@ export async function saveSectionAction(
     return errorState("No se ha podido guardar el manuscrito. Inténtalo de nuevo.");
   }
 
+  let analysisTaskId: string | null = null;
+  try {
+    const contentHash = createHash("sha256").update(JSON.stringify(document), "utf8").digest("hex");
+    const queued = await prisma.characterAnalysisTask.upsert({
+      where: { sectionId_contentHash: { sectionId: section.id, contentHash } },
+      create: {
+        workspaceId: session.workspace.id,
+        bookId: section.bookId,
+        sectionId: section.id,
+        contentHash,
+      },
+      update: {},
+      select: { id: true },
+    });
+    analysisTaskId = queued.id;
+  } catch (error) {
+    logger.warn("story.character_analysis_enqueue_error", {
+      requestId: context?.requestId,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
+  }
   await writeAuditLog(
     {
       action: "BOOK_SECTION_SAVED",
@@ -761,6 +783,7 @@ export async function saveSectionAction(
     status: "success",
     message: intent.data === "autosave" ? "Guardado automático." : "Manuscrito guardado.",
     savedVersion: guardada.version,
+    analysisTaskId,
     throttled: false,
     conflict: null,
   };

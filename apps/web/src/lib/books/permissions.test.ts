@@ -13,6 +13,7 @@ describe("canPerform", () => {
       "section:create",
       "section:update",
       "section:move",
+      "story:manage",
     ];
 
     for (const role of ["OWNER", "ADMIN", "EDITOR", "AUTHOR"] as WorkspaceRole[]) {
@@ -30,6 +31,7 @@ describe("canPerform", () => {
       "section:create",
       "section:update",
       "section:move",
+      "story:manage",
     ] as LibraryAction[]) {
       expect(canPerform("REVIEWER", action)).toBe(false);
     }

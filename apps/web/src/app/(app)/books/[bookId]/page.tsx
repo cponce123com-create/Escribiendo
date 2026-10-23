@@ -8,6 +8,7 @@ import { requireSession } from "@/lib/auth/session";
 import { canPerform } from "@/lib/books/permissions";
 import { getBook, getSectionTree } from "@/lib/books/queries";
 import { flattenSectionTree } from "@/lib/books/section-tree";
+import { coverObjectPosition } from "@/lib/books/covers";
 import { BOOK_STATUS_LABELS, SECTION_TYPE_LABELS, formatDate, formatNumber } from "@/lib/ui/format";
 
 export const metadata: Metadata = {
@@ -72,6 +73,15 @@ export default async function BookPage({ params }: BookPageProps) {
         ) : null}
 
         <nav className="flex flex-wrap gap-2" aria-label="Acciones del libro">
+          <Link className="btn btn-ghost btn-sm" href={`/planning?book=${book.id}`}>
+            Planificación
+          </Link>
+          <Link className="btn btn-ghost btn-sm" href={`/characters?book=${book.id}`}>
+            Personajes
+          </Link>
+          <Link className="btn btn-ghost btn-sm" href={`/worlds?book=${book.id}`}>
+            Mundos
+          </Link>
           <Link className="btn btn-ghost btn-sm" href={`/books/${book.id}/notes`}>
             Notas
           </Link>
@@ -89,6 +99,34 @@ export default async function BookPage({ params }: BookPageProps) {
           </Link>
         </nav>
       </header>
+
+      {book.cover ? (
+        <section
+          className="panel flex flex-wrap items-center gap-5 p-5"
+          aria-label="Portada del libro"
+        >
+          <div className="book-cover-thumb size-24">
+            {/* Cloudinary entrega la imagen ya optimizada; no necesita otra transformación. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={book.cover.url}
+              alt={`Portada de ${book.title}`}
+              className="book-cover-thumb-image"
+              style={{ objectPosition: coverObjectPosition(book.cover.crop) }}
+            />
+          </div>
+          <div>
+            <p className="meta-label">Portada</p>
+            <p className="mt-1 font-serif text-xl text-ink">Portada activa del libro</p>
+            <Link
+              className="mt-2 inline-block text-sm text-accent underline"
+              href={`/books/${book.id}/edit`}
+            >
+              Ajustar portada y encuadre
+            </Link>
+          </div>
+        </section>
+      ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Resumen del libro">
         <div className="stat-card">
@@ -130,6 +168,11 @@ export default async function BookPage({ params }: BookPageProps) {
         </div>
       </section>
 
+      <div className="mb-5 flex flex-wrap gap-2">
+        <Link className="btn btn-secondary" href={`/characters?book=${book.id}`}>
+          Personajes de este libro
+        </Link>
+      </div>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
         <section className="panel p-6" aria-labelledby="structure-title">
           <p className="meta-label">Estructura</p>

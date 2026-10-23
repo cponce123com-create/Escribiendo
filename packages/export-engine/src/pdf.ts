@@ -547,7 +547,7 @@ export function buildPdf(document: PdfDocument): PdfResult {
       (document.subject ? `/Subject ${pdfTextString(document.subject)} ` : "") +
       `/Producer (ESCRIBIENDO) /Creator (ESCRIBIENDO) ` +
       `/CreationDate (${pdfDate(document.createdAt)}) /ModDate (${pdfDate(document.createdAt)}) ` +
-      "/>>",
+      ">>",
   );
 
   const embeddedResources = [...embeddedFonts.values()]

@@ -351,6 +351,49 @@ Verificación registrada:
 | Migración                                           | Cumplido: `20261020190000_add_team_governance`, aditiva, aplicada en local y en Neon con sus dos restricciones                                        |
 | Retención                                           | Cumplido: `pnpm retention:clean --dry-run` informa sin borrar; la rutina de borrado está en una transacción                                           |
 
+## Herramientas de historia (extensión de la Fase 3)
+
+Objetivo: convertir el espacio de trabajo en una biblia de la historia útil
+antes y durante la escritura, sin sustituir el manuscrito.
+
+**Estado: implementadas.** Las tres herramientas están enlazadas desde la barra
+lateral, la navegación móvil, la ficha del libro y el panel. La migración
+`20261022120000_add_story_tools` está creada y validada, pero **todavía no se ha
+aplicado a Neon**: hay que ejecutar `pnpm db:migrate` antes de desplegar.
+
+Incluye:
+
+- **Planificación** (`/planning`): tablero por estados (idea, planificado, en
+  escritura, terminado). Cada tarjeta tiene tipo (acto, capítulo, escena,
+  secuencia, otro), resumen, libro opcional y cambio rápido de estado.
+- **Personajes** (`/characters`): fichas con papel, edad, oficio, descripción,
+  personalidad, motivación, conflicto, arco y notas. Búsqueda por nombre, oficio
+  o descripción y filtro por libro y papel.
+- **Mundos** (`/worlds`): lugares, culturas, organizaciones, sistemas, objetos,
+  acontecimientos y otras reglas, con descripción, reglas y notas. Filtros por
+  libro, tipo y búsqueda.
+- Las tres aceptan material general del estudio (`bookId` nulo) o vinculado a un
+  libro, y se pueden abrir ya filtradas desde la ficha del libro.
+- Escritura reservada a `OWNER`, `ADMIN`, `EDITOR` y `AUTHOR` mediante el
+  permiso `story:manage`; `REVIEWER` solo lectura.
+- Borrado lógico, auditoría de cada mutación y consultas siempre filtradas por
+  el espacio de trabajo.
+- Si el código se despliega antes que la migración, las páginas de las
+  herramientas redirigen a `/migracion-pendiente` en lugar de mostrar un error.
+
+Verificación registrada:
+
+| Punto del criterio                                  | Estado                                                                                  |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Build, lint, typecheck, formato y pruebas unitarias | Cumplido: 381 pruebas en 46 archivos; build de Next.js correcto                         |
+| Permisos por rol                                    | Cumplido: `story:manage` para escritura; lectura para todo el estudio                   |
+| Aislamiento por espacio de trabajo                  | Cumplido: consultas y mutaciones filtran por `workspaceId` y `deletedAt`                |
+| Migración                                           | Creada y validada contra el esquema; pendiente de aplicar en Neon                       |
+| Pruebas de extremo a extremo                        | Pendientes: requieren una base de datos dedicada que no está disponible en este entorno |
+
+Fuera del alcance por ahora: relaciones entre personajes y mundos, apariciones
+por sección del manuscrito y adjuntar imágenes a las fichas.
+
 ## Fase 7 — Operación editorial
 
 Objetivo: cubrir el ciclo completo de un libro.

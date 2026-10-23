@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth/session";
 import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/db";
 import { exportContext, generateFile } from "@/lib/export/generate";
+import { readExportLayoutSnapshot } from "@/lib/export/layout-snapshot";
 import { loadManuscript, type SectionVersion } from "@/lib/export/manuscript";
 import { verifyDownload } from "@/lib/export/signature";
 import { liberarHuecoDeExportacion, reservarHuecoDeExportacion } from "@/lib/export/slot";
@@ -119,14 +120,20 @@ export async function GET(request: Request, context: RouteContext): Promise<Next
     const versions = (job.sectionVersions ?? []) as unknown as SectionVersion[];
     const sections = await loadManuscript(session, job.bookId, versions);
     const contextData = await exportContext(session, job.bookId);
+    const snapshot = readExportLayoutSnapshot(job.options);
 
     const file = await generateFile({
       format: job.format,
       title: book.title,
       author: book.authorName,
       sections,
-      profile: contextData.profile,
-      typography: contextData.typography,
+      profile: snapshot ? snapshot.profile : contextData.profile,
+      typography: snapshot ? snapshot.typography : contextData.typography,
+      runningHeadTemplate: snapshot
+        ? snapshot.runningHeadTemplate
+        : contextData.runningHeadTemplate,
+      bookTitle: snapshot?.bookTitle || book.title,
+      dropCaps: snapshot?.dropCaps ?? false,
       createdAt: job.createdAt,
     });
 

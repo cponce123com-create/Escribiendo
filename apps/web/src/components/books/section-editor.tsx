@@ -1,7 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { EditorContent, useEditor } from "@tiptap/react";
+import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import type { TiptapDocument } from "@escribiendo/book-schema";
 import { countWordsInDocument, MAX_FOOTNOTE_LENGTH } from "@escribiendo/book-schema";
@@ -24,9 +25,12 @@ import {
   type SyncMachine,
 } from "@/lib/editor/sync";
 import { SectionConflictPanel } from "@/components/books/section-conflict";
+import { EditorToolbar } from "@/components/books/editor-toolbar";
 import { SectionImageControls } from "@/components/books/section-image-controls";
 import { EditorialFootnote } from "@/components/editor/editorial-footnote";
 import { EditorialImage } from "@/components/editor/editorial-image";
+import { StudioIcon } from "./studio-icon";
+import { readingMinutes, textMatches } from "@/lib/books/studio";
 import type { BookAssetSummary } from "@/lib/books/assets";
 
 interface SectionEditorProps {
@@ -57,13 +61,6 @@ const LOCAL_SAVE_DEBOUNCE_MS = 700;
  */
 const SERVER_SYNC_DEBOUNCE_MS = 3_000;
 
-interface ToolbarButton {
-  label: string;
-  title: string;
-  isActive: () => boolean;
-  run: () => void;
-}
-
 export function SectionEditor({
   sectionId,
   sectionTitle,
@@ -75,6 +72,7 @@ export function SectionEditor({
   canEdit,
   bookAssets,
 }: SectionEditorProps) {
+  const router = useRouter();
   const [machine, setMachine] = useState<SyncMachine>(() => initialSyncMachine(version));
   const [conflict, setConflict] = useState<SectionConflict | null>(null);
   /**
@@ -101,6 +99,10 @@ export function SectionEditor({
   const [online, setOnline] = useState(true);
   const [recovered, setRecovered] = useState(false);
   const [assets, setAssets] = useState<BookAssetSummary[]>(() => bookAssets);
+
+  const [imageToolsOpen, setImageToolsOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const searchPosition = useRef({ query: "", from: -1 });
 
   const machineRef = useRef(machine);
   const versionRef = useRef(version);
@@ -153,6 +155,58 @@ export function SectionEditor({
       dispatch({ type: "edit" });
     },
   });
+
+  const liveStats = useEditorState({
+    editor,
+    selector: ({ editor: current }) =>
+      current
+        ? {
+            words: countWordsInDocument(current.getJSON() as TiptapDocument),
+            characters: current.getText().length,
+          }
+        : null,
+  });
+
+  useEffect(() => {
+    const search = (event: Event): void => {
+      if (!(event instanceof CustomEvent) || typeof event.detail !== "string" || !editor) return;
+      const query = event.detail;
+      const matches: Array<{ from: number; to: number }> = [];
+      editor.state.doc.descendants((node, position) => {
+        if (node.isTextblock) {
+          const text = node.textBetween(0, node.content.size, "\n", "\ufffc");
+          for (const match of textMatches(text, query))
+            matches.push({ from: position + 1 + match.from, to: position + 1 + match.to });
+          return false;
+        }
+      });
+      const previous = searchPosition.current;
+      let index =
+        previous.query === query ? matches.findIndex((match) => match.from > previous.from) : 0;
+      if (index < 0) index = 0;
+      const selected = matches[index];
+      if (selected) {
+        editor.chain().focus().setTextSelection(selected).scrollIntoView().run();
+        searchPosition.current = { query, from: selected.from };
+      }
+      window.dispatchEvent(
+        new CustomEvent("studio-search-result", {
+          detail: selected
+            ? `${index + 1} de ${matches.length} en este capítulo`
+            : "Sin coincidencias en este capítulo",
+        }),
+      );
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFocused(false);
+    };
+    window.addEventListener("studio-search", search);
+    window.addEventListener("keydown", escape);
+    return () => {
+      window.removeEventListener("studio-search", search);
+      window.removeEventListener("keydown", escape);
+    };
+  }, [editor]);
 
   // --- Recuperación del borrador local -------------------------------------
 
@@ -309,6 +363,15 @@ export function SectionEditor({
           return;
         }
 
+        if (resultado.analysisTaskId) {
+          void fetch("/api/story-analysis/process", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ taskId: resultado.analysisTaskId }),
+            keepalive: true,
+          }).catch(() => undefined);
+        }
+
         const versionGuardada = resultado.savedVersion ?? versionRef.current;
         versionRef.current = versionGuardada;
 
@@ -319,6 +382,7 @@ export function SectionEditor({
         } else {
           dispatch({ type: "sync-ok", version: versionGuardada });
           await deleteDraft(userId, bookId, sectionId);
+          router.refresh();
         }
       } catch {
         if (peticion !== requestRef.current) {
@@ -328,7 +392,7 @@ export function SectionEditor({
         dispatch({ type: "sync-offline" });
       }
     },
-    [bookId, canEdit, dispatch, editor, sectionId, userId],
+    [bookId, canEdit, dispatch, editor, router, sectionId, userId],
   );
 
   // --- Programación de las tareas ------------------------------------------
@@ -489,139 +553,51 @@ export function SectionEditor({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [sincronizar]);
 
-  const currentWords = editor
-    ? countWordsInDocument(editor.getJSON() as TiptapDocument)
-    : wordCount;
+  const currentWords = liveStats?.words ?? wordCount;
 
-  const botones: ToolbarButton[] = editor
-    ? [
-        {
-          label: "N",
-          title: "Negrita",
-          isActive: () => editor.isActive("bold"),
-          run: () => editor.chain().focus().toggleBold().run(),
-        },
-        {
-          label: "C",
-          title: "Cursiva",
-          isActive: () => editor.isActive("italic"),
-          run: () => editor.chain().focus().toggleItalic().run(),
-        },
-        {
-          label: "S",
-          title: "Tachado",
-          isActive: () => editor.isActive("strike"),
-          run: () => editor.chain().focus().toggleStrike().run(),
-        },
-        {
-          label: "U",
-          title: "Subrayado",
-          isActive: () => editor.isActive("underline"),
-          run: () => editor.chain().focus().toggleUnderline().run(),
-        },
-        {
-          label: "E",
-          title: "Enlace",
-          isActive: () => editor.isActive("link"),
-          run: () => {
-            const anterior = editor.getAttributes("link").href;
+  const abrirEnlace = (): void => {
+    if (!editor) {
+      return;
+    }
 
-            setDialogo({
-              tipo: "enlace",
-              valor: typeof anterior === "string" ? anterior : "",
-              desde: editor.state.selection.from,
-              hasta: editor.state.selection.to,
-            });
-          },
-        },
-        {
-          label: "H2",
-          title: "Título de nivel 2",
-          isActive: () => editor.isActive("heading", { level: 2 }),
-          run: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
-        },
-        {
-          label: "H3",
-          title: "Título de nivel 3",
-          isActive: () => editor.isActive("heading", { level: 3 }),
-          run: () => editor.chain().focus().toggleHeading({ level: 3 }).run(),
-        },
-        {
-          label: "•",
-          title: "Lista de viñetas",
-          isActive: () => editor.isActive("bulletList"),
-          run: () => editor.chain().focus().toggleBulletList().run(),
-        },
-        {
-          label: "1.",
-          title: "Lista numerada",
-          isActive: () => editor.isActive("orderedList"),
-          run: () => editor.chain().focus().toggleOrderedList().run(),
-        },
-        {
-          label: "❝",
-          title: "Cita",
-          isActive: () => editor.isActive("blockquote"),
-          run: () => editor.chain().focus().toggleBlockquote().run(),
-        },
-        {
-          label: "—",
-          title: "Separador de escena",
-          isActive: () => editor.isActive("horizontalRule"),
-          run: () => editor.chain().focus().setHorizontalRule().run(),
-        },
-        {
-          label: "†",
-          title: "Nota al pie",
-          isActive: () => editor.isActive("footnote"),
-          run: () => {
-            setDialogo({
-              tipo: "nota",
-              valor: "",
-              desde: editor.state.selection.from,
-              hasta: editor.state.selection.to,
-            });
-          },
-        },
-        {
-          label: "↶",
-          title: "Deshacer",
-          isActive: () => false,
-          run: () => editor.chain().focus().undo().run(),
-        },
-        {
-          label: "↷",
-          title: "Rehacer",
-          isActive: () => false,
-          run: () => editor.chain().focus().redo().run(),
-        },
-      ]
-    : [];
+    const anterior = editor.getAttributes("link").href;
+
+    setDialogo({
+      tipo: "enlace",
+      valor: typeof anterior === "string" ? anterior : "",
+      desde: editor.state.selection.from,
+      hasta: editor.state.selection.to,
+    });
+  };
+
+  const abrirNota = (): void => {
+    if (!editor) {
+      return;
+    }
+
+    setDialogo({
+      tipo: "nota",
+      valor: "",
+      desde: editor.state.selection.from,
+      hasta: editor.state.selection.to,
+    });
+  };
 
   const mensaje = statusMessage(machine);
   const sincronizando = machine.state === "syncing";
 
   return (
-    <div className="space-y-4">
+    <div className={`studio-editor-body ${focused ? "is-focused" : ""}`}>
       {canEdit ? (
-        <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label="Formato">
-          {botones.map((boton) => (
-            <button
-              key={boton.title}
-              type="button"
-              title={boton.title}
-              aria-label={boton.title}
-              aria-pressed={boton.isActive()}
-              onClick={boton.run}
-              className={`icon-button ${boton.isActive() ? "border-accent text-accent" : ""}`}
-            >
-              {boton.label}
-            </button>
-          ))}
-        </div>
+        <EditorToolbar
+          editor={editor}
+          onLink={abrirEnlace}
+          onFootnote={abrirNota}
+          onImage={() => setImageToolsOpen((value) => !value)}
+        />
       ) : null}
 
-      {canEdit ? (
+      {canEdit && imageToolsOpen ? (
         <SectionImageControls
           editor={editor}
           bookId={bookId}
@@ -800,21 +776,41 @@ export function SectionEditor({
         <EditorContent editor={editor} />
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="studio-editor-status">
+        <span className="studio-word-stats">
+          {formatNumber(currentWords)} palabras <i />
+          {formatNumber(liveStats?.characters ?? 0)} caracteres <i />
+          {readingMinutes(currentWords)} min de lectura
+        </span>
         <p className="text-xs text-ink-muted" role="status" aria-live="polite">
-          {formatNumber(currentWords)} palabras · {mensaje} · versión {machine.serverVersion}
+          <span className={`studio-save-dot ${machine.state === "synced" ? "is-saved" : ""}`}>
+            <StudioIcon name="check" />
+          </span>
+          {mensaje}
         </p>
 
         {canEdit ? (
           <button
             type="button"
-            className="btn btn-primary"
+            className="studio-save-button"
+            aria-label="Guardar manuscrito"
+            title="Guardar manuscrito (Ctrl/⌘+S)"
             onClick={() => void sincronizar("manual")}
             disabled={sincronizando}
           >
-            {sincronizando ? "Guardando…" : "Guardar manuscrito"}
+            {sincronizando ? "Guardando…" : "Guardar"}
           </button>
         ) : null}
+        <button
+          type="button"
+          className="studio-focus-button"
+          onClick={() => setFocused((value) => !value)}
+          aria-pressed={focused}
+          aria-label={focused ? "Salir del modo concentración" : "Ampliar editor"}
+          title="Modo concentración · Esc para salir"
+        >
+          <StudioIcon name="expand" />
+        </button>
       </div>
 
       {!online ? (
@@ -874,7 +870,7 @@ export function SectionEditor({
       ) : null}
 
       {canEdit ? (
-        <p className="text-xs leading-relaxed text-ink-muted">
+        <p className="studio-save-help text-xs leading-relaxed text-ink-muted">
           «{sectionTitle}» se guarda de forma explícita. Además, cada cambio se guarda en este
           equipo al momento y se envía al servidor en cuanto dejas de escribir; el historial de
           versiones conserva cada guardado confirmado.

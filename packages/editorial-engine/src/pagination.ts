@@ -30,6 +30,7 @@ export type LayoutBlockKind =
   | "title"
   | "body"
   | "firstParagraph"
+  | "chapterTitle"
   | "heading1"
   | "heading2"
   | "heading3"
@@ -57,6 +58,10 @@ export interface LayoutBlock {
   startsChapter?: boolean;
   /** El bloque es el primero de su sección. */
   firstOfSection?: boolean;
+  /** Inicial opcional para el primer párrafo del capítulo. */
+  dropCapCharacter?: string;
+  /** Espacio reservado a la inicial capitular durante sus tres líneas. */
+  dropCapIndentMm?: number;
   /**
    * El bloque tiene que empezar en una página nueva. Se usa para los saltos
    * de página que pide la sección.
@@ -126,6 +131,12 @@ export interface LaidOutBlock {
   firstOfSection?: boolean;
   /** El bloque continúa de un párrafo partido en la página anterior. */
   continued?: boolean;
+  /** Inicial opcional para la primera línea del párrafo. */
+  dropCapCharacter?: string;
+  /** Espacio reservado a la inicial capitular durante sus tres líneas. */
+  dropCapIndentMm?: number;
+  /** Sangría aplicada solo a la primera línea del primer fragmento. */
+  firstLineIndentMm?: number;
   /** Imagen y su caja compuesta, cuando el bloque es una imagen. */
   image?: EditorialImage;
   imageLayout?: ImageLayout;
@@ -182,6 +193,13 @@ const FOOTNOTE_LINE_HEIGHT = 1.3;
 const FOOTNOTE_GAP_MM = 1.5;
 /** Espacio de la línea separadora antes de la primera nota. */
 const FOOTNOTE_SEPARATOR_MM = 3;
+/** Caída tipográfica que separa el título de capítulo del borde superior. */
+export const CHAPTER_TITLE_SINK_PT = 36;
+
+/** Indica si la clase de bloque se compone en negrita. */
+export function isHeadingKind(kind: LayoutBlockKind): boolean {
+  return kind === "title" || kind === "chapterTitle" || kind.startsWith("heading");
+}
 
 function toMm(points: number): number {
   return points * POINTS_TO_MM;
@@ -191,6 +209,7 @@ function styleFor(config: TypographyConfig, kind: LayoutBlockKind): TypographySt
   switch (kind) {
     case "title":
     case "heading1":
+    case "chapterTitle":
       return config.heading1;
     case "heading2":
       return config.heading2;
@@ -401,7 +420,14 @@ export function paginate(
       currentRunningHead = block.sectionTitle;
     }
 
-    const style = styleFor(typography, block.kind);
+    const baseStyle = styleFor(typography, block.kind);
+    const style =
+      block.kind === "chapterTitle"
+        ? {
+            ...baseStyle,
+            spaceBeforePt: baseStyle.spaceBeforePt + CHAPTER_TITLE_SINK_PT,
+          }
+        : baseStyle;
     const spaceBeforeMm = toMm(style.spaceBeforePt);
     const spaceAfterMm = toMm(style.spaceAfterPt);
     const lineHeight = lineHeightMm(style);
@@ -477,6 +503,17 @@ export function paginate(
           ? 0
           : style.firstLineIndentMm;
 
+    const dropCapIndentMm = block.dropCapCharacter
+      ? measureTextMm(block.dropCapCharacter, {
+          fontFamily: style.fontFamily,
+          fontSizePt: style.fontSizePt * 3,
+          letterSpacingPt: style.letterSpacingPt,
+          uppercase: style.uppercase,
+          bold: isHeadingKind(block.kind),
+          ...(measure ? { measure } : {}),
+        }) +
+        (style.fontSizePt * 0.12 * 25.4) / 72
+      : 0;
     const breakOptions = {
       fontFamily: style.fontFamily,
       fontSizePt: style.fontSizePt,
@@ -484,11 +521,14 @@ export function paginate(
       uppercase: style.uppercase,
       smallCaps: style.smallCaps,
       lineWidthMm: widthMm,
-      firstLineIndentMm: indentMm,
+      firstLineIndentMm: indentMm + dropCapIndentMm,
+      ...(block.dropCapCharacter
+        ? { lineIndentsMm: [indentMm + dropCapIndentMm, dropCapIndentMm, dropCapIndentMm] }
+        : {}),
       hyphenation: style.hyphenation,
       // Los títulos se componen en negrita: si se midieran como redonda, la
       // línea cabría en el cálculo y se saldría en el papel.
-      bold: block.kind === "title" || block.kind.startsWith("heading"),
+      bold: isHeadingKind(block.kind),
       ...(measure ? { measure } : {}),
     };
 
@@ -584,6 +624,9 @@ export function paginate(
               startsChapter: block.startsChapter,
               firstOfSection: block.firstOfSection,
               continued: !isFirstChunk,
+              firstLineIndentMm: isFirstChunk ? indentMm : 0,
+              dropCapCharacter: isFirstChunk ? block.dropCapCharacter : undefined,
+              dropCapIndentMm: isFirstChunk ? dropCapIndentMm : undefined,
             },
             before + lineHeight,
           );
@@ -632,6 +675,9 @@ export function paginate(
             startsChapter: block.startsChapter,
             firstOfSection: block.firstOfSection,
             continued: !isFirstChunk,
+            firstLineIndentMm: isFirstChunk ? indentMm : 0,
+            dropCapCharacter: isFirstChunk ? block.dropCapCharacter : undefined,
+            dropCapIndentMm: isFirstChunk ? dropCapIndentMm : undefined,
           },
           before + pending.length * lineHeight + spaceAfterMm,
         );
@@ -686,6 +732,9 @@ export function paginate(
           startsChapter: block.startsChapter,
           firstOfSection: block.firstOfSection,
           continued: !isFirstChunk,
+          firstLineIndentMm: isFirstChunk ? indentMm : 0,
+          dropCapCharacter: isFirstChunk ? block.dropCapCharacter : undefined,
+          dropCapIndentMm: isFirstChunk ? dropCapIndentMm : undefined,
         },
         before + take * lineHeight,
       );
