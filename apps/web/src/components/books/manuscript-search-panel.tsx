@@ -31,7 +31,7 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
   }, [bookId, query]);
 
   const replaceAll = (): void => {
-    const activeEditor = document.querySelector(".manuscript-editor[data-dirty=\\"true\\"]");
+    const activeEditor = document.querySelector('.manuscript-editor[data-dirty="true"]');
     if (activeEditor) {
       setMessage("Guarda primero los cambios pendientes del capítulo abierto.");
       return;
