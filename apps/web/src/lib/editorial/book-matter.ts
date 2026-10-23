@@ -26,6 +26,8 @@ import { legalPageToBlocks, tocToBlocks } from "./matter-blocks";
  */
 
 export interface BookMatter {
+  /** Solo para la galería: permite ver los bloques disponibles y sus avisos. */
+  previewIncompleteLegal?: boolean;
   /** Secciones canónicas, en orden editorial. */
   tocSources: TocSource[];
   tocOptions: BuildTocOptions;
@@ -337,11 +339,14 @@ export function composeMatter(
 
   if (!matter.hasCopyrightSection && matter.legal) {
     const composed = buildLegalPage(matter.legal, { mode: matter.legalMode });
-    const blocks = legalPageToBlocks(composed, {
-      id: "matter-copyright",
-      sectionTitle: "Créditos",
-      pageBreakBefore: true,
-    });
+    const blocks = legalPageToBlocks(
+      matter.previewIncompleteLegal ? { ...composed, ready: true } : composed,
+      {
+        id: "matter-copyright",
+        sectionTitle: "Créditos",
+        pageBreakBefore: true,
+      },
+    );
 
     if (blocks.length > 0) {
       front.push({ id: "matter-copyright", blocks });

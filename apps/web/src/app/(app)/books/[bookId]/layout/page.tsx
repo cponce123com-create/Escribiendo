@@ -57,6 +57,9 @@ export default async function BookLayoutPage({ params, searchParams }: BookLayou
             {book.title}
           </Link>
         </p>
+        <Link className="button button-secondary" href={`/books/${book.id}/edicion`}>
+          Página legal e índice
+        </Link>
         <h1 className="font-serif text-[clamp(1.8rem,3.5vw,2.6rem)] leading-[1.05] text-ink">
           Maquetación
         </h1>

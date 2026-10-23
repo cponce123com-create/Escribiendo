@@ -158,6 +158,7 @@ export function geometryFromProfile(profile: LayoutProfileSummary): PageGeometry
 export interface PreviewOptions {
   /** Compone la inicial capitular del primer párrafo, como el PDF. */
   dropCaps?: boolean;
+  matterOverride?: import("@/lib/editorial/book-matter").BookMatter;
 }
 
 /**
@@ -180,7 +181,7 @@ export async function buildPreview(
 
   const dropCaps = options.dropCaps === true;
   const sections = await loadPreviewSections(session, bookId);
-  const matter = await loadBookMatter(session, bookId, sections);
+  const matter = options.matterOverride ?? (await loadBookMatter(session, bookId, sections));
 
   // La tipografía de la plantilla prima sobre la del perfil: la plantilla
   // describe el estilo editorial y el perfil la geometría.
