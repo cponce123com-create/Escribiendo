@@ -288,10 +288,15 @@ export function CharacterIntelligencePanel({
                         >
                           {kindLabel(r.kind)}
                         </text>
-                        <circle cx={x} cy={y} r="28" fill="#fff" stroke="#b6a5cf" />
-                        <text x={x} y={y + 4} textAnchor="middle" fontSize="10" fill="#30303a">
-                          {related.name.slice(0, 12)}
-                        </text>
+                        <a
+                          href={`/characters?book=${bookId}&q=${encodeURIComponent(related.name)}`}
+                          aria-label={`Abrir ficha de ${related.name}`}
+                        >
+                          <circle cx={x} cy={y} r="28" fill="#fff" stroke="#b6a5cf" />
+                          <text x={x} y={y + 4} textAnchor="middle" fontSize="10" fill="#30303a">
+                            {related.name.slice(0, 12)}
+                          </text>
+                        </a>
                       </g>
                     );
                   })}
