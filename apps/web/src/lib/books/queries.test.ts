@@ -1,26 +1,47 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const mockPrisma = {
-  book: {
-    findMany: vi.fn(),
-    count: vi.fn(),
-    findFirst: vi.fn(),
-  },
-  bookSection: {
-    findMany: vi.fn(),
-  },
-  sectionRevision: {
-    findMany: vi.fn(),
-    findFirst: vi.fn(),
-  },
-};
+import type { SessionContext } from "@/lib/auth/session";
 
-const mockSession = {
-  sessionId: "session-1",
-  user: { id: "user-1", email: "test@example.com", name: "Test User", role: "AUTHOR" },
-  workspace: { id: "workspace-1", name: "Test Workspace", slug: "test", role: "OWNER" },
-  workspaces: [{ id: "workspace-1", name: "Test Workspace", slug: "test", role: "OWNER" }],
-};
+const { mockPrisma, mockSession } = vi.hoisted(() => {
+  const mockPrisma = {
+    book: {
+      findMany: vi.fn(),
+      count: vi.fn(),
+      findFirst: vi.fn(),
+    },
+    bookSection: {
+      findMany: vi.fn(),
+      findFirst: vi.fn(),
+    },
+    sectionRevision: {
+      findMany: vi.fn(),
+      findFirst: vi.fn(),
+    },
+  };
+
+  const mockSession = {
+    sessionId: "session-1",
+    user: {
+      id: "user-1",
+      email: "test@example.com",
+      name: "Test User",
+      role: "AUTHOR" as const,
+    },
+    workspace: {
+      id: "workspace-1",
+      name: "Test Workspace",
+      slug: "test",
+      role: "OWNER" as const,
+    },
+    workspaces: [
+      { id: "workspace-1", name: "Test Workspace", slug: "test", role: "OWNER" as const },
+    ],
+  } satisfies SessionContext;
+
+  return { mockPrisma, mockSession };
+});
+
+vi.mock("server-only", () => ({}));
 
 vi.mock("@/lib/db", () => ({
   prisma: mockPrisma,
@@ -105,7 +126,7 @@ describe("books queries", () => {
 
       await listBooks(mockSession, { search: "mi libro" });
 
-      const call = mockPrisma.book.findMany.mock.calls[0][0];
+      const call = mockPrisma.book.findMany.mock.calls[0]![0];
       expect(call.where).toHaveProperty("OR");
       const orConditions = call.where.OR;
       expect(orConditions).toHaveLength(5);
@@ -198,14 +219,15 @@ describe("books queries", () => {
       const tree = await getSectionTree(mockSession, "book-1");
 
       expect(tree).toHaveLength(1);
-      expect(tree[0].id).toBe("part-1");
-      expect(tree[0].children).toHaveLength(2);
-      expect(tree[0].children[0].id).toBe("ch-1");
-      expect(tree[0].children[1].id).toBe("ch-2");
+      expect(tree[0]?.id).toBe("part-1");
+      expect(tree[0]?.children).toHaveLength(2);
+      expect(tree[0]?.children[0]?.id).toBe("ch-1");
+      expect(tree[0]?.children[1]?.id).toBe("ch-2");
     });
 
     it("ordena hijos por sortOrder y título", async () => {
       const sections = [
+        makeSection({ id: "p", type: "PART", sortOrder: 0, title: "Parte" }),
         makeSection({ id: "a", parentId: "p", sortOrder: 1, title: "Zeta" }),
         makeSection({ id: "b", parentId: "p", sortOrder: 1, title: "Alfa" }),
         makeSection({ id: "c", parentId: "p", sortOrder: 0, title: "Beta" }),
@@ -214,7 +236,22 @@ describe("books queries", () => {
 
       const tree = await getSectionTree(mockSession, "book-1");
 
-      expect(tree[0].children.map((n) => n.id)).toEqual(["c", "b", "a"]);
+      expect(tree[0]?.children.map((n) => n.id)).toEqual(["c", "b", "a"]);
+    });
+
+    it("filtra por el workspace de la sesión", async () => {
+      mockPrisma.bookSection.findMany.mockResolvedValue([]);
+
+      await getSectionTree(mockSession, "book-1");
+
+      expect(mockPrisma.bookSection.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            bookId: "book-1",
+            book: { workspaceId: "workspace-1", deletedAt: null },
+          }),
+        })
+      );
     });
   });
 

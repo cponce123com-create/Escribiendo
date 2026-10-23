@@ -454,6 +454,9 @@ export async function createSectionAction(
     const parent = await prisma.bookSection.findFirst({
       where: {
         id: resolvedParentId,
+        // El padre tiene que ser del mismo libro: colgar una sección de otro
+        // libro rompería el árbol y filtraría contenido entre libros.
+        bookId: book.id,
         deletedAt: null,
         book: { workspaceId: session.workspace.id, deletedAt: null },
       },
@@ -461,7 +464,7 @@ export async function createSectionAction(
     });
 
     if (!parent) {
-      return errorState("La sección padre no existe en este espacio de trabajo.");
+      return errorState("La sección padre no existe en este libro.");
     }
   }
 
@@ -912,61 +915,31 @@ export async function moveSectionAction(
   }
 
   const resolvedParentId = parentId.success ? parentId.data : null;
+  let lastError: unknown;
 
-  if (resolvedParentId) {
-    const parent = await prisma.bookSection.findFirst({
-      where: {
-        id: resolvedParentId,
-        deletedAt: null,
-        book: { workspaceId: session.workspace.id, deletedAt: null },
-      },
-      select: { id: true, parentId: true },
-    });
+  // Dos movimientos simultáneos pueden chocar al recalcular el orden. La
+  // transacción serializable aborta uno y aquí se reintenta desde cero para
+  // recalcular sobre el estado ya confirmado, nunca sobre una lectura vieja.
+  for (let attempt = 0; attempt < SECTION_MOVE_ATTEMPTS; attempt += 1) {
+    try {
+      await moveSectionWithinBook(section, resolvedParentId, position.data);
+      lastError = undefined;
+      break;
+    } catch (error) {
+      if (error instanceof SectionMoveError) {
+        return errorState(error.message);
+      }
 
-    if (!parent) {
-      return errorState("La sección padre no existe en este espacio de trabajo.");
-    }
+      lastError = error;
 
-    if (
-      parent.id === section.id ||
-      (await isDescendant(parent.parentId, section.id, session.workspace.id))
-    ) {
-      return errorState("Una sección no puede colgar de sí misma ni de una de sus descendientes.");
+      if (!isSerializationConflict(error) || attempt === SECTION_MOVE_ATTEMPTS - 1) {
+        break;
+      }
     }
   }
 
-  const siblings = await prisma.bookSection.findMany({
-    where: {
-      bookId: section.bookId,
-      parentId: resolvedParentId,
-      deletedAt: null,
-      id: { not: section.id },
-    },
-    orderBy: { sortOrder: "asc" },
-    select: { id: true },
-  });
-
-  const ordered = siblings.map((sibling) => sibling.id);
-  const index = Math.min(position.data, ordered.length);
-  ordered.splice(index, 0, section.id);
-
-  try {
-    // Single batch update using CASE expression for sortOrder and parentId
-    // This replaces N individual UPDATEs with 1 query
-    const caseSortOrder = ordered.map((id, order) => `WHEN '${id}' THEN ${order}`).join(" ");
-    const caseParentId = `WHEN '${section.id}' THEN ${resolvedParentId ? `'${resolvedParentId}'` : "NULL"} ELSE parent_id END`;
-
-    await prisma.$executeRawUnsafe(
-      `
-      UPDATE "book_sections"
-      SET
-        "sortOrder" = CASE id ${caseSortOrder} END,
-        "parentId" = CASE id ${caseParentId}
-      WHERE id IN (${ordered.map((id) => `'${id}'`).join(", ")})
-    `,
-    );
-  } catch (error) {
-    logActionError("books.section_move_error", context, error);
+  if (lastError !== undefined) {
+    logActionError("books.section_move_error", context, lastError);
     return errorState("No se ha podido reordenar la sección. Inténtalo de nuevo.");
   }
 
@@ -977,6 +950,11 @@ export async function moveSectionAction(
       entityId: section.id,
       workspaceId: session.workspace.id,
       actorId: session.user.id,
+      metadata: {
+        bookId: section.bookId,
+        parentId: resolvedParentId,
+        position: position.data,
+      },
     },
     context,
   );
@@ -984,6 +962,92 @@ export async function moveSectionAction(
   revalidatePath(`/books/${section.bookId}`);
 
   return successState("Sección reordenada.");
+}
+
+const SECTION_MOVE_ATTEMPTS = 3;
+
+/** Error de negocio del reordenamiento: no se reintenta. */
+class SectionMoveError extends Error {}
+
+/** Indica si el fallo es un conflicto de serialización/deadlock de Postgres. */
+function isSerializationConflict(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "P2034"
+  );
+}
+
+/**
+ * Reordena una sección dentro de su libro en una transacción serializable.
+ *
+ * La validación del padre y el cálculo del orden ocurren en la misma
+ * transacción que la escritura: la sección no puede terminar colgando de otro
+ * libro, de una descendiente suya ni con un orden basado en una lectura
+ * obsoleta. Todas las escrituras se restringen por `bookId`.
+ */
+async function moveSectionWithinBook(
+  section: { id: string; bookId: string },
+  parentId: string | null,
+  position: number,
+): Promise<void> {
+  await prisma.$transaction(
+    async (transaction) => {
+      const current = await transaction.bookSection.findFirst({
+        where: { id: section.id, bookId: section.bookId, deletedAt: null },
+        select: { id: true, bookId: true },
+      });
+
+      if (!current) {
+        throw new SectionMoveError("La sección ya no está disponible en este libro.");
+      }
+
+      if (parentId) {
+        const parent = await transaction.bookSection.findFirst({
+          where: { id: parentId, bookId: current.bookId, deletedAt: null },
+          select: { id: true },
+        });
+
+        if (!parent) {
+          throw new SectionMoveError("La sección padre no pertenece a este libro.");
+        }
+
+        if (await isDescendant(transaction, parent.id, current.id, current.bookId)) {
+          throw new SectionMoveError(
+            "Una sección no puede colgar de sí misma ni de una de sus descendientes.",
+          );
+        }
+      }
+
+      const siblings = await transaction.bookSection.findMany({
+        where: {
+          bookId: current.bookId,
+          parentId,
+          deletedAt: null,
+          id: { not: current.id },
+        },
+        orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+        select: { id: true },
+      });
+
+      const ordered = siblings.map((sibling) => sibling.id);
+      ordered.splice(Math.min(position, ordered.length), 0, current.id);
+
+      for (const [order, id] of ordered.entries()) {
+        await transaction.bookSection.updateMany({
+          where: { id, bookId: current.bookId, deletedAt: null },
+          data: {
+            sortOrder: order,
+            // Solo la sección movida cambia de padre; sus hermanas conservan
+            // el suyo y únicamente se renumera su posición.
+            ...(id === current.id ? { parentId } : {}),
+          },
+        });
+      }
+    },
+    { isolationLevel: "Serializable", timeout: 15_000 },
+  );
 }
 
 export async function deleteSectionAction(
@@ -1022,13 +1086,22 @@ export async function deleteSectionAction(
     return errorState("La sección no existe en este espacio de trabajo.");
   }
 
-  const descendants = await collectDescendants(section.id, session.workspace.id);
   const now = new Date();
+  let affectedSections = 0;
 
   try {
     await prisma.$transaction(async (transaction) => {
+      const descendants = await collectDescendants(transaction, section.id, section.bookId);
+      affectedSections = descendants.length;
+
       await transaction.bookSection.updateMany({
-        where: { id: { in: descendants }, deletedAt: null },
+        where: {
+          id: { in: descendants },
+          // El borrado se limita al libro de la sección: aunque un parentId
+          // corrupto apuntara fuera, nunca se toca otro libro.
+          bookId: section.bookId,
+          deletedAt: null,
+        },
         data: { deletedAt: now },
       });
 
@@ -1046,7 +1119,7 @@ export async function deleteSectionAction(
       entityId: section.id,
       workspaceId: session.workspace.id,
       actorId: session.user.id,
-      metadata: { affectedSections: descendants.length },
+      metadata: { affectedSections },
     },
     context,
   );
@@ -1134,14 +1207,15 @@ export async function changeBookStatusAction(
   return successState("Estado actualizado.");
 }
 
-/** Indica si `candidate` está dentro de la rama de `ancestorId`. */
+/** Indica si `candidateId` está dentro de la rama de `ancestorId`. */
 async function isDescendant(
-  candidate: string | null,
+  client: Prisma.TransactionClient,
+  candidateId: string,
   ancestorId: string,
-  workspaceId: string,
+  bookId: string,
 ): Promise<boolean> {
   const visited = new Set<string>();
-  let current = candidate;
+  let current: string | null = candidateId;
 
   while (current) {
     if (current === ancestorId) {
@@ -1154,12 +1228,10 @@ async function isDescendant(
 
     visited.add(current);
 
-    const parent = await prisma.bookSection.findFirst({
-      where: {
-        id: current,
-        deletedAt: null,
-        book: { workspaceId, deletedAt: null },
-      },
+    const parent: { parentId: string | null } | null = await client.bookSection.findFirst({
+      // La cadena se recorre dentro del mismo libro: un parentId cruzado no
+      // puede colar una sección de otro libro en la comprobación de ciclos.
+      where: { id: current, bookId, deletedAt: null },
       select: { parentId: true },
     });
 
@@ -1169,8 +1241,12 @@ async function isDescendant(
   return false;
 }
 
-/** Identificadores de la sección y de todas sus descendientes. */
-async function collectDescendants(sectionId: string, workspaceId: string): Promise<string[]> {
+/** Identificadores de la sección y de todas sus descendientes dentro del libro. */
+async function collectDescendants(
+  client: Prisma.TransactionClient,
+  sectionId: string,
+  bookId: string,
+): Promise<string[]> {
   const collected = [sectionId];
   const pending = [sectionId];
 
@@ -1181,12 +1257,8 @@ async function collectDescendants(sectionId: string, workspaceId: string): Promi
       continue;
     }
 
-    const children = await prisma.bookSection.findMany({
-      where: {
-        parentId: current,
-        deletedAt: null,
-        book: { workspaceId, deletedAt: null },
-      },
+    const children = await client.bookSection.findMany({
+      where: { parentId: current, bookId, deletedAt: null },
       select: { id: true },
     });
 

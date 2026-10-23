@@ -1,21 +1,35 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const mockPrisma = {
-  session: {
-    create: vi.fn(),
-    updateMany: vi.fn(),
-    findUnique: vi.fn(),
-  },
-  user: {
-    findUnique: vi.fn(),
-  },
-};
+const { mockPrisma, mockCookies } = vi.hoisted(() => {
+  const mockPrisma = {
+    session: {
+      create: vi.fn(),
+      updateMany: vi.fn(),
+      findUnique: vi.fn(),
+    },
+    user: {
+      findUnique: vi.fn(),
+    },
+  };
 
-const mockCookies = {
-  get: vi.fn(),
-  set: vi.fn(),
-  delete: vi.fn(),
-};
+  const mockCookies = {
+    get: vi.fn(),
+    set: vi.fn(),
+    delete: vi.fn(),
+  };
+
+  return { mockPrisma, mockCookies };
+});
+
+vi.mock("server-only", () => ({}));
+
+vi.mock("next/navigation", () => ({
+  redirect: vi.fn(),
+}));
+
+vi.mock("@escribiendo/database", () => ({
+  esEsquemaDesactualizado: vi.fn(),
+}));
 
 vi.mock("@/lib/db", () => ({
   prisma: mockPrisma,
@@ -62,12 +76,12 @@ describe("auth session", () => {
     id: "user-1",
     email: "test@example.com",
     name: "Test User",
-    role: "AUTHOR",
+    role: "AUTHOR" as const,
     isActive: true,
     deletedAt: null,
     memberships: [
       {
-        role: "OWNER",
+        role: "OWNER" as const,
         workspace: { id: "ws-1", name: "WS1", slug: "ws1", deletedAt: null },
       },
     ],
@@ -233,7 +247,7 @@ describe("auth session", () => {
       (esEsquemaDesactualizado as any).mockReturnValue(true);
       mockPrisma.session.findUnique.mockRejectedValue(new Error("P2021"));
 
-      await expect(getSession()).rejects.toThrow("ConfigurationError");
+      await expect(getSession()).rejects.toMatchObject({ name: "ConfigurationError" });
     });
   });
 
@@ -315,7 +329,7 @@ describe("auth session", () => {
       expect(() => requireWorkspaceAdmin(session)).not.toThrow();
     });
 
-    it("redirige si no es admin", () => {
+    it("redirige si no es admin", async () => {
       const { redirect } = await import("next/navigation");
       (redirect as any).mockImplementation(() => { throw new Error("REDIRECT"); });
 
