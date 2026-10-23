@@ -7,6 +7,7 @@ import { analyzeNarrative } from "@/lib/story/character-analysis";
 import {
   filterCharacterCandidates,
   normalizeCharacterName,
+  obsoleteCharacterSuggestionIds,
 } from "@/lib/story/character-analysis-quality";
 import { z } from "zod";
 export const runtime = "nodejs";
@@ -110,6 +111,27 @@ export async function POST(request: Request) {
       existingCharacterNames: existing.map((item) => item.name),
       sectionText: text,
     });
+    const existingPendingSuggestions = await prisma.storyCharacterSuggestion.findMany({
+      where: {
+        workspaceId: session.workspace.id,
+        bookId: task.bookId,
+        sectionId: section.id,
+        contentHash: currentHash,
+        status: "PENDING",
+      },
+      select: { id: true, normalizedName: true },
+    });
+    const obsoleteSuggestionIds = obsoleteCharacterSuggestionIds(
+      existingPendingSuggestions,
+      filtered,
+    );
+    if (obsoleteSuggestionIds.length > 0) {
+      await prisma.storyCharacterSuggestion.updateMany({
+        where: { id: { in: obsoleteSuggestionIds }, status: "PENDING" },
+        data: { status: "DISCARDED" },
+      });
+    }
+
     let created = 0;
     for (const candidate of filtered) {
       const evidence = candidate.evidence[0];
