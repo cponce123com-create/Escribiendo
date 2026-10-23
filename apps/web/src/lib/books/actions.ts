@@ -1092,6 +1092,10 @@ export async function changeBookStatusAction(
     return errorState("El libro no existe en este espacio de trabajo.");
   }
 
+  if (book.status === status.data) {
+    return successState("El libro ya tiene ese estado.");
+  }
+
   if (!canTransitionTo(book.status, status.data)) {
     return errorState("Ese cambio de estado no está permitido.");
   }

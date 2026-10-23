@@ -15,7 +15,6 @@ export const ACCIONES = [
   "book:update",
   "book:delete",
   "book:changeStatus",
-  "book:submitForReview",
   "book:approve",
   "section:create",
   "section:update",
@@ -67,7 +66,6 @@ export function canPerform(role: WorkspaceRole, action: LibraryAction): boolean 
     case "book:create":
     case "book:update":
     case "book:changeStatus":
-    case "book:submitForReview":
     case "section:create":
     case "section:update":
     case "section:move":
