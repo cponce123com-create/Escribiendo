@@ -63,3 +63,18 @@ describe("capítulos de EPUB y DOCX", () => {
     ]);
   });
 });
+
+it("passes the hierarchy and TOC visibility from the manuscript to reflowable formats", () => {
+  const chapters = chaptersForReflowableFormats(
+    [
+      { id: "part", title: "Parte I", type: "PART", showInToc: false },
+      { id: "chapter", parentId: "part", title: "Capítulo I", type: "CHAPTER", showInToc: true },
+      { id: "sub", parentId: "chapter", title: "Una pausa", type: "SUBCHAPTER" },
+    ],
+    [[], [], []],
+  );
+  expect(chapters[0]?.showInToc).toBe(false);
+  expect(chapters[1]?.parentId).toBe("part");
+  expect(chapters[1]?.showInToc).toBe(true);
+  expect(chapters[2]?.blocks[0]).toEqual({ kind: "heading", level: 2, text: "Una pausa" });
+});

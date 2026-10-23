@@ -22,13 +22,18 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
     const needle = query.trim();
     window.dispatchEvent(new CustomEvent("studio-search-highlight", { detail: needle }));
     if (!needle) {
-      setMatches([]);
-      setMessage("");
       return;
     }
     const timer = window.setTimeout(() => {
       startTransition(async () => {
-        const result = await searchBookManuscriptAction(bookId, needle);
+        let result: ManuscriptMatch[];
+        try {
+          result = await searchBookManuscriptAction(bookId, needle);
+        } catch {
+          if (searchRequest.current === requestId)
+            setMessage("No se pudo completar la búsqueda. Vuelve a intentarlo.");
+          return;
+        }
         if (searchRequest.current !== requestId) return;
         setMatches(result);
         setMessage(
@@ -77,7 +82,12 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
         className="field-input"
         type="search"
         value={query}
-        onChange={(event) => setQuery(event.target.value)}
+        maxLength={120}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setMatches([]);
+          setMessage("");
+        }}
         placeholder="Buscar una palabra o frase…"
       />
       {canEdit ? (

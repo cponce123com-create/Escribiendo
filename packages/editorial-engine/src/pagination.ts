@@ -85,6 +85,8 @@ export interface PageGeometry {
   chapterStartsRecto?: boolean;
   /** Número de la primera página. */
   firstPageNumber?: number;
+  /** Physical pages preceding the body (cover, preliminaries); independent of folios. */
+  physicalPageOffset?: number;
 }
 
 export type DiagnosticSeverity = "error" | "warning" | "info";
@@ -280,7 +282,7 @@ export function paginate(
   const footnoteLineHeightMm = toMm(footnoteFontSizePt * FOOTNOTE_LINE_HEIGHT);
 
   const pageSide = (index: number): "recto" | "verso" =>
-    (index - 1) % 2 === 0 ? "recto" : "verso";
+    (index - 1 + (geometry.physicalPageOffset ?? 0)) % 2 === 0 ? "recto" : "verso";
 
   const flushPage = (blank = false): void => {
     pageIndex += 1;

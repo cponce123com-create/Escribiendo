@@ -120,6 +120,9 @@
 }
 
 :root {
+  --control-height: 2.75rem;
+  --control-height-compact: 2.25rem;
+  --control-radius: 0.6rem;
   color-scheme: light;
   --font-ui: "Inter Variable", "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-display:
@@ -457,7 +460,7 @@
 
   .btn {
     display: inline-flex;
-    min-height: 2.75rem;
+    min-height: var(--control-height);
     align-items: center;
     justify-content: center;
     gap: 0.55rem;
@@ -530,7 +533,7 @@
   }
 
   .btn-sm {
-    min-height: 2.25rem;
+    min-height: var(--control-height-compact);
     padding: 0.45rem 0.8rem;
     font-size: 0.8rem;
   }
@@ -3428,7 +3431,6 @@ html[data-focus-mode="true"] .app-topbar {
   }
 }
 
-
 /* Plegado del panel editorial. */
 .studio-workspace--inspector-collapsed {
   grid-template-columns: minmax(210px, 245px) minmax(0, 1fr) 44px;
@@ -3542,5 +3544,60 @@ html[data-focus-mode="true"] .app-topbar {
   }
   .studio-inspector--collapsed .studio-inspector-restore {
     align-self: flex-end;
+  }
+}
+
+/* Book detail shares the existing design system rather than a second theme. */
+.book-detail-identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.25rem;
+  min-width: 0;
+  flex: 1 1 22rem;
+}
+.book-detail-cover {
+  display: grid;
+  place-items: center;
+  width: 6.25rem;
+  aspect-ratio: 5 / 8;
+  flex: none;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--control-radius);
+  background: var(--surface-raised);
+  color: var(--ink-soft);
+  text-align: center;
+  font-size: 0.8rem;
+}
+.book-detail-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.book-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+.book-detail-actions .btn {
+  min-height: var(--control-height);
+  padding-block: 0.6rem;
+}
+.book-detail-header select {
+  min-height: var(--control-height);
+}
+@media (max-width: 480px) {
+  .book-detail-identity {
+    gap: 0.85rem;
+    flex-basis: 100%;
+  }
+  .book-detail-cover {
+    width: 4.5rem;
+  }
+  .book-detail-actions .btn-primary {
+    flex-basis: 100%;
   }
 }

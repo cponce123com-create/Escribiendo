@@ -128,3 +128,18 @@ describe("buildZip", () => {
     expect(equals(buildZip([entrada], fecha), buildZip([entrada], fecha))).toBe(true);
   });
 });
+
+it("stores already-compressed illustrations byte-for-byte while compressing text", () => {
+  const image = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+  const zip = buildZip(
+    [
+      { name: "word/media/photo.png", data: image },
+      { name: "word/document.xml", data: new TextEncoder().encode("<p>Text</p>") },
+    ],
+    new Date("2026-10-23T00:00:00Z"),
+  );
+  const entries = [...zipEntries(zip).values()];
+  expect(entries[0]?.method).toBe(0);
+  expect(entries[0]?.data).toEqual(image);
+  expect(entries[1]?.method).toBe(8);
+});

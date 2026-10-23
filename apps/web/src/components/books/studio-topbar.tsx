@@ -53,9 +53,7 @@ export function StudioSearch() {
           const nextQuery = event.target.value;
           setQuery(nextQuery);
           setResult("");
-          window.dispatchEvent(
-            new CustomEvent("studio-search-highlight", { detail: nextQuery }),
-          );
+          window.dispatchEvent(new CustomEvent("studio-search-highlight", { detail: nextQuery }));
         }}
       />
       <kbd>Ctrl / ⌘ K</kbd>

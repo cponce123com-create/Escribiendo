@@ -297,3 +297,9 @@ Server Actions y, donde es posible, con constraints `CHECK` en PostgreSQL.
 | `story:manage`                    | ✅    | ✅    | ✅     | ✅     | ❌       |
 
 > **Nota**: Esta tabla es la fuente de verdad; el tipo `LibraryAction` sale de `ACCIONES` en `permissions.ts`.
+
+## Orden e historia editorial v6.1
+
+`apps/web/src/lib/books/reading-order.ts` define el recorrido jerárquico determinista utilizado por vista previa, capturas de exportación y búsqueda. La navegación tolera estructuras recuperables; la publicación rechaza ciclos y padres ausentes. Las nuevas instantáneas de trabajos guardan contenido validado, metadatos y parentesco, además de versión y orden. Una instantánea vacía se distingue de una ausente o corrupta.
+
+El paginador recibe un desplazamiento físico para conservar recto/verso al anteponer la portada. El folio del cuerpo es independiente. EPUB/DOCX reciben las opciones de índice y parentesco del manuscrito. Los totales se recalculan dentro de las transacciones de edición mediante `lib/books/statistics.ts`.

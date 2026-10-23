@@ -167,7 +167,11 @@ export function buildZip(entries: ZipEntry[], modifiedAt: Date): Uint8Array {
     const nameBytes = new TextEncoder().encode(entry.name);
     const checksum = crc32(entry.data);
     const offset = salida.size;
-    const comprimido = entry.first ? null : deflateRawSync(entry.data, { level: 9 });
+    // JPEG/PNG/WebP are already compressed. Storing them avoids CPU work and
+    // a temporary copy for each illustration without losing image quality.
+    const alreadyCompressed = /\.(?:jpe?g|png|webp|gif|avif)$/iu.test(entry.name);
+    const comprimido =
+      entry.first || alreadyCompressed ? null : deflateRawSync(entry.data, { level: 9 });
     const guardada = comprimido ?? entry.data;
     const method = comprimido ? 8 : 0;
 

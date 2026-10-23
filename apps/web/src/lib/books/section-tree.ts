@@ -1,3 +1,4 @@
+import { compareEditorialSections } from "./reading-order";
 /**
  * Construcción del árbol de secciones a partir de una lista plana.
  *
@@ -19,14 +20,6 @@ export interface SectionRow {
 
 export interface SectionNode extends SectionRow {
   children: SectionNode[];
-}
-
-function compareSections(left: SectionRow, right: SectionRow): number {
-  if (left.sortOrder !== right.sortOrder) {
-    return left.sortOrder - right.sortOrder;
-  }
-
-  return left.title.localeCompare(right.title, "es");
 }
 
 /**
@@ -94,7 +87,7 @@ export function buildSectionTree(rows: SectionRow[]): SectionNode[] {
   }
 
   const sortRecursively = (nodes: SectionNode[]): void => {
-    nodes.sort(compareSections);
+    nodes.sort(compareEditorialSections);
 
     for (const node of nodes) {
       sortRecursively(node.children);

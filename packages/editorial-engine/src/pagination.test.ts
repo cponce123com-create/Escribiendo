@@ -638,3 +638,27 @@ describe("paginate", () => {
     expect(resultado.pages[0]?.usedHeightMm).toBeLessThanOrEqual(80.001);
   });
 });
+
+describe("physical parity with a cover", () => {
+  it("starts chapters on physical recto while keeping body folios independent", () => {
+    const geometry = {
+      pageWidthMm: 148,
+      pageHeightMm: 210,
+      marginTopMm: 20,
+      marginBottomMm: 20,
+      marginInnerMm: 18,
+      marginOuterMm: 14,
+      chapterStartsRecto: true,
+      physicalPageOffset: 1,
+    };
+    const result = paginate(
+      [{ id: "title", kind: "title", text: "Chapter", startsChapter: true }],
+      geometry,
+      {},
+    );
+    expect(result.pages[0]?.blank).toBe(true);
+    expect(result.pages[0]?.side).toBe("verso");
+    expect(result.pages[1]?.side).toBe("recto");
+    expect(result.pages[1]?.folio).toBe(2);
+  });
+});

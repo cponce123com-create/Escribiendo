@@ -434,3 +434,7 @@ Para vigilar la base de datos desde fuera, consulta `/api/health/ready`.
 No hay seeds ni datos ficticios. La primera cuenta se crea desde `/setup` con
 `SETUP_TOKEN`. Cualquier dato que aparezca en la aplicación debe haber sido
 creado por una persona real o por una migración explícita y revisada.
+
+## Revisión de integridad v6.1
+
+`sql/audit-section-integrity.sql` contiene consultas de diagnóstico, sin reparación automática. `sql/proposed-section-constraints.sql` es una propuesta fuera de Prisma Migrate y no debe ejecutarse como migración de despliegue. Necesita análisis de datos, ensayo de bloqueos y restricciones en PostgreSQL desechable, respaldo y revisión previa. La auditoría v6.1 enumera las comprobaciones todavía pendientes. No se han modificado los checksums de las migraciones existentes.

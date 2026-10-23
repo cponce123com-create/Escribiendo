@@ -101,10 +101,7 @@ export function ManuscriptWorkspace({
     fallbackInspectorCollapsed = !inspectorCollapsed;
 
     try {
-      window.localStorage.setItem(
-        INSPECTOR_PREFERENCE_KEY,
-        String(fallbackInspectorCollapsed),
-      );
+      window.localStorage.setItem(INSPECTOR_PREFERENCE_KEY, String(fallbackInspectorCollapsed));
     } catch {
       // La preferencia no puede actualizarse si el navegador bloquea el almacenamiento local.
     }

@@ -4,6 +4,8 @@ import { composeSectionTitle } from "@/lib/layout/section-title";
 import type { ManuscriptBlock } from "./manuscript";
 
 export interface SectionTitleInput {
+  parentId?: string | null;
+  showInToc?: boolean;
   id: string;
   title: string;
   type: string;
@@ -70,11 +72,13 @@ export function chaptersForReflowableFormats(
     // Un subcapítulo no lleva el título compuesto como capítulo: se convierte
     // en un encabezado del cuerpo, a nivel 2, para no romper la jerarquía.
     if (showTitle && isSubchapter) {
-      blocks.unshift({ kind: "heading", text: visibleTitle.trim() });
+      blocks.unshift({ kind: "heading", level: 2, text: visibleTitle.trim() });
     }
 
     return {
       id: section.id,
+      parentId: section.parentId ?? null,
+      showInToc: section.showInToc ?? true,
       title: visibleTitle,
       showTitle: showTitle && !isSubchapter,
       dropCap: dropCaps && isChapterType(section.type) && !isSubchapter,

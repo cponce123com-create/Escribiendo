@@ -1,4 +1,5 @@
 import "server-only";
+import { editorialOrder } from "@/lib/books/reading-order";
 import { prisma } from "@/lib/db";
 import type { SessionContext } from "@/lib/auth/session";
 import {
@@ -95,6 +96,7 @@ export async function loadPreviewSections(
       type: true,
       content: true,
       parentId: true,
+      sortOrder: true,
       startOnOddPage: true,
       pageBreakBefore: true,
       includeInExport: true,
@@ -107,7 +109,7 @@ export async function loadPreviewSections(
 
   // Una sección excluida del libro no se compone: la vista previa tiene que
   // parecerse al PDF, que tampoco la incluye.
-  return seccionesExportables(sections).map((section) => ({
+  return seccionesExportables(editorialOrder(sections)).map((section) => ({
     id: section.id,
     title: section.title,
     type: section.type,
@@ -176,7 +178,13 @@ export async function buildPreview(
   // La misma métrica que usa el PDF: si las fuentes están disponibles, la
   // vista previa y el archivo salen con los mismos cortes de línea.
   const fuentes = await loadPdfFonts();
-  const result = paginate(blocks, geometryFromProfile(profile), typography, fuentes?.measure);
+  const cover = await getBookCover(session, bookId);
+  const result = paginate(
+    blocks,
+    { ...geometryFromProfile(profile), physicalPageOffset: cover ? 1 : 0 },
+    typography,
+    fuentes?.measure,
+  );
 
   // El encabezado de página lo define la plantilla. Si la plantilla no dice
   // nada, se usa el título de la sección, que es lo que hace el motor.
@@ -208,7 +216,6 @@ export async function buildPreview(
 
   // La portada ocupa la primera página del archivo: el índice se desplaza
   // para que sus números apunten a la página física, igual que en el PDF.
-  const cover = await getBookCover(session, bookId);
   const coverShift = cover ? 1 : 0;
 
   // El índice que se enseña aquí es el mismo que llevarán los marcadores del

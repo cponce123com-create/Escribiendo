@@ -1,4 +1,6 @@
 "use server";
+import { withSerializableRetry } from "./serializable";
+import { recomputeBookTotals } from "./statistics";
 import { createHash } from "node:crypto";
 
 import { revalidatePath } from "next/cache";
@@ -6,7 +8,6 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import {
   BOOK_SECTION_TYPES,
-  CHAPTER_LIKE_SECTION_TYPES,
   bookMetadataSchema,
   countWordsInDocument,
   parseTiptapDocument,
@@ -21,7 +22,6 @@ import { assertServerActionOrigin, type RequestContext } from "@/lib/security/re
 import { logger } from "@/lib/logger";
 import { assertCanPerform } from "./permissions";
 import { canTransitionTo } from "./status";
-import { computeWritingProgress } from "./progress";
 import type { LibraryActionState } from "./action-state";
 import type { SectionSaveState } from "@/lib/editor/sync";
 
@@ -70,36 +70,6 @@ function logActionError(event: string, context: RequestContext | undefined, erro
  * El recuento de palabras, el número de capítulos y el progreso se derivan
  * del contenido, nunca se escriben a mano: así no pueden divergir.
  */
-async function recomputeBookTotals(
-  transaction: Prisma.TransactionClient,
-  bookId: string,
-): Promise<void> {
-  const [aggregate, chapters, book] = await Promise.all([
-    transaction.bookSection.aggregate({
-      where: { bookId, deletedAt: null },
-      _sum: { wordCount: true },
-    }),
-    transaction.bookSection.count({
-      where: { bookId, deletedAt: null, type: { in: [...CHAPTER_LIKE_SECTION_TYPES] } },
-    }),
-    transaction.book.findUniqueOrThrow({
-      where: { id: bookId },
-      select: { targetWordCount: true },
-    }),
-  ]);
-
-  const wordCount = aggregate._sum.wordCount ?? 0;
-
-  await transaction.book.update({
-    where: { id: bookId },
-    data: {
-      wordCount,
-      chapterCount: chapters,
-      writingProgress: computeWritingProgress(wordCount, book.targetWordCount),
-    },
-  });
-}
-
 /** Carga una sección del espacio de trabajo de la sesión. */
 async function loadSectionForSession(
   session: SessionContext,
@@ -139,30 +109,42 @@ async function persistSectionContent(
   const wordCount = countWordsInDocument(document);
   const nextVersion = section.version + 1;
 
-  await prisma.$transaction(async (transaction) => {
-    await transaction.sectionRevision.create({
-      data: {
-        sectionId: section.id,
-        createdById: session.user.id,
-        version: nextVersion,
-        content: document as unknown as Prisma.InputJsonValue,
-        wordCount,
-        reason,
-        title: section.title,
-      },
-    });
+  await withSerializableRetry(() =>
+    prisma.$transaction(
+      async (transaction) => {
+        await transaction.sectionRevision.create({
+          data: {
+            sectionId: section.id,
+            createdById: session.user.id,
+            version: nextVersion,
+            content: document as unknown as Prisma.InputJsonValue,
+            wordCount,
+            reason,
+            title: section.title,
+          },
+        });
 
-    await transaction.bookSection.update({
-      where: { id: section.id },
-      data: {
-        content: document as unknown as Prisma.InputJsonValue,
-        wordCount,
-        version: nextVersion,
-      },
-    });
+        const saved = await transaction.bookSection.updateMany({
+          where: {
+            id: section.id,
+            bookId: section.bookId,
+            version: section.version,
+            deletedAt: null,
+            book: { workspaceId: session.workspace.id, deletedAt: null },
+          },
+          data: {
+            content: document as unknown as Prisma.InputJsonValue,
+            wordCount,
+            version: nextVersion,
+          },
+        });
 
-    await recomputeBookTotals(transaction, section.bookId);
-  });
+        if (saved.count !== 1) throw new Error("SECTION_VERSION_CONFLICT");
+        await recomputeBookTotals(transaction, section.bookId);
+      },
+      { isolationLevel: "Serializable", timeout: 15_000 },
+    ),
+  );
 
   return { version: nextVersion, wordCount };
 }
@@ -1012,61 +994,63 @@ async function moveSectionWithinBook(
   parentId: string | null,
   position: number,
 ): Promise<void> {
-  await prisma.$transaction(
-    async (transaction) => {
-      const current = await transaction.bookSection.findFirst({
-        where: { id: section.id, bookId: section.bookId, deletedAt: null },
-        select: { id: true, bookId: true },
-      });
+  await withSerializableRetry(() =>
+    prisma.$transaction(
+      async (transaction) => {
+        const current = await transaction.bookSection.findFirst({
+          where: { id: section.id, bookId: section.bookId, deletedAt: null },
+          select: { id: true, bookId: true },
+        });
 
-      if (!current) {
-        throw new SectionMoveError("La sección ya no está disponible en este libro.");
-      }
+        if (!current) {
+          throw new SectionMoveError("La sección ya no está disponible en este libro.");
+        }
 
-      if (parentId) {
-        const parent = await transaction.bookSection.findFirst({
-          where: { id: parentId, bookId: current.bookId, deletedAt: null },
+        if (parentId) {
+          const parent = await transaction.bookSection.findFirst({
+            where: { id: parentId, bookId: current.bookId, deletedAt: null },
+            select: { id: true },
+          });
+
+          if (!parent) {
+            throw new SectionMoveError("La sección padre no pertenece a este libro.");
+          }
+
+          if (await isDescendant(transaction, parent.id, current.id, current.bookId)) {
+            throw new SectionMoveError(
+              "Una sección no puede colgar de sí misma ni de una de sus descendientes.",
+            );
+          }
+        }
+
+        const siblings = await transaction.bookSection.findMany({
+          where: {
+            bookId: current.bookId,
+            parentId,
+            deletedAt: null,
+            id: { not: current.id },
+          },
+          orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
           select: { id: true },
         });
 
-        if (!parent) {
-          throw new SectionMoveError("La sección padre no pertenece a este libro.");
+        const ordered = siblings.map((sibling) => sibling.id);
+        ordered.splice(Math.min(position, ordered.length), 0, current.id);
+
+        for (const [order, id] of ordered.entries()) {
+          await transaction.bookSection.updateMany({
+            where: { id, bookId: current.bookId, deletedAt: null },
+            data: {
+              sortOrder: order,
+              // Solo la sección movida cambia de padre; sus hermanas conservan
+              // el suyo y únicamente se renumera su posición.
+              ...(id === current.id ? { parentId } : {}),
+            },
+          });
         }
-
-        if (await isDescendant(transaction, parent.id, current.id, current.bookId)) {
-          throw new SectionMoveError(
-            "Una sección no puede colgar de sí misma ni de una de sus descendientes.",
-          );
-        }
-      }
-
-      const siblings = await transaction.bookSection.findMany({
-        where: {
-          bookId: current.bookId,
-          parentId,
-          deletedAt: null,
-          id: { not: current.id },
-        },
-        orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
-        select: { id: true },
-      });
-
-      const ordered = siblings.map((sibling) => sibling.id);
-      ordered.splice(Math.min(position, ordered.length), 0, current.id);
-
-      for (const [order, id] of ordered.entries()) {
-        await transaction.bookSection.updateMany({
-          where: { id, bookId: current.bookId, deletedAt: null },
-          data: {
-            sortOrder: order,
-            // Solo la sección movida cambia de padre; sus hermanas conservan
-            // el suyo y únicamente se renumera su posición.
-            ...(id === current.id ? { parentId } : {}),
-          },
-        });
-      }
-    },
-    { isolationLevel: "Serializable", timeout: 15_000 },
+      },
+      { isolationLevel: "Serializable", timeout: 15_000 },
+    ),
   );
 }
 
