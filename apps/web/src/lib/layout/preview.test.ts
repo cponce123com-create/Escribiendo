@@ -141,6 +141,18 @@ describe("vista previa paginada", () => {
     expect(preview?.outline).toEqual([{ title: "Capítulo", pageIndex: 0 }]);
   });
 
+  it("coloca el prólogo delante del cuerpo aunque su sortOrder sea mayor", async () => {
+    mockPrisma.bookSection.findMany.mockResolvedValue([
+      { id: "chapter", title: "Capítulo", type: "CHAPTER", sortOrder: 0, includeInExport: true },
+      { id: "prologue", title: "Prólogo", type: "PROLOGUE", sortOrder: 999, includeInExport: true },
+    ]);
+    await buildPreview(session, "book-1");
+    expect(mockBookToBlocks.mock.calls[0]?.[0].map((row: { id: string }) => row.id)).toEqual([
+      "prologue",
+      "chapter",
+    ]);
+  });
+
   it("ordena las secciones con el mismo desempate que la exportación", async () => {
     await buildPreview(session, "book-1");
 

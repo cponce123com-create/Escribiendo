@@ -33,7 +33,7 @@ export async function searchBookManuscriptAction(
       book: { workspaceId: session.workspace.id, deletedAt: null },
     },
     orderBy: [{ sortOrder: "asc" }, { title: "asc" }],
-    select: { id: true, title: true, content: true, parentId: true, sortOrder: true },
+    select: { id: true, title: true, type: true, content: true, parentId: true, sortOrder: true },
   });
 
   return editorialOrder(sections, false).flatMap((section) => {

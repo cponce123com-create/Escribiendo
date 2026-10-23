@@ -14,7 +14,10 @@ vi.mock("@/lib/security/request-context", () => ({ assertServerActionOrigin: vi.
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 vi.mock("./statistics", () => ({ recomputeBookTotals: mocks.totals }));
-import { replaceBookManuscriptAction } from "./manuscript-search-actions";
+import {
+  replaceBookManuscriptAction,
+  searchBookManuscriptAction,
+} from "./manuscript-search-actions";
 const document = {
   type: "doc",
   content: [
@@ -33,6 +36,14 @@ describe("validated atomic manuscript replacement", () => {
     ]);
     mocks.tx.bookSection.updateMany.mockResolvedValue({ count: 1 });
     mocks.db.$transaction.mockImplementation(async (fn) => fn(mocks.tx));
+  });
+  it("busca el prólogo antes de los capítulos aunque tenga sortOrder mayor", async () => {
+    mocks.db.bookSection.findMany.mockResolvedValue([
+      { id: "chapter", title: "Cuerpo", type: "CHAPTER", content: document, sortOrder: 0 },
+      { id: "prologue", title: "Prólogo", type: "PROLOGUE", content: document, sortOrder: 999 },
+    ]);
+    const result = await searchBookManuscriptAction("b", "hola");
+    expect(result.map((row) => row.sectionId)).toEqual(["prologue", "chapter"]);
   });
   it("validates the transformed document before starting any write", async () => {
     const result = await replaceBookManuscriptAction("b", "hola", "x".repeat(500_001));

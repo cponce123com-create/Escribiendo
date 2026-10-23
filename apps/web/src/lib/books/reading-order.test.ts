@@ -35,6 +35,15 @@ describe("canonical reading order", () => {
     expect(() => editorialOrder(cyclic)).toThrow(/estructura/);
     expect(editorialOrder(cyclic, false)).toHaveLength(2);
   });
+  it("agrupa raíces antes del sortOrder y conserva los hijos de cada padre", () => {
+    const result = editorialOrder([
+      { id: "chapter", type: "CHAPTER", title: "Cuerpo", sortOrder: 0 },
+      { id: "prologue", type: "PROLOGUE", title: "Prólogo", sortOrder: 999 },
+      { id: "child", type: "APPENDIX", title: "Hijo", parentId: "chapter", sortOrder: 0 },
+      { id: "back", type: "APPENDIX", title: "Final", sortOrder: -1 },
+    ]);
+    expect(result.map((row) => row.id)).toEqual(["prologue", "chapter", "child", "back"]);
+  });
   it("rejects duplicate identities", () => {
     expect(() => editorialOrder([rows[0]!, rows[0]!])).toThrow(/duplicadas/);
   });
