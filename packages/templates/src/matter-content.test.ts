@@ -46,14 +46,14 @@ describe("dedicatoria", () => {
     const page = buildDedicationPage({ text: "Para Ana, que siempre lee." });
     expect(page.ready).toBe(true);
     expect(page.characters).toBe(26);
-    expect(page.blocks.some((block) => block.role === "center")).toBe(true);
+    expect(page.blocks.some((block) => block.role === "right")).toBe(true);
   });
 
   it("avisa cuando la dedicatoria es demasiado larga sin recortarla", () => {
     const text = "a".repeat(600);
     const page = buildDedicationPage({ text });
     const printed = page.blocks
-      .filter((block) => block.role === "center")
+      .filter((block) => block.role === "right")
       .map((block) => block.text);
 
     expect(page.ready).toBe(true);

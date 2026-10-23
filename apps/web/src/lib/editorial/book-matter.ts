@@ -2,6 +2,8 @@ import "server-only";
 import { legalFieldsSchema, settingsRecord } from "./template-settings";
 import type { LaidOutPage } from "@escribiendo/editorial-engine";
 import {
+  tocParametersFrom,
+  type TocParameters,
   buildLegalPage,
   buildTocEntries,
   legalPageTemplates,
@@ -33,6 +35,7 @@ export interface BookMatter {
   /** Secciones canónicas, en orden editorial. */
   tocSources: TocSource[];
   tocOptions: BuildTocOptions;
+  tocParameters?: TocParameters;
   /** Datos de la página legal; `null` si el libro no tiene título o autoría. */
   legal: LegalPageInput | null;
   legalMode: "print" | "digital";
@@ -183,11 +186,10 @@ export function pageFolioBySection(pages: readonly LaidOutPage[]): Map<string, n
 export async function loadBookMatter(
   session: SessionContext,
   bookId: string,
-  sections: readonly Pick<
+  sections: readonly (Pick<
     PreviewSection,
     "id" | "title" | "type" | "showInToc" | "includeInExport"
-  >[] &
-    readonly { content?: unknown }[],
+  > & { content?: unknown })[],
 ): Promise<BookMatter | null> {
   const book = await prisma.book.findFirst({
     where: { id: bookId, workspaceId: session.workspace.id, deletedAt: null },
@@ -374,6 +376,7 @@ export async function loadBookMatter(
   }
   const tocSources: TocSource[] = sections.map((section) => ({
     id: section.id,
+    sectionType: section.type,
     title: section.title,
     level: tocLevel(section.type),
     group: tocGroup(section.type),
@@ -431,6 +434,7 @@ export async function loadBookMatter(
           ? "DISABLED"
           : "AUTOMATIC",
     tocSources,
+    tocParameters: tocParametersFrom(edition?.settings),
     tocOptions: {
       depth: tocDepthFrom(edition?.tocDepth ?? settingString(edition?.settings, "tocDepth")),
       includeFrontMatter: edition?.tocIncludeFrontMatter ?? true,
@@ -503,7 +507,8 @@ export function composeMatter(
     );
     const blocks = tocToBlocks(entries, {
       id: "matter-toc",
-      heading: "Índice",
+      heading: matter.tocParameters?.tocTitle ?? "Índice",
+      parameters: matter.tocParameters,
       pageBreakBefore: true,
       widthChars: 58,
     });

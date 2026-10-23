@@ -51,6 +51,7 @@ export function tocIncludesParts(depth: TocDepth): boolean {
 export type TocGroup = "front" | "body" | "back";
 
 export interface TocSource {
+  sectionType?: string;
   headingLevel?: number;
   id: string;
   title: string;
@@ -68,6 +69,7 @@ export interface TocSource {
 }
 
 export interface TocEntry {
+  sectionType?: string;
   sourceId: string;
   title: string;
   level: number;
@@ -138,6 +140,7 @@ export function buildTocEntries(
 
     entries.push({
       sourceId: source.id,
+      ...(source.sectionType ? { sectionType: source.sectionType } : {}),
       title,
       level: source.level,
       group: source.group,

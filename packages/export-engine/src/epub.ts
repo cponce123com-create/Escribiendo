@@ -34,6 +34,7 @@ export interface ExportInlineRun {
 }
 
 export interface ExportBlock {
+  alignment?: "left" | "center" | "right";
   kind: ExportBlockKind;
   text: string;
   /** Tramos con formato. Si falta, se usa `text` tal cual. */
@@ -236,7 +237,9 @@ function chapterXhtml(
 
     const dropCapClass = chapter.dropCap && !dropCapApplied && block.kind === "body";
     if (dropCapClass) dropCapApplied = true;
-    body.push(`<p${dropCapClass ? ' class="drop-cap"' : ""}>${inlineContent(block)}</p>`);
+    body.push(
+      `<p${block.alignment ? ` style="text-align:${block.alignment}"` : ""}${dropCapClass ? ' class="drop-cap"' : ""}>${inlineContent(block)}</p>`,
+    );
   }
 
   if (footnotes.length > 0) {

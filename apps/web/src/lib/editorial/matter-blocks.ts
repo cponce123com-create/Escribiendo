@@ -5,6 +5,8 @@ import type {
   TextAlignment,
 } from "@escribiendo/editorial-engine";
 import {
+  tocParametersFrom,
+  type TocParameters,
   formatTocLine,
   type LegalPageBlock,
   type LegalPageResult,
@@ -179,6 +181,7 @@ export function legalPageToBlocks(
 }
 
 export interface TocBlockOptions extends MatterBlockOptions {
+  parameters?: TocParameters;
   /** Título impreso del índice. Por defecto, «Índice». */
   heading?: string;
   /** Ancho de referencia en caracteres para el relleno de puntos. */
@@ -208,17 +211,52 @@ export function tocToBlocks(entries: readonly TocEntry[], options: TocBlockOptio
     },
   ];
 
+  const parameters = options.parameters ?? tocParametersFrom({});
+  let chapterNumber = 0;
   entries.forEach((entry, index) => {
-    const line = formatTocLine(entry, widthChars);
-    const indent = "\u2003".repeat(Math.max(0, entry.level - 1));
-    const dots = line.label ? ` ${".".repeat(line.leaderDots)} ` : "";
-    const text = `${indent}${line.title}${dots}${line.label ?? ""}`.trimEnd();
+    if (parameters.tocTemplate === "toc-compact" && entry.level > 2) return;
+    const part = entry.level === 0 && parameters.tocTemplate === "toc-parts";
+    if (
+      entry.sectionType === "CHAPTER" ||
+      (!entry.sectionType && entry.level === 1 && entry.group === "body")
+    )
+      chapterNumber++;
+    const numbered =
+      parameters.tocTemplate === "toc-numbered" &&
+      (entry.sectionType === "CHAPTER" ||
+        (!entry.sectionType && entry.level === 1 && entry.group === "body"));
+    const title = numbered ? `${chapterNumber}. ${entry.title}` : entry.title;
+    const pageLabel = parameters.tocPageNumbers ? entry.label : null;
+    const line = formatTocLine({ ...entry, title, label: pageLabel }, widthChars);
+    const indent = "\u2003".repeat(
+      parameters.tocTemplate !== "toc-minimal"
+        ? Math.max(0, entry.level - (parameters.tocTemplate === "toc-parts" ? 0 : 1))
+        : 0,
+    );
+    const dots = line.label && parameters.tocLeaders ? ` ${".".repeat(line.leaderDots)} ` : "";
+    const text =
+      `${indent}${line.title}${dots || (line.label ? " " : "")}${line.label ?? ""}`.trimEnd();
 
     blocks.push({
       id: `${options.id}-${index + 1}`,
-      kind: "body",
+      kind:
+        part || (parameters.tocTemplate === "toc-detailed" && entry.level === 1)
+          ? "heading2"
+          : "body",
       text,
-      alignment: "left",
+      alignment: part ? "left" : parameters.tocAlignment,
+      ...(pageLabel
+        ? {
+            tocEntry: {
+              title: `${indent}${title}`,
+              label: pageLabel,
+              leaders: parameters.tocLeaders,
+            },
+          }
+        : {}),
+      ...(parameters.tocTemplate === "toc-compact"
+        ? { styleOverride: { fontSizePt: 9, lineHeight: 1.1, spaceAfterPt: 1 } }
+        : {}),
       sectionId: options.id,
       ...(options.sectionTitle ? { sectionTitle: options.sectionTitle } : {}),
     });

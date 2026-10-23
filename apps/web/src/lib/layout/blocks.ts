@@ -284,7 +284,9 @@ export function bookToBlocks(
   const bodyStart = blocks.length;
 
   for (const section of sections) {
-    const sectionBlocks = sectionToBlocks(section, footnotes);
+    const sectionBlocks = sectionToBlocks(section, footnotes).map((block) =>
+      section.type === "DEDICATION" ? { ...block, alignment: "right" as const } : block,
+    );
     const opensChapter = section.isChapter && (chapterSeen || section.startOnOddPage);
     const visibleTitle = titles.get(section.id) ?? null;
     // Convención editorial (por tipo) y elección del autor: el título compuesto

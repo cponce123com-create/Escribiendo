@@ -64,7 +64,7 @@ describe("roleBlocksToBlocks", () => {
     const firma = blocks.at(-1);
 
     expect(blocks[0]?.kind).toBe("rule");
-    expect(blocks.some((block) => block.alignment === "center")).toBe(true);
+    expect(blocks.some((block) => block.alignment === "right")).toBe(true);
     expect(firma?.text).toBe("El autor");
     expect(firma?.alignment).toBe("right");
   });
@@ -158,5 +158,42 @@ describe("tocToBlocks", () => {
       expect.stringContaining("Uno"),
       expect.stringContaining("Dos"),
     ]);
+  });
+});
+
+describe("diseños de índice", () => {
+  it("los seis diseños producen bloques distintos y el modo sin páginas no imprime folios", async () => {
+    const { TOC_TEMPLATE_CATALOG } = await import("@escribiendo/templates");
+    const entries: TocEntry[] = [
+      {
+        sourceId: "p",
+        title: "Parte inicial",
+        sectionType: "PART",
+        level: 0,
+        group: "body",
+        label: "3",
+      },
+      {
+        sourceId: "c",
+        title: "Un capítulo",
+        sectionType: "CHAPTER",
+        level: 1,
+        group: "body",
+        label: "7",
+      },
+      { sourceId: "h", title: "Un apartado", level: 2, group: "body", label: "8" },
+    ];
+    const signatures = TOC_TEMPLATE_CATALOG.map((item) =>
+      JSON.stringify(tocToBlocks(entries, { id: "toc", parameters: item.parameters })),
+    );
+    expect(new Set(signatures).size).toBe(6);
+    for (const item of TOC_TEMPLATE_CATALOG) {
+      const blocks = tocToBlocks(entries, {
+        id: "toc",
+        parameters: { ...item.parameters, tocPageNumbers: false },
+      });
+      expect(blocks.some((block) => /[378]/.test(block.text))).toBe(false);
+      expect(blocks.some((block) => block.tocEntry)).toBe(false);
+    }
   });
 });
