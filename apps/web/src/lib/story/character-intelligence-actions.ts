@@ -365,44 +365,44 @@ export async function deleteCharacterEvent(_prev: ActionState, fd: FormData): Pr
 
 export async function getCharacterSuggestions(bookId: string) {
   try {
-    const session = await getSession();
-    if (!session) return { ok: false as const, error: "Inicia sesión para continuar." };
-    if (!(await storyBookExists(session, bookId)))
-      return { ok: false as const, error: "Libro no disponible." };
-    await prisma.characterAnalysisTask.updateMany({
-      where: {
-        workspaceId: session.workspace.id,
-        bookId,
-        status: "PROCESSING",
-        updatedAt: { lt: new Date(Date.now() - 10 * 60 * 1000) },
-      },
-      data: { status: "PENDING" },
-    });
-    const [suggestions, tasks, pendingTasks] = await Promise.all([
-      prisma.storyCharacterSuggestion.findMany({
-        where: { workspaceId: session.workspace.id, bookId, status: "PENDING" },
-        include: { section: { select: { title: true } } },
-        orderBy: [{ stale: "asc" }, { confidence: "desc" }, { createdAt: "desc" }],
-        take: 100,
-      }),
-      prisma.characterAnalysisTask.groupBy({
-        by: ["status"],
-        where: { workspaceId: session.workspace.id, bookId },
-        _count: { _all: true },
-      }),
-      prisma.characterAnalysisTask.findMany({
-        where: { workspaceId: session.workspace.id, bookId, status: "PENDING" },
-        orderBy: { createdAt: "asc" },
-        take: 200,
-        select: { id: true },
-      }),
-    ]);
-    return {
-      ok: true as const,
-      suggestions,
-      pendingTaskIds: pendingTasks.map((task) => task.id),
-      tasks: Object.fromEntries(tasks.map((task) => [task.status, task._count._all])),
-    };
+  const session = await getSession();
+  if (!session) return { ok: false as const, error: "Inicia sesión para continuar." };
+  if (!(await storyBookExists(session, bookId)))
+    return { ok: false as const, error: "Libro no disponible." };
+  await prisma.characterAnalysisTask.updateMany({
+    where: {
+      workspaceId: session.workspace.id,
+      bookId,
+      status: "PROCESSING",
+      updatedAt: { lt: new Date(Date.now() - 10 * 60 * 1000) },
+    },
+    data: { status: "PENDING" },
+  });
+  const [suggestions, tasks, pendingTasks] = await Promise.all([
+    prisma.storyCharacterSuggestion.findMany({
+      where: { workspaceId: session.workspace.id, bookId, status: "PENDING" },
+      include: { section: { select: { title: true } } },
+      orderBy: [{ stale: "asc" }, { confidence: "desc" }, { createdAt: "desc" }],
+      take: 100,
+    }),
+    prisma.characterAnalysisTask.groupBy({
+      by: ["status"],
+      where: { workspaceId: session.workspace.id, bookId },
+      _count: { _all: true },
+    }),
+    prisma.characterAnalysisTask.findMany({
+      where: { workspaceId: session.workspace.id, bookId, status: "PENDING" },
+      orderBy: { createdAt: "asc" },
+      take: 200,
+      select: { id: true },
+    }),
+  ]);
+  return {
+    ok: true as const,
+    suggestions,
+    pendingTaskIds: pendingTasks.map((task) => task.id),
+    tasks: Object.fromEntries(tasks.map((task) => [task.status, task._count._all])),
+  };
   } catch (error) {
     console.error(
       "story.character_suggestions_load_error",
@@ -414,44 +414,44 @@ export async function getCharacterSuggestions(bookId: string) {
 
 export async function queueBookCharacterAnalysis(bookId: string) {
   try {
-    const start = await beginStoryAction();
-    if (!start.ok) return { ok: false as const, error: start.state.message ?? "Permiso denegado." };
-    if (!(await storyBookExists(start.session, bookId)))
-      return { ok: false as const, error: "Libro no disponible." };
-    const sections = await prisma.bookSection.findMany({
-      where: { bookId, deletedAt: null, isHidden: false },
-      select: { id: true, type: true, content: true },
-    });
-    const taskIds: string[] = [];
-    for (const section of sections) {
-      const contentHash = createHash("sha256")
-        .update(JSON.stringify(section.content), "utf8")
-        .digest("hex");
-      const task = await prisma.characterAnalysisTask.upsert({
-        where: { sectionId_contentHash: { sectionId: section.id, contentHash } },
-        create: {
-          workspaceId: start.session.workspace.id,
-          bookId,
-          sectionId: section.id,
-          contentHash,
-        },
-        update: { status: "PENDING", completedAt: null },
-        select: { id: true },
-      });
-      taskIds.push(task.id);
-    }
-    await writeAuditLog(
-      {
-        action: "STORY_CHARACTER_ANALYSIS_QUEUED",
-        entityType: "Book",
-        entityId: bookId,
+  const start = await beginStoryAction();
+  if (!start.ok) return { ok: false as const, error: start.state.message ?? "Permiso denegado." };
+  if (!(await storyBookExists(start.session, bookId)))
+    return { ok: false as const, error: "Libro no disponible." };
+  const sections = await prisma.bookSection.findMany({
+    where: { bookId, deletedAt: null, isHidden: false },
+    select: { id: true, type: true, content: true },
+  });
+  const taskIds: string[] = [];
+  for (const section of sections) {
+    const contentHash = createHash("sha256")
+      .update(JSON.stringify(section.content), "utf8")
+      .digest("hex");
+    const task = await prisma.characterAnalysisTask.upsert({
+      where: { sectionId_contentHash: { sectionId: section.id, contentHash } },
+      create: {
         workspaceId: start.session.workspace.id,
-        actorId: start.session.user.id,
-        metadata: { sections: taskIds.length },
+        bookId,
+        sectionId: section.id,
+        contentHash,
       },
-      start.context,
-    );
-    return { ok: true as const, taskIds, count: taskIds.length };
+      update: { status: "PENDING", completedAt: null },
+      select: { id: true },
+    });
+    taskIds.push(task.id);
+  }
+  await writeAuditLog(
+    {
+      action: "STORY_CHARACTER_ANALYSIS_QUEUED",
+      entityType: "Book",
+      entityId: bookId,
+      workspaceId: start.session.workspace.id,
+      actorId: start.session.user.id,
+      metadata: { sections: taskIds.length },
+    },
+    start.context,
+  );
+  return { ok: true as const, taskIds, count: taskIds.length };
   } catch (error) {
     console.error(
       "story.character_analysis_queue_error",

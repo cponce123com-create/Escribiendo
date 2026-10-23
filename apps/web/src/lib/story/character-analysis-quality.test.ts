@@ -90,7 +90,7 @@ describe("quality gate for incremental character suggestions", () => {
     const candidates = analyzeNarrative([
       {
         title: "Capítulo uno",
-        text: "Durante la noche, los Misterios regresaron. Niv miró el reloj. T-D falló.",
+        text: "Durante la noche, los Misterios regresaron. Niv miró el reloj. Niv volvió. T-D falló.",
       },
     ]);
 
@@ -98,7 +98,8 @@ describe("quality gate for incremental character suggestions", () => {
       filterCharacterCandidates(candidates, {
         bookTitle: "Novela",
         existingCharacterNames: [],
-        sectionText: "Durante la noche, los Misterios regresaron. Niv miró el reloj. T-D falló.",
+        sectionText:
+          "Durante la noche, los Misterios regresaron. Niv miró el reloj. Niv volvió. T-D falló.",
       }),
     ).toEqual([]);
   });

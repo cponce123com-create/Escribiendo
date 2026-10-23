@@ -166,14 +166,28 @@ const STOP_NAME_PARTS = new Set([
   "le",
   "les",
 ]);
+const SHORT_NAME_PARTS = new Set([
+  "ada",
+  "ana",
+  "ari",
+  "eva",
+  "ian",
+  "ivo",
+  "leo",
+  "luz",
+  "noe",
+  "sol",
+]);
 
 function hasNameShape(value: string): boolean {
   const parts = value.trim().split(/\s+/u);
 
   return (
     parts.length <= 3 &&
-    parts.every((part) =>
-      /^[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]{1,}(?:[-'][A-ZÁÉÍÓÚÜÑ]?[a-záéíóúüñ]{1,})?$/u.test(part),
+    parts.every(
+      (part) =>
+        /^[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]{1,}(?:[-'][A-ZÁÉÍÓÚÜÑ]?[a-záéíóúüñ]{1,})?$/u.test(part) &&
+        (part.length >= 4 || SHORT_NAME_PARTS.has(normalizeCharacterName(part))),
     ) &&
     !parts.some((part) => {
       const normalized = normalizeCharacterName(part);
