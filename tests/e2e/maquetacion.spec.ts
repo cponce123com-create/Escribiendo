@@ -344,4 +344,26 @@ test.describe("Maquetación", () => {
     await expect(titles.filter({ hasText: "Segundo capítulo" })).toHaveCount(1);
     await expect(page.getByRole("region", { name: "índice" })).toContainText("El despertar");
   });
+  test("el manuscrito abre las galerías legales y del índice desde Preliminares", async ({
+    page,
+  }) => {
+    await page.goto("/books");
+    await page.getByRole("link", { name: BOOK_TITLE }).click();
+    await page.getByRole("link", { name: "Continuar escribiendo" }).click();
+    await expect(page.locator(".ProseMirror")).toBeVisible();
+    await page.getByRole("link", { name: "Página legal · Plantillas", exact: true }).click();
+    await expect(page).toHaveURL(/\/edicion#legal-title$/u);
+    await expect(page.getByRole("heading", { name: "Página legal", exact: true })).toBeVisible();
+    await expect(page.locator(".ProseMirror")).toHaveCount(0);
+    await page.getByRole("link", { name: "Volver al manuscrito", exact: true }).click();
+    await expect(page.locator(".ProseMirror")).toBeVisible();
+    await page.getByRole("link", { name: "Índice (automático) · Diseños", exact: true }).click();
+    await expect(page).toHaveURL(/\/edicion#toc-title$/u);
+    await expect(
+      page.getByRole("heading", { name: "Índice automático", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("group", { name: "Diseño de índice", exact: true }).getByRole("radio"),
+    ).toHaveCount(6);
+  });
 });

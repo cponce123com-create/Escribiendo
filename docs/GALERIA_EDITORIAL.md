@@ -57,3 +57,9 @@ El script registra filas `MANUAL` por sección antigua; no elimina ni modifica c
 ## Validación
 
 La tarea A se verificó con lint, tipos y 660 pruebas. La tarea B aprobó lint, tipos, formato, compilación y 669 pruebas en 82 archivos. Añade pruebas de diseños, profundidad, folios estabilizados, permisos, conservación de settings, navegación semántica y alineación en formatos refluibles. Se ejecutan además `validate:epub` con EPUBCheck 5.3.0 y `validate:docx` con Mammoth 1.11.0; los validadores viven fuera del repositorio y no añaden dependencias de producción. También se validó un EPUB con página Creative Commons y navegación anidada: cero errores y avisos. La revisión visual local usa los componentes reales renderizados con datos de prueba; no sustituye las comprobaciones con sesión y base de datos de esta lista.
+
+## Acceso desde el manuscrito
+
+«Página legal · Plantillas» e «Índice (automático) · Diseños» son enlaces en Preliminares. Las filas antiguas de tipo COPYRIGHT y TABLE_OF_CONTENTS también abren su galería, tanto en la barra lateral como en la ficha del libro. Las URL antiguas de sección redirigen después de comprobar el libro y el espacio de trabajo. No se borra contenido: el aviso de la galería ofrece «Ver o editar contenido anterior» y abre el editor con `?editLegacy=1`. Las búsquedas con `find` siguen abriendo el texto anterior para mostrar la coincidencia. «Volver al manuscrito» permite regresar sin pasar por Maquetación.
+
+Prueba de regresión: abrir un capítulo, pulsar ambos enlaces en Preliminares y verificar que aparecen las tarjetas en lugar de un editor vacío. Abrir una URL antigua de Copyright/Índice, comprobar la redirección y volver a su contenido anterior; los capítulos y las dedicatorias deben conservar su editor habitual.

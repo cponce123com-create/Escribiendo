@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { LEGAL_FIELD_LABELS } from "@/lib/editorial/template-settings";
 import { TocTemplateGallery } from "@/components/layout/toc-template-gallery";
 import { buildTocPreview } from "@/lib/editorial/toc-preview";
@@ -10,7 +11,7 @@ import {
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/auth/session";
-import { getBook } from "@/lib/books/queries";
+import { getBook, getSection } from "@/lib/books/queries";
 import { canPerform } from "@/lib/books/permissions";
 import { loadBookMatter } from "@/lib/editorial/book-matter";
 import { buildPreview, loadPreviewSections } from "@/lib/layout/preview";
@@ -19,15 +20,25 @@ import { LegalTemplateGallery } from "@/components/layout/legal-template-gallery
 
 export default async function EditionMatterPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ bookId: string }>;
+  searchParams: Promise<{ legacySection?: string }>;
 }) {
   const { bookId } = await params;
+  const { legacySection } = await searchParams;
   const session = await requireSession();
   const book = await getBook(session, bookId);
   if (!book) notFound();
+  const legacyId = z.string().uuid().safeParse(legacySection);
+  const legacy = legacyId.success ? await getSection(session, bookId, legacyId.data) : null;
+  const legacyMatter =
+    legacy && (legacy.type === "COPYRIGHT" || legacy.type === "TABLE_OF_CONTENTS") ? legacy : null;
   const sections = await loadPreviewSections(session, bookId);
   const matter = await loadBookMatter(session, bookId, sections);
+  const manuscriptSection = sections.find(
+    (section) => section.type !== "COPYRIGHT" && section.type !== "TABLE_OF_CONTENTS",
+  );
   const cards = await Promise.all(
     LEGAL_TEMPLATE_CATALOG.map(async (item) => {
       const legal = matter?.legal ? { ...matter.legal, template: item.slug } : null;
@@ -83,12 +94,36 @@ export default async function EditionMatterPage({
         <Link href={`/books/${bookId}/layout`} className="text-sm underline">
           Volver a Maquetación
         </Link>
+        <Link
+          className="ml-4 text-sm underline"
+          href={
+            manuscriptSection
+              ? `/books/${bookId}/sections/${manuscriptSection.id}`
+              : `/books/${bookId}`
+          }
+        >
+          Volver al manuscrito
+        </Link>
         <h1 className="font-serif text-3xl">Páginas de la edición</h1>
         <p className="text-ink-soft">
           Elige con los datos reales de «{book.title}». La hoja usa la misma composición que la
           vista previa y el PDF.
         </p>
       </header>
+      {legacyMatter ? (
+        <aside className="alert space-y-2" role="status">
+          <p>
+            Has abierto la configuración de «{legacyMatter.title}». La galería sustituye al editor
+            vacío para elegir plantillas. El contenido anterior sigue guardado.
+          </p>
+          <Link
+            className="underline"
+            href={`/books/${bookId}/sections/${legacyMatter.id}?editLegacy=1`}
+          >
+            Ver o editar contenido anterior
+          </Link>
+        </aside>
+      ) : null}
       <TocTemplateGallery
         bookId={bookId}
         cards={tocCards}

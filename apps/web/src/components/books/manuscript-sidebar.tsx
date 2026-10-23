@@ -1,5 +1,6 @@
 "use client";
 
+import { editorialGalleryHref, sectionNavigationHref } from "@/lib/editorial/navigation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
@@ -96,7 +97,10 @@ export function ManuscriptSidebar({
                 </button>
               ) : null}
               <Link
-                href={`/books/${bookId}/sections/${node.id}`}
+                prefetch={
+                  node.type === "COPYRIGHT" || node.type === "TABLE_OF_CONTENTS" ? false : undefined
+                }
+                href={sectionNavigationHref(bookId, node)}
                 aria-current={node.id === activeSectionId ? "page" : undefined}
                 title={node.title}
               >
@@ -262,7 +266,22 @@ export function ManuscriptSidebar({
                   </span>
                 </summary>
                 {group.label === "Preliminares" ? (
-                  <p className="studio-group-empty">Índice (automático)</p>
+                  <div className="space-y-2 py-2">
+                    <Link
+                      className="studio-group-empty block underline"
+                      prefetch={false}
+                      href={editorialGalleryHref(bookId, "legal")}
+                    >
+                      Página legal · Plantillas
+                    </Link>
+                    <Link
+                      className="studio-group-empty block underline"
+                      prefetch={false}
+                      href={editorialGalleryHref(bookId, "toc")}
+                    >
+                      Índice (automático) · Diseños
+                    </Link>
+                  </div>
                 ) : null}
                 {group.nodes.length ? (
                   renderNodes(group.nodes, 0)

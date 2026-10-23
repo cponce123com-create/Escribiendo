@@ -184,6 +184,9 @@ export default async function BookPage({ params }: BookPageProps) {
         <Link className="btn btn-secondary" href={`/characters?book=${book.id}`}>
           Personajes de este libro
         </Link>
+        <Link className="btn btn-secondary" href={`/books/${book.id}/edicion`}>
+          Página legal e índice
+        </Link>
       </div>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
         <section className="panel p-6" aria-labelledby="structure-title">
