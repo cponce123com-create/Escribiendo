@@ -1,3 +1,4 @@
+import { LEGAL_FIELD_LABELS } from "@/lib/editorial/template-settings";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/auth/session";
@@ -30,6 +31,7 @@ export default async function EditionMatterPage({
                 ...matter,
                 legal,
                 hasCopyrightSection: false,
+                legalPageMode: "TEMPLATE",
                 previewIncompleteLegal: true,
               },
             })
@@ -70,6 +72,15 @@ export default async function EditionMatterPage({
         country={matter?.legal?.publicationCountry ?? ""}
         publisher={Boolean(matter?.legal?.publisherName || matter?.legal?.imprint)}
         canManage={canPerform(session.workspace.role, "layout:manage")}
+        mode={matter?.legalPageMode ?? "TEMPLATE"}
+        sectionId={matter?.legalPageSectionId ?? ""}
+        fields={Object.fromEntries(
+          Object.keys(LEGAL_FIELD_LABELS).map((key) => [
+            key,
+            (matter?.legal as unknown as Record<string, string | number | null> | null)?.[key] ??
+              "",
+          ]),
+        )}
         sections={sections.map((section) => ({ id: section.id, title: section.title }))}
       />
     </div>

@@ -1,4 +1,6 @@
 import "server-only";
+import { loadBookMatter } from "@/lib/editorial/book-matter";
+import { buildLegalPage } from "@escribiendo/templates";
 import { prisma } from "@/lib/db";
 import type { SessionContext } from "@/lib/auth/session";
 import type { ExportFormat, ExportStatus } from "@escribiendo/database";
@@ -138,7 +140,10 @@ export async function requestExport(
   const manuscript = await loadManuscriptFromSnapshot(session, bookId, snapshots);
   const context = await exportContext(session, bookId);
   const cover = await getBookCover(session, bookId);
+  const matter = await loadBookMatter(session, bookId, manuscript);
+  if (matter?.legal) matter.frozenLegal = buildLegalPage(matter.legal, { mode: matter.legalMode });
   const layoutSnapshot = {
+    matter,
     profile: context.profile,
     typography: context.typography,
     runningHeadTemplate: context.runningHeadTemplate,

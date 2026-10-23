@@ -10,6 +10,7 @@ export interface ExportCoverSnapshot {
 
 /** Datos de maquetación que fijan la apariencia de una exportación. */
 export interface ExportLayoutSnapshot {
+  matter?: import("@/lib/editorial/book-matter").BookMatter | null;
   profile: PdfLayoutProfile | null;
   typography: unknown;
   runningHeadTemplate: RunningHeadTemplate | null;
@@ -94,6 +95,9 @@ export function readExportLayoutSnapshot(options: unknown): ExportLayoutSnapshot
   const hasCoverSnapshot = "cover" in layout;
 
   return {
+    ...("matter" in layout
+      ? { matter: layout.matter as import("@/lib/editorial/book-matter").BookMatter | null }
+      : {}),
     profile: layout.profile as PdfLayoutProfile | null,
     typography: layout.typography,
     runningHeadTemplate,

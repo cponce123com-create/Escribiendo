@@ -1,4 +1,5 @@
 import "server-only";
+import { legalFieldsSchema, settingsRecord } from "./template-settings";
 import type { LaidOutPage } from "@escribiendo/editorial-engine";
 import {
   buildLegalPage,
@@ -38,6 +39,10 @@ export interface BookMatter {
   hasTocSection: boolean;
   /** El manuscrito ya incluye una página de créditos. */
   hasCopyrightSection: boolean;
+  legalPageMode?: "TEMPLATE" | "MANUAL" | "DISABLED";
+  legalPageSectionId?: string | null;
+  legalTemplateVersion?: number;
+  frozenLegal?: ReturnType<typeof buildLegalPage>;
 }
 
 export interface ComposedMatter {
@@ -295,10 +300,24 @@ export async function loadBookMatter(
           contributors,
           imageCredits: metadata?.imageRightsHolder ?? null,
           logoUrl: publisher?.logoUrl ?? null,
-          customClauses: [],
+          customClauses: Array.isArray(settingsRecord(edition?.settings).legalPageClauses)
+            ? (settingsRecord(edition?.settings).legalPageClauses as string[])
+            : [],
           formatLabel: edition?.format ?? null,
         };
 
+  const fields = legalFieldsSchema.safeParse(
+    settingsRecord(edition?.settings).legalPageFields ?? {},
+  );
+  if (legal && fields.success) Object.assign(legal, fields.data);
+  const license = settingsRecord(edition?.settings).legalPageLicense;
+  if (
+    legal &&
+    typeof license === "string" &&
+    ["cc-by", "cc-by-sa", "cc-by-nc", "cc-by-nc-nd", "cc0"].includes(license)
+  )
+    legal.license = license as LegalPageInput["license"];
+  const mode = settingString(edition?.settings, "legalPageMode");
   const tocSources: TocSource[] = sections.map((section) => ({
     id: section.id,
     title: section.title,
@@ -318,6 +337,17 @@ export async function loadBookMatter(
       skipEmptyTitles: true,
     },
     legal,
+    legalPageMode:
+      mode === "MANUAL" || mode === "DISABLED"
+        ? mode
+        : mode === "TEMPLATE"
+          ? "TEMPLATE"
+          : undefined,
+    legalPageSectionId: settingString(edition?.settings, "legalPageSectionId"),
+    legalTemplateVersion:
+      typeof settingsRecord(edition?.settings).legalPageTemplateVersion === "number"
+        ? (settingsRecord(edition?.settings).legalPageTemplateVersion as number)
+        : undefined,
     legalMode: legalTemplate === "copyright-digital" ? "digital" : "print",
     hasTocSection: sections.some((section) => section.type.toUpperCase() === "TABLE_OF_CONTENTS"),
     hasCopyrightSection: sections.some((section) => section.type.toUpperCase() === "COPYRIGHT"),
@@ -337,8 +367,13 @@ export function composeMatter(
 ): ComposedMatter {
   const front: MatterLayout[] = [];
 
-  if (!matter.hasCopyrightSection && matter.legal) {
-    const composed = buildLegalPage(matter.legal, { mode: matter.legalMode });
+  if (
+    matter.legalPageMode !== "DISABLED" &&
+    matter.legalPageMode !== "MANUAL" &&
+    (!matter.hasCopyrightSection || matter.legalPageMode === "TEMPLATE") &&
+    matter.legal
+  ) {
+    const composed = matter.frozenLegal ?? buildLegalPage(matter.legal, { mode: matter.legalMode });
     const blocks = legalPageToBlocks(
       matter.previewIncompleteLegal ? { ...composed, ready: true } : composed,
       {

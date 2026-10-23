@@ -1,6 +1,7 @@
 "use client";
 import { useActionState, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
+import { LEGAL_FIELD_LABELS } from "@/lib/editorial/template-settings";
 import { useRouter } from "next/navigation";
 import {
   LEGAL_TEMPLATE_CATALOG,
@@ -17,7 +18,10 @@ import { SubmitButton } from "@/components/forms/submit-button";
 import { MatterSheet } from "./matter-sheet";
 import { LegalClausesField } from "./legal-clauses-field";
 
-type PreviewData = Awaited<ReturnType<typeof legalGalleryPreview>>;
+type PreviewData = {
+  preview: import("@/lib/layout/preview").PreviewResult | null;
+  warnings: NonNullable<Awaited<ReturnType<typeof legalGalleryPreview>>>["warnings"];
+} | null;
 export function LegalTemplateGallery({
   bookId,
   cards,
@@ -28,9 +32,16 @@ export function LegalTemplateGallery({
   publisher,
   canManage,
   sections,
+  fields: initialFields,
+  mode,
+  sectionId,
 }: {
   bookId: string;
-  cards: Array<NonNullable<PreviewData> & { slug: string }>;
+  cards: Array<{
+    preview: import("@/lib/layout/preview").PreviewResult | null;
+    warnings: NonNullable<PreviewData>["warnings"];
+    slug: string;
+  }>;
   selected: string;
   clauses: string;
   license: string;
@@ -38,8 +49,12 @@ export function LegalTemplateGallery({
   publisher: boolean;
   canManage: boolean;
   sections: Array<{ id: string; title: string }>;
+  fields: Record<string, string | number | null>;
+  mode: string;
+  sectionId: string;
 }) {
   const router = useRouter();
+  const [fields, setFields] = useState(initialFields);
   const [slug, setSlug] = useState(selected);
   const [open, setOpen] = useState(false);
   const [clauses, setClauses] = useState(initialClauses);
@@ -60,7 +75,7 @@ export function LegalTemplateGallery({
       () =>
         startTransition(async () => {
           try {
-            const next = await requestPreview(bookId, slug, clauses, license);
+            const next = await requestPreview(bookId, slug, clauses, license, fields);
             if (active) {
               setCurrent(next);
               setPreviewError("");
@@ -78,7 +93,7 @@ export function LegalTemplateGallery({
       active = false;
       clearTimeout(timer);
     };
-  }, [bookId, slug, clauses, license, open]);
+  }, [bookId, slug, clauses, license, open, fields]);
   const recommended =
     country === "PE" || country.toLocaleLowerCase("es") === "perú"
       ? publisher
@@ -144,7 +159,7 @@ export function LegalTemplateGallery({
         <input type="hidden" name="template" value={slug} />
         <label className="block text-sm">
           Contenido de la página legal
-          <select name="mode" className="field-input" disabled={!canManage}>
+          <select defaultValue={mode} name="mode" className="field-input" disabled={!canManage}>
             <option value="TEMPLATE">Usar plantilla</option>
             <option value="DISABLED">Sin página legal</option>
             <option value="MANUAL">Página legal propia</option>
@@ -152,7 +167,12 @@ export function LegalTemplateGallery({
         </label>
         <label className="block text-sm">
           Sección de texto libre para página propia
-          <select name="sectionId" className="field-input" disabled={!canManage}>
+          <select
+            defaultValue={sectionId}
+            name="sectionId"
+            className="field-input"
+            disabled={!canManage}
+          >
             <option value="">Elige una sección</option>
             {sections.map((section) => (
               <option key={section.id} value={section.id}>
@@ -163,6 +183,7 @@ export function LegalTemplateGallery({
         </label>
         <input type="hidden" name="customClauses" value={clauses} />
         <input type="hidden" name="license" value={license} />
+        <input type="hidden" name="legalFields" value={JSON.stringify(fields)} />
         <FormMessage state={state} />
         <SubmitButton label="Guardar modo" pendingLabel="Guardando…" disabled={!canManage} />
       </form>
@@ -182,7 +203,13 @@ export function LegalTemplateGallery({
           <ul className="space-y-2">
             {current?.warnings.map((warning) => (
               <li key={warning.code} className="alert alert-error text-sm">
-                <Link href={`/books/${bookId}/ficha#${warning.field ?? "datos"}`}>
+                <Link
+                  href={
+                    warning.field === "title" || warning.field === "author"
+                      ? `/books/${bookId}/edit#field-${warning.field === "author" ? "authorName" : "title"}`
+                      : `#legal-${warning.field ?? "datos"}`
+                  }
+                >
                   {warning.message} Completar datos →
                 </Link>
               </li>
@@ -212,7 +239,35 @@ export function LegalTemplateGallery({
             ) : (
               <input type="hidden" name="license" value="" />
             )}
+            <details className="space-y-3" open>
+              <summary>Datos de esta página legal</summary>
+              <p className="text-xs text-ink-muted">
+                Se guardan para esta edición. Deja vacíos los datos que aún no tienes.
+              </p>
+              {Object.entries(LEGAL_FIELD_LABELS).map(([key, label]) => (
+                <label key={key} id={`legal-${key}`} className="block text-sm">
+                  {label}
+                  <input
+                    className="field-input"
+                    type={key === "copyrightYear" ? "number" : "text"}
+                    value={fields[key] ?? ""}
+                    onChange={(event) =>
+                      setFields((previous) => ({
+                        ...previous,
+                        [key]:
+                          key === "copyrightYear"
+                            ? event.target.value
+                              ? Number(event.target.value)
+                              : null
+                            : event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+              ))}
+            </details>
             <LegalClausesField value={clauses} onChange={setClauses} />
+            <input type="hidden" name="legalFields" value={JSON.stringify(fields)} />
             <FormMessage state={state} />
             <SubmitButton
               label="Usar esta plantilla"

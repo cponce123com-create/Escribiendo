@@ -8,6 +8,7 @@ import { getSession } from "@/lib/auth/session";
 import { buildPreview, loadPreviewSections } from "@/lib/layout/preview";
 import { loadBookMatter } from "./book-matter";
 import { assertServerActionOrigin } from "@/lib/security/request-context";
+import { legalFieldsSchema } from "./template-settings";
 import { z } from "zod";
 
 export async function legalGalleryPreview(
@@ -15,6 +16,7 @@ export async function legalGalleryPreview(
   slug: string,
   clauses = "",
   license = "",
+  fields: unknown = {},
 ) {
   await assertServerActionOrigin();
   const session = await getSession();
@@ -27,6 +29,7 @@ export async function legalGalleryPreview(
   if (!matter?.legal) return null;
   const input = {
     ...matter.legal,
+    ...legalFieldsSchema.parse(fields),
     template,
     customClauses,
     ...(license
@@ -39,6 +42,7 @@ export async function legalGalleryPreview(
       ...matter,
       legal: input,
       hasCopyrightSection: false,
+      legalPageMode: "TEMPLATE",
       previewIncompleteLegal: true,
     },
   });
