@@ -2,30 +2,55 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { parseTiptapDocument, countWordsInDocument, CHAPTER_LIKE_SECTION_TYPES } from "@escribiendo/book-schema";
+import {
+  parseTiptapDocument,
+  countWordsInDocument,
+  CHAPTER_LIKE_SECTION_TYPES,
+} from "@escribiendo/book-schema";
 import type { Prisma, RevisionReason } from "@escribiendo/database";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { assertServerActionOrigin } from "@/lib/security/request-context";
 import { assertCanPerform } from "./permissions";
 import { computeWritingProgress } from "./progress";
-import { excerptForQuery, findTextMatches, replaceTextLeaves, type ManuscriptMatch } from "./manuscript-search";
+import {
+  excerptForQuery,
+  findTextMatches,
+  replaceTextLeaves,
+  type ManuscriptMatch,
+} from "./manuscript-search";
 
-export async function searchBookManuscriptAction(bookId: string, query: string): Promise<ManuscriptMatch[]> {
+export async function searchBookManuscriptAction(
+  bookId: string,
+  query: string,
+): Promise<ManuscriptMatch[]> {
   const session = await getSession();
   if (!session) redirect("/login");
   const needle = query.trim().slice(0, 120);
   if (!needle) return [];
 
   const sections = await prisma.bookSection.findMany({
-    where: { bookId, deletedAt: null, book: { workspaceId: session.workspace.id, deletedAt: null } },
+    where: {
+      bookId,
+      deletedAt: null,
+      book: { workspaceId: session.workspace.id, deletedAt: null },
+    },
     orderBy: [{ sortOrder: "asc" }, { title: "asc" }],
     select: { id: true, title: true, content: true },
   });
 
   return sections.flatMap((section) => {
     const count = findTextMatches(section.content, needle);
-    return count ? [{ sectionId: section.id, sectionTitle: section.title, count, excerpt: excerptForQuery(section.content, needle) }] : [];
+    return count
+      ? [
+          {
+            sectionId: section.id,
+            sectionTitle: section.title,
+            count,
+            excerpt: excerptForQuery(section.content, needle),
+          },
+        ]
+      : [];
   });
 }
 
@@ -51,7 +76,11 @@ export async function replaceBookManuscriptAction(
   if (needle.toLocaleLowerCase("es") === replacement.toLocaleLowerCase("es")) return { count: 0 };
 
   const sections = await prisma.bookSection.findMany({
-    where: { bookId, deletedAt: null, book: { workspaceId: session.workspace.id, deletedAt: null } },
+    where: {
+      bookId,
+      deletedAt: null,
+      book: { workspaceId: session.workspace.id, deletedAt: null },
+    },
     orderBy: [{ sortOrder: "asc" }, { title: "asc" }],
     select: { id: true, title: true, version: true, content: true },
   });
@@ -95,23 +124,34 @@ export async function replaceBookManuscriptAction(
   } catch (error) {
     return {
       count: 0,
-      error: error instanceof Error && error.message === "SECTION_VERSION_CONFLICT"
-        ? "El manuscrito cambió mientras se aplicaba el reemplazo. No se modificó ninguna sección; recarga y vuelve a intentarlo."
-        : "No se pudo completar el reemplazo. No se modificó ninguna sección; vuelve a intentarlo.",
+      error:
+        error instanceof Error && error.message === "SECTION_VERSION_CONFLICT"
+          ? "El manuscrito cambió mientras se aplicaba el reemplazo. No se modificó ninguna sección; recarga y vuelve a intentarlo."
+          : "No se pudo completar el reemplazo. No se modificó ninguna sección; vuelve a intentarlo.",
     };
   }
   for (const item of prepared) revalidatePath(`/books/${bookId}/sections/${item.section.id}`);
 
   const [aggregate, chapters, book] = await Promise.all([
     prisma.bookSection.aggregate({ where: { bookId, deletedAt: null }, _sum: { wordCount: true } }),
-    prisma.bookSection.count({ where: { bookId, deletedAt: null, type: { in: [...CHAPTER_LIKE_SECTION_TYPES] } } }),
-    prisma.book.findFirst({ where: { id: bookId, workspaceId: session.workspace.id }, select: { targetWordCount: true } }),
+    prisma.bookSection.count({
+      where: { bookId, deletedAt: null, type: { in: [...CHAPTER_LIKE_SECTION_TYPES] } },
+    }),
+    prisma.book.findFirst({
+      where: { id: bookId, workspaceId: session.workspace.id },
+      select: { targetWordCount: true },
+    }),
   ]);
   const wordCount = aggregate._sum.wordCount ?? 0;
-  if (book) await prisma.book.update({
-    where: { id: bookId },
-    data: { wordCount, chapterCount: chapters, writingProgress: computeWritingProgress(wordCount, book.targetWordCount) },
-  });
+  if (book)
+    await prisma.book.update({
+      where: { id: bookId },
+      data: {
+        wordCount,
+        chapterCount: chapters,
+        writingProgress: computeWritingProgress(wordCount, book.targetWordCount),
+      },
+    });
   revalidatePath(`/books/${bookId}`);
   revalidatePath(`/books/${bookId}/preview`);
   revalidatePath(`/books/${bookId}/export`);

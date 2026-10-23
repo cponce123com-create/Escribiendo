@@ -26,7 +26,8 @@ export function findTextMatches(value: unknown, query: string): number {
   if (isTextLeaf(value)) {
     return value.text.toLocaleLowerCase("es").split(normalized).length - 1;
   }
-  if (Array.isArray(value)) return value.reduce((sum, child) => sum + findTextMatches(child, query), 0);
+  if (Array.isArray(value))
+    return value.reduce((sum, child) => sum + findTextMatches(child, query), 0);
   if (typeof value === "object" && value !== null) {
     return findTextMatches((value as Record<string, unknown>).content, query);
   }
@@ -39,7 +40,8 @@ export function excerptForQuery(value: unknown, query: string): string {
   const visit = (node: unknown): void => {
     if (isTextLeaf(node)) fragments.push(node.text);
     else if (Array.isArray(node)) node.forEach(visit);
-    else if (typeof node === "object" && node !== null) visit((node as Record<string, unknown>).content);
+    else if (typeof node === "object" && node !== null)
+      visit((node as Record<string, unknown>).content);
   };
   visit(value);
   const text = fragments.join(" ").replace(/\s+/g, " ").trim();
@@ -67,7 +69,9 @@ export function replaceTextLeaves(
     if (Array.isArray(value)) return value.map(transform);
     if (typeof value === "object" && value !== null) {
       const record = value as Record<string, unknown>;
-      return Object.fromEntries(Object.entries(record).map(([key, child]) => [key, transform(child)]));
+      return Object.fromEntries(
+        Object.entries(record).map(([key, child]) => [key, transform(child)]),
+      );
     }
     return value;
   };

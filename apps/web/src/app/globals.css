@@ -3272,7 +3272,6 @@ html[data-focus-mode="true"] .app-topbar {
   }
 }
 
-
 /* Búsqueda viva del manuscrito. */
 .manuscript-search {
   display: grid;
@@ -3334,7 +3333,6 @@ html[data-focus-mode="true"] .app-topbar {
     max-height: 220px;
   }
 }
-
 
 /* Aprovecha más espacio para escribir y compacta las columnas laterales. */
 .studio-workspace {

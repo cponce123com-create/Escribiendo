@@ -2,7 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { searchBookManuscriptAction, replaceBookManuscriptAction } from "@/lib/books/manuscript-search-actions";
+import {
+  searchBookManuscriptAction,
+  replaceBookManuscriptAction,
+} from "@/lib/books/manuscript-search-actions";
 import type { ManuscriptMatch } from "@/lib/books/manuscript-search";
 
 export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; canEdit: boolean }) {
@@ -11,13 +14,13 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
   const [matches, setMatches] = useState<ManuscriptMatch[]>([]);
   const [message, setMessage] = useState("");
   const searchRequest = useRef(0);
-  const searchRequest = useRef(0);
   const [pending, startTransition] = useTransition();
   const total = useMemo(() => matches.reduce((sum, item) => sum + item.count, 0), [matches]);
 
   useEffect(() => {
     const requestId = ++searchRequest.current;
     const needle = query.trim();
+    window.dispatchEvent(new CustomEvent("studio-search-highlight", { detail: needle }));
     if (!needle) {
       setMatches([]);
       setMessage("");
@@ -28,7 +31,11 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
         const result = await searchBookManuscriptAction(bookId, needle);
         if (searchRequest.current !== requestId) return;
         setMatches(result);
-        setMessage(result.length ? `${result.reduce((sum, item) => sum + item.count, 0)} coincidencias en ${result.length} secciones` : "No se encontraron coincidencias.");
+        setMessage(
+          result.length
+            ? `${result.reduce((sum, item) => sum + item.count, 0)} coincidencias en ${result.length} secciones`
+            : "No se encontraron coincidencias.",
+        );
       });
     }, 220);
     return () => {
@@ -43,7 +50,14 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
       setMessage("Guarda primero los cambios pendientes del capítulo abierto.");
       return;
     }
-    if (!total || pending || !window.confirm(`Se reemplazarán ${total} coincidencias en todo el libro. Guarda primero los cambios pendientes del capítulo abierto. ¿Continuar?`)) return;
+    if (
+      !total ||
+      pending ||
+      !window.confirm(
+        `Se reemplazarán ${total} coincidencias en todo el libro. Guarda primero los cambios pendientes del capítulo abierto. ¿Continuar?`,
+      )
+    )
+      return;
     startTransition(async () => {
       const result = await replaceBookManuscriptAction(bookId, query, replacement);
       setMessage(result.error ?? `Se reemplazaron ${result.count} coincidencias en todo el libro.`);
@@ -55,7 +69,9 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
   return (
     <section className="studio-card manuscript-search" aria-label="Buscar en el manuscrito">
       <h2>Buscar en el libro</h2>
-      <label className="sr-only" htmlFor="manuscript-search-query">Palabra o frase</label>
+      <label className="sr-only" htmlFor="manuscript-search-query">
+        Palabra o frase
+      </label>
       <input
         id="manuscript-search-query"
         className="field-input"
@@ -66,7 +82,9 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
       />
       {canEdit ? (
         <div className="manuscript-search-replace">
-          <label className="sr-only" htmlFor="manuscript-search-replacement">Reemplazar por</label>
+          <label className="sr-only" htmlFor="manuscript-search-replacement">
+            Reemplazar por
+          </label>
           <input
             id="manuscript-search-replacement"
             className="field-input"
@@ -74,7 +92,12 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
             onChange={(event) => setReplacement(event.target.value)}
             placeholder="Reemplazar por…"
           />
-          <button type="button" className="btn btn-secondary btn-sm" disabled={!total || pending} onClick={replaceAll}>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            disabled={!total || pending}
+            onClick={replaceAll}
+          >
             Reemplazar todo
           </button>
         </div>
@@ -86,9 +109,13 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
         <ul className="manuscript-search-results">
           {matches.map((match) => (
             <li key={match.sectionId}>
-              <Link href={`/books/${bookId}/sections/${match.sectionId}?find=${encodeURIComponent(query.trim())}`}>
+              <Link
+                href={`/books/${bookId}/sections/${match.sectionId}?find=${encodeURIComponent(query.trim())}`}
+              >
                 <strong>{match.sectionTitle}</strong>
-                <span>{match.count} {match.count === 1 ? "coincidencia" : "coincidencias"}</span>
+                <span>
+                  {match.count} {match.count === 1 ? "coincidencia" : "coincidencias"}
+                </span>
                 <small>{match.excerpt}</small>
               </Link>
             </li>
