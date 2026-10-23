@@ -14,11 +14,15 @@ export const metadata: Metadata = {
 
 interface BookPreviewPageProps {
   params: Promise<{ bookId: string }>;
+  searchParams: Promise<{ dropCaps?: string | string[] }>;
 }
 
-export default async function BookPreviewPage({ params }: BookPreviewPageProps) {
+export default async function BookPreviewPage({ params, searchParams }: BookPreviewPageProps) {
   const session = await requireSession();
   const { bookId } = await params;
+  const { dropCaps: dropCapsParam } = await searchParams;
+  const dropCaps =
+    (Array.isArray(dropCapsParam) ? dropCapsParam[0] : dropCapsParam) === "true";
 
   const book = await getBook(session, bookId);
 
@@ -26,7 +30,7 @@ export default async function BookPreviewPage({ params }: BookPreviewPageProps) 
     notFound();
   }
 
-  const preview = await buildPreview(session, book.id);
+  const preview = await buildPreview(session, book.id, { dropCaps });
 
   if (!preview) {
     return (
@@ -44,6 +48,7 @@ export default async function BookPreviewPage({ params }: BookPreviewPageProps) 
   }
 
   const { pages, diagnostics, profile, template } = preview;
+  const pageCount = pages.length + (preview.cover ? 1 : 0);
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -57,7 +62,8 @@ export default async function BookPreviewPage({ params }: BookPreviewPageProps) 
           Vista previa paginada
         </h1>
         <p className="max-w-2xl text-sm leading-relaxed text-ink-soft">
-          {pages.length} {pages.length === 1 ? "página" : "páginas"}
+          {pageCount} {pageCount === 1 ? "página" : "páginas"}
+          {preview.cover ? " (portada incluida)" : ""}
           {template ? ` con la plantilla «${template.name}»` : ` con el perfil «${profile.name}»`} (
           {profile.pageWidthMm} × {profile.pageHeightMm} mm) y {formatNumber(preview.wordCount)}{" "}
           palabras en {preview.sectionCount} {preview.sectionCount === 1 ? "sección" : "secciones"}.
@@ -67,6 +73,23 @@ export default async function BookPreviewPage({ params }: BookPreviewPageProps) 
             ? "La composición usa las métricas reales de la fuente que se incrusta en el PDF: los cortes de línea de esta vista previa son los mismos que los del archivo exportado."
             : "La composición se estima con un modelo de anchos medios de carácter, porque no se han podido cargar las fuentes: sirve para ver la estructura y detectar problemas, pero la paginación definitiva se calcula al exportar."}
         </p>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-ink-muted">Inicial capitular:</span>
+          <Link
+            className={dropCaps ? "btn btn-secondary btn-sm" : "btn btn-primary btn-sm"}
+            href={`/books/${book.id}/preview`}
+            aria-current={dropCaps ? undefined : "page"}
+          >
+            Sin inicial
+          </Link>
+          <Link
+            className={dropCaps ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"}
+            href={`/books/${book.id}/preview?dropCaps=true`}
+            aria-current={dropCaps ? "page" : undefined}
+          >
+            Con inicial
+          </Link>
+        </div>
       </header>
 
       <section className="panel p-6" aria-label="diagnóstico de composición">
@@ -92,14 +115,20 @@ export default async function BookPreviewPage({ params }: BookPreviewPageProps) 
             ))}
           </ol>
           <p className="mt-4 text-xs leading-relaxed text-ink-muted">
-            Los números remiten a la página de esta vista previa. El PDF exportado lleva los mismos
+            Los números remiten a la página física de esta vista previa
+            {preview.cover ? ", contando la portada" : ""}. El PDF exportado lleva los mismos
             marcadores y el EPUB reproduce esta jerarquía en su índice.
           </p>
         </section>
       ) : null}
 
       <section aria-label="páginas">
-        <PaginatedPreview pages={pages} profile={profile} typography={preview.typography} />
+        <PaginatedPreview
+          pages={pages}
+          profile={profile}
+          typography={preview.typography}
+          cover={preview.cover}
+        />
       </section>
     </div>
   );

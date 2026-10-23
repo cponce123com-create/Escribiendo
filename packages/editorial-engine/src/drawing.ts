@@ -24,6 +24,28 @@ export function baselineCorrectionPt(
   return lineHeightPt * 0.8 - cssBaselinePt;
 }
 
+/**
+ * Desplazamiento de la inicial capitular.
+ *
+ * La letra se compone al triple del cuerpo y su línea base baja lo mismo que
+ * sube su altura: así ocupa las tres primeras líneas del párrafo, igual que
+ * en el PDF. Sin este ajuste la inicial quedaría levantada sobre el primer
+ * renglón y la vista previa no coincidiría con el archivo.
+ */
+export function dropCapCorrectionPt(
+  fontFamily: LaidOutBlock["style"]["fontFamily"],
+  fontSizePt: number,
+  lineHeightPt: number,
+): number {
+  const metrics = LIBERATION_VERTICAL_METRICS[fontFamily];
+  const capitalSizePt = fontSizePt * 3;
+
+  return (
+    baselineCorrectionPt(fontFamily, capitalSizePt, lineHeightPt) +
+    (capitalSizePt - fontSizePt) * metrics.ascent
+  );
+}
+
 export interface TextLinePlacement {
   xMm: number;
   widthMm: number;

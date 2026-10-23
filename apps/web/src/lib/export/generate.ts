@@ -20,6 +20,7 @@ import { loadPdfFonts } from "./fonts";
 import { toPdfPages, type PdfLayoutProfile } from "./pdf-layout";
 import { outlineFromPages } from "./pdf-pages";
 import { chaptersForReflowableFormats } from "./chapter-titles";
+import { coverPlacement } from "./cover-placement";
 import type { RunningHeadTemplate } from "@/lib/layout/running-heads";
 
 /**
@@ -225,16 +226,24 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
     const cover = input.cover;
     const coverAsset = cover?.src ? loadedImages.assets.get(cover.src) : undefined;
     if (coverAsset) {
+      const placement = coverPlacement(
+        input.profile.pageWidthMm,
+        input.profile.pageHeightMm,
+        coverAsset.width,
+        coverAsset.height,
+        cover?.crop,
+      );
+
       pdfPages.unshift({
         widthMm: input.profile.pageWidthMm,
         heightMm: input.profile.pageHeightMm,
         runs: [],
         images: [
           {
-            topMm: 0,
-            xMm: 0,
-            widthMm: input.profile.pageWidthMm,
-            heightMm: input.profile.pageHeightMm,
+            topMm: placement.topMm,
+            xMm: placement.xMm,
+            widthMm: placement.widthMm,
+            heightMm: placement.heightMm,
             data: coverAsset.data,
             pixelWidth: coverAsset.width,
             pixelHeight: coverAsset.height,

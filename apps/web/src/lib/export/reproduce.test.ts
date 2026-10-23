@@ -108,6 +108,7 @@ describe("reproducción de exportaciones", () => {
     expect(input.cover).toEqual({
       src: "https://cdn.example.com/congelada.jpg",
       alt: "Portada de Título congelado",
+      crop: { x: 10, y: 20, zoom: 1.5 },
     });
     expect(input.createdAt).toBe(createdAt);
     expect(mockGetBookCover).not.toHaveBeenCalled();
@@ -133,6 +134,7 @@ describe("reproducción de exportaciones", () => {
     expect(input.cover).toEqual({
       src: "https://cdn.example.com/actual.jpg",
       alt: "Portada de Título actual",
+      crop: { x: 50, y: 50, zoom: 1 },
     });
     expect(mockGetBookCover).toHaveBeenCalledWith(session, "book-1");
     expect(mockExportContext).toHaveBeenCalledWith(session, "book-1");

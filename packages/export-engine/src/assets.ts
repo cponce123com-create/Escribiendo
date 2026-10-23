@@ -15,6 +15,16 @@ export interface ExportImageAsset {
 
 export type ExportImageMap = ReadonlyMap<string, ExportImageAsset>;
 
+/** Punto focal y ampliación con que se recorta una portada. */
+export interface ExportImageCrop {
+  /** Centro horizontal, de 0 (izquierda) a 100 (derecha). */
+  x: number;
+  /** Centro vertical, de 0 (arriba) a 100 (abajo). */
+  y: number;
+  /** Ampliación, de 1 (sin ampliar) a 3. */
+  zoom: number;
+}
+
 /** Atributos editoriales comunes a EPUB, DOCX y PDF. */
 export interface ExportImage {
   src?: string;
@@ -24,4 +34,9 @@ export interface ExportImage {
   heightPx?: number;
   widthPercent?: number;
   alignment?: "left" | "center" | "right";
+  /**
+   * Recorte editorial de la portada. El EPUB y el DOCX lo ignoran porque
+   * refluyen la imagen; el PDF lo aplica al componer la página de cubierta.
+   */
+  crop?: ExportImageCrop;
 }

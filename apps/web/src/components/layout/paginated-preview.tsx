@@ -1,8 +1,10 @@
 import type { LayoutProfileSummary } from "@/lib/layout/profiles";
-import type { PreviewPage } from "@/lib/layout/preview";
+import type { PreviewCover, PreviewPage } from "@/lib/layout/preview";
 import {
   baselineCorrectionPt,
+  dropCapCorrectionPt,
   isHeadingKind,
+  type InlineRun,
   type LaidOutBlock,
   type TypographyConfig,
 } from "@escribiendo/editorial-engine";
@@ -30,14 +32,30 @@ interface PaginatedPreviewProps {
   pages: PreviewPage[];
   profile: LayoutProfileSummary;
   typography: TypographyConfig;
+  /** Portada que abre el archivo, si el libro tiene una. */
+  cover?: PreviewCover | null;
 }
 
-export function PaginatedPreview({ pages, profile, typography }: PaginatedPreviewProps) {
+export function PaginatedPreview({
+  pages,
+  profile,
+  typography,
+  cover = null,
+}: PaginatedPreviewProps) {
   const pageWidth = profile.pageWidthMm * PX_PER_MM;
   const pageHeight = profile.pageHeightMm * PX_PER_MM;
+  // La portada es la página 1 del archivo: las páginas compuestas se numeran
+  // a continuación, igual que en el PDF.
+  const pageOffset = cover ? 1 : 0;
 
   return (
     <div className="space-y-10">
+      {cover ? (
+        <figure className="space-y-2">
+          <CoverSheet cover={cover} pageWidth={pageWidth} pageHeight={pageHeight} />
+          <figcaption className="text-xs text-ink-muted">Portada</figcaption>
+        </figure>
+      ) : null}
       {pages.map((page) => (
         <figure key={page.index} className="space-y-2">
           <PageSheet
@@ -46,13 +64,55 @@ export function PaginatedPreview({ pages, profile, typography }: PaginatedPrevie
             typography={typography}
             pageWidth={pageWidth}
             pageHeight={pageHeight}
+            displayIndex={page.index + pageOffset}
           />
           <figcaption className="text-xs text-ink-muted">
-            Página {page.index} · folio {page.folio} · {page.side === "recto" ? "par" : "impar"}
+            Página {page.index + pageOffset} · folio {page.folio} ·{" "}
+            {page.side === "recto" ? "par" : "impar"}
             {page.blank ? " · en blanco" : ""}
           </figcaption>
         </figure>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Página de cubierta.
+ *
+ * Usa la misma geometría que `coverPlacement` en el PDF: la imagen cubre la
+ * hoja, el punto focal elige el encuadre y el zoom amplía alrededor de ese
+ * punto. Así el recorte de la portada no se pierde al exportar.
+ */
+function CoverSheet({
+  cover,
+  pageWidth,
+  pageHeight,
+}: {
+  cover: PreviewCover;
+  pageWidth: number;
+  pageHeight: number;
+}) {
+  return (
+    <div
+      className="relative overflow-hidden border border-ink/15 bg-white text-black shadow-sm dark:bg-white"
+      style={{ width: `${pageWidth}px`, height: `${pageHeight}px` }}
+      aria-label="Portada"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={cover.url}
+        alt={cover.alt}
+        style={{
+          display: "block",
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: `${cover.crop.x}% ${cover.crop.y}%`,
+          transform: `scale(${cover.crop.zoom})`,
+          transformOrigin: `${cover.crop.x}% ${cover.crop.y}%`,
+        }}
+      />
     </div>
   );
 }
@@ -63,9 +123,18 @@ interface PageSheetProps {
   typography: TypographyConfig;
   pageWidth: number;
   pageHeight: number;
+  /** Número de página física, contando la portada. */
+  displayIndex?: number;
 }
 
-function PageSheet({ page, profile, typography, pageWidth, pageHeight }: PageSheetProps) {
+function PageSheet({
+  page,
+  profile,
+  typography,
+  pageWidth,
+  pageHeight,
+  displayIndex = page.index,
+}: PageSheetProps) {
   const mirror = profile.mirrorMargins;
   // En una página par (la derecha) el margen interior queda a la izquierda;
   // en una impar, a la derecha.
@@ -96,7 +165,7 @@ function PageSheet({ page, profile, typography, pageWidth, pageHeight }: PageShe
         fontVariantLigatures: "none",
         fontSynthesis: "none",
       }}
-      aria-label={`Página ${page.index}`}
+      aria-label={`Página ${displayIndex}`}
     >
       {page.runningHead ? (
         <div
@@ -260,6 +329,7 @@ function PreviewBlock({
   return (
     <div
       style={{
+        position: "relative",
         fontFamily: FAMILIAS[style.fontFamily] ?? FAMILIAS.serif,
         fontSize: `${style.fontSizePt}pt`,
         lineHeight: `${lineHeight}pt`,
@@ -277,6 +347,31 @@ function PreviewBlock({
         fontStyle: block.kind === "blockquote" ? "italic" : undefined,
       }}
     >
+      {block.dropCapCharacter ? (
+        // La inicial se dibuja aparte, como en el PDF: el texto de la primera
+        // línea ya no la contiene y las tres primeras líneas están sangradas
+        // por el motor para dejarle el hueco.
+        <span
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            left: 0,
+            top: `calc(${dropCapCorrectionPt(style.fontFamily, style.fontSizePt, lineHeight)}pt + ${block.spaceBeforeMm * PX_PER_MM}px)`,
+            fontSize: `${style.fontSizePt * 3}pt`,
+            lineHeight: `${lineHeight}pt`,
+            fontFamily: FAMILIAS[style.fontFamily] ?? FAMILIAS.serif,
+            fontWeight: isHeadingKind(block.kind) ? 700 : undefined,
+            textTransform: style.uppercase ? "uppercase" : undefined,
+            fontVariantCaps: style.smallCaps ? "small-caps" : undefined,
+            color: "#000000",
+            fontKerning: "none",
+            fontVariantLigatures: "none",
+            fontSynthesis: "none",
+          }}
+        >
+          {block.dropCapCharacter}
+        </span>
+      ) : null}
       {block.kind === "rule" ? (
         <div style={{ textAlign: "center", letterSpacing: "0.4em" }}>* * *</div>
       ) : block.kind === "image" ? (
@@ -341,6 +436,20 @@ function PreviewBlock({
       ) : (
         block.lines.map((line, index) => {
           const placement = drawnLines[index];
+          // El motor reserva el hueco de la inicial pero deja la letra en el
+          // texto; el PDF la dibuja aparte. Aquí se hace lo mismo para no
+          // duplicarla ni desplazar el primer renglón.
+          let dropCapPending = index === 0 && block.dropCapCharacter !== undefined;
+          const segments: InlineRun[] =
+            line.segments && line.segments.length > 0 ? line.segments : [{ text: line.text }];
+          const stripDropCap = (text: string): string => {
+            if (!dropCapPending || text.length === 0) {
+              return text;
+            }
+
+            dropCapPending = false;
+            return text.replace(/^./u, "");
+          };
 
           return (
             <div
@@ -362,49 +471,53 @@ function PreviewBlock({
                   top: `${baselineCorrectionPt(style.fontFamily, style.fontSizePt, lineHeight)}pt`,
                 }}
               >
-                {line.segments && line.segments.length > 0
-                  ? line.segments.map((segment, segmentIndex) => {
-                      const marks = segment.marks;
+                {segments.map((segment, segmentIndex) => {
+                  const text = stripDropCap(segment.text);
 
-                      if (!marks) {
-                        return <span key={segmentIndex}>{segment.text}</span>;
+                  if (text.length === 0) {
+                    return null;
+                  }
+
+                  const marks = segment.marks;
+
+                  if (!marks) {
+                    return <span key={segmentIndex}>{text}</span>;
+                  }
+
+                  const decorations = [
+                    marks.underline ? "underline" : null,
+                    marks.strike ? "line-through" : null,
+                  ].filter(Boolean);
+
+                  return (
+                    <span
+                      key={segmentIndex}
+                      title={
+                        segment.footnote
+                          ? `Nota ${segment.footnote.number}: ${segment.footnote.note}`
+                          : undefined
                       }
-
-                      const decorations = [
-                        marks.underline ? "underline" : null,
-                        marks.strike ? "line-through" : null,
-                      ].filter(Boolean);
-
-                      return (
-                        <span
-                          key={segmentIndex}
-                          title={
-                            segment.footnote
-                              ? `Nota ${segment.footnote.number}: ${segment.footnote.note}`
-                              : undefined
-                          }
-                          style={{
-                            fontWeight: marks.bold ? 700 : undefined,
-                            fontStyle: marks.italic ? "italic" : undefined,
-                            textDecoration:
-                              decorations.length > 0 ? decorations.join(" ") : undefined,
-                            position: marks.superscript || marks.subscript ? "relative" : undefined,
-                            top: marks.superscript
-                              ? `${-style.fontSizePt * 0.38}pt`
-                              : marks.subscript
-                                ? `${style.fontSizePt * 0.18}pt`
-                                : undefined,
-                            lineHeight: marks.superscript || marks.subscript ? 0 : undefined,
-                            fontSize: marks.superscript || marks.subscript ? "0.72em" : undefined,
-                            fontFamily: marks.code ? FAMILIAS.monospace : undefined,
-                            ...(marks.link ? { textDecoration: "underline" } : {}),
-                          }}
-                        >
-                          {segment.text}
-                        </span>
-                      );
-                    })
-                  : line.text}
+                      style={{
+                        fontWeight: marks.bold ? 700 : undefined,
+                        fontStyle: marks.italic ? "italic" : undefined,
+                        textDecoration:
+                          decorations.length > 0 ? decorations.join(" ") : undefined,
+                        position: marks.superscript || marks.subscript ? "relative" : undefined,
+                        top: marks.superscript
+                          ? `${-style.fontSizePt * 0.38}pt`
+                          : marks.subscript
+                            ? `${style.fontSizePt * 0.18}pt`
+                            : undefined,
+                        lineHeight: marks.superscript || marks.subscript ? 0 : undefined,
+                        fontSize: marks.superscript || marks.subscript ? "0.72em" : undefined,
+                        fontFamily: marks.code ? FAMILIAS.monospace : undefined,
+                        ...(marks.link ? { textDecoration: "underline" } : {}),
+                      }}
+                    >
+                      {text}
+                    </span>
+                  );
+                })}
               </span>
             </div>
           );
