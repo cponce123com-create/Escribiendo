@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import type { SessionContext } from "@/lib/auth/session";
 import {
+  computeGoalProgress,
   computeWordsPerDay,
   dayKey,
   summarizePeriod,
@@ -140,14 +141,17 @@ async function muestrasDelPeriodo(
 export async function wordsWrittenInPeriod(
   session: SessionContext,
   periods: Array<{ start: Date; end: Date }>,
+  bookId?: string,
 ): Promise<number[]> {
   if (periods.length === 0) {
     return [];
   }
 
-  // Solo se cargan las revisiones del periodo más amplio que hace falta.
+  // Solo se cargan las revisiones del periodo más amplio que hace falta. Si
+  // el objetivo es de un libro, las muestras se limitan a ese libro: un
+  // objetivo de «La novela» no puede contar las palabras de otro manuscrito.
   const desde = new Date(Math.min(...periods.map((period) => period.start.getTime())));
-  const daily = computeWordsPerDay(await muestrasDelPeriodo(session, undefined, desde));
+  const daily = computeWordsPerDay(await muestrasDelPeriodo(session, bookId, desde));
 
   return periods.map((period) => {
     const start = dayKey(period.start);
@@ -183,13 +187,37 @@ export async function listGoals(session: SessionContext): Promise<GoalSummary[]>
     return [];
   }
 
-  const written = await wordsWrittenInPeriod(
-    session,
-    goals.map((goal) => ({ start: goal.periodStart, end: goal.periodEnd })),
+  // Los objetivos generales y los de cada libro se calculan por separado:
+  // mezclarlos haría que un objetivo de un libro contara las palabras de
+  // todos los manuscritos del espacio de trabajo.
+  const indicesPorLibro = new Map<string | null, number[]>();
+  goals.forEach((goal, index) => {
+    const indices = indicesPorLibro.get(goal.bookId) ?? [];
+    indices.push(index);
+    indicesPorLibro.set(goal.bookId, indices);
+  });
+
+  const palabrasPorObjetivo = new Array<number>(goals.length).fill(0);
+
+  await Promise.all(
+    [...indicesPorLibro.entries()].map(async ([bookId, indices]) => {
+      const written = await wordsWrittenInPeriod(
+        session,
+        indices.map((index) => ({
+          start: goals[index]!.periodStart,
+          end: goals[index]!.periodEnd,
+        })),
+        bookId ?? undefined,
+      );
+
+      indices.forEach((index, position) => {
+        palabrasPorObjetivo[index] = written[position] ?? 0;
+      });
+    }),
   );
 
   return goals.map((goal, index) => {
-    const words = written[index] ?? 0;
+    const words = palabrasPorObjetivo[index] ?? 0;
 
     return {
       id: goal.id,
@@ -199,7 +227,7 @@ export async function listGoals(session: SessionContext): Promise<GoalSummary[]>
       periodEnd: goal.periodEnd,
       targetWords: goal.targetWords,
       wordsWritten: words,
-      progress: Math.min(100, Math.round((words / goal.targetWords) * 10000) / 100),
+      progress: computeGoalProgress(words, goal.targetWords),
     };
   });
 }

@@ -293,22 +293,33 @@ export async function updateBookAction(
   }
 
   try {
-    const result = await prisma.book.updateMany({
-      where: {
-        id: bookId.data,
-        workspaceId: session.workspace.id,
-        deletedAt: null,
-      },
-      data: {
-        title: parsed.data.title,
-        subtitle: parsed.data.subtitle ?? null,
-        authorName: parsed.data.authorName,
-        penName: parsed.data.penName ?? null,
-        description: parsed.data.description ?? null,
-        genre: parsed.data.genre ?? null,
-        language: parsed.data.language,
-        targetWordCount: parsed.data.targetWordCount ?? null,
-      },
+    const result = await prisma.$transaction(async (transaction) => {
+      const updated = await transaction.book.updateMany({
+        where: {
+          id: bookId.data,
+          workspaceId: session.workspace.id,
+          deletedAt: null,
+        },
+        data: {
+          title: parsed.data.title,
+          subtitle: parsed.data.subtitle ?? null,
+          authorName: parsed.data.authorName,
+          penName: parsed.data.penName ?? null,
+          description: parsed.data.description ?? null,
+          genre: parsed.data.genre ?? null,
+          language: parsed.data.language,
+          targetWordCount: parsed.data.targetWordCount ?? null,
+        },
+      });
+
+      if (updated.count > 0) {
+        // El objetivo puede haber cambiado: el porcentaje de avance se
+        // deriva del recuento real de palabras y del objetivo nuevo, no del
+        // valor que quedó guardado con el objetivo anterior.
+        await recomputeBookTotals(transaction, bookId.data);
+      }
+
+      return updated;
     });
 
     if (result.count === 0) {
@@ -477,15 +488,24 @@ export async function createSectionAction(
   let sectionId: string;
 
   try {
-    const section = await prisma.bookSection.create({
-      data: {
-        bookId: book.id,
-        parentId: resolvedParentId,
-        type: type.data,
-        title: parsedTitle.data,
-        sortOrder: (last?.sortOrder ?? -1) + 1,
-      },
-      select: { id: true },
+    const section = await prisma.$transaction(async (transaction) => {
+      const created = await transaction.bookSection.create({
+        data: {
+          bookId: book.id,
+          parentId: resolvedParentId,
+          type: type.data,
+          title: parsedTitle.data,
+          sortOrder: (last?.sortOrder ?? -1) + 1,
+        },
+        select: { id: true },
+      });
+
+      // Crear un capítulo cambia el recuento de capítulos del libro; se
+      // recalcula en la misma transacción para que la ficha no enseñe un
+      // dato viejo hasta el siguiente guardado del manuscrito.
+      await recomputeBookTotals(transaction, book.id);
+
+      return created;
     });
 
     sectionId = section.id;
