@@ -49,7 +49,7 @@ interface SectionEditorProps {
 /**
  * Espera antes de escribir el borrador en el equipo, en milisegundos.
  *
- * Es corta: el objetivo es que el trabajo esté a salvo en cuanto se deja de
+ * Es corta: el objetivo es que el trabajo est� a salvo en cuanto se deja de
  * escribir, no esperar a que termine la frase.
  */
 const LOCAL_SAVE_DEBOUNCE_MS = 700;
@@ -57,8 +57,8 @@ const LOCAL_SAVE_DEBOUNCE_MS = 700;
 /**
  * Espera antes de enviar el texto al servidor, en milisegundos.
  *
- * El servidor vuelve a limitar la frecuencia de los guardados automáticos;
- * esta espera es solo para no enviar una petición por cada pulsación.
+ * El servidor vuelve a limitar la frecuencia de los guardados autom�ticos;
+ * esta espera es solo para no enviar una petici�n por cada pulsaci�n.
  */
 const SERVER_SYNC_DEBOUNCE_MS = 3_000;
 
@@ -77,23 +77,23 @@ export function SectionEditor({
   const [machine, setMachine] = useState<SyncMachine>(() => initialSyncMachine(version));
   const [conflict, setConflict] = useState<SectionConflict | null>(null);
   /**
-   * Diálogo abierto: el enlace o la nota al pie que se está escribiendo.
+   * Di�logo abierto: el enlace o la nota al pie que se est� escribiendo.
    *
-   * Antes se pedían con `window.prompt`, que bloquea la interfaz y no se
+   * Antes se ped�an con `window.prompt`, que bloquea la interfaz y no se
    * puede validar mientras se escribe.
    */
   const [dialogo, setDialogo] = useState<{
     tipo: "enlace" | "nota";
     valor: string;
-    /** Selección en el momento de abrir el diálogo, para poder volver a ella. */
+    /** Selecci�n en el momento de abrir el di�logo, para poder volver a ella. */
     desde: number;
     hasta: number;
   } | null>(null);
   /**
-   * Contenido del borrador local cuando el servidor tiene otra versión.
+   * Contenido del borrador local cuando el servidor tiene otra versi�n.
    *
    * El comparador necesita las dos versiones: la del servidor y la del
-   * equipo. Sin guardar la del equipo, el trabajo sin confirmar se perdía
+   * equipo. Sin guardar la del equipo, el trabajo sin confirmar se perd�a
    * en silencio.
    */
   const [borradorLocal, setBorradorLocal] = useState<string | null>(null);
@@ -108,7 +108,7 @@ export function SectionEditor({
   const machineRef = useRef(machine);
   const versionRef = useRef(version);
   const localVersionRef = useRef(0);
-  /** Número de la petición en curso: descarta respuestas fuera de orden. */
+  /** N�mero de la petici�n en curso: descarta respuestas fuera de orden. */
   const requestRef = useRef(0);
   const localTimer = useRef<number | null>(null);
   const syncTimer = useRef<number | null>(null);
@@ -126,7 +126,7 @@ export function SectionEditor({
     extensions: [
       StarterKit.configure({
         // El enlace se edita, no se navega: un clic dentro del manuscrito no
-        // debe sacar al autor de la página.
+        // debe sacar al autor de la p�gina.
         link: { openOnClick: false },
       }),
       EditorialImage,
@@ -134,17 +134,17 @@ export function SectionEditor({
       ManuscriptSearchHighlights,
     ],
     content,
-    // El editor se inicializa en el cliente: sin esta opción, Next.js
-    // intentaría renderizarlo en el servidor y la hidratación no coincidiría.
+    // El editor se inicializa en el cliente: sin esta opci�n, Next.js
+    // intentar�a renderizarlo en el servidor y la hidrataci�n no coincidir�a.
     immediatelyRender: false,
     editable: canEdit,
     editorProps: {
       attributes: {
         // ProseMirror es un campo de texto editable: sin nombre accesible, un
-        // lector de pantalla anuncia «grupo editable» y no dice qué es.
+        // lector de pantalla anuncia �grupo editable� y no dice qu� es.
         role: "textbox",
         "aria-multiline": "true",
-        "aria-label": `Manuscrito de la sección «${sectionTitle}»`,
+        "aria-label": `Manuscrito de la secci�n �${sectionTitle}�`,
         ...(canEdit ? {} : { "aria-readonly": "true" }),
       },
     },
@@ -195,23 +195,29 @@ export function SectionEditor({
       window.dispatchEvent(
         new CustomEvent("studio-search-result", {
           detail: selected
-            ? `${index + 1} de ${matches.length} en este capítulo`
-            : "Sin coincidencias en este capítulo",
+            ? `${index + 1} de ${matches.length} en este cap�tulo`
+            : "Sin coincidencias en este cap�tulo",
         }),
       );
+    };
+    const highlight = (event: Event): void => {
+      if (!(event instanceof CustomEvent) || typeof event.detail !== "string" || !editor) return;
+      editor.view.dispatch(editor.state.tr.setMeta(manuscriptSearchPluginKey, event.detail));
     };
     const escape = (event: KeyboardEvent) => {
       if (event.key === "Escape") setFocused(false);
     };
     window.addEventListener("studio-search", search);
+    window.addEventListener("studio-search-highlight", highlight);
     window.addEventListener("keydown", escape);
     return () => {
       window.removeEventListener("studio-search", search);
+      window.removeEventListener("studio-search-highlight", highlight);
       window.removeEventListener("keydown", escape);
     };
   }, [editor]);
 
-  // --- Recuperación del borrador local -------------------------------------
+  // --- Recuperaci�n del borrador local -------------------------------------
 
   useEffect(() => {
     if (!canEdit) {
@@ -227,11 +233,11 @@ export function SectionEditor({
         return;
       }
 
-      // El borrador solo se recupera si es más reciente que lo que hay en el
-      // servidor. Si el servidor ya está en otra versión, no se descarta
+      // El borrador solo se recupera si es m�s reciente que lo que hay en el
+      // servidor. Si el servidor ya est� en otra versi�n, no se descarta
       // ninguna de las dos: se abre el comparador para que la persona
-      // decida. Antes el borrador se perdía en silencio y el siguiente
-      // autoguardado lo sobrescribía.
+      // decida. Antes el borrador se perd�a en silencio y el siguiente
+      // autoguardado lo sobrescrib�a.
       if (borrador.baseVersion !== versionRef.current) {
         setBorradorLocal(borrador.content);
         setConflict({
@@ -249,13 +255,13 @@ export function SectionEditor({
         return;
       }
 
-      // Un borrador corrupto no rompe la página: se avisa y se sigue con la
-      // versión del servidor.
+      // Un borrador corrupto no rompe la p�gina: se avisa y se sigue con la
+      // versi�n del servidor.
       try {
         editor.commands.setContent(JSON.parse(borrador.content) as TiptapDocument);
       } catch {
         setRecovered(false);
-        dispatch({ type: "sync-error", message: "El borrador de este equipo está dañado." });
+        dispatch({ type: "sync-error", message: "El borrador de este equipo est� da�ado." });
         return;
       }
 
@@ -298,7 +304,7 @@ export function SectionEditor({
     dispatch({ type: "local-saved" });
   }, [bookId, dispatch, editor, sectionId, userId]);
 
-  // --- Sincronización con el servidor --------------------------------------
+  // --- Sincronizaci�n con el servidor --------------------------------------
 
   const sincronizar = useCallback(
     async (intent: "manual" | "autosave", forzar = false) => {
@@ -342,9 +348,9 @@ export function SectionEditor({
       try {
         const resultado = await saveSectionAction({ status: "idle" }, formData);
 
-        // Una respuesta más antigua que otra ya aplicada se ignora: si no,
-        // una versión vieja podría dejar el editor como «guardado» cuando ya
-        // no lo está.
+        // Una respuesta m�s antigua que otra ya aplicada se ignora: si no,
+        // una versi�n vieja podr�a dejar el editor como �guardado� cuando ya
+        // no lo est�.
         if (peticion !== requestRef.current) {
           return;
         }
@@ -378,8 +384,8 @@ export function SectionEditor({
         const versionGuardada = resultado.savedVersion ?? versionRef.current;
         versionRef.current = versionGuardada;
 
-        // Si se ha escrito mientras la petición estaba en curso, lo guardado
-        // es una versión anterior: el texto nuevo sigue pendiente.
+        // Si se ha escrito mientras la petici�n estaba en curso, lo guardado
+        // es una versi�n anterior: el texto nuevo sigue pendiente.
         if (localVersionRef.current !== versionLocalAlEnviar) {
           dispatch({ type: "edit" });
         } else {
@@ -398,7 +404,7 @@ export function SectionEditor({
     [bookId, canEdit, dispatch, editor, router, sectionId, userId],
   );
 
-  // --- Programación de las tareas ------------------------------------------
+  // --- Programaci�n de las tareas ------------------------------------------
 
   const programarSincronizacion = useCallback(
     (ms: number) => {
@@ -437,7 +443,7 @@ export function SectionEditor({
     }, espera);
   }, [sincronizar]);
 
-  // Cada cambio programa el guardado local y la sincronización.
+  // Cada cambio programa el guardado local y la sincronizaci�n.
   useEffect(() => {
     if (!canEdit || !hasUnsavedWork(machine)) {
       return;
@@ -462,7 +468,7 @@ export function SectionEditor({
     }
   }, [machine, programarReintento]);
 
-  // Conexión: se detecta con los eventos del navegador.
+  // Conexi�n: se detecta con los eventos del navegador.
   useEffect(() => {
     const actualizar = (): void => setOnline(navigator.onLine);
 
@@ -509,7 +515,7 @@ export function SectionEditor({
   );
 
   // Las preferencias de escritura se aplican al documento para que el CSS
-  // las use, y se vuelven a aplicar si cambian en otra pestaña.
+  // las use, y se vuelven a aplicar si cambian en otra pesta�a.
   useEffect(() => {
     applyWritingPreferences(readWritingPreferences());
 
@@ -524,7 +530,7 @@ export function SectionEditor({
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  // Aviso al cerrar la pestaña con cambios sin guardar.
+  // Aviso al cerrar la pesta�a con cambios sin guardar.
   useEffect(() => {
     if (!hasUnsavedWork(machine)) {
       return;
@@ -540,7 +546,7 @@ export function SectionEditor({
   }, [machine]);
 
   // Atajos de teclado: guardar con Ctrl/Cmd+S, sin que el navegador abra
-  // el diálogo de «guardar página».
+  // el di�logo de �guardar p�gina�.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "s") {
@@ -617,7 +623,7 @@ export function SectionEditor({
         <Dialog
           abierto
           titulo="Enlace"
-          descripcion="Se puede apuntar a una página web, a un correo o a un teléfono. Un esquema distinto no se guarda, porque el archivo exportado se abre en el equipo de quien lo recibe."
+          descripcion="Se puede apuntar a una p�gina web, a un correo o a un tel�fono. Un esquema distinto no se guarda, porque el archivo exportado se abre en el equipo de quien lo recibe."
           onCerrar={() => setDialogo(null)}
         >
           <form
@@ -659,7 +665,7 @@ export function SectionEditor({
           >
             <div>
               <label className="field-label" htmlFor="campo-enlace">
-                Dirección del enlace
+                Direcci�n del enlace
               </label>
               <input
                 id="campo-enlace"
@@ -695,7 +701,7 @@ export function SectionEditor({
         <Dialog
           abierto
           titulo="Nota al pie"
-          descripcion="La nota aparece al pie de la página y se numera sola, en orden de lectura."
+          descripcion="La nota aparece al pie de la p�gina y se numera sola, en orden de lectura."
           onCerrar={() => setDialogo(null)}
         >
           <form
@@ -797,11 +803,11 @@ export function SectionEditor({
             type="button"
             className="studio-save-button"
             aria-label="Guardar manuscrito"
-            title="Guardar manuscrito (Ctrl/⌘+S)"
+            title="Guardar manuscrito (Ctrl/�w^~)�t+S)"
             onClick={() => void sincronizar("manual")}
             disabled={sincronizando}
           >
-            {sincronizando ? "Guardando…" : "Guardar"}
+            {sincronizando ? "Guardandk�u���f" : "Guardar"}
           </button>
         ) : null}
         <button
@@ -809,8 +815,8 @@ export function SectionEditor({
           className="studio-focus-button"
           onClick={() => setFocused((value) => !value)}
           aria-pressed={focused}
-          aria-label={focused ? "Salir del modo concentración" : "Ampliar editor"}
-          title="Modo concentración · Esc para salir"
+          aria-label={focused ? "Salir del modo concentraci�n" : "Ampliar editor"}
+          title="Modo concentraci�n � Esc para salir"
         >
           <StudioIcon name="expand" />
         </button>
@@ -818,8 +824,8 @@ export function SectionEditor({
 
       {!online ? (
         <p className="alert alert-error" role="alert">
-          No hay conexión con la red. Puedes seguir escribiendo: el texto se guarda en este equipo y
-          se enviará solo al recuperar la conexión.
+          No hay conexi�n con la red. Puedes seguir escribiendo: el texto se guarda en este equipo y
+          se enviar� solo al recuperar la conexi�n.
         </p>
       ) : null}
 
@@ -842,7 +848,7 @@ export function SectionEditor({
           onKeepLocal={() => {
             // Si el conflicto viene del borrador local, se carga en el editor
             // antes de enviarlo: el servidor no puede recibir lo que el
-            // editor todavía no tiene.
+            // editor todav�a no tiene.
             if (borradorLocal !== null && editor) {
               editor.commands.setContent(JSON.parse(borradorLocal) as TiptapDocument);
               localVersionRef.current += 1;
@@ -857,8 +863,8 @@ export function SectionEditor({
               try {
                 editor.commands.setContent(JSON.parse(conflict.serverContent) as TiptapDocument);
               } catch {
-                // Si el contenido del servidor está dañado, se deja el editor
-                // como está: el borrador local sigue a salvo.
+                // Si el contenido del servidor est� da�ado, se deja el editor
+                // como est�: el borrador local sigue a salvo.
               }
             }
 
@@ -874,8 +880,8 @@ export function SectionEditor({
 
       {canEdit ? (
         <p className="studio-save-help text-xs leading-relaxed text-ink-muted">
-          «{sectionTitle}» se guarda de forma explícita. Además, cada cambio se guarda en este
-          equipo al momento y se envía al servidor en cuanto dejas de escribir; el historial de
+          �{sectionTitle}� se guarda de forma expl�cita. Adem�s, cada cambio se guarda en este
+          equipo al momento y se env�a al servidor en cuanto dejas de escribir; el historial de
           versiones conserva cada guardado confirmado.
         </p>
       ) : null}
