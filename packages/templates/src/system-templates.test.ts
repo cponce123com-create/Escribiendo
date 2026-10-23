@@ -44,3 +44,12 @@ describe("geometría predeterminada de las plantillas", () => {
     expect(templatePagePreset("plantilla-propia")).toEqual(DEFAULT_TEMPLATE_PAGE_PRESET);
   });
 });
+
+it("el catálogo legal publica versiones y nombres únicos", async () => {
+  const { LEGAL_TEMPLATE_CATALOG, LEGAL_TEMPLATE_VERSIONS } = await import("./legal-page");
+  expect(new Set(LEGAL_TEMPLATE_CATALOG.map((item) => item.slug)).size).toBe(
+    LEGAL_TEMPLATE_CATALOG.length,
+  );
+  for (const item of LEGAL_TEMPLATE_CATALOG)
+    expect(item.version).toBe(LEGAL_TEMPLATE_VERSIONS[item.slug]);
+});

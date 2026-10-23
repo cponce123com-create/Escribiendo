@@ -349,6 +349,9 @@ export const legalPageTemplates = [
   "copyright-peru-publisher",
   "copyright-international",
   "copyright-digital",
+  "copyright-minimal",
+  "copyright-creative-commons",
+  "copyright-peru-ley",
 ] as const;
 
 export type LegalPageTemplate = (typeof legalPageTemplates)[number];
@@ -360,7 +363,105 @@ export const LEGAL_TEMPLATE_VERSIONS: Record<LegalPageTemplate, number> = {
   "copyright-peru-publisher": 1,
   "copyright-international": 1,
   "copyright-digital": 1,
+  "copyright-minimal": 1,
+  "copyright-creative-commons": 1,
+  "copyright-peru-ley": 1,
 };
+
+export const CREATIVE_COMMONS_LICENSES = [
+  "cc-by",
+  "cc-by-sa",
+  "cc-by-nc",
+  "cc-by-nc-nd",
+  "cc0",
+] as const;
+export type LegalRequiredField =
+  "title" | "author" | "rightsHolder" | "copyrightYear" | "license" | "legalDeposit";
+export interface LegalTemplateMetadata {
+  slug: LegalPageTemplate;
+  version: number;
+  name: string;
+  description: string;
+  audience: string;
+  country: "PE" | "international";
+  language: "es";
+  requiredFields: readonly LegalRequiredField[];
+}
+const baseFields = ["title", "author"] as const;
+const legalMetadata: ReadonlyArray<Omit<LegalTemplateMetadata, "version" | "language">> = [
+  {
+    slug: "copyright-peru-author",
+    name: "Autor independiente · Perú",
+    description: "Créditos de publicación y datos del autor editor.",
+    audience: "Autor independiente",
+    country: "PE",
+    requiredFields: baseFields,
+  },
+  {
+    slug: "copyright-peru-publisher",
+    name: "Con sello editorial · Perú",
+    description: "Identidad de la editorial, impresión y depósito legal.",
+    audience: "Con sello editorial",
+    country: "PE",
+    requiredFields: baseFields,
+  },
+  {
+    slug: "copyright-international",
+    name: "Internacional",
+    description: "Titularidad y créditos para publicaciones internacionales.",
+    audience: "Autor independiente o editorial",
+    country: "international",
+    requiredFields: baseFields,
+  },
+  {
+    slug: "copyright-digital",
+    name: "Edición digital",
+    description: "Créditos sin datos de imprenta ni tiraje.",
+    audience: "Edición digital",
+    country: "international",
+    requiredFields: baseFields,
+  },
+  {
+    slug: "copyright-minimal",
+    name: "Esencial",
+    description: "Año, titular y derechos reservados.",
+    audience: "Autor independiente",
+    country: "international",
+    requiredFields: ["rightsHolder", "copyrightYear"],
+  },
+  {
+    slug: "copyright-creative-commons",
+    name: "Creative Commons",
+    description: "Nombre y enlace oficial de la licencia elegida.",
+    audience: "Publicación con licencia abierta",
+    country: "international",
+    requiredFields: ["rightsHolder", "copyrightYear", "license"],
+  },
+  {
+    slug: "copyright-peru-ley",
+    name: "Perú · Ley sobre el Derecho de Autor",
+    description: "Referencia al Decreto Legislativo 822 y número de depósito legal.",
+    audience: "Autor independiente o editorial",
+    country: "PE",
+    requiredFields: [...baseFields, "legalDeposit"],
+  },
+];
+export const LEGAL_TEMPLATE_CATALOG: readonly LegalTemplateMetadata[] = legalMetadata.map(
+  (item) => ({ ...item, language: "es", version: LEGAL_TEMPLATE_VERSIONS[item.slug] }),
+);
+
+export function missingLegalFields(input: LegalPageInput): LegalRequiredField[] {
+  const fields = LEGAL_TEMPLATE_CATALOG.find(
+    (item) => item.slug === input.template,
+  )!.requiredFields;
+  return fields.filter((field) => {
+    if (field === "copyrightYear")
+      return !input.copyrightYear && !parsePublicationDate(input.publicationDate);
+    if (field === "license")
+      return !(CREATIVE_COMMONS_LICENSES as readonly string[]).includes(input.license ?? "");
+    return !clean(input[field]);
+  });
+}
 
 export type LegalBlockRole =
   | "logo"
@@ -466,7 +567,11 @@ function sentence(value: string): string {
 }
 
 function isPeru(template: LegalPageTemplate): boolean {
-  return template === "copyright-peru-author" || template === "copyright-peru-publisher";
+  return (
+    template === "copyright-peru-author" ||
+    template === "copyright-peru-publisher" ||
+    template === "copyright-peru-ley"
+  );
 }
 
 function templateMode(template: LegalPageTemplate, options: LegalPageOptions): "print" | "digital" {
@@ -490,6 +595,33 @@ export function buildLegalPage(
   const warnings: LegalPageWarning[] = [];
   const blocks: LegalPageBlock[] = [];
   const template = input.template;
+  if (template === "copyright-minimal" || template === "copyright-creative-commons") {
+    const missing = missingLegalFields(input);
+    const year = input.copyrightYear ?? parsePublicationDate(input.publicationDate)?.year;
+    if (year && clean(input.rightsHolder))
+      blocks.push({
+        role: "small",
+        text: `© ${year} ${clean(input.rightsHolder)}.${template === "copyright-minimal" ? " Todos los derechos reservados." : ""}`,
+      });
+    if (template === "copyright-creative-commons" && !missing.includes("license")) {
+      const license = licenseText(input.license!);
+      blocks.push({ role: "small", text: license.label }, { role: "small", text: license.url! });
+    }
+    for (const clause of input.customClauses ?? [])
+      if (clean(clause)) blocks.push({ role: "small", text: clean(clause) });
+    return {
+      template,
+      templateVersion: LEGAL_TEMPLATE_VERSIONS[template],
+      blocks,
+      ready: missing.length === 0,
+      warnings: missing.map((field) => ({
+        code: `FALTA_${field.toUpperCase()}`,
+        severity: "error",
+        field,
+        message: `Falta completar: ${field}.`,
+      })),
+    };
+  }
   const mode = templateMode(template, options);
   const includeOptional = options.includeOptionalClauses ?? true;
 
@@ -776,6 +908,14 @@ export function buildLegalPage(
     blocks.push({ role: "small", text: clean(input.catalogingInPublication) });
   }
 
+  if (template === "copyright-peru-ley") {
+    blocks.push({
+      role: "small",
+      text: "Decreto Legislativo N.º 822 — Ley sobre el Derecho de Autor (Perú).",
+    });
+    if (!legalDeposit)
+      warn("FALTA_DEPOSITO", "Completa el número de depósito legal.", "legalDeposit", "error");
+  }
   const ready = !warnings.some((warning) => warning.severity === "error");
 
   return {

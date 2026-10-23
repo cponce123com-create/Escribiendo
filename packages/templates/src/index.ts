@@ -146,3 +146,10 @@ export {
   type OtherBooksInput,
   type TitlePageInput,
 } from "./matter-content";
+
+export {
+  LEGAL_TEMPLATE_CATALOG,
+  CREATIVE_COMMONS_LICENSES,
+  missingLegalFields,
+} from "./legal-page";
+export type { LegalTemplateMetadata, LegalRequiredField } from "./legal-page";
