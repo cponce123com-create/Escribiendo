@@ -20,7 +20,7 @@ export function DeleteBookButton({ bookId, title }: DeleteBookButtonProps) {
         label="Eliminar borrador"
         confirmLabel="Sí, eliminar borrador"
         description={`Eliminar el borrador «${title}»`}
-        className="btn btn-ghost btn-sm text-danger hover:bg-danger/10"
+        className="btn btn-ghost text-danger hover:bg-danger/10"
       />
       {state.status === "error" && state.message ? (
         <span className="text-xs text-danger" role="alert">

@@ -215,7 +215,7 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
               {canDelete && book.status === "DRAFT" ? (
                 <div className="mt-4 flex justify-end border-t border-line pt-4">
                   <div className="flex flex-wrap items-center gap-3">
-                    <Link className="btn btn-primary btn-sm" href={`/books/${book.id}`}>
+                    <Link className="btn btn-primary" href={`/books/${book.id}`}>
                       Continuar escribiendo
                     </Link>
                     <DeleteBookButton bookId={book.id} title={book.title} />
@@ -223,7 +223,7 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
                 </div>
               ) : (
                 <div className="mt-4 flex justify-end border-t border-line pt-4">
-                  <Link className="btn btn-secondary btn-sm" href={`/books/${book.id}`}>
+                  <Link className="btn btn-secondary" href={`/books/${book.id}`}>
                     Continuar escribiendo
                   </Link>
                 </div>
