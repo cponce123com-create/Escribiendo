@@ -8,7 +8,7 @@ Se aplicaron correcciones de integridad editorial, instantáneas históricas, re
 
 La intervención es **parcial respecto al plan completo de 17 fases**, cuyo texto se conserva en `PLAN_ESCRIBIENDO_V6_1.md`. Se revisaron todos los bloques; las validaciones que requieren PostgreSQL desechable, un navegador funcional o servicios externos siguen pendientes. Este documento no certifica que toda la plataforma esté lista para producción ni que se haya alcanzado 9,5/10.
 
-Las pruebas unitarias y de regresión, formato, ESLint, tipos y compilación de producción pasaron. La comprobación estructural previa/PDF pasó y se verificaron lecturas externas con Poppler y LibreOffice. El E2E completo no pudo ejecutarse: Docker no está instalado. El intento independiente de inspección visual con Chromium terminó en SIGSEGV antes de abrir la página; no se atribuye ese fallo a la aplicación.
+Las pruebas unitarias y de regresión, formato, ESLint, tipos y compilación de producción pasaron. La comprobación estructural previa/PDF pasó y se verificaron lecturas externas con Poppler y LibreOffice. El E2E local no pudo ejecutarse porque Docker no está instalado. Sí se ejecutó una primera pasada remota: detectó fallos y se aplicaron correcciones; la segunda está pendiente. Chromium local falló inicialmente por un ejecutable incompleto; tras extraer una copia verificada se completó la inspección visual aislada descrita más abajo.
 
 ## II. Estado inicial e inventario
 
@@ -57,7 +57,7 @@ La ficha integra la portada con título, autoría y datos editoriales. Cuando fa
 
 Se añadió una prueba del componente de servidor con datos aislados. Comprueba acción única, acceso a portada y recuentos reales de capítulos. Se preparó `tests/e2e/ficha-editorial.spec.ts` para 375, 390, 768, 1024, 1440 y 1920 px, con comprobaciones de desbordamiento, alturas, axe y capturas.
 
-**No se completó una inspección visual de todas las pantallas ni se obtuvieron capturas válidas de esta ejecución.** Los cambios de estilo son limitados y requieren el E2E remoto antes de considerarse aceptados visualmente.
+**No se completó una inspección visual de todas las pantallas.** Sí se renderizó la ficha y su marco real con datos aislados y se comprobó en 375, 390, 768, 1024, 1440 y 1920 px, en claro y oscuro: sin desbordamiento, ocho acciones a 44 px y sin infracciones WCAG 2 A/AA de axe. Se inspeccionaron capturas de 390 y 1440 px; se corrigió una sobrescritura global del padding de la cabecera. Esta fixture usa datos y algunos formularios aislados: no sustituye el E2E completo.
 
 ## VI. Calidad editorial
 
@@ -202,3 +202,11 @@ GitHub ejecutó el workflow `39999800040` sobre PostgreSQL 17 desechable: las mi
 Se identificaron selectores ambiguos después de añadir búsquedas y menús, controles de título movidos a la pestaña Detalles, selección de enlaces de personajes en una prueba de orden y el selector de estudios dentro de un menú cerrado. Se corrigieron los selectores/interacciones para probar los mismos comportamientos en su ubicación real; no se eliminaron aserciones de producto. La prueba nueva detectó desbordamiento en móvil: se compactó la marca del encabezado y se acotaron sus hijos flex. Se reforzó el contraste del menú oscuro. El atajo de búsqueda anuncia `aria-keyshortcuts` cuando su listener está activo, para poder comprobarlo después de la hidratación.
 
 Se añadió conservación de capturas, trazas e informe de Playwright incluso cuando el E2E falla. Estos cambios requieren una nueva ejecución del E2E; no se presentan los fallos de la primera pasada como resueltos hasta su verificación. La valoración 7,85 sigue siendo provisional y la entrega permanece en borrador.
+
+### Último estado de verificación
+
+El commit remoto `501c598cbc234d5f56cff2aed51737ed4106eeb1` volvió a aprobar la verificación principal (workflow `40001809626`): formato, lint, tipos, pruebas, build, correspondencia estructural y tamaño. El E2E `40001809632` y DOCX `40001809568` seguían en la instalación de sus dependencias al revisar; su resultado funcional todavía no está confirmado.
+
+Después de recuperar Chromium local se completó la revisión aislada en doce combinaciones de pantalla y tema. Se añade una última corrección de especificidad CSS que preserva el espacio interior de la ficha. La corrección se comprobó en esa revisión visual, sin cambiar lógica, datos ni pruebas.
+
+El PR permanece como borrador. No se marca la intervención completa, no se afirma que todos los fallos E2E hayan desaparecido y no se autoriza publicación automática.

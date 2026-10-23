@@ -3644,3 +3644,13 @@ html[data-focus-mode="true"] .app-topbar {
 [data-theme="dark"] .frontend-studio .app-sidebar .nav-item[aria-current="page"] {
   color: #ee9a83;
 }
+
+/* The generic page-header rule must not remove the book card's inset. */
+.frontend-studio #contenido > div > header.book-detail-header {
+  padding: 1.25rem;
+}
+@media (min-width: 640px) {
+  .frontend-studio #contenido > div > header.book-detail-header {
+    padding: 1.75rem;
+  }
+}
