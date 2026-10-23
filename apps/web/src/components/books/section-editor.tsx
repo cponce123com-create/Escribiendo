@@ -170,6 +170,7 @@ export function SectionEditor({
     selector: ({ editor: current }) =>
       current
         ? {
+            imageSelected: current.isActive("image"),
             words: countWordsInDocument(current.getJSON() as TiptapDocument),
             characters: current.getText().length,
           }
@@ -651,7 +652,7 @@ export function SectionEditor({
         />
       ) : null}
 
-      {canEdit && imageToolsOpen ? (
+      {canEdit && (imageToolsOpen || liveStats?.imageSelected) ? (
         <SectionImageControls
           editor={editor}
           bookId={bookId}
