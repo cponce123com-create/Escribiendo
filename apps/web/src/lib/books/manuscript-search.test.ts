@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { emptyTiptapDocument } from "@escribiendo/book-schema";
 import { excerptForQuery, findTextMatches, replaceTextLeaves } from "./manuscript-search";
 
-describe("b�squeda y reemplazo del manuscrito", () => {
-  it("cuenta coincidencias en todos los nodos de texto sin distinguir may�sculas", () => {
+describe("búsqueda y reemplazo del manuscrito", () => {
+  it("cuenta coincidencias en todos los nodos de texto sin distinguir mayúsculas", () => {
     const doc = { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Hola hola" }] }] };
     expect(findTextMatches(doc, "hola")).toBe(2);
     expect(excerptForQuery(doc, "hola")).toContain("Hola hola");
