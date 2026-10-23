@@ -15,6 +15,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
 
 import {
+  currentSectionSnapshots,
   loadManuscriptForJob,
   loadManuscriptFromSnapshot,
   manuscriptHash,
@@ -64,6 +65,14 @@ function snapshot(overrides: Partial<SectionSnapshot> = {}): SectionSnapshot {
 }
 
 describe("manuscrito de exportación", () => {
+  it("captura el prólogo antes de los capítulos para la exportación", async () => {
+    mockPrisma.bookSection.findMany.mockResolvedValue([
+      { ...section({ id: "chapter" }), sortOrder: 0 },
+      { ...section({ id: "prologue", type: "PROLOGUE" }), sortOrder: 999 },
+    ]);
+    const result = await currentSectionSnapshots(session, "book-1");
+    expect(result.map((row) => row.id)).toEqual(["prologue", "chapter"]);
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     mockPrisma.bookSection.findMany.mockResolvedValue([]);

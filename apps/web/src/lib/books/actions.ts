@@ -1,4 +1,6 @@
 "use server";
+import { remainingAutosaveDelay } from "@/lib/editor/autosave";
+import { compareEditorialSections } from "./reading-order";
 import { withSerializableRetry } from "./serializable";
 import { recomputeBookTotals } from "./statistics";
 import { createHash } from "node:crypto";
@@ -32,7 +34,6 @@ import type { SectionSaveState } from "@/lib/editor/sync";
  * del navegador, no para sustituir al guardado explícito. Acotarlo evita
  * llenar el historial de revisiones de ruido.
  */
-const AUTOSAVE_MIN_INTERVAL_MS = 45_000;
 
 const uuidSchema = z.string().uuid("El identificador no es válido.");
 const sectionTypeSchema = z.enum(BOOK_SECTION_TYPES);
@@ -432,6 +433,10 @@ export async function createSectionAction(
     return errorState("El tipo de sección no es válido.");
   }
 
+  if (type.data === "TABLE_OF_CONTENTS" || type.data === "COPYRIGHT") {
+    return errorState("El índice y la página de derechos se generan solos");
+  }
+
   const book = await prisma.book.findFirst({
     where: { id: bookId.data, workspaceId: session.workspace.id, deletedAt: null },
     select: { id: true },
@@ -711,7 +716,8 @@ export async function saveSectionAction(
       select: { createdAt: true },
     });
 
-    if (last && Date.now() - last.createdAt.getTime() < AUTOSAVE_MIN_INTERVAL_MS) {
+    const retryAfterMs = last ? remainingAutosaveDelay(last.createdAt.getTime(), Date.now()) : 0;
+    if (retryAfterMs > 0) {
       // El texto **no** está guardado en el servidor: sigue pendiente. La
       // respuesta lo dice con claridad para que el editor no lo dé por
       // confirmado.
@@ -719,6 +725,7 @@ export async function saveSectionAction(
         status: "success",
         message: "Guardado automático pospuesto: hay un cambio muy reciente.",
         throttled: true,
+        retryAfterMs,
         savedVersion: null,
       };
     }
@@ -875,6 +882,7 @@ export async function restoreRevisionAction(
   revalidatePath(`/books/${section.bookId}`);
   revalidatePath(`/books/${section.bookId}/sections/${section.id}`);
 
+  revalidatePath(`/books/${section.bookId}/sections/${section.id}/history`);
   return successState(`Revisión ${revision.version} restaurada como una versión nueva.`);
 }
 
@@ -1031,9 +1039,10 @@ async function moveSectionWithinBook(
             id: { not: current.id },
           },
           orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
-          select: { id: true },
+          select: { id: true, title: true, type: true, parentId: true, sortOrder: true },
         });
 
+        siblings.sort(compareEditorialSections);
         const ordered = siblings.map((sibling) => sibling.id);
         ordered.splice(Math.min(position, ordered.length), 0, current.id);
 
@@ -1129,6 +1138,11 @@ export async function deleteSectionAction(
   );
 
   revalidatePath(`/books/${section.bookId}`);
+  revalidatePath(`/books/${section.bookId}/preview`);
+  revalidatePath(`/books/${section.bookId}/export`);
+  if (formValue(formData, "stayInEditor") === "on") {
+    return successState("Sección y subsecciones eliminadas.");
+  }
 
   redirect(`/books/${section.bookId}`);
 }
@@ -1275,4 +1289,62 @@ async function collectDescendants(
   }
 
   return collected;
+}
+
+export async function updateSectionOptionsAction(
+  _previousState: LibraryActionState,
+  formData: FormData,
+): Promise<LibraryActionState> {
+  let context: RequestContext;
+  try {
+    context = await assertServerActionOrigin();
+  } catch {
+    return errorState("No se ha podido validar la solicitud.");
+  }
+  const session = await getSession();
+  if (!session) redirect("/login");
+  try {
+    assertCanPerform(session.workspace.role, "section:update");
+  } catch {
+    return errorState("No tienes permisos para editar esta sección.");
+  }
+  const id = uuidSchema.safeParse(formValue(formData, "sectionId"));
+  if (!id.success) return errorState("La sección no es válida.");
+  const section = await loadSectionForSession(session, id.data);
+  if (!section) return errorState("La sección no existe en este espacio de trabajo.");
+  const data = {
+    includeInExport: formValue(formData, "includeInExport") === "on",
+    showInToc: formValue(formData, "showInToc") === "on",
+    pageBreakBefore: formValue(formData, "pageBreakBefore") === "on",
+    startOnOddPage: formValue(formData, "startOnOddPage") === "on",
+  };
+  try {
+    const result = await prisma.bookSection.updateMany({
+      where: {
+        id: section.id,
+        bookId: section.bookId,
+        deletedAt: null,
+        book: { workspaceId: session.workspace.id, deletedAt: null },
+      },
+      data,
+    });
+    if (result.count !== 1) return errorState("La sección ya no está disponible.");
+  } catch (error) {
+    logActionError("books.section_options_error", context, error);
+    return errorState("No se han podido guardar las opciones.");
+  }
+  await writeAuditLog(
+    {
+      action: "BOOK_SECTION_OPTIONS_UPDATED",
+      entityType: "BookSection",
+      entityId: section.id,
+      workspaceId: session.workspace.id,
+      actorId: session.user.id,
+      metadata: data,
+    },
+    context,
+  );
+  for (const path of ["", "/preview", "/export", `/sections/${section.id}`])
+    revalidatePath(`/books/${section.bookId}${path}`);
+  return successState("Opciones de sección guardadas.");
 }

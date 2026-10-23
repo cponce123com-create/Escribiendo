@@ -1,13 +1,21 @@
+import { SECTION_GROUPS, sectionGroup } from "./studio";
 /** Canonical preorder. UI can recover orphans; publication fails closed. */
 export interface OrderedSection {
   id: string;
+  type?: string;
   parentId?: string | null;
   sortOrder?: number;
   title: string;
 }
 
 export function compareEditorialSections(a: OrderedSection, b: OrderedSection): number {
+  const groupOrder =
+    !a.parentId && !b.parentId
+      ? SECTION_GROUPS.indexOf(sectionGroup(a.type ?? "CHAPTER")) -
+        SECTION_GROUPS.indexOf(sectionGroup(b.type ?? "CHAPTER"))
+      : 0;
   return (
+    groupOrder ||
     (a.sortOrder ?? 0) - (b.sortOrder ?? 0) ||
     a.title.localeCompare(b.title, "es") ||
     a.id.localeCompare(b.id)

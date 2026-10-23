@@ -18,7 +18,10 @@ const SECTION_TITLE = "Capítulo de pruebas";
 async function abrirSeccion(page: Page, titulo: string): Promise<void> {
   await page.goto("/books");
   await page.getByRole("link", { name: BOOK_TITLE }).click();
-  await page.getByRole("link", { name: titulo, exact: true }).click();
+  const escapedTitle = titulo.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  await page
+    .getByRole("link", { name: new RegExp(` · ${escapedTitle} \\d[\\d.,]*$`, "u") })
+    .click();
   await expect(page.locator(".ProseMirror")).toBeVisible();
 }
 

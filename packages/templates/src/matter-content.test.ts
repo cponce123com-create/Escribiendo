@@ -52,7 +52,9 @@ describe("dedicatoria", () => {
   it("avisa cuando la dedicatoria es demasiado larga sin recortarla", () => {
     const text = "a".repeat(600);
     const page = buildDedicationPage({ text });
-    const printed = page.blocks.filter((block) => block.role === "center").map((block) => block.text);
+    const printed = page.blocks
+      .filter((block) => block.role === "center")
+      .map((block) => block.text);
 
     expect(page.ready).toBe(true);
     expect(printed.join("")).toBe(text);

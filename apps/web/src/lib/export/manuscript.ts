@@ -89,7 +89,7 @@ export async function currentSectionVersions(
       book: { workspaceId: session.workspace.id, deletedAt: null },
     },
     orderBy: [{ sortOrder: "asc" }, { title: "asc" }, { id: "asc" }],
-    select: { id: true, version: true, parentId: true, sortOrder: true, title: true },
+    select: { id: true, version: true, parentId: true, sortOrder: true, title: true, type: true },
   });
 
   return editorialOrder(sections).map((section) => ({ id: section.id, version: section.version }));

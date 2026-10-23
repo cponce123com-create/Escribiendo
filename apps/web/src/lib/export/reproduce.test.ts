@@ -11,6 +11,12 @@ const { mockPrisma, mockGetBookCover, mockExportContext, mockLoadManuscriptForJo
   }),
 );
 
+// Estas pruebas aíslan composición/reproducción de las materias automáticas.
+vi.mock("@/lib/editorial/book-matter", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  loadBookMatter: async () => null,
+}));
+
 vi.mock("server-only", () => ({}));
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));

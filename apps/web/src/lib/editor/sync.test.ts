@@ -64,11 +64,12 @@ describe("reduceSync", () => {
   it("un guardado pospuesto por el servidor deja el texto pendiente", () => {
     const machine = reduceSync(reduceSync(initialSyncMachine(1), { type: "edit" }), {
       type: "sync-throttled",
+      retryAfterMs: 41000,
     });
 
     expect(machine.state).toBe("local");
     expect(machine.pending).toBe(true);
-    expect(machine.retryInMs).not.toBeNull();
+    expect(machine.retryInMs).toBe(41000);
   });
 
   it("sin conexión, el texto sigue pendiente y se programa un reintento", () => {

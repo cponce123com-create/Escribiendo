@@ -54,6 +54,9 @@ export interface TemplateSummary {
 }
 
 export interface EditionSummary {
+  tocDepth: string | null;
+  tocIncludeFrontMatter: boolean;
+  tocIncludeBackMatter: boolean;
   id: string;
   bookId: string;
   name: string;
@@ -268,6 +271,9 @@ export async function getBookEdition(
       format: true,
       isDefault: true,
       pageCount: true,
+      tocDepth: true,
+      tocIncludeFrontMatter: true,
+      tocIncludeBackMatter: true,
       layoutProfile: { select: PROFILE_SELECT },
       editorialTemplate: { select: TEMPLATE_SELECT },
     },
@@ -284,6 +290,9 @@ export async function getBookEdition(
     format: edition.format,
     isDefault: edition.isDefault,
     pageCount: edition.pageCount,
+    tocDepth: edition.tocDepth,
+    tocIncludeFrontMatter: edition.tocIncludeFrontMatter,
+    tocIncludeBackMatter: edition.tocIncludeBackMatter,
     profile: edition.layoutProfile ? mapProfile(edition.layoutProfile) : null,
     template: edition.editorialTemplate ? mapTemplate(edition.editorialTemplate) : null,
   };

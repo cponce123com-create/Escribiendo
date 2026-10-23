@@ -3726,3 +3726,12 @@ html[data-focus-mode="true"] .app-topbar {
     padding: 1.75rem;
   }
 }
+
+/* La confirmación de borrado debe caber y mostrar el alcance completo. */
+.studio-section-menu > div {
+  width: min(17rem, calc(100vw - 2rem));
+}
+.studio-section-menu form [role="group"] {
+  flex-direction: column;
+  align-items: stretch;
+}

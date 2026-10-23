@@ -1,3 +1,4 @@
+import { AUTOSAVE_MIN_INTERVAL_MS } from "./autosave";
 /**
  * Máquina de estados de la sincronización del manuscrito.
  *
@@ -51,6 +52,7 @@ export interface SectionSaveState {
   analysisTaskId?: string | null;
   /** El servidor ha pospuesto el guardado automático. */
   throttled?: boolean;
+  retryAfterMs?: number;
   /** El servidor tiene otra versión. */
   conflict?: SectionConflict | null;
 }
@@ -81,7 +83,7 @@ export type SyncEvent =
   /** El servidor ha confirmado el guardado. */
   | { type: "sync-ok"; version: number }
   /** El servidor ha pospuesto el guardado automático. */
-  | { type: "sync-throttled" }
+  | { type: "sync-throttled"; retryAfterMs?: number }
   /** No hay conexión. */
   | { type: "sync-offline" }
   /** El servidor ha fallado. */
@@ -191,7 +193,7 @@ export function reduceSync(machine: SyncMachine, event: SyncEvent): SyncMachine 
         ...machine,
         state: "local",
         pending: true,
-        retryInMs: retryDelay(machine.attempts),
+        retryInMs: Math.max(0, event.retryAfterMs ?? AUTOSAVE_MIN_INTERVAL_MS),
       };
 
     case "sync-offline":

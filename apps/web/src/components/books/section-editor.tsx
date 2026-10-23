@@ -1,4 +1,6 @@
 "use client";
+import { AUTOSAVE_MIN_INTERVAL_MS } from "@/lib/editor/autosave";
+import { FOOTNOTE_EDIT_EVENT, parseFootnoteEdit } from "@/lib/editor/footnote-edit";
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -87,6 +89,7 @@ export function SectionEditor({
    */
   const [dialogo, setDialogo] = useState<{
     tipo: "enlace" | "nota";
+    noteId?: string;
     valor: string;
     /** Selección en el momento de abrir el diálogo, para poder volver a ella. */
     desde: number;
@@ -110,11 +113,19 @@ export function SectionEditor({
 
   const machineRef = useRef(machine);
   const versionRef = useRef(version);
+  const sectionTitleRef = useRef(sectionTitle);
+  useEffect(() => {
+    sectionTitleRef.current = sectionTitle;
+  }, [sectionTitle]);
+  const latestContentRef = useRef(JSON.stringify(content));
+  const flushPendingRef = useRef<() => void>(() => undefined);
+  const flushAfterRequestRef = useRef(false);
   const localVersionRef = useRef(0);
   /** Número de la petición en curso: descarta respuestas fuera de orden. */
   const requestRef = useRef(0);
   const localTimer = useRef<number | null>(null);
   const syncTimer = useRef<number | null>(null);
+  const autosaveNotBeforeRef = useRef(0);
   const retryTimer = useRef<number | null>(null);
 
   const dispatch = useCallback((event: Parameters<typeof reduceSync>[1]) => {
@@ -151,7 +162,8 @@ export function SectionEditor({
         ...(canEdit ? {} : { "aria-readonly": "true" }),
       },
     },
-    onUpdate: () => {
+    onUpdate: ({ editor: current }) => {
+      latestContentRef.current = JSON.stringify(current.getJSON());
       if (!canEdit) {
         return;
       }
@@ -166,6 +178,7 @@ export function SectionEditor({
     selector: ({ editor: current }) =>
       current
         ? {
+            imageSelected: current.isActive("image"),
             words: countWordsInDocument(current.getJSON() as TiptapDocument),
             characters: current.getText().length,
           }
@@ -220,6 +233,26 @@ export function SectionEditor({
     };
   }, [editor]);
 
+  useEffect(() => {
+    if (!editor || !canEdit) return;
+    const openNote = (event: Event) => {
+      const detail = parseFootnoteEdit((event as CustomEvent<unknown>).detail);
+      if (!detail) return;
+      const node = editor.state.doc.nodeAt(detail.pos);
+      if (node?.type.name !== "footnote" || node.attrs.id !== detail.id) return;
+      setDialogo({
+        tipo: "nota",
+        valor: detail.note,
+        noteId: detail.id,
+        desde: detail.pos,
+        hasta: detail.pos + node.nodeSize,
+      });
+    };
+    const dom = editor.view.dom;
+    dom.addEventListener(FOOTNOTE_EDIT_EVENT, openNote);
+    return () => dom.removeEventListener(FOOTNOTE_EDIT_EVENT, openNote);
+  }, [canEdit, editor]);
+
   // --- Recuperación del borrador local -------------------------------------
 
   useEffect(() => {
@@ -246,7 +279,7 @@ export function SectionEditor({
         setConflict({
           serverVersion: versionRef.current,
           serverContent: JSON.stringify(editor.getJSON() as TiptapDocument),
-          serverTitle: sectionTitle,
+          serverTitle: sectionTitleRef.current,
           serverAuthor: null,
         });
         dispatch({ type: "sync-conflict" });
@@ -278,7 +311,7 @@ export function SectionEditor({
     return () => {
       vivo = false;
     };
-  }, [bookId, canEdit, dispatch, editor, sectionId, sectionTitle, userId]);
+  }, [bookId, canEdit, dispatch, editor, sectionId, userId]);
 
   // --- Guardado local ------------------------------------------------------
 
@@ -318,6 +351,12 @@ export function SectionEditor({
         return;
       }
 
+      const remaining = autosaveNotBeforeRef.current - Date.now();
+      if (intent === "autosave" && remaining > 0) {
+        dispatch({ type: "sync-throttled", retryAfterMs: remaining });
+        return;
+      }
+
       if (estado.state === "syncing") {
         return;
       }
@@ -341,7 +380,7 @@ export function SectionEditor({
       const formData = new FormData();
       formData.set("sectionId", sectionId);
       formData.set("version", String(versionRef.current));
-      formData.set("content", JSON.stringify(editorActual.getJSON()));
+      formData.set("content", latestContentRef.current);
       formData.set("intent", intent);
 
       if (forzar) {
@@ -371,7 +410,9 @@ export function SectionEditor({
 
         if (resultado.throttled) {
           // El servidor ha pospuesto el guardado: el texto sigue pendiente.
-          dispatch({ type: "sync-throttled" });
+          const retryAfterMs = resultado.retryAfterMs ?? AUTOSAVE_MIN_INTERVAL_MS;
+          autosaveNotBeforeRef.current = Date.now() + retryAfterMs;
+          dispatch({ type: "sync-throttled", retryAfterMs });
           return;
         }
 
@@ -384,6 +425,7 @@ export function SectionEditor({
           }).catch(() => undefined);
         }
 
+        autosaveNotBeforeRef.current = 0;
         const versionGuardada = resultado.savedVersion ?? versionRef.current;
         versionRef.current = versionGuardada;
 
@@ -402,6 +444,11 @@ export function SectionEditor({
         }
 
         dispatch({ type: "sync-offline" });
+      } finally {
+        if (flushAfterRequestRef.current && peticion === requestRef.current) {
+          flushAfterRequestRef.current = false;
+          flushPendingRef.current();
+        }
       }
     },
     [bookId, canEdit, dispatch, editor, router, sectionId, userId],
@@ -415,13 +462,16 @@ export function SectionEditor({
         window.clearTimeout(syncTimer.current);
       }
 
-      syncTimer.current = window.setTimeout(() => {
-        syncTimer.current = null;
+      syncTimer.current = window.setTimeout(
+        () => {
+          syncTimer.current = null;
 
-        if (shouldSync(machineRef.current)) {
-          void sincronizar("autosave");
-        }
-      }, ms);
+          if (shouldSync(machineRef.current)) {
+            void sincronizar("autosave");
+          }
+        },
+        Math.max(ms, autosaveNotBeforeRef.current - Date.now()),
+      );
     },
     [sincronizar],
   );
@@ -499,9 +549,42 @@ export function SectionEditor({
     };
   }, [dispatch, sincronizar]);
 
+  // Conserva una instantánea antes de abandonar la página, incluso durante un envío.
+  useEffect(() => {
+    flushPendingRef.current = () => {
+      if (!canEdit || !hasUnsavedWork(machineRef.current)) return;
+      void saveDraft({
+        key: `${userId}:${bookId}:${sectionId}`,
+        userId,
+        bookId,
+        sectionId,
+        baseVersion: versionRef.current,
+        serverVersion: versionRef.current,
+        localVersion: localVersionRef.current,
+        content: latestContentRef.current,
+        updatedAt: new Date().toISOString(),
+        syncState: "local",
+      });
+      if (machineRef.current.state === "syncing") {
+        flushAfterRequestRef.current = true;
+      } else if (machineRef.current.state !== "conflict") {
+        void sincronizar("manual");
+      }
+    };
+  }, [bookId, canEdit, sectionId, sincronizar, userId]);
+
+  useEffect(() => {
+    const onHidden = () => {
+      if (document.visibilityState === "hidden") flushPendingRef.current();
+    };
+    document.addEventListener("visibilitychange", onHidden);
+    return () => document.removeEventListener("visibilitychange", onHidden);
+  }, []);
+
   // Limpieza de los temporizadores al desmontar.
   useEffect(
     () => () => {
+      flushPendingRef.current();
       if (localTimer.current !== null) {
         window.clearTimeout(localTimer.current);
       }
@@ -609,7 +692,7 @@ export function SectionEditor({
         />
       ) : null}
 
-      {canEdit && imageToolsOpen ? (
+      {canEdit && (imageToolsOpen || liveStats?.imageSelected) ? (
         <SectionImageControls
           editor={editor}
           bookId={bookId}
@@ -722,6 +805,18 @@ export function SectionEditor({
                 return;
               }
 
+              if (dialogo.noteId) {
+                const node = editor.state.doc.nodeAt(dialogo.desde);
+                if (node?.type.name !== "footnote" || node.attrs.id !== dialogo.noteId) return;
+                editor
+                  .chain()
+                  .focus()
+                  .setNodeSelection(dialogo.desde)
+                  .updateEditorialFootnote({ note: nota })
+                  .run();
+                setDialogo(null);
+                return;
+              }
               const id = globalThis.crypto.randomUUID();
 
               editor
@@ -765,6 +860,25 @@ export function SectionEditor({
               >
                 Cancelar
               </button>
+              {dialogo.noteId ? (
+                <button
+                  type="button"
+                  className="btn btn-danger btn-sm"
+                  onClick={() => {
+                    if (!editor) return;
+                    const node = editor.state.doc.nodeAt(dialogo.desde);
+                    if (node?.type.name !== "footnote" || node.attrs.id !== dialogo.noteId) return;
+                    editor
+                      .chain()
+                      .focus()
+                      .deleteRange({ from: dialogo.desde, to: dialogo.desde + node.nodeSize })
+                      .run();
+                    setDialogo(null);
+                  }}
+                >
+                  Eliminar nota
+                </button>
+              ) : null}
               <button
                 type="submit"
                 className="btn btn-primary btn-sm"
@@ -773,7 +887,7 @@ export function SectionEditor({
                   dialogo.valor.trim().length > MAX_FOOTNOTE_LENGTH
                 }
               >
-                Insertar nota
+                {dialogo.noteId ? "Guardar nota" : "Insertar nota"}
               </button>
             </div>
           </form>

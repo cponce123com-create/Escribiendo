@@ -3,9 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
-import { moveSectionAction } from "@/lib/books/actions";
+import { ConfirmButton } from "@/components/forms/confirm-button";
+import { deleteSectionAction, moveSectionAction } from "@/lib/books/actions";
+import type { ActionState } from "@/lib/action-state";
 import { initialActionState } from "@/lib/action-state";
 import { flattenSectionTree, type SectionNode } from "@/lib/books/section-tree";
+import { hierarchyTargets } from "@/lib/books/hierarchy-targets";
 import { groupSections } from "@/lib/books/studio";
 import { Dialog } from "@/components/forms/dialog";
 import { NewSectionForm } from "./new-section-form";
@@ -16,6 +19,7 @@ interface ManuscriptSidebarProps {
   nodes: SectionNode[];
   activeSectionId: string;
   canMove: boolean;
+  canDelete: boolean;
   canCreate: boolean;
   collapsed: boolean;
   onToggle: () => void;
@@ -27,26 +31,27 @@ export function ManuscriptSidebar({
   nodes,
   activeSectionId,
   canMove,
+  canDelete,
   canCreate,
   collapsed,
   onToggle,
 }: ManuscriptSidebarProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<ActionState>(initialActionState);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const flat = flattenSectionTree(nodes);
   const chapters = flat.filter((node) => node.type === "CHAPTER");
-  const move = (node: SectionNode, position: number): void => {
+  const move = (node: SectionNode, position: number, parentId = node.parentId): void => {
     if (!canMove || pending) return;
     const data = new FormData();
     data.set("sectionId", node.id);
-    data.set("parentId", node.parentId ?? "");
+    data.set("parentId", parentId ?? "");
     data.set("position", String(position));
     startTransition(async () => {
       const result = await moveSectionAction(initialActionState, data);
-      setMessage(result.message ?? "");
+      setMessage(result);
       if (result.status === "success") router.refresh();
     });
   };
@@ -55,6 +60,7 @@ export function ManuscriptSidebar({
       {list.map((node, groupIndex) => {
         const siblings = depth === 0 ? nodes : list;
         const index = siblings.findIndex((item) => item.id === node.id);
+        const targets = hierarchyTargets(node, nodes);
         const chapterIndex = chapters.findIndex((item) => item.id === node.id);
         return (
           <li key={node.id}>
@@ -103,40 +109,100 @@ export function ManuscriptSidebar({
                 )}
                 <span>{node.title}</span>
               </Link>
-              {canMove ? (
+              {canMove || canDelete ? (
                 <details className="studio-section-menu">
                   <summary aria-label={`Opciones de ${node.title}`} title="Opciones de la sección">
                     ⋮
                   </summary>
                   <div>
-                    <button
-                      type="button"
-                      disabled={pending || groupIndex === 0}
-                      onClick={(event) => {
-                        event.currentTarget.closest("details")?.removeAttribute("open");
-                        move(
-                          node,
-                          siblings.findIndex((item) => item.id === list[groupIndex - 1]?.id),
-                        );
-                      }}
-                      aria-label={`Subir ${node.title}`}
-                    >
-                      ↑ Subir
-                    </button>
-                    <button
-                      type="button"
-                      disabled={pending || groupIndex === list.length - 1}
-                      onClick={(event) => {
-                        event.currentTarget.closest("details")?.removeAttribute("open");
-                        move(
-                          node,
-                          siblings.findIndex((item) => item.id === list[groupIndex + 1]?.id),
-                        );
-                      }}
-                      aria-label={`Bajar ${node.title}`}
-                    >
-                      ↓ Bajar
-                    </button>
+                    {canMove ? (
+                      <>
+                        <button
+                          type="button"
+                          disabled={pending || groupIndex === 0}
+                          onClick={(event) => {
+                            event.currentTarget.closest("details")?.removeAttribute("open");
+                            move(
+                              node,
+                              siblings.findIndex((item) => item.id === list[groupIndex - 1]?.id),
+                            );
+                          }}
+                          aria-label={`Subir ${node.title}`}
+                        >
+                          ↑ Subir
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending || groupIndex === list.length - 1}
+                          onClick={(event) => {
+                            event.currentTarget.closest("details")?.removeAttribute("open");
+                            move(
+                              node,
+                              siblings.findIndex((item) => item.id === list[groupIndex + 1]?.id),
+                            );
+                          }}
+                          aria-label={`Bajar ${node.title}`}
+                        >
+                          ↓ Bajar
+                        </button>
+                      </>
+                    ) : null}
+                    {canMove ? (
+                      <>
+                        <button
+                          type="button"
+                          disabled={pending || !targets.indent}
+                          onClick={(event) => {
+                            event.currentTarget.closest("details")?.removeAttribute("open");
+                            if (targets.indent)
+                              move(node, targets.indent.position, targets.indent.parentId);
+                          }}
+                        >
+                          Sangrar
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending || !targets.outdent}
+                          onClick={(event) => {
+                            event.currentTarget.closest("details")?.removeAttribute("open");
+                            if (targets.outdent)
+                              move(node, targets.outdent.position, targets.outdent.parentId);
+                          }}
+                        >
+                          Sacar de
+                        </button>
+                      </>
+                    ) : null}
+                    {canDelete ? (
+                      <form
+                        action={async (data) => {
+                          const result = await deleteSectionAction(initialActionState, data);
+                          setMessage(result);
+                          if (result.status === "success") router.refresh();
+                        }}
+                      >
+                        <input type="hidden" name="sectionId" value={node.id} />
+                        {!flattenSectionTree([node]).some(
+                          (child) => child.id === activeSectionId,
+                        ) ? (
+                          <input type="hidden" name="stayInEditor" value="on" />
+                        ) : null}
+                        <ConfirmButton
+                          label="Eliminar"
+                          confirmLabel="Confirmar eliminación"
+                          description={`Se eliminará «${node.title}»${node.children.length ? ` y ${flattenSectionTree(node.children).length} subsecciones` : ""}.`}
+                          className="btn btn-danger btn-sm"
+                        >
+                          <span className="text-xs text-ink-soft">
+                            Se eliminará esta sección
+                            {node.children.length
+                              ? ` y ${flattenSectionTree(node.children).length} subsecciones`
+                              : ""}
+                            .
+                          </span>
+                        </ConfirmButton>
+                      </form>
+                    ) : null}
                   </div>
                 </details>
               ) : null}
@@ -195,6 +261,9 @@ export function ManuscriptSidebar({
                     {flattenSectionTree(group.nodes).length}
                   </span>
                 </summary>
+                {group.label === "Preliminares" ? (
+                  <p className="studio-group-empty">Índice (automático)</p>
+                ) : null}
                 {group.nodes.length ? (
                   renderNodes(group.nodes, 0)
                 ) : (
@@ -205,9 +274,14 @@ export function ManuscriptSidebar({
           </div>
         </>
       ) : null}
-      <p className="sr-only" role="status">
-        {pending ? "Guardando el orden…" : message}
-      </p>
+      {pending || message.message ? (
+        <p
+          className={`alert ${message.status === "error" ? "alert-error" : "alert-success"}`}
+          role="status"
+        >
+          {pending ? "Guardando el orden…" : message.message}
+        </p>
+      ) : null}
       {adding ? (
         <Dialog
           abierto

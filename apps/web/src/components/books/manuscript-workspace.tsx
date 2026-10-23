@@ -58,6 +58,7 @@ interface ManuscriptWorkspaceProps {
   nodes: SectionNode[];
   activeSectionId: string;
   canMove: boolean;
+  canDelete: boolean;
   canCreate: boolean;
   editor: ReactNode;
   details: ReactNode;
@@ -69,6 +70,7 @@ export function ManuscriptWorkspace({
   nodes,
   activeSectionId,
   canMove,
+  canDelete,
   canCreate,
   editor,
   details,
@@ -120,6 +122,7 @@ export function ManuscriptWorkspace({
         nodes={nodes}
         activeSectionId={activeSectionId}
         canMove={canMove}
+        canDelete={canDelete}
         canCreate={canCreate}
         collapsed={collapsed}
         onToggle={toggleSidebar}

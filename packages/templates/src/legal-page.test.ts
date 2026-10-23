@@ -137,7 +137,9 @@ describe("página legal", () => {
     });
     expect(result.ready).toBe(false);
     expect(result.warnings).toEqual(
-      expect.arrayContaining([expect.objectContaining({ code: "ISBN_INVALIDO", severity: "error" })]),
+      expect.arrayContaining([
+        expect.objectContaining({ code: "ISBN_INVALIDO", severity: "error" }),
+      ]),
     );
   });
 

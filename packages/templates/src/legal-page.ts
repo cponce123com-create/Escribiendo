@@ -188,7 +188,11 @@ export function parsePublicationDate(
     if (Number.isNaN(value.getTime())) {
       return null;
     }
-    return { year: value.getUTCFullYear(), month: value.getUTCMonth() + 1, day: value.getUTCDate() };
+    return {
+      year: value.getUTCFullYear(),
+      month: value.getUTCMonth() + 1,
+      day: value.getUTCDate(),
+    };
   }
 
   const trimmed = value.trim();
@@ -391,11 +395,7 @@ export interface LegalPageContributor {
 }
 
 export type LegalDepositState =
-  | "PENDING"
-  | "IN_PROGRESS"
-  | "NUMBER_PROVIDED"
-  | "DOCUMENTS_REVIEWED"
-  | "READY_FOR_REVIEW";
+  "PENDING" | "IN_PROGRESS" | "NUMBER_PROVIDED" | "DOCUMENTS_REVIEWED" | "READY_FOR_REVIEW";
 
 export interface LegalPageInput {
   template: LegalPageTemplate;
@@ -507,7 +507,9 @@ export function buildLegalPage(
   const copyrightYear =
     input.copyrightYear ??
     publicationParts?.year ??
-    (typeof input.publicationDate === "string" ? /^(\d{4})/.exec(input.publicationDate)?.[1] : null);
+    (typeof input.publicationDate === "string"
+      ? /^(\d{4})/.exec(input.publicationDate)?.[1]
+      : null);
 
   if (!title) {
     warn("FALTA_TITULO", "La página legal necesita el título de la obra.", "title", "error");
@@ -570,22 +572,26 @@ export function buildLegalPage(
     (template === "copyright-peru-publisher" ? clean(input.publisherName) : "");
 
   if (isPeru(template) && !legalPublisher) {
-    warn(
-      "FALTA_RESPONSABLE",
-      "Falta el responsable legal de la publicación.",
-      "legalPublisher",
-    );
+    warn("FALTA_RESPONSABLE", "Falta el responsable legal de la publicación.", "legalPublisher");
   }
   if (isPeru(template) && !clean(input.publisherName) && !clean(input.imprint)) {
     warn("FALTA_EDITORIAL", "Falta el sello o la editorial que publica.", "publisherName");
   }
   if (isPeru(template) && !clean(input.address)) {
-    warn("FALTA_DIRECCION", "Falta la dirección de la editorial para el depósito legal.", "address");
+    warn(
+      "FALTA_DIRECCION",
+      "Falta la dirección de la editorial para el depósito legal.",
+      "address",
+    );
   }
 
   if (mode === "print") {
     if (!clean(input.printer)) {
-      warn("FALTA_IMPRENTA", "Falta la imprenta; la edición impresa no debería cerrarse.", "printer");
+      warn(
+        "FALTA_IMPRENTA",
+        "Falta la imprenta; la edición impresa no debería cerrarse.",
+        "printer",
+      );
     }
     if (!input.printRun || input.printRun < 1) {
       warn("TIRAJE_PENDIENTE", "No se indicó el tiraje de la edición impresa.", "printRun", "info");
@@ -595,7 +601,12 @@ export function buildLegalPage(
   const licenseId = input.license ?? "all-rights-reserved";
   const license = licenseText(licenseId, input.customLicense);
   if (licenseId === "custom" && !license.summary) {
-    warn("LICENCIA_SIN_TEXTO", "La licencia personalizada no tiene texto.", "customLicense", "error");
+    warn(
+      "LICENCIA_SIN_TEXTO",
+      "La licencia personalizada no tiene texto.",
+      "customLicense",
+      "error",
+    );
   }
 
   const edition = clean(input.editionLabel) || editionLabel(input.editionNumber);
@@ -670,7 +681,10 @@ export function buildLegalPage(
     blocks.push({ role: "small", text: sentence(`Publicado por ${publisher}`) });
   }
   if (legalPublisher && legalPublisher !== publisher) {
-    blocks.push({ role: "small", text: sentence(`Responsable de la publicación: ${legalPublisher}`) });
+    blocks.push({
+      role: "small",
+      text: sentence(`Responsable de la publicación: ${legalPublisher}`),
+    });
   }
   if (clean(input.address)) {
     blocks.push({ role: "small", text: sentence(clean(input.address)) });
@@ -682,7 +696,8 @@ export function buildLegalPage(
 
   if (mode === "print") {
     if (clean(input.printer)) {
-      const run = input.printRun && input.printRun > 0 ? ` · Tirada: ${input.printRun} ejemplares` : "";
+      const run =
+        input.printRun && input.printRun > 0 ? ` · Tirada: ${input.printRun} ejemplares` : "";
       blocks.push({ role: "small", text: sentence(`Impreso por ${clean(input.printer)}${run}`) });
     }
   } else {
@@ -706,13 +721,18 @@ export function buildLegalPage(
     for (const contributor of contributors) {
       blocks.push({
         role: "small",
-        text: sentence(contributor.role ? `${contributor.role}: ${contributor.name}` : contributor.name),
+        text: sentence(
+          contributor.role ? `${contributor.role}: ${contributor.name}` : contributor.name,
+        ),
       });
     }
   }
 
   if (clean(input.imageCredits)) {
-    blocks.push({ role: "small", text: sentence(`Créditos de imagen: ${clean(input.imageCredits)}`) });
+    blocks.push({
+      role: "small",
+      text: sentence(`Créditos de imagen: ${clean(input.imageCredits)}`),
+    });
   }
   if (clean(input.thirdPartyCredits)) {
     blocks.push({ role: "small", text: sentence(clean(input.thirdPartyCredits)) });

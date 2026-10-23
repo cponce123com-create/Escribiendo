@@ -270,10 +270,7 @@ export interface TocLine {
   leaderDots: number;
 }
 
-export function formatTocLine(
-  entry: Pick<TocEntry, "title" | "label">,
-  widthChars = 60,
-): TocLine {
+export function formatTocLine(entry: Pick<TocEntry, "title" | "label">, widthChars = 60): TocLine {
   return {
     title: entry.title,
     label: entry.label,

@@ -163,7 +163,9 @@ export function countCharacters(value: string): number {
 export function estimateWrappedLines(text: string, charsPerLine = 40): number {
   return text
     .split(/\r?\n/)
-    .map((line) => Math.max(1, Math.ceil(Array.from(line.trim()).length / Math.max(1, charsPerLine))))
+    .map((line) =>
+      Math.max(1, Math.ceil(Array.from(line.trim()).length / Math.max(1, charsPerLine))),
+    )
     .reduce((total, lines) => total + lines, 0);
 }
 
@@ -304,7 +306,13 @@ export function buildEpigraphPage(input: EpigraphInput): EpigraphComposition {
     });
   }
 
-  return { template, characters, blocks, warnings, ready: !warnings.some((w) => w.severity === "error") };
+  return {
+    template,
+    characters,
+    blocks,
+    warnings,
+    ready: !warnings.some((w) => w.severity === "error"),
+  };
 }
 
 /** Agrupa epígrafes de capítulo conservando el orden de llegada. */
@@ -525,7 +533,12 @@ export function buildColophonPage(input: ColophonInput): ColophonComposition {
       blocks.push({ role: "small", text: `Impreso por ${printer}${place ? `, ${place}` : ""}.` });
       warn(warnings, "COLOFON_SIN_FECHA", "Falta la fecha de impresión para el colofón.", "info");
     } else {
-      warn(warnings, "COLOFON_SIN_IMPRENTA", "No hay imprenta; no se imprimirá el cierre de impresión.", "warning");
+      warn(
+        warnings,
+        "COLOFON_SIN_IMPRENTA",
+        "No hay imprenta; no se imprimirá el cierre de impresión.",
+        "warning",
+      );
     }
     if (input.printRun && input.printRun > 0) {
       blocks.push({ role: "small", text: `Tirada: ${input.printRun} ejemplares.` });

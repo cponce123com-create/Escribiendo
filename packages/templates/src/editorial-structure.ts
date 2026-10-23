@@ -423,9 +423,7 @@ const DEFINITIONS: Record<EditorialMatterKind, EditorialMatterDefinition> = {
 
 /** Definiciones en orden convencional, para menús y depuración. */
 export const EDITORIAL_MATTER_DEFINITIONS: readonly EditorialMatterDefinition[] =
-  editorialMatterKinds
-    .map((kind) => DEFINITIONS[kind])
-    .sort((a, b) => a.order - b.order);
+  editorialMatterKinds.map((kind) => DEFINITIONS[kind]).sort((a, b) => a.order - b.order);
 
 export function editorialMatterDefinition(kind: EditorialMatterKind): EditorialMatterDefinition {
   return DEFINITIONS[kind];

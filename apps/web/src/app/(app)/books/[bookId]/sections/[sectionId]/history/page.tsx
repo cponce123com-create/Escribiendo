@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { RestoreRevisionForm } from "@/components/books/restore-revision-form";
+import { canPerform } from "@/lib/books/permissions";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/auth/session";
@@ -100,6 +102,10 @@ export default async function HistoryPage({ params, searchParams }: HistoryPageP
                     <p className="px-2 text-xs text-ink-muted">
                       {revision.author.name} · {formatDateTime(revision.createdAt)}
                     </p>
+                    {canPerform(session.workspace.role, "revision:restore") &&
+                    revision.version !== section.version ? (
+                      <RestoreRevisionForm sectionId={section.id} revisionId={revision.id} />
+                    ) : null}
                   </li>
                 );
               })}

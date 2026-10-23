@@ -10,15 +10,15 @@
 
 Monorepo pnpm con separación estricta entre dominio puro y aplicación:
 
-| Paquete | Responsabilidad |
-| --- | --- |
+| Paquete                     | Responsabilidad                                                                                |
+| --------------------------- | ---------------------------------------------------------------------------------------------- |
 | `packages/editorial-engine` | Medición tipográfica, saltos de línea, paginación, validación de geometría. Sin base de datos. |
-| `packages/export-engine` | PDF, EPUB 3, DOCX y ZIP. Sin base de datos. |
-| `packages/book-schema` | Esquema Tiptap, metadatos básicos y límites de documento. |
-| `packages/templates` | Configuración tipográfica de plantillas y catálogo de sistema. |
-| `packages/database` | Cliente Prisma, esquema y comprobación de columnas. |
-| `apps/web` | Next.js: rutas, Server Actions, composición y UI. |
-| `workers/export-worker` | Procesamiento asíncrono de exportaciones. |
+| `packages/export-engine`    | PDF, EPUB 3, DOCX y ZIP. Sin base de datos.                                                    |
+| `packages/book-schema`      | Esquema Tiptap, metadatos básicos y límites de documento.                                      |
+| `packages/templates`        | Configuración tipográfica de plantillas y catálogo de sistema.                                 |
+| `packages/database`         | Cliente Prisma, esquema y comprobación de columnas.                                            |
+| `apps/web`                  | Next.js: rutas, Server Actions, composición y UI.                                              |
+| `workers/export-worker`     | Procesamiento asíncrono de exportaciones.                                                      |
 
 ## 2. Flujo de composición actual
 
@@ -47,15 +47,15 @@ Hallazgos relevantes:
 
 ## 3. Reutilización decidida
 
-| Necesidad | Solución |
-| --- | --- |
-| Orden editorial | Reutilizar `editorialOrder`; no crear otro orden. |
-| Composición | Extender `bookToBlocks` con materias estructuradas; misma ruta para preview y PDF. |
-| Tipografía | Reutilizar `EditorialTemplate` y `TypographyConfig`. |
-| Geometría | Reutilizar `LayoutProfile` y `PageGeometry`. |
-| Exportadores | Alimentar `ExportSection` con las materias compuestas; no duplicar PDF/EPUB/DOCX. |
-| Secciones narrativas | Seguir usando `BookSection` + Tiptap. |
-| Páginas automáticas | Nuevo `EditorialMatter` con datos estructurados, nunca Tiptap duplicado. |
+| Necesidad            | Solución                                                                           |
+| -------------------- | ---------------------------------------------------------------------------------- |
+| Orden editorial      | Reutilizar `editorialOrder`; no crear otro orden.                                  |
+| Composición          | Extender `bookToBlocks` con materias estructuradas; misma ruta para preview y PDF. |
+| Tipografía           | Reutilizar `EditorialTemplate` y `TypographyConfig`.                               |
+| Geometría            | Reutilizar `LayoutProfile` y `PageGeometry`.                                       |
+| Exportadores         | Alimentar `ExportSection` con las materias compuestas; no duplicar PDF/EPUB/DOCX.  |
+| Secciones narrativas | Seguir usando `BookSection` + Tiptap.                                              |
+| Páginas automáticas  | Nuevo `EditorialMatter` con datos estructurados, nunca Tiptap duplicado.           |
 
 ## 4. Modelo de datos propuesto
 
