@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildZip } from "@escribiendo/export-engine";
 
@@ -13,6 +14,7 @@ const { mockPrisma, mockTx, mockSession, mockRedirect, mockWriteAuditLog } = vi.
       aggregate: vi.fn(),
       count: vi.fn(),
     },
+    editorialMatter: { createMany: vi.fn() },
     sectionRevision: {
       createMany: vi.fn(),
     },
@@ -49,7 +51,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/navigation", () => ({ redirect: mockRedirect }));
 
 import { getSession } from "@/lib/auth/session";
-import { importBookAction } from "./import-actions";
+import { importBookAction, analyzeBookImportAction } from "./import-actions";
 
 function makeDocx(): Uint8Array {
   return buildZip(
@@ -71,6 +73,19 @@ function makeFormData(): FormData {
   const buffer = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(buffer).set(bytes);
   formData.append("file", new File([buffer], "manuscrito.docx"));
+  formData.set("authorName", "Ana Autora");
+  formData.set("fingerprint", createHash("sha256").update(bytes).digest("hex"));
+  formData.set(
+    "sectionChoices",
+    JSON.stringify(
+      [0, 1].map((index) => ({
+        index,
+        title: `Capítulo ${index + 1}`,
+        type: "CHAPTER",
+        include: true,
+      })),
+    ),
+  );
   return formData;
 }
 
@@ -106,7 +121,7 @@ describe("importBookAction", () => {
           workspaceId: "workspace-1",
           createdById: "user-1",
           title: "manuscrito",
-          authorName: "Autor desconocido",
+          authorName: "Ana Autora",
           language: "es",
         }),
       }),
@@ -154,5 +169,77 @@ describe("importBookAction", () => {
     expect(result.status).toBe("error");
     expect(result.message).toContain("permisos");
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("la revisión previa no crea libros ni revisiones", async () => {
+    mockPrisma.$transaction.mockClear();
+    const result = await analyzeBookImportAction(makeFormData());
+    expect(result.status).toBe("success");
+    expect(result.preview?.sections).toHaveLength(2);
+    expect(result.preview?.fingerprint).toMatch(/^[a-f0-9]{64}$/u);
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+  it("rechaza una revisión de otro archivo y no inventa autoría", async () => {
+    mockPrisma.$transaction.mockClear();
+    const form = makeFormData();
+    const preview = (await analyzeBookImportAction(form)).preview!;
+    form.set("fingerprint", "otro-archivo");
+    form.set(
+      "sectionChoices",
+      JSON.stringify(
+        preview.sections.map((section) => ({
+          index: section.index,
+          title: section.title,
+          type: section.type,
+          include: true,
+        })),
+      ),
+    );
+    expect((await importBookAction({ status: "idle" }, form)).message).toContain("archivo cambió");
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    form.delete("authorName");
+    expect(
+      (await importBookAction({ status: "idle" }, form)).fieldErrors?.authorName,
+    ).toBeDefined();
+  });
+  it("respeta la selección y clasifica página legal original como materia manual", async () => {
+    mockPrisma.$transaction.mockImplementation(
+      async (callback: (transaction: typeof mockTx) => unknown) => callback(mockTx),
+    );
+    mockTx.book.create.mockResolvedValue({ id: "book-imported" });
+    mockTx.bookSection.aggregate.mockResolvedValue({ _sum: { wordCount: 8 } });
+    mockTx.bookSection.count.mockResolvedValue(0);
+    mockTx.book.findUniqueOrThrow.mockResolvedValue({ targetWordCount: null });
+    mockRedirect.mockImplementation((path: string) => {
+      throw Object.assign(new Error(path), { digest: "NEXT_REDIRECT" });
+    });
+    const form = makeFormData();
+    const preview = (await analyzeBookImportAction(form)).preview!;
+    form.set("fingerprint", preview.fingerprint);
+    form.set(
+      "sectionChoices",
+      JSON.stringify(
+        preview.sections.map((section) => ({
+          index: section.index,
+          title: section.index === 0 ? "Mi página legal" : section.title,
+          type: section.index === 0 ? "COPYRIGHT" : section.type,
+          include: section.index === 0,
+        })),
+      ),
+    );
+    await expect(importBookAction({ status: "idle" }, form)).rejects.toThrow(
+      "/books/book-imported",
+    );
+    expect(mockTx.bookSection.createMany.mock.lastCall?.[0].data).toHaveLength(1);
+    expect(mockTx.bookSection.createMany.mock.lastCall?.[0].data[0]).toMatchObject({
+      type: "COPYRIGHT",
+      title: "Mi página legal",
+      showInToc: false,
+    });
+    expect(mockTx.editorialMatter.createMany.mock.lastCall?.[0].data[0]).toMatchObject({
+      kind: "COPYRIGHT",
+      mode: "MANUAL",
+      bookId: "book-imported",
+    });
   });
 });
