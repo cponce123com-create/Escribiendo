@@ -132,6 +132,36 @@ describe("vista previa paginada", () => {
     });
   });
 
+  it("avisa de una página legal habilitada que no se puede componer", async () => {
+    mockLoadBookMatter.mockResolvedValue({
+      tocMode: "AUTOMATIC",
+      tocSources: [],
+      tocOptions: {
+        depth: "chapters-h1",
+        includeFrontMatter: true,
+        includeBackMatter: true,
+        skipEmptyTitles: true,
+      },
+      legal: {
+        template: "copyright-international",
+        title: "Libro",
+        author: "Ana",
+        isbn: "123",
+      },
+      dropCap: { enabled: false, lines: 3 },
+      legalMode: "print",
+      legalPageMode: "TEMPLATE",
+      hasTocSection: false,
+      hasCopyrightSection: false,
+    });
+
+    const preview = await buildPreview(session, "book-1");
+
+    expect(preview?.diagnostics).toContainEqual(
+      expect.objectContaining({ code: "LEGAL_PAGE_INVALID", severity: "error" }),
+    );
+  });
+
   it("usa la inicial persistida en la edición", async () => {
     mockLoadBookMatter.mockResolvedValue({
       tocMode: "AUTOMATIC",

@@ -28,6 +28,7 @@ import {
 import {
   sectionsForMatter,
   EMPTY_MATTER,
+  assertLegalReady,
   composeMatter,
   type BookMatter,
 } from "@/lib/editorial/book-matter";
@@ -155,6 +156,10 @@ function geometryFromProfile(profile: NonNullable<GenerateInput["profile"]>): Pa
 
 /** Genera el archivo en el formato pedido. */
 export async function generateFile(input: GenerateInput): Promise<GeneratedFile> {
+  // Una página legal habilitada pero inválida no puede omitirse en silencio:
+  // se detiene la exportación y el editor ve qué campo corregir.
+  assertLegalReady(input.matter ?? null);
+
   const info = FORMAT_INFO[input.format];
   const footnoteCounter = { next: 1 };
   const sectionBlocks = input.sections.map((section) => sectionToBlocks(section, footnoteCounter));
@@ -170,6 +175,10 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
   if (input.cover?.src) {
     sources.push(input.cover.src);
   }
+  const legalLogoUrl = input.matter?.legal?.logoUrl;
+  if (legalLogoUrl) {
+    sources.push(legalLogoUrl);
+  }
   const target: ImageTarget =
     input.format === "EPUB3" ? "epub" : input.format === "DOCX" ? "docx" : "pdf";
   const loadedImages = await loadExportImages({
@@ -177,6 +186,24 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
     target,
     ...(input.images ? { provided: input.images } : {}),
   });
+  const logoAsset = legalLogoUrl ? loadedImages.assets.get(legalLogoUrl) : undefined;
+  const matter = input.matter
+    ? {
+        ...input.matter,
+        ...(logoAsset && legalLogoUrl
+          ? {
+              logoImage: {
+                src: legalLogoUrl,
+                alt: "Logotipo editorial",
+                widthPx: logoAsset.width,
+                heightPx: logoAsset.height,
+                widthPercent: 25,
+                alignment: "center" as const,
+              },
+            }
+          : {}),
+      }
+    : null;
   const imageOccurrences = sectionBlocks.reduce(
     (total, blocks) =>
       total + blocks.filter((block) => block.kind === "image" && block.image?.src).length,
@@ -239,21 +266,18 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
       physicalPageOffset: input.cover ? 1 : 0,
     };
     const compose = (front: readonly MatterLayout[], back: readonly MatterLayout[]) =>
-      bookToBlocks(sectionsForMatter(previewSections, input.matter ?? null), {
+      bookToBlocks(sectionsForMatter(previewSections, matter), {
         dropCaps: input.dropCaps === true,
         ...(input.dropCapLines ? { dropCapLines: input.dropCapLines } : {}),
-        ...(input.matter?.dropCap?.overrides
-          ? { dropCapOverrides: input.matter.dropCap.overrides }
-          : {}),
+        ...(matter?.dropCap?.overrides ? { dropCapOverrides: matter.dropCap.overrides } : {}),
         frontMatter: front,
         backMatter: back,
-        ...(input.matter?.dedication ? { dedication: input.matter.dedication } : {}),
+        ...(matter?.dedication ? { dedication: matter.dedication } : {}),
         contentHeightMm: textBlockSize(geometry).heightMm,
       });
     const pdfFonts = await loadPdfFonts();
     const measure = pdfFonts?.measure;
     estimatedPagination = !pdfFonts;
-    const matter = input.matter ?? null;
     const { composition, stability } = stabilizeComposition({
       matter,
       geometry,
@@ -335,7 +359,7 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
     fuentesIncrustadas = pdf.fuentesIncrustadas;
     fuentesOmitidas = pdf.fuentesOmitidas;
   } else {
-    const reflowSections = sectionsForMatter(input.sections, input.matter ?? null);
+    const reflowSections = sectionsForMatter(input.sections, matter);
     const reflowBlocks = reflowSections.map((section) => {
       const blocks =
         sectionBlocks[input.sections.findIndex((item) => item.id === section.id)] ?? [];
@@ -364,15 +388,13 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
     );
 
     // Materias generadas por la misma ruta; en formatos refluibles no hay folios físicos.
-    const generated = input.matter ? composeMatter(input.matter, new Map()) : EMPTY_MATTER;
+    const generated = matter ? composeMatter(matter, new Map()) : EMPTY_MATTER;
     const generatedChapters: ExportChapter[] = generated.front
       .filter((item) => input.format !== "EPUB3" || item.id !== "matter-toc")
       .map((item) => ({
         id: item.id,
         title:
-          item.id === "matter-toc"
-            ? (input.matter?.tocParameters?.tocTitle ?? "Índice")
-            : "Página legal",
+          item.id === "matter-toc" ? (matter?.tocParameters?.tocTitle ?? "Índice") : "Página legal",
         showTitle: false,
         showInToc: false,
         blocks: item.blocks.map((block) => ({
@@ -410,21 +432,18 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
         .slice(0, 32)
         .replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/u, "$1-$2-$3-$4-$5")}`,
       chapters,
-      ...(input.matter
+      ...(matter
         ? {
             toc: {
-              title: input.matter.tocParameters?.tocTitle ?? "Índice",
-              entries: buildTocEntries(input.matter.tocSources, input.matter.tocOptions).map(
-                (entry) => ({
-                  ...entry,
-                  sectionId:
-                    reflowSections.find(
-                      (section) =>
-                        section.id === entry.sourceId ||
-                        entry.sourceId.startsWith(`${section.id}-`),
-                    )?.id ?? entry.sourceId,
-                }),
-              ),
+              title: matter.tocParameters?.tocTitle ?? "Índice",
+              entries: buildTocEntries(matter.tocSources, matter.tocOptions).map((entry) => ({
+                ...entry,
+                sectionId:
+                  reflowSections.find(
+                    (section) =>
+                      section.id === entry.sourceId || entry.sourceId.startsWith(`${section.id}-`),
+                  )?.id ?? entry.sourceId,
+              })),
             },
           }
         : {}),
@@ -434,7 +453,16 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
     bytes =
       input.format === "EPUB3"
         ? buildEpub(model, input.createdAt, loadedImages.assets)
-        : buildDocx(model, input.createdAt, loadedImages.assets);
+        : buildDocx(model, input.createdAt, loadedImages.assets, {
+            pageWidthMm: input.profile?.pageWidthMm,
+            pageHeightMm: input.profile?.pageHeightMm,
+            marginTopMm: input.profile?.marginTopMm,
+            marginBottomMm: input.profile?.marginBottomMm,
+            marginInnerMm: input.profile?.marginInnerMm,
+            marginOuterMm: input.profile?.marginOuterMm,
+            gutterMm: input.profile?.gutterMm,
+            dropCapLines: input.dropCapLines ?? 3,
+          });
   }
 
   return {

@@ -98,6 +98,25 @@ describe("geometría compartida de vista previa y PDF", () => {
     expect(firstLine?.xMm).toBeGreaterThan((capital?.xMm ?? 0) + 1);
   });
 
+  it("conserva la puntuación de apertura al extraer la inicial", () => {
+    const page: LaidOutPage = {
+      ...PAGE,
+      blocks: [
+        {
+          ...PAGE.blocks[1]!,
+          lines: [{ text: "«Aquella casa»", hyphenated: false, overflow: false }],
+          dropCapCharacter: "A",
+        },
+      ],
+    };
+    const pdf = toPdfPages([page], PROFILE, TYPOGRAPHY, new Map()).pdfPages[0];
+    const textos = pdf?.runs.map((run) => run.text) ?? [];
+
+    expect(textos).toContain("A");
+    expect(textos.join("")).toContain("«quella casa»");
+    expect(textos.join("")).not.toContain("Aquella");
+  });
+
   it("coloca el folio del índice y el líder en las mismas coordenadas en PDF y vista previa", () => {
     const tocLine = {
       text: "Capítulo primero",

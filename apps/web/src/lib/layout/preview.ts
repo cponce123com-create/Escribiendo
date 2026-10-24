@@ -25,7 +25,13 @@ import {
   type MatterLayout,
   type PreviewSection,
 } from "./blocks";
-import { sectionsForMatter, type BookMatter, loadBookMatter } from "@/lib/editorial/book-matter";
+import {
+  legalPageErrors,
+  loadBookMatter,
+  sectionsForMatter,
+  type BookMatter,
+} from "@/lib/editorial/book-matter";
+import { attachMatterLogo, loadMatterLogo } from "@/lib/editorial/logo";
 import {
   stabilizeComposition,
   tocDiagnostics,
@@ -206,7 +212,8 @@ export async function buildPreview(
   }
 
   const sections = await loadPreviewSections(session, bookId);
-  const matter = options.matterOverride ?? (await loadBookMatter(session, bookId, sections));
+  const baseMatter = options.matterOverride ?? (await loadBookMatter(session, bookId, sections));
+  const matter = baseMatter ? await attachMatterLogo(baseMatter) : baseMatter;
 
   // La inicial es una decisión persistida de la edición. La opción explícita
   // solo permite previsualizar un estado sin guardarlo (pruebas y galerías).
@@ -269,9 +276,32 @@ export async function buildPreview(
     pageIndex: item.pageIndex + coverShift,
   }));
 
+  const legalDiagnostics: LayoutDiagnostic[] = legalPageErrors(matter).map((message) => ({
+    code: "LEGAL_PAGE_INVALID",
+    severity: "error",
+    message,
+    sectionId: "matter-copyright",
+  }));
+  const logoDiagnostics: LayoutDiagnostic[] =
+    matter?.legal?.logoUrl && !matter.logoImage
+      ? [
+          {
+            code: "MATTER_LOGO_OMITIDO",
+            severity: "warning",
+            message: "El logotipo editorial no se pudo resolver y se ha omitido.",
+            sectionId: "matter-copyright",
+          },
+        ]
+      : [];
+
   return {
     pages,
-    diagnostics: [...result.diagnostics, ...tocDiagnostics(stability)],
+    diagnostics: [
+      ...result.diagnostics,
+      ...tocDiagnostics(stability),
+      ...legalDiagnostics,
+      ...logoDiagnostics,
+    ],
     toc: stability,
     profile,
     template: edition?.template ?? null,
@@ -348,10 +378,16 @@ export async function buildLegalMatterPreview(
   const cover = await loadPreviewCover(session, bookId);
   const geometry = { ...geometryFromProfile(profile), physicalPageOffset: cover ? 1 : 0 };
   const composed = buildLegalPage(legal, { mode });
+  const logo = await loadMatterLogo(legal.logoUrl);
   const blocks = legalPageToBlocks(
     // La galería enseña también las plantillas incompletas y sus avisos.
     { ...composed, ready: true },
-    { id: "matter-copyright", sectionTitle: "Créditos", pageBreakBefore: true },
+    {
+      id: "matter-copyright",
+      sectionTitle: "Créditos",
+      pageBreakBefore: true,
+      ...(logo ? { resolveImage: (src: string) => (src === logo.src ? logo : null) } : {}),
+    },
   );
   const result = paginate(blocks, geometry, typography, fuentes?.measure);
   const bookTitle = await previewBookTitle(session, bookId);

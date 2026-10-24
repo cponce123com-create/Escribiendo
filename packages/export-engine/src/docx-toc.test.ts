@@ -53,6 +53,46 @@ describe("índice en DOCX", () => {
     expect(xml).not.toContain("....");
   });
 
+  it("respeta el tamaño de página, los márgenes y las líneas de la inicial", () => {
+    const conCapitular: ExportDocumentModel = {
+      ...DOCUMENTO,
+      chapters: [
+        {
+          id: "capitulo",
+          title: "Uno",
+          showTitle: false,
+          dropCap: true,
+          blocks: [
+            {
+              kind: "body",
+              text: "Capítulo primero",
+              toc: { title: "Capítulo primero", label: "42", leaders: true, level: 1 },
+            },
+            { kind: "body", text: "Aquella casa" },
+          ],
+        },
+      ],
+    };
+    const xml = documentXml(
+      buildDocx(conCapitular, FECHA, undefined, {
+        pageWidthMm: 148,
+        pageHeightMm: 210,
+        marginTopMm: 20,
+        marginBottomMm: 20,
+        marginInnerMm: 18,
+        marginOuterMm: 14,
+        gutterMm: 0,
+        dropCapLines: 2,
+      }),
+    );
+
+    expect(xml).toContain('<w:pgSz w:w="8391" w:h="11906"/>');
+    expect(xml).toContain('w:right="794"');
+    expect(xml).toContain('w:left="1020"');
+    expect(xml).toContain('w:pos="6577"');
+    expect(xml).toContain('w:lines="2"');
+  });
+
   it("sangra los niveles anidados sin repetir el folio en el texto", () => {
     expect(xml).toContain('<w:ind w:left="283"/>');
     expect(xml).toContain("Apartado anidado");

@@ -1,7 +1,15 @@
 import { expect, it, vi } from "vitest";
+import type { LegalPageInput } from "@escribiendo/templates";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/db", () => ({ prisma: {} }));
-import { composeMatter, sectionsForMatter, type BookMatter } from "./book-matter";
+import {
+  assertLegalReady,
+  composeMatter,
+  legalPageErrors,
+  LegalPageInvalidError,
+  sectionsForMatter,
+  type BookMatter,
+} from "./book-matter";
 const matter: BookMatter = {
   tocSources: [{ id: "chapter", title: "Capítulo", level: 1, group: "body", showInToc: true }],
   tocOptions: { depth: "chapters-h1" },
@@ -19,6 +27,59 @@ it("un índice antiguo no apaga el automático sin modo MANUAL explícito", () =
   ).toBe(true);
   expect(composeMatter({ ...matter, tocMode: "MANUAL" }, new Map()).front).toEqual([]);
 });
+const invalidLegal: LegalPageInput = {
+  template: "copyright-international",
+  title: "Libro",
+  author: "Ana",
+  isbn: "123",
+};
+
+it("una página legal habilitada con errores bloquea la exportación", () => {
+  const legal: BookMatter = {
+    ...matter,
+    legal: invalidLegal,
+    legalPageMode: "TEMPLATE",
+    hasCopyrightSection: false,
+  };
+
+  expect(legalPageErrors(legal)).toEqual([expect.stringContaining("ISBN")]);
+  expect(() => assertLegalReady(legal)).toThrow(LegalPageInvalidError);
+});
+
+it("no valida la página legal desactivada, manual o sustituida por una sección", () => {
+  expect(legalPageErrors({ ...matter, legal: invalidLegal, legalPageMode: "DISABLED" })).toEqual(
+    [],
+  );
+  expect(legalPageErrors({ ...matter, legal: invalidLegal, legalPageMode: "MANUAL" })).toEqual([]);
+  expect(legalPageErrors({ ...matter, legal: invalidLegal, hasCopyrightSection: true })).toEqual(
+    [],
+  );
+});
+
+it("compone el logotipo resuelto en la página legal", () => {
+  const logoUrl = "https://res.cloudinary.com/demo/image/upload/logo.png";
+  const legal: LegalPageInput = {
+    template: "copyright-international",
+    title: "Libro",
+    author: "Ana",
+    logoUrl,
+  };
+  const front = composeMatter(
+    {
+      ...matter,
+      legal,
+      legalPageMode: "TEMPLATE",
+      logoImage: { src: logoUrl, widthPx: 120, heightPx: 40, widthPercent: 25 },
+    },
+    new Map(),
+  ).front;
+  const legalLayout = front.find((item) => item.id === "matter-copyright");
+
+  expect(
+    legalLayout?.blocks.some((block) => block.kind === "image" && block.image?.src === logoUrl),
+  ).toBe(true);
+});
+
 it("cambiar modos legales excluye de la salida sin modificar secciones", () => {
   const sections = [
     { id: "legal", type: "COPYRIGHT" },

@@ -19,6 +19,7 @@ const TITULOS: Record<LayoutDiagnostic["code"], string> = {
   TOC_NOT_CONVERGED: "Índice inestable",
   TOC_FOLIO_MISMATCH: "Folio del índice descuadrado",
   MATTER_LOGO_OMITIDO: "Logotipo de materia omitido",
+  LEGAL_PAGE_INVALID: "Página legal incompleta",
 };
 
 interface DiagnosticsPanelProps {

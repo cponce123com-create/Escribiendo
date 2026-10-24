@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import { AppError } from "@/lib/errors";
 import {
   dedicationSettingsFrom,
   dropCapSettingsFrom,
@@ -8,7 +9,7 @@ import {
   type DedicationSettings,
   type DropCapSettings,
 } from "./template-settings";
-import type { LaidOutPage } from "@escribiendo/editorial-engine";
+import type { EditorialImage, LaidOutPage } from "@escribiendo/editorial-engine";
 import {
   tocParametersFrom,
   type TocParameters,
@@ -66,6 +67,49 @@ export interface BookMatter {
   manualLegalLayout?: MatterLayout;
   legalTemplateVersion?: number;
   frozenLegal?: ReturnType<typeof buildLegalPage>;
+  /** Logotipo del sello ya resuelto con sus dimensiones, si existe. */
+  logoImage?: EditorialImage;
+}
+
+/**
+ * Errores que impiden componer una página legal habilitada.
+ *
+ * Una página deshabilitada, manual o sustituida por una sección propia no se
+ * valida: el editor ha decidido no generarla. Si se genera y no está lista,
+ * la exportación se detiene en lugar de omitirla en silencio.
+ */
+export function legalPageErrors(matter: BookMatter | null): string[] {
+  if (!matter?.legal) return [];
+
+  const mode = matter.legalPageMode;
+
+  if (mode === "DISABLED" || mode === "MANUAL") return [];
+  if (matter.hasCopyrightSection && mode !== "TEMPLATE") return [];
+
+  const composed = matter.frozenLegal ?? buildLegalPage(matter.legal, { mode: matter.legalMode });
+
+  return composed.warnings
+    .filter((warning) => warning.severity === "error")
+    .map((warning) => warning.message);
+}
+
+/** Error de exportación: hay una página legal habilitada que no se puede componer. */
+export class LegalPageInvalidError extends AppError {
+  constructor(readonly errors: readonly string[]) {
+    super(
+      "INVALID_INPUT",
+      `La página legal tiene errores que impiden exportar: ${errors.join(" ")}`,
+    );
+    this.name = "LegalPageInvalidError";
+  }
+}
+
+export function assertLegalReady(matter: BookMatter | null): void {
+  const errors = legalPageErrors(matter);
+
+  if (errors.length > 0) {
+    throw new LegalPageInvalidError(errors);
+  }
 }
 
 export interface ComposedMatter {
@@ -518,12 +562,14 @@ export function composeMatter(
     matter.legal
   ) {
     const composed = matter.frozenLegal ?? buildLegalPage(matter.legal, { mode: matter.legalMode });
+    const logo = matter.logoImage;
     const blocks = legalPageToBlocks(
       matter.previewIncompleteLegal ? { ...composed, ready: true } : composed,
       {
         id: "matter-copyright",
         sectionTitle: "Créditos",
         pageBreakBefore: true,
+        ...(logo ? { resolveImage: (src: string) => (src === logo.src ? logo : null) } : {}),
       },
     );
 

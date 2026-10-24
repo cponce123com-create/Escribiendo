@@ -3,6 +3,7 @@ import type { PreviewCover, PreviewPage } from "@/lib/layout/preview";
 import {
   baselineCorrectionPt,
   dropCapCorrectionPt,
+  extractDropCapGrapheme,
   isHeadingKind,
   type InlineRun,
   type LaidOutBlock,
@@ -332,6 +333,16 @@ function PreviewBlock({
 }) {
   const { style } = block;
   const lineHeight = style.fontSizePt * style.lineHeight;
+  const firstLine = block.lines[0];
+  const firstLineSegments: InlineRun[] = firstLine
+    ? firstLine.segments && firstLine.segments.length > 0
+      ? firstLine.segments
+      : [{ text: firstLine.text }]
+    : [];
+  const dropCap =
+    block.dropCapCharacter && firstLineSegments.length > 0
+      ? extractDropCapGrapheme(firstLineSegments, block.dropCapCharacter)
+      : null;
 
   return (
     <div
@@ -355,7 +366,7 @@ function PreviewBlock({
         fontStyle: block.kind === "blockquote" ? "italic" : undefined,
       }}
     >
-      {block.dropCapCharacter ? (
+      {dropCap?.removed ? (
         // La inicial se dibuja aparte, como en el PDF: el texto de la primera
         // línea ya no la contiene y las tres primeras líneas están sangradas
         // por el motor para dejarle el hueco.
@@ -445,22 +456,14 @@ function PreviewBlock({
         block.lines.map((line, index) => {
           const placement = drawnLines[index];
           // El motor reserva el hueco de la inicial pero deja la letra en el
-          // texto; el PDF la dibuja aparte. Aquí se hace lo mismo para no
-          // duplicarla ni desplazar el primer renglón.
-          let dropCapPending = index === 0 && block.dropCapCharacter !== undefined;
+          // texto; aquí se quita exactamente el grafema que se dibuja aparte,
+          // conservando comillas, rayas y signos de apertura.
           const segments: InlineRun[] =
-            line.segments && line.segments.length > 0 ? line.segments : [{ text: line.text }];
-          const stripDropCap = (text: string): string => {
-            if (!dropCapPending || text.length === 0) {
-              return text;
-            }
-
-            dropCapPending = false;
-            const [, ...rest] = [
-              ...new Intl.Segmenter("es", { granularity: "grapheme" }).segment(text),
-            ];
-            return rest.map((item) => item.segment).join("");
-          };
+            index === 0 && dropCap
+              ? dropCap.segments
+              : line.segments && line.segments.length > 0
+                ? line.segments
+                : [{ text: line.text }];
 
           return (
             <div
@@ -483,7 +486,7 @@ function PreviewBlock({
                 }}
               >
                 {segments.map((segment, segmentIndex) => {
-                  const text = stripDropCap(segment.text);
+                  const text = segment.text;
 
                   if (text.length === 0) {
                     return null;

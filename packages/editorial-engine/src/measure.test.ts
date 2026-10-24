@@ -118,6 +118,22 @@ describe("breakIntoLines", () => {
     expect(lineas[0]?.overflow).toBe(false);
   });
 
+  it("respeta los saltos de línea del autor", () => {
+    const lineas = breakIntoLines("primera línea\nsegunda línea", opciones);
+
+    expect(lineas.map((linea) => linea.text)).toEqual(["primera línea", "segunda línea"]);
+  });
+
+  it("no vuelve a aplicar la sangría de primera línea tras un salto", () => {
+    const lineas = breakIntoLines("primera\nsegunda", {
+      ...opciones,
+      lineWidthMm: 200,
+      firstLineIndentMm: 5,
+    });
+
+    expect(lineas.map((linea) => linea.text)).toEqual(["primera", "segunda"]);
+  });
+
   it("parte el texto en varias líneas cuando no cabe", () => {
     const texto = "el velo de la tarde caía sobre la plaza mientras el reloj marcaba las siete";
     const lineas = breakIntoLines(texto, opciones);

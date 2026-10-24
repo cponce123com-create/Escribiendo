@@ -104,7 +104,11 @@ function styleForRole(role: MatterRole): RoleStyle | null {
 }
 
 function normalizedText(value: string): string {
-  return value.replace(/\s+/gu, " ").trim();
+  return value
+    .replace(/[^\S\r\n]+/gu, " ")
+    .replace(/ *\r?\n */gu, "\n")
+    .replace(/\n{3,}/gu, "\n\n")
+    .trim();
 }
 
 /** Milímetros a puntos tipográficos (1 pt = 25,4/72 mm). */

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { dropCapGrapheme, dropCapMetrics, normalizeDropCapLines } from "./drop-cap";
+import {
+  dropCapGrapheme,
+  dropCapMetrics,
+  extractDropCapGrapheme,
+  normalizeDropCapLines,
+} from "./drop-cap";
 import { textLinePlacement } from "./drawing";
 import { paginate, type LayoutBlock, type PageGeometry } from "./pagination";
 import { withTypographyDefaults } from "./typography";
@@ -40,6 +45,57 @@ describe("selección del grafema inicial", () => {
   it("devuelve null cuando no hay ningún carácter visible", () => {
     expect(dropCapGrapheme("   ")).toBeNull();
     expect(dropCapGrapheme("«»—")).toBeNull();
+  });
+});
+
+describe("extracción del grafema inicial", () => {
+  it("quita solo la letra y conserva comillas, rayas y signos", () => {
+    expect(extractDropCapGrapheme([{ text: "«Aquella casa»" }], "A")).toEqual({
+      segments: [{ text: "«quella casa»" }],
+      removed: true,
+    });
+    expect(extractDropCapGrapheme([{ text: "—¿Quién llama?" }], "Q")).toEqual({
+      segments: [{ text: "—¿uién llama?" }],
+      removed: true,
+    });
+    expect(extractDropCapGrapheme([{ text: "“Había una vez”" }], "H")).toEqual({
+      segments: [{ text: "“abía una vez”" }],
+      removed: true,
+    });
+    expect(extractDropCapGrapheme([{ text: "¡Hola!" }], "H")).toEqual({
+      segments: [{ text: "¡ola!" }],
+      removed: true,
+    });
+  });
+
+  it("respeta los tramos con formato y las marcas combinadas", () => {
+    const segments = [
+      { text: "«", marks: { italic: true } },
+      { text: "Ángela", marks: { bold: true } },
+    ];
+
+    expect(extractDropCapGrapheme(segments, "Á")).toEqual({
+      segments: [
+        { text: "«", marks: { italic: true } },
+        { text: "ngela", marks: { bold: true } },
+      ],
+      removed: true,
+    });
+
+    const combinada = "A\u0301ngela";
+    const caracter = dropCapGrapheme(combinada);
+
+    expect(caracter).not.toBeNull();
+    expect(extractDropCapGrapheme([{ text: combinada }], caracter!).segments[0]?.text).toBe(
+      "ngela",
+    );
+  });
+
+  it("no toca la línea si el grafema no está", () => {
+    expect(extractDropCapGrapheme([{ text: "Hola" }], "Z")).toEqual({
+      segments: [{ text: "Hola" }],
+      removed: false,
+    });
   });
 });
 

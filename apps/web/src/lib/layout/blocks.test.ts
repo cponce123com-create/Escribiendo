@@ -450,6 +450,36 @@ describe("bookToBlocks", () => {
     expect(bloques.at(-1)?.alignment).toBe("right");
   });
 
+  it("conserva los saltos de línea del autor en la dedicatoria", () => {
+    const dedication: PreviewSection = {
+      ...seccion(
+        documento({
+          type: "paragraph",
+          content: [
+            { type: "text", text: "Para Ana," },
+            { type: "hardBreak" },
+            { type: "text", text: "que siempre lee." },
+          ],
+        }),
+        "Dedicatoria",
+      ),
+      type: "DEDICATION",
+    };
+
+    expect(sectionToBlocks(dedication)[0]?.text).toBe("Para Ana,\nque siempre lee.");
+
+    const bloques = bookToBlocks([dedication], {
+      dedication: {
+        template: "classic",
+        alignment: "right",
+        verticalPosition: "upper",
+        signature: "",
+      },
+    });
+
+    expect(bloques[1]?.text).toBe("Para Ana,\nque siempre lee.");
+  });
+
   it("conserva la dedicatoria anterior si la edición no configuró una", () => {
     const dedication: PreviewSection = {
       ...seccion(

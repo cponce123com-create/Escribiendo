@@ -16,7 +16,7 @@ import { buildDedicationPage } from "@escribiendo/templates";
 import { matterPageToBlocks } from "@/lib/editorial/matter-blocks";
 import type { DedicationSettings } from "@/lib/editorial/template-settings";
 import { editorialImageFromNode } from "./image";
-import { inlineRuns, listRuns, trimRuns, type FootnoteCounter } from "./inline";
+import { inlineRuns, listRuns, trimRuns, type FootnoteCounter, type InlineOptions } from "./inline";
 import { sectionDisplayTitles } from "./section-title";
 
 /**
@@ -230,27 +230,32 @@ export function sectionToBlocks(
     index += 1;
   };
 
+  // La dedicatoria conserva los saltos manuales del autor; el resto del
+  // manuscrito se compone por párrafos y un salto duro equivale a un espacio.
+  const inlineOptions: InlineOptions =
+    section.type.toUpperCase() === "DEDICATION" ? { hardBreak: "newline" } : {};
+
   for (const node of document.content ?? []) {
     switch (node.type) {
       case "heading":
-        pushRuns(headingKind(node), inlineRuns(node, counter));
+        pushRuns(headingKind(node), inlineRuns(node, counter, inlineOptions));
         break;
 
       case "paragraph":
-        pushRuns("body", inlineRuns(node, counter));
+        pushRuns("body", inlineRuns(node, counter, inlineOptions));
         break;
 
       case "blockquote":
-        pushRuns("blockquote", inlineRuns(node, counter));
+        pushRuns("blockquote", inlineRuns(node, counter, inlineOptions));
         break;
 
       case "codeBlock":
-        pushRuns("code", inlineRuns(node, counter));
+        pushRuns("code", inlineRuns(node, counter, inlineOptions));
         break;
 
       case "bulletList":
       case "orderedList":
-        pushRuns("list", listRuns(node, counter));
+        pushRuns("list", listRuns(node, counter, inlineOptions));
         break;
 
       case "horizontalRule":
@@ -263,7 +268,7 @@ export function sectionToBlocks(
         break;
 
       default: {
-        const runs = inlineRuns(node, counter);
+        const runs = inlineRuns(node, counter, inlineOptions);
 
         if (runs.length > 0) {
           pushRuns("body", runs);

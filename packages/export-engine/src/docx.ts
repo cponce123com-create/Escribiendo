@@ -310,9 +310,12 @@ function blockParagraph(
   styleId: string | null,
   links: string[],
   dropCap = false,
+  dropCapLines: 2 | 3 = 3,
 ): string {
   const style = styleId ? `<w:pStyle w:val="${styleId}"/>` : "";
-  const frame = dropCap ? '<w:framePr w:dropCap="drop" w:lines="3" w:wrap="around"/>' : "";
+  const frame = dropCap
+    ? `<w:framePr w:dropCap="drop" w:lines="${dropCapLines}" w:wrap="around"/>`
+    : "";
   const alignment = block.alignment ? `<w:jc w:val="${block.alignment}"/>` : "";
   const properties =
     style || frame || alignment ? `<w:pPr>${style}${frame}${alignment}</w:pPr>` : "";
@@ -324,14 +327,25 @@ function blockParagraph(
 const RULE_PARAGRAPH =
   '<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="808080"/></w:pBdr></w:pPr></w:p>';
 
-/**
- * Ancho útil de la página de Word: A4 (11906 twips) menos los márgenes de
- * 1418 twips de cada lado. La tabulación derecha se ancla ahí.
- */
-const DOCX_TEXT_WIDTH_TWIPS = 11906 - 1418 * 2;
+/** Milímetros a twips (1 pulgada = 25,4 mm = 1440 twips). */
+function mmToTwips(mm: number): number {
+  return Math.round((mm * 1440) / 25.4);
+}
+
+/** Geometría opcional del DOCX; sin ella se conserva el A4 histórico. */
+export interface DocxOptions {
+  pageWidthMm?: number;
+  pageHeightMm?: number;
+  marginTopMm?: number;
+  marginBottomMm?: number;
+  marginInnerMm?: number;
+  marginOuterMm?: number;
+  gutterMm?: number;
+  dropCapLines?: 2 | 3;
+}
 
 /** Párrafo de índice: título, tabulación derecha con relleno y folio. */
-function tocParagraph(block: ExportBlock): string {
+function tocParagraph(block: ExportBlock, textWidthTwips: number): string {
   const entry = block.toc;
   if (!entry) {
     return blockParagraph(block, null, []);
@@ -342,7 +356,7 @@ function tocParagraph(block: ExportBlock): string {
   const level = Math.max(0, (entry.level ?? 1) - 1);
   const indent = level > 0 ? `<w:ind w:left="${Math.min(7200, level * 283)}"/>` : "";
   const tab = label
-    ? `<w:tabs><w:tab w:val="right"${entry.leaders ? ' w:leader="dot"' : ""} w:pos="${DOCX_TEXT_WIDTH_TWIPS}"/></w:tabs>`
+    ? `<w:tabs><w:tab w:val="right"${entry.leaders ? ' w:leader="dot"' : ""} w:pos="${textWidthTwips}"/></w:tabs>`
     : "";
   const runs = label
     ? `<w:r><w:t xml:space="preserve">${title}</w:t></w:r><w:r><w:tab/></w:r><w:r><w:t xml:space="preserve">${label}</w:t></w:r>`
@@ -417,7 +431,24 @@ export function buildDocx(
   document: ExportDocumentModel,
   createdAt: Date,
   assets?: ExportImageMap,
+  options: DocxOptions = {},
 ): Uint8Array {
+  const pageWidthTwips = options.pageWidthMm !== undefined ? mmToTwips(options.pageWidthMm) : 11906;
+  const pageHeightTwips =
+    options.pageHeightMm !== undefined ? mmToTwips(options.pageHeightMm) : 16838;
+  const marginTopTwips = options.marginTopMm !== undefined ? mmToTwips(options.marginTopMm) : 1418;
+  const marginBottomTwips =
+    options.marginBottomMm !== undefined ? mmToTwips(options.marginBottomMm) : 1418;
+  const marginInnerTwips =
+    options.marginInnerMm !== undefined ? mmToTwips(options.marginInnerMm) : 1418;
+  const marginOuterTwips =
+    options.marginOuterMm !== undefined ? mmToTwips(options.marginOuterMm) : 1418;
+  const gutterTwips = options.gutterMm !== undefined ? mmToTwips(options.gutterMm) : 0;
+  const textWidthTwips = Math.max(
+    1000,
+    pageWidthTwips - marginInnerTwips - marginOuterTwips - gutterTwips,
+  );
+  const dropCapLines = options.dropCapLines ?? 3;
   const body: string[] = [];
   /** Enlaces del documento, para las relaciones de Word. */
   const links: string[] = [];
@@ -465,13 +496,13 @@ export function buildDocx(
       }
 
       if (block.toc) {
-        body.push(tocParagraph(block));
+        body.push(tocParagraph(block, textWidthTwips));
         continue;
       }
 
       const dropCap = chapter.dropCap && !dropCapApplied && block.kind === "body";
       if (dropCap) dropCapApplied = true;
-      body.push(blockParagraph(block, null, links, dropCap));
+      body.push(blockParagraph(block, null, links, dropCap, dropCapLines));
     }
   }
 
@@ -484,7 +515,7 @@ export function buildDocx(
         `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n` +
           `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">\n` +
           `<w:body>\n${body.join("\n")}\n` +
-          `<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1418" w:right="1418" w:bottom="1418" w:left="1418" w:header="709" w:footer="709" w:gutter="0"/></w:sectPr>\n` +
+          `<w:sectPr><w:pgSz w:w="${pageWidthTwips}" w:h="${pageHeightTwips}"/><w:pgMar w:top="${marginTopTwips}" w:right="${marginOuterTwips}" w:bottom="${marginBottomTwips}" w:left="${marginInnerTwips}" w:header="709" w:footer="709" w:gutter="${gutterTwips}"/></w:sectPr>\n` +
           `</w:body>\n</w:document>\n`,
       ),
     },

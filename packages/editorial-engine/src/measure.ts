@@ -177,6 +177,29 @@ export interface BreakOptions extends MeasureOptions {
  * guionado, una palabra que no cabe se parte por la sílaba más larga posible.
  */
 export function breakIntoLines(text: string, options: BreakOptions): LineBreak[] {
+  const paragraphs = text.split("\n");
+
+  if (paragraphs.length === 1) {
+    return breakParagraph(text, options, 0);
+  }
+
+  const lines: LineBreak[] = [];
+
+  for (const paragraph of paragraphs) {
+    lines.push(...breakParagraph(paragraph, options, lines.length));
+  }
+
+  return lines;
+}
+
+/**
+ * Compone un párrafo sin saltos forzados.
+ *
+ * `lineOffset` conserva la posición dentro del bloque cuando `breakIntoLines`
+ * encadena varios segmentos separados por saltos del autor: las sangrías por
+ * línea (inicial capitular) y la sangría de primera línea no se reinician.
+ */
+function breakParagraph(text: string, options: BreakOptions, lineOffset: number): LineBreak[] {
   const words = splitWords(text);
 
   if (words.length === 0) {
@@ -189,11 +212,12 @@ export function breakIntoLines(text: string, options: BreakOptions): LineBreak[]
 
   let current: string[] = [];
   let currentWidth = 0;
-  let isFirstLine = true;
+  let isFirstLine = lineOffset === 0;
 
   const availableWidth = (): number => {
     const indent =
-      options.lineIndentsMm?.[lines.length] ?? (isFirstLine ? (options.firstLineIndentMm ?? 0) : 0);
+      options.lineIndentsMm?.[lineOffset + lines.length] ??
+      (isFirstLine ? (options.firstLineIndentMm ?? 0) : 0);
     return options.lineWidthMm - indent;
   };
 

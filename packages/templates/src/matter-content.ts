@@ -61,8 +61,13 @@ function clean(value: string | null | undefined): string {
 function paragraphs(value: string): string[] {
   return value
     .split(/\n\s*\n/)
-    .map((paragraph) => paragraph.replace(/\s+/g, " ").trim())
-    .filter(Boolean);
+    .map((paragraph) =>
+      paragraph
+        .split(/\r?\n/)
+        .map((line) => line.replace(/[^\S\r\n]+/gu, " ").trim())
+        .join("\n"),
+    )
+    .filter((paragraph) => paragraph.replace(/\s/gu, "").length > 0);
 }
 
 function warn(
