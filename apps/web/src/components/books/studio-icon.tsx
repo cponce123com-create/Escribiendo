@@ -19,6 +19,7 @@ const paths = {
   chevrons: "M13 7l-5 5 5 5M18 7l-5 5 5 5",
   plus: "M12 5v14M5 12h14",
   check: "M5 12l4 4L19 6",
+  trash: "M3 6h18M8 6V4h8v2m1 0-.8 14H7.8L7 6m3 4v6m4-6v6",
 } as const;
 
 export function StudioIcon({

@@ -111,6 +111,40 @@ it("la barra lateral y el árbol real enlazan ambas materias a las galerías", (
   expect(sidebar).toContain("/books/book/edicion#toc-title");
   expect(sidebar).toContain("/books/book/edicion#legal-title");
 });
+it("muestra una acción accesible para eliminar cada parte cuando el rol tiene permiso", () => {
+  const sidebar = renderToStaticMarkup(
+    createElement(ManuscriptSidebar, {
+      bookId: "book",
+      nodes,
+      activeSectionId: "chapter",
+      canMove: false,
+      canDelete: true,
+      canCreate: false,
+      collapsed: false,
+      onToggle: () => {},
+    }),
+  );
+
+  expect(sidebar).toContain('aria-label="Eliminar parte «Copyright»"');
+  expect(sidebar).toContain('aria-label="Eliminar parte «Índice»"');
+});
+it("explica la restricción de rol cuando no se permite eliminar partes", () => {
+  const sidebar = renderToStaticMarkup(
+    createElement(ManuscriptSidebar, {
+      bookId: "book",
+      nodes,
+      activeSectionId: "chapter",
+      canMove: true,
+      canDelete: false,
+      canCreate: false,
+      collapsed: false,
+      onToggle: () => {},
+    }),
+  );
+
+  expect(sidebar).toContain("Eliminar partes: solo propietarios o administradores.");
+  expect(sidebar).not.toContain('aria-label="Eliminar parte «Copyright»"');
+});
 it("una URL antigua comprueba la sección y redirige a su galería", async () => {
   await expect(
     SectionPage({

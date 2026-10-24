@@ -1886,6 +1886,33 @@ html[data-focus-mode="true"] .app-topbar {
 .studio-section-menu {
   position: relative;
 }
+.studio-delete-section {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 6px;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+.studio-delete-section svg {
+  width: 16px;
+  height: 16px;
+}
+.studio-delete-section:hover,
+.studio-delete-section:focus-visible {
+  background: color-mix(in srgb, var(--danger) 9%, transparent);
+  color: var(--danger);
+}
+.studio-delete-section:focus-visible {
+  outline: 2px solid var(--danger);
+  outline-offset: 2px;
+}
+.studio-delete-section:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
 .studio-section-menu summary {
   list-style: none;
   cursor: pointer;
@@ -1914,6 +1941,12 @@ html[data-focus-mode="true"] .app-topbar {
 }
 .studio-section-menu button:disabled {
   opacity: 0.4;
+}
+.studio-section-delete-help {
+  padding: 7px;
+  color: var(--ink-muted);
+  font-size: 11px;
+  line-height: 1.4;
 }
 .studio-writing-column {
   padding: 14px 18px 12px 22px;
