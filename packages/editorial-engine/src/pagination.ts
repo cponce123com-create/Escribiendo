@@ -102,6 +102,13 @@ export interface LayoutBlock {
    * centrar una dedicatoria no debe obligar a inventar un estilo nuevo.
    */
   alignment?: TextAlignment;
+  /**
+   * El bloque pertenece a la región inferior de una materia y se ancla al pie
+   * del área de texto. El primer bloque anclado de la página absorbe el espacio
+   * libre que queda por debajo del contenido, de modo que la región inferior no
+   * flota detrás de la superior ni depende de un número fijo de renglones.
+   */
+  bottomAnchor?: boolean;
 }
 
 export interface PageGeometry {
@@ -345,7 +352,31 @@ export function paginate(
   const pageSide = (index: number): "recto" | "verso" =>
     (index - 1 + (geometry.physicalPageOffset ?? 0)) % 2 === 0 ? "recto" : "verso";
 
+  /**
+   * Bloques que forman la región inferior de una materia.
+   *
+   * Se guardan por id porque el mismo bloque puede llegar partido entre dos
+   * páginas: solo la primera parte ancla la región, no su continuación.
+   */
+  const bottomAnchoredIds = new Set(
+    blocks.filter((block) => block.bottomAnchor === true).map((block) => block.id),
+  );
+
   const flushPage = (blank = false): void => {
+    // La región inferior de una materia se ancla al pie del área de texto: el
+    // espacio libre se suma al primer bloque anclado. Así la posición no
+    // depende de contar renglones y la vista previa y el PDF comparten la
+    // misma geometría.
+    const anchorIndex = currentBlocks.findIndex(
+      (block) => block.continued !== true && bottomAnchoredIds.has(block.id),
+    );
+    const anchor = anchorIndex >= 0 ? currentBlocks[anchorIndex] : undefined;
+
+    if (anchor) {
+      anchor.spaceBeforeMm += Math.max(0, heightMm - usedHeightMm);
+      usedHeightMm = heightMm;
+    }
+
     pageIndex += 1;
 
     pages.push({

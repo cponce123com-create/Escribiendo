@@ -1,5 +1,7 @@
 import { z } from "zod";
-import { LEGAL_FIELD_LABELS } from "@/lib/editorial/template-settings";
+import { DEFAULT_DEDICATION_SETTINGS, LEGAL_FIELD_LABELS } from "@/lib/editorial/template-settings";
+import { DedicationSettings } from "@/components/layout/dedication-settings";
+import { sectionToBlocks } from "@/lib/layout/blocks";
 import { TocTemplateGallery } from "@/components/layout/toc-template-gallery";
 import { buildTocPreview } from "@/lib/editorial/toc-preview";
 import {
@@ -36,6 +38,14 @@ export default async function EditionMatterPage({
     legacy && (legacy.type === "COPYRIGHT" || legacy.type === "TABLE_OF_CONTENTS") ? legacy : null;
   const sections = await loadPreviewSections(session, bookId);
   const matter = await loadBookMatter(session, bookId, sections);
+  const dedicationSection =
+    sections.find((section) => section.type.toUpperCase() === "DEDICATION") ?? null;
+  const dedicationText = dedicationSection
+    ? sectionToBlocks(dedicationSection)
+        .map((block) => block.text.trim())
+        .filter(Boolean)
+        .join("\n\n")
+    : "";
   const manuscriptSection = sections.find(
     (section) => section.type !== "COPYRIGHT" && section.type !== "TABLE_OF_CONTENTS",
   );
@@ -131,6 +141,13 @@ export default async function EditionMatterPage({
         canManage={canPerform(session.workspace.role, "layout:manage")}
         warning={diagnostics.find((item) => item.code === "INDICE_SIN_CUERPO")?.message ?? null}
         manual={matter?.tocMode === "MANUAL"}
+      />
+      <DedicationSettings
+        bookId={bookId}
+        initial={matter?.dedication ?? DEFAULT_DEDICATION_SETTINGS}
+        text={dedicationText}
+        sectionId={dedicationSection?.id ?? null}
+        canManage={canPerform(session.workspace.role, "layout:manage")}
       />
       <LegalTemplateGallery
         bookId={bookId}

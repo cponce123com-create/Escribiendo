@@ -160,6 +160,24 @@ describe("legalPageToBlocks", () => {
     expect(blocks[3]?.alignment).toBe("left");
     expect(blocks[3]?.text).toContain("© 1963");
   });
+
+  it("ancla al pie la región inferior del preset de referencia", () => {
+    const result: LegalPageResult = {
+      template: "copyright-peru-classic-reference",
+      templateVersion: 1,
+      ready: true,
+      warnings: [],
+      blocks: [
+        { role: "small", text: "© 2026 Autora. Todos los derechos reservados.", region: "top" },
+        { role: "small", text: "ISBN: 978-84-376-0494-7", region: "bottom" },
+        { role: "small", text: "Impreso por Imprenta del Pacífico.", region: "bottom" },
+      ],
+    };
+
+    const blocks = legalPageToBlocks(result, { id: "copyright" });
+
+    expect(blocks.map((block) => block.bottomAnchor === true)).toEqual([false, true, true]);
+  });
 });
 
 describe("tocToBlocks", () => {

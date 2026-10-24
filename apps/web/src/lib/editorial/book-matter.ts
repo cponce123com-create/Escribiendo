@@ -1,6 +1,11 @@
 import "server-only";
 import { cache } from "react";
-import { legalFieldsSchema, settingsRecord } from "./template-settings";
+import {
+  dedicationSettingsFrom,
+  legalFieldsSchema,
+  settingsRecord,
+  type DedicationSettings,
+} from "./template-settings";
 import type { LaidOutPage } from "@escribiendo/editorial-engine";
 import {
   tocParametersFrom,
@@ -40,6 +45,12 @@ export interface BookMatter {
   tocTemplateVersion?: number;
   /** Datos de la página legal; `null` si el libro no tiene título o autoría. */
   legal: LegalPageInput | null;
+  /**
+   * Composición de la dedicatoria elegida para esta edición. `undefined`
+   * significa que la edición nunca la configuró: se conserva la composición
+   * anterior de la sección, sin migraciones silenciosas.
+   */
+  dedication?: DedicationSettings;
   legalMode: "print" | "digital";
   /** El manuscrito ya incluye una sección de índice. */
   hasTocSection: boolean;
@@ -432,6 +443,7 @@ async function readBookMatter(
   const tocRow =
     tocRows.find((row) => settingsRecord(row.data).editionId === edition?.id) ??
     tocRows.find((row) => !settingsRecord(row.data).editionId);
+  const dedication = dedicationSettingsFrom(settingsRecord(edition?.settings).dedication);
   return {
     tocMode:
       tocRow?.mode === "MANUAL"
@@ -457,6 +469,7 @@ async function readBookMatter(
       skipEmptyTitles: true,
     },
     legal,
+    ...(dedication ? { dedication } : {}),
     legalPageMode:
       mode === "MANUAL" || mode === "DISABLED"
         ? mode

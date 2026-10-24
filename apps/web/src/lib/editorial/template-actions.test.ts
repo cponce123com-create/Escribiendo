@@ -107,3 +107,48 @@ it("persiste el diseño del índice y las columnas de profundidad con alcance de
   m.role = "REVIEWER";
   expect((await updateTocTemplateAction({ status: "idle" }, f)).status).toBe("error");
 });
+
+it("persiste la composición de la dedicatoria sin tocar el resto de ajustes", async () => {
+  const { updateDedicationAction } = await import("./template-actions");
+  const f = new FormData();
+  f.set("bookId", bookId);
+  f.set("template", "literary");
+  f.set("alignment", "center");
+  f.set("verticalPosition", "lower");
+  f.set("signature", "La autora");
+
+  expect((await updateDedicationAction({ status: "idle" }, f)).status).toBe("success");
+  expect(m.update.mock.calls[0]?.[0].data.settings).toMatchObject({
+    unrelated: true,
+    dedication: {
+      template: "literary",
+      alignment: "center",
+      verticalPosition: "lower",
+      signature: "La autora",
+    },
+  });
+  expect(m.audit).toHaveBeenCalledWith(
+    expect.objectContaining({ action: "DEDICATION_UPDATED" }),
+    expect.anything(),
+  );
+});
+
+it("rechaza una dedicatoria inválida o sin permiso", async () => {
+  const { updateDedicationAction } = await import("./template-actions");
+  const f = new FormData();
+  f.set("bookId", bookId);
+  f.set("template", "otra");
+  f.set("alignment", "center");
+  f.set("verticalPosition", "lower");
+  expect((await updateDedicationAction({ status: "idle" }, f)).status).toBe("error");
+  expect(m.update).not.toHaveBeenCalled();
+
+  m.role = "REVIEWER";
+  const valid = new FormData();
+  valid.set("bookId", bookId);
+  valid.set("template", "minimal");
+  valid.set("alignment", "right");
+  valid.set("verticalPosition", "upper");
+  expect((await updateDedicationAction({ status: "idle" }, valid)).status).toBe("error");
+  expect(m.update).not.toHaveBeenCalled();
+});

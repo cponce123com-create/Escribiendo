@@ -208,12 +208,40 @@ describe("página legal", () => {
     const text = result.blocks.map((block) => block.text).join("\n");
     expect(text).toContain("Depósito legal en trámite");
   });
+
+  it("separa derechos y créditos en dos regiones para el preset de referencia", () => {
+    const result = buildLegalPage({
+      ...COMPLETE_PERU_PAGE,
+      template: "copyright-peru-classic-reference",
+    });
+
+    const top = result.blocks.filter((block) => block.region !== "bottom");
+    const bottom = result.blocks.filter((block) => block.region === "bottom");
+    const topText = top.map((block) => block.text).join("\n");
+    const bottomText = bottom.map((block) => block.text).join("\n");
+
+    expect(result.ready).toBe(true);
+    expect(top.length).toBeGreaterThan(0);
+    expect(bottom.length).toBeGreaterThan(0);
+    expect(topText).toContain("© 2026 Mario Vargas Llosa");
+    expect(topText).not.toContain("ISBN");
+    expect(bottomText).toContain("ISBN: 978-84-376-0494-7");
+    expect(bottomText).toContain("Primera edición");
+    // La referencia no repite en la página legal la identidad de la portadilla.
+    expect(result.blocks.some((block) => block.role === "title")).toBe(false);
+    expect(result.blocks.some((block) => block.role === "author")).toBe(false);
+  });
+
+  it("no marca regiones en las plantillas de una sola zona", () => {
+    const result = buildLegalPage(COMPLETE_PERU_PAGE);
+    expect(result.blocks.every((block) => block.region === undefined)).toBe(true);
+  });
 });
 
 describe("catálogo legal", () => {
   it("cada plantilla tiene versión y no inventa campos ausentes", async () => {
     const { LEGAL_TEMPLATE_CATALOG, missingLegalFields } = await import("./legal-page");
-    expect(LEGAL_TEMPLATE_CATALOG).toHaveLength(7);
+    expect(LEGAL_TEMPLATE_CATALOG).toHaveLength(8);
     for (const item of LEGAL_TEMPLATE_CATALOG) {
       expect(item.version).toBeGreaterThan(0);
       expect(item.requiredFields.length).toBeGreaterThan(0);

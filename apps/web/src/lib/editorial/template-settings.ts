@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { dedicationTemplates } from "@escribiendo/templates";
 import { tieneControlesIlegales } from "@escribiendo/shared";
 const text = z
   .string()
@@ -38,6 +39,36 @@ export const LEGAL_FIELD_LABELS: Record<string, string> = {
   printRun: "Tiraje (ejemplares)",
   editionLabel: "Nombre de la edición",
 };
+/**
+ * Composición de la dedicatoria por edición.
+ *
+ * El texto sigue viviendo en la sección `DEDICATION` del manuscrito: aquí solo
+ * se guarda cómo se compone. Una edición sin esta clave conserva exactamente
+ * la composición anterior, de modo que activar el preset es reversible.
+ */
+export const dedicationSettingsSchema = z
+  .object({
+    template: z.enum(dedicationTemplates).default("minimal"),
+    alignment: z.enum(["left", "center", "right"]).default("right"),
+    verticalPosition: z.enum(["upper", "center", "lower"]).default("upper"),
+    signature: text.optional().default(""),
+  })
+  .strict();
+export type DedicationSettings = z.infer<typeof dedicationSettingsSchema>;
+export const DEFAULT_DEDICATION_SETTINGS: DedicationSettings = {
+  template: "minimal",
+  alignment: "right",
+  verticalPosition: "upper",
+  signature: "",
+};
+/** Devuelve `null` cuando la edición nunca guardó una dedicatoria configurada. */
+export function dedicationSettingsFrom(value: unknown): DedicationSettings | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const parsed = dedicationSettingsSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
 export function settingsRecord(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)

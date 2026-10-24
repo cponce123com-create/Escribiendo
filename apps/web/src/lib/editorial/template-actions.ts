@@ -16,7 +16,7 @@ import { writeAuditLog } from "@/lib/auth/audit";
 import { prisma } from "@/lib/db";
 import { errorState, successState, formValue } from "@/lib/form-helpers";
 import type { ActionState } from "@/lib/action-state";
-import { legalFieldsSchema, settingsRecord } from "./template-settings";
+import { dedicationSettingsSchema, legalFieldsSchema, settingsRecord } from "./template-settings";
 
 export async function updateLegalTemplateAction(
   _previous: ActionState,
@@ -256,4 +256,91 @@ export async function updateTocTemplateAction(
   for (const path of ["/edicion", "/layout", "/preview", "/export"])
     revalidatePath(`/books/${bookId.data}${path}`);
   return successState("Plantilla de índice guardada.");
+}
+
+/**
+ * Guarda la composición de la dedicatoria de la edición actual.
+ *
+ * El texto no se duplica: sigue en la sección `DEDICATION`. Solo se persiste
+ * cómo se compone, de modo que la vista previa y el PDF apliquen exactamente
+ * la misma plantilla, alineación, posición y firma.
+ */
+export async function updateDedicationAction(
+  _previous: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  let context;
+  try {
+    context = await assertServerActionOrigin();
+  } catch {
+    return errorState("No se ha podido validar la solicitud.");
+  }
+  const session = await getSession();
+  if (!session) return errorState("Inicia sesión para guardar la dedicatoria.");
+  try {
+    assertCanPerform(session.workspace.role, "layout:manage");
+  } catch {
+    return errorState("No tienes permisos para gestionar la maquetación.");
+  }
+  const bookId = z.string().uuid().safeParse(formValue(form, "bookId"));
+  if (!bookId.success) return errorState("El libro no es válido.");
+  const dedication = dedicationSettingsSchema.safeParse({
+    template: formValue(form, "template"),
+    alignment: formValue(form, "alignment"),
+    verticalPosition: formValue(form, "verticalPosition"),
+    signature: formValue(form, "signature"),
+  });
+  if (!dedication.success)
+    return errorState(
+      dedication.error.issues[0]?.message ?? "Revisa la composición de la dedicatoria.",
+    );
+  try {
+    const editionId = await prisma.$transaction(
+      async (tx) => {
+        const edition = await tx.bookEdition.findFirst({
+          where: {
+            bookId: bookId.data,
+            book: { workspaceId: session.workspace.id, deletedAt: null },
+          },
+          orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+          select: { id: true, settings: true },
+        });
+        if (!edition) throw new Error("Aplica primero una maqueta a este libro.");
+        const settings = {
+          ...settingsRecord(edition.settings),
+          dedication: dedication.data,
+        };
+        await tx.bookEdition.update({
+          where: { id: edition.id },
+          data: { settings: JSON.parse(JSON.stringify(settings)) },
+        });
+        return edition.id;
+      },
+      { isolationLevel: "Serializable" },
+    );
+    await writeAuditLog(
+      {
+        action: "DEDICATION_UPDATED",
+        entityType: "BookEdition",
+        entityId: editionId,
+        workspaceId: session.workspace.id,
+        actorId: session.user.id,
+        metadata: {
+          template: dedication.data.template,
+          alignment: dedication.data.alignment,
+          verticalPosition: dedication.data.verticalPosition,
+        },
+      },
+      context,
+    );
+  } catch (error) {
+    return errorState(
+      error instanceof Error && error.message === "Aplica primero una maqueta a este libro."
+        ? error.message
+        : "No se pudo guardar. Vuelve a intentarlo.",
+    );
+  }
+  for (const path of ["/edicion", "/layout", "/preview", "/export"])
+    revalidatePath(`/books/${bookId.data}${path}`);
+  return successState("Dedicatoria guardada.");
 }

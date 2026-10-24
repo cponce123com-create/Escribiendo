@@ -49,6 +49,18 @@ describe("dedicatoria", () => {
     expect(page.blocks.some((block) => block.role === "right")).toBe(true);
   });
 
+  it("conserva la cursiva literaria con alineación a la derecha", () => {
+    const page = buildDedicationPage({
+      text: "Para Ana.",
+      template: "literary",
+      alignment: "right",
+    });
+    const paragraph = page.blocks.find((block) => block.text === "Para Ana.");
+
+    expect(paragraph?.role).toBe("italic");
+    expect(paragraph?.alignment).toBe("right");
+  });
+
   it("avisa cuando la dedicatoria es demasiado larga sin recortarla", () => {
     const text = "a".repeat(600);
     const page = buildDedicationPage({ text });

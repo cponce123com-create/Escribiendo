@@ -43,6 +43,10 @@ interface RoleBlock {
   text: string;
   spaceMm?: number;
   spaceFraction?: number;
+  /** Región de la página en los presets de dos zonas. */
+  region?: "top" | "bottom";
+  /** Alineación propia, que prevalece sobre la del papel editorial. */
+  alignment?: TextAlignment;
 }
 
 export interface MatterBlockOptions {
@@ -113,7 +117,8 @@ function mmToPoints(mm: number): number {
  *
  * El orden se conserva. El primer bloque emitido marca el inicio de la sección
  * y, si la materia lo pide, el salto de página; los papeles descartados no
- * consumen esa marca.
+ * consumen esa marca. Los bloques de la región inferior se marcan para que la
+ * paginación los ancle al pie del área de texto.
  */
 export function roleBlocksToBlocks(
   blocks: readonly RoleBlock[],
@@ -127,10 +132,18 @@ export function roleBlocksToBlocks(
     ...(options.sectionTitle ? { sectionTitle: options.sectionTitle } : {}),
   });
 
-  const push = (kind: LayoutBlockKind, text: string, style: RoleStyle, spaceBeforePt = 0): void => {
+  const push = (
+    kind: LayoutBlockKind,
+    text: string,
+    style: RoleStyle,
+    spaceBeforePt = 0,
+    bottomAnchor = false,
+    alignment?: TextAlignment,
+  ): void => {
     const runs: InlineRun[] | undefined = style.italic
       ? [{ text, marks: { italic: true } }]
       : undefined;
+    const resolvedAlignment = alignment ?? style.alignment;
 
     result.push({
       id: `${options.id}-${index}`,
@@ -138,11 +151,12 @@ export function roleBlocksToBlocks(
       text,
       ...(runs ? { runs } : {}),
       ...registration(),
-      ...(style.alignment ? { alignment: style.alignment } : {}),
+      ...(resolvedAlignment ? { alignment: resolvedAlignment } : {}),
       ...(spaceBeforePt > 0 ? { styleOverride: { spaceBeforePt } } : {}),
       firstOfSection: index === 0,
       ...(index === 0 && options.pageBreakBefore === true ? { breaksBefore: true } : {}),
       ...(index === 0 && options.startsChapter === true ? { startsChapter: true } : {}),
+      ...(bottomAnchor ? { bottomAnchor: true } : {}),
     });
 
     index += 1;
@@ -156,6 +170,8 @@ export function roleBlocksToBlocks(
       pendingSpaceMm += (block.spaceMm ?? 0) + (block.spaceFraction ?? 0) * contentHeightMm;
       continue;
     }
+
+    const bottomAnchor = block.region === "bottom";
 
     if (block.role === "logo") {
       const src = normalizedText(block.text);
@@ -173,6 +189,7 @@ export function roleBlocksToBlocks(
           firstOfSection: index === 0,
           ...(index === 0 && options.pageBreakBefore === true ? { breaksBefore: true } : {}),
           ...(index === 0 && options.startsChapter === true ? { startsChapter: true } : {}),
+          ...(bottomAnchor ? { bottomAnchor: true } : {}),
         });
         pendingSpaceMm = 0;
         index += 1;
@@ -196,7 +213,7 @@ export function roleBlocksToBlocks(
     }
 
     if (style.kind === "rule") {
-      push("rule", "", style, mmToPoints(pendingSpaceMm));
+      push("rule", "", style, mmToPoints(pendingSpaceMm), bottomAnchor);
       pendingSpaceMm = 0;
       continue;
     }
@@ -207,7 +224,7 @@ export function roleBlocksToBlocks(
       continue;
     }
 
-    push(style.kind, text, style, mmToPoints(pendingSpaceMm));
+    push(style.kind, text, style, mmToPoints(pendingSpaceMm), bottomAnchor, block.alignment);
     pendingSpaceMm = 0;
   }
 

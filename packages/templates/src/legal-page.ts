@@ -352,6 +352,7 @@ export const legalPageTemplates = [
   "copyright-minimal",
   "copyright-creative-commons",
   "copyright-peru-ley",
+  "copyright-peru-classic-reference",
 ] as const;
 
 export type LegalPageTemplate = (typeof legalPageTemplates)[number];
@@ -366,6 +367,7 @@ export const LEGAL_TEMPLATE_VERSIONS: Record<LegalPageTemplate, number> = {
   "copyright-minimal": 1,
   "copyright-creative-commons": 1,
   "copyright-peru-ley": 1,
+  "copyright-peru-classic-reference": 1,
 };
 
 export const CREATIVE_COMMONS_LICENSES = [
@@ -445,6 +447,14 @@ const legalMetadata: ReadonlyArray<Omit<LegalTemplateMetadata, "version" | "lang
     country: "PE",
     requiredFields: [...baseFields, "legalDeposit"],
   },
+  {
+    slug: "copyright-peru-classic-reference",
+    name: "Clásica de referencia · Perú",
+    description: "Dos zonas: derechos de autor arriba y créditos de edición al pie.",
+    audience: "Autor independiente o editorial",
+    country: "PE",
+    requiredFields: baseFields,
+  },
 ];
 export const LEGAL_TEMPLATE_CATALOG: readonly LegalTemplateMetadata[] = legalMetadata.map(
   (item) => ({ ...item, language: "es", version: LEGAL_TEMPLATE_VERSIONS[item.slug] }),
@@ -479,6 +489,12 @@ export type LegalBlockRole =
 export interface LegalPageBlock {
   role: LegalBlockRole;
   text: string;
+  /**
+   * Región de la página en los presets de dos zonas. La región inferior se
+   * ancla al pie del área de texto durante la paginación; si falta, el bloque
+   * pertenece al flujo superior.
+   */
+  region?: "top" | "bottom";
 }
 
 export type LegalWarningSeverity = "info" | "warning" | "error";
@@ -570,7 +586,8 @@ function isPeru(template: LegalPageTemplate): boolean {
   return (
     template === "copyright-peru-author" ||
     template === "copyright-peru-publisher" ||
-    template === "copyright-peru-ley"
+    template === "copyright-peru-ley" ||
+    template === "copyright-peru-classic-reference"
   );
 }
 
@@ -701,7 +718,9 @@ export function buildLegalPage(
   const legalPublisher =
     clean(input.legalPublisher) ||
     (template === "copyright-peru-author" ? author : "") ||
-    (template === "copyright-peru-publisher" ? clean(input.publisherName) : "");
+    (template === "copyright-peru-publisher" || template === "copyright-peru-classic-reference"
+      ? clean(input.publisherName)
+      : "");
 
   if (isPeru(template) && !legalPublisher) {
     warn("FALTA_RESPONSABLE", "Falta el responsable legal de la publicación.", "legalPublisher");
@@ -743,27 +762,40 @@ export function buildLegalPage(
 
   const edition = clean(input.editionLabel) || editionLabel(input.editionNumber);
 
-  if (clean(input.logoUrl)) {
-    blocks.push({ role: "logo", text: clean(input.logoUrl) });
-  }
-  if (title) {
-    blocks.push({ role: "title", text: title });
-  }
-  if (clean(input.subtitle)) {
-    blocks.push({ role: "subtitle", text: clean(input.subtitle) });
-  }
-  if (author) {
-    blocks.push({ role: "author", text: author });
-  }
-  if (blocks.length > 0) {
-    blocks.push({ role: "rule", text: "" });
+  /**
+   * Preset de referencia: dos regiones en la misma página. La superior reúne
+   * los derechos de autor y las cláusulas legales; la inferior, los datos de
+   * edición y contacto. No repite título ni autoría: la portadilla ya los
+   * imprime y la referencia no los incluye en la página legal.
+   */
+  const twoRegions = template === "copyright-peru-classic-reference";
+  const pushTop = (role: LegalBlockRole, text: string): void => {
+    blocks.push({ role, text, ...(twoRegions ? { region: "top" as const } : {}) });
+  };
+  const pushBottom = (role: LegalBlockRole, text: string): void => {
+    blocks.push({ role, text, ...(twoRegions ? { region: "bottom" as const } : {}) });
+  };
+
+  if (!twoRegions) {
+    if (clean(input.logoUrl)) {
+      pushTop("logo", clean(input.logoUrl));
+    }
+    if (title) {
+      pushTop("title", title);
+    }
+    if (clean(input.subtitle)) {
+      pushTop("subtitle", clean(input.subtitle));
+    }
+    if (author) {
+      pushTop("author", author);
+    }
+    if (blocks.length > 0) {
+      pushTop("rule", "");
+    }
   }
 
   if (copyrightYear && rightsHolder) {
-    blocks.push({
-      role: "small",
-      text: `© ${copyrightYear} ${rightsHolder}. Todos los derechos reservados.`,
-    });
+    pushTop("small", `© ${copyrightYear} ${rightsHolder}. Todos los derechos reservados.`);
   }
 
   const imprint = clean(input.imprint);
@@ -771,7 +803,7 @@ export function buildLegalPage(
   const publisher = imprint || publisherName;
 
   if (edition) {
-    blocks.push({ role: "small", text: sentence(edition) });
+    pushBottom("small", sentence(edition));
   } else if (isPeru(template)) {
     warn("FALTA_EDICION", "Falta el número o la etiqueta de edición.", "editionNumber");
   }
@@ -780,14 +812,11 @@ export function buildLegalPage(
     const place = [clean(input.publicationCity), clean(input.publicationCountry)]
       .filter(Boolean)
       .join(", ");
-    blocks.push({
-      role: "small",
-      text: sentence(place ? `${place}, ${publicationDateText}` : publicationDateText),
-    });
+    pushBottom("small", sentence(place ? `${place}, ${publicationDateText}` : publicationDateText));
   }
 
   if (isbn.valid) {
-    blocks.push({ role: "small", text: `ISBN: ${clean(input.isbn) || isbn.normalized}` });
+    pushBottom("small", `ISBN: ${clean(input.isbn) || isbn.normalized}`);
   } else if (input.isbnStatus === "DECLARED" || input.isbnStatus === "CONFIRMED") {
     warn(
       "ISBN_DECLARADO_SIN_VALOR",
@@ -798,47 +827,41 @@ export function buildLegalPage(
 
   if (legalDeposit) {
     if (isPeru(template)) {
-      blocks.push({
-        role: "small",
-        text: `Hecho el Depósito Legal en la Biblioteca Nacional del Perú N.º ${legalDeposit}.`,
-      });
+      pushBottom(
+        "small",
+        `Hecho el Depósito Legal en la Biblioteca Nacional del Perú N.º ${legalDeposit}.`,
+      );
     } else {
-      blocks.push({ role: "small", text: `Depósito legal: ${legalDeposit}.` });
+      pushBottom("small", `Depósito legal: ${legalDeposit}.`);
     }
   } else if (isPeru(template) && input.legalDepositStatus === "IN_PROGRESS") {
-    blocks.push({ role: "small", text: "Depósito legal en trámite." });
+    pushBottom("small", "Depósito legal en trámite.");
   }
 
   if (publisher) {
-    blocks.push({ role: "small", text: sentence(`Publicado por ${publisher}`) });
+    pushBottom("small", sentence(`Publicado por ${publisher}`));
   }
   if (legalPublisher && legalPublisher !== publisher) {
-    blocks.push({
-      role: "small",
-      text: sentence(`Responsable de la publicación: ${legalPublisher}`),
-    });
+    pushBottom("small", sentence(`Responsable de la publicación: ${legalPublisher}`));
   }
   if (clean(input.address)) {
-    blocks.push({ role: "small", text: sentence(clean(input.address)) });
+    pushBottom("small", sentence(clean(input.address)));
   }
   if (clean(input.contactEmail) || clean(input.website)) {
     const contact = [clean(input.contactEmail), clean(input.website)].filter(Boolean).join(" · ");
-    blocks.push({ role: "small", text: contact });
+    pushBottom("small", contact);
   }
 
   if (mode === "print") {
     if (clean(input.printer)) {
       const run =
         input.printRun && input.printRun > 0 ? ` · Tirada: ${input.printRun} ejemplares` : "";
-      blocks.push({ role: "small", text: sentence(`Impreso por ${clean(input.printer)}${run}`) });
+      pushBottom("small", sentence(`Impreso por ${clean(input.printer)}${run}`));
     }
   } else {
     const platform = clean(input.digitalPlatform);
     const format = clean(input.formatLabel) || "Edición digital";
-    blocks.push({
-      role: "small",
-      text: sentence(platform ? `${format} publicada en ${platform}` : format),
-    });
+    pushBottom("small", sentence(platform ? `${format} publicada en ${platform}` : format));
   }
 
   const contributors = (input.contributors ?? [])
@@ -849,73 +872,74 @@ export function buildLegalPage(
     .filter((contributor) => contributor.name);
 
   if (contributors.length > 0) {
-    blocks.push({ role: "spacer", text: "" });
+    pushBottom("spacer", "");
     for (const contributor of contributors) {
-      blocks.push({
-        role: "small",
-        text: sentence(
-          contributor.role ? `${contributor.role}: ${contributor.name}` : contributor.name,
-        ),
-      });
+      pushBottom(
+        "small",
+        sentence(contributor.role ? `${contributor.role}: ${contributor.name}` : contributor.name),
+      );
     }
   }
 
   if (clean(input.imageCredits)) {
-    blocks.push({
-      role: "small",
-      text: sentence(`Créditos de imagen: ${clean(input.imageCredits)}`),
-    });
+    pushBottom("small", sentence(`Créditos de imagen: ${clean(input.imageCredits)}`));
   }
   if (clean(input.thirdPartyCredits)) {
-    blocks.push({ role: "small", text: sentence(clean(input.thirdPartyCredits)) });
+    pushBottom("small", sentence(clean(input.thirdPartyCredits)));
   }
 
   if (includeOptional && license.summary) {
-    blocks.push({ role: "spacer", text: "" });
-    blocks.push({ role: "italic", text: sentence(license.summary) });
+    pushTop("spacer", "");
+    pushTop("italic", sentence(license.summary));
     if (license.url) {
-      blocks.push({ role: "small", text: license.url });
+      pushTop("small", license.url);
     }
   }
 
   if (includeOptional && input.fictionDisclaimer) {
-    blocks.push({
-      role: "small",
-      text: sentence(
+    pushTop(
+      "small",
+      sentence(
         "Esta es una obra de ficción. Cualquier parecido con personas, lugares o hechos reales es una coincidencia",
       ),
-    });
+    );
   }
   if (includeOptional && input.trademarkNotice) {
-    blocks.push({
-      role: "small",
-      text: sentence(
+    pushTop(
+      "small",
+      sentence(
         "Las marcas mencionadas pertenecen a sus respectivos titulares y se citan con fines informativos",
       ),
-    });
+    );
   }
 
   if (includeOptional) {
     for (const clause of input.customClauses ?? []) {
       if (clean(clause)) {
-        blocks.push({ role: "small", text: sentence(clause) });
+        pushTop("small", sentence(clause));
       }
     }
   }
 
   if (clean(input.catalogingInPublication)) {
-    blocks.push({ role: "spacer", text: "" });
-    blocks.push({ role: "small", text: clean(input.catalogingInPublication) });
+    pushBottom("spacer", "");
+    pushBottom("small", clean(input.catalogingInPublication));
   }
 
   if (template === "copyright-peru-ley") {
-    blocks.push({
-      role: "small",
-      text: "Decreto Legislativo N.º 822 — Ley sobre el Derecho de Autor (Perú).",
-    });
+    pushBottom("small", "Decreto Legislativo N.º 822 — Ley sobre el Derecho de Autor (Perú).");
     if (!legalDeposit)
       warn("FALTA_DEPOSITO", "Completa el número de depósito legal.", "legalDeposit", "error");
   }
+
+  if (twoRegions) {
+    // Se conserva el orden interno de cada región y se emite primero la
+    // superior: la inferior se ancla al pie en la paginación.
+    const top = blocks.filter((block) => block.region !== "bottom");
+    const bottom = blocks.filter((block) => block.region === "bottom");
+    blocks.splice(0, blocks.length, ...top, ...bottom);
+  }
+
   const ready = !warnings.some((warning) => warning.severity === "error");
 
   return {
