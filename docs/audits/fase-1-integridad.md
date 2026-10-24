@@ -53,6 +53,7 @@
 **Confirmación.** `docx.ts` fijaba A4 (11906×16838 twips), márgenes de 1418 y `w:lines="3"` para la capitular, sin leer el perfil de la edición.
 
 **Corrección.**
+
 - `buildDocx` acepta `DocxOptions` con tamaño de página, márgenes, gutter y líneas de inicial; `generate.ts` le pasa el perfil y la instantánea.
 - La tabulación derecha del índice se ancla al ancho útil real; el `sectPr` escribe el tamaño y los márgenes configurados.
 - Sin opciones se conserva el A4 histórico, así que los DOCX antiguos no cambian.
