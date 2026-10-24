@@ -539,7 +539,13 @@ export function composeMatter(
     front,
     back: [],
     signature: front
-      .flatMap((matterLayout) => matterLayout.blocks.map((block) => block.text))
+      .flatMap((matterLayout) =>
+        matterLayout.blocks.map((block) =>
+          // El folio no vive en `text` desde ECP-01: si la firma solo mirara el
+          // texto, dos índices con números distintos se considerarían iguales.
+          block.tocEntry ? `${block.text}\u0000${block.tocEntry.label}` : block.text,
+        ),
+      )
       .join("|"),
   };
 }

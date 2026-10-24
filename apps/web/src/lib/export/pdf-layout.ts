@@ -276,6 +276,31 @@ export function toPdfPages(
           x += advanceMm;
         }
 
+        if (line.toc) {
+          // Columna de folio: el motor ya midió su ancho y su posición, de
+          // modo que el número no depende de cuántos puntos quepan.
+          runs.push({
+            text: line.toc.text,
+            font: baseFont,
+            family: block.style.fontFamily,
+            sizePt: block.style.fontSizePt,
+            xMm: leftMm + line.toc.xMm,
+            baselineMm,
+            widthMm: line.toc.widthMm,
+          });
+
+          if (line.toc.leaderStartMm !== null && line.toc.leaderEndMm !== null) {
+            rules.push({
+              x1Mm: leftMm + line.toc.leaderStartMm,
+              y1Mm: baselineMm - 0.55,
+              x2Mm: leftMm + line.toc.leaderEndMm,
+              y2Mm: baselineMm - 0.55,
+              widthPt: 0.25,
+              ...(line.toc.dotted ? { dash: [0.5, 1.1] as const } : {}),
+            });
+          }
+        }
+
         y += lineHeightMm;
       });
 

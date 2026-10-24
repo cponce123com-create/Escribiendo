@@ -44,6 +44,16 @@ export interface ExportBlock {
   level?: number;
   /** Referencia de la imagen, cuando `kind` es `image`. */
   image?: ExportImage;
+  /**
+   * Entrada de índice: el folio va en una columna a la derecha y los líderes
+   * son una tabulación con relleno, no caracteres concatenados.
+   */
+  toc?: {
+    title: string;
+    label: string | null;
+    leaders: boolean;
+    level?: number;
+  };
 }
 
 export interface ExportChapter {

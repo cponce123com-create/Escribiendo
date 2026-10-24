@@ -526,6 +526,31 @@ function PreviewBlock({
                   );
                 })}
               </span>
+              {line.toc ? (
+                <>
+                  {line.toc.leaderStartMm !== null && line.toc.leaderEndMm !== null ? (
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        position: "absolute",
+                        left: `${line.toc.leaderStartMm * PX_PER_MM}px`,
+                        width: `${(line.toc.leaderEndMm - line.toc.leaderStartMm) * PX_PER_MM}px`,
+                        top: "0.62em",
+                        borderTop: `0.25pt ${line.toc.dotted ? "dotted" : "solid"} #000000`,
+                      }}
+                    />
+                  ) : null}
+                  <span
+                    style={{
+                      position: "absolute",
+                      left: `${line.toc.xMm * PX_PER_MM}px`,
+                      top: 0,
+                    }}
+                  >
+                    {line.toc.text}
+                  </span>
+                </>
+              ) : null}
             </div>
           );
         })

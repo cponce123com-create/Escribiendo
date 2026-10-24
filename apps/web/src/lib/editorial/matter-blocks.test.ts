@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { LayoutDiagnostic } from "@escribiendo/editorial-engine";
 import {
   buildDedicationPage,
   buildTitlePage,
@@ -39,19 +40,71 @@ describe("roleBlocksToBlocks", () => {
     expect(blocks[1]?.firstOfSection).toBe(false);
   });
 
-  it("descarta espaciadores y logotipos sin dejar huecos falsos", () => {
+  it("no inventa bloques con los espaciadores y avisa del logo no resuelto", () => {
+    const diagnostics: LayoutDiagnostic[] = [];
     const blocks = roleBlocksToBlocks(
       [
-        { role: "spacer", text: "" },
+        { role: "spacer", text: "", spaceMm: 0 },
         { role: "logo", text: "https://cdn.example.com/logo.png" },
         { role: "title", text: "Título" },
       ],
-      { id: "m1" },
+      { id: "m1", diagnostics },
     );
 
     expect(blocks).toHaveLength(1);
     expect(blocks[0]?.id).toBe("m1-0");
     expect(blocks[0]?.firstOfSection).toBe(true);
+    expect(blocks[0]?.styleOverride?.spaceBeforePt).toBeUndefined();
+    expect(diagnostics.map((item) => item.code)).toEqual(["MATTER_LOGO_OMITIDO"]);
+  });
+
+  it("convierte el espacio de los espaciadores en espacio anterior del bloque siguiente", () => {
+    const blocks = roleBlocksToBlocks(
+      [
+        { role: "spacer", text: "", spaceMm: 10 },
+        { role: "spacer", text: "", spaceFraction: 0.25 },
+        { role: "title", text: "Título" },
+      ],
+      { id: "m1", contentHeightMm: 200 },
+    );
+
+    expect(blocks).toHaveLength(1);
+    // 10 mm + 25 % de 200 mm = 60 mm = 170,08 pt
+    expect(blocks[0]?.styleOverride?.spaceBeforePt).toBeCloseTo((60 * 72) / 25.4, 5);
+  });
+
+  it("coloca la dedicatoria según la altura útil, no según el cuerpo de letra", () => {
+    const upper = buildDedicationPage({ text: "Para Ana.", verticalPosition: "upper" });
+    const lower = buildDedicationPage({ text: "Para Ana.", verticalPosition: "lower" });
+    const upperBlocks = matterPageToBlocks(upper, { id: "d1", contentHeightMm: 200 });
+    const lowerBlocks = matterPageToBlocks(lower, { id: "d2", contentHeightMm: 200 });
+
+    // 12 % y 64 % de 200 mm, aplicados al primer bloque emitido (la regla).
+    expect(upperBlocks[0]?.styleOverride?.spaceBeforePt).toBeCloseTo((24 * 72) / 25.4, 5);
+    expect(lowerBlocks[0]?.styleOverride?.spaceBeforePt).toBeCloseTo((128 * 72) / 25.4, 5);
+  });
+
+  it("emite el logotipo como imagen cuando hay resolvedor", () => {
+    const image = {
+      src: "https://cdn.example.com/logo.png",
+      alt: "Sello de la editorial",
+      widthPx: 400,
+      heightPx: 200,
+    };
+    const blocks = roleBlocksToBlocks(
+      [
+        { role: "logo", text: "https://cdn.example.com/logo.png" },
+        { role: "title", text: "Título" },
+      ],
+      {
+        id: "m1",
+        resolveImage: (src) => (src === image.src ? image : null),
+      },
+    );
+
+    expect(blocks[0]?.kind).toBe("image");
+    expect(blocks[0]?.image?.alt).toBe("Sello de la editorial");
+    expect(blocks[1]?.text).toBe("Título");
   });
 
   it("compone la dedicatoria centrada y la firma a la derecha", () => {
@@ -129,9 +182,9 @@ describe("tocToBlocks", () => {
     expect(blocks[0]?.kind).toBe("chapterTitle");
     expect(blocks[0]?.text).toBe("Índice");
     expect(blocks[0]?.breaksBefore).toBe(true);
-    expect(blocks[1]?.text).toContain("Capítulo primero");
-    expect(blocks[1]?.text?.endsWith("15")).toBe(true);
-    expect(blocks[1]?.text).toContain(".");
+    expect(blocks[1]?.text).toBe("Capítulo primero");
+    expect(blocks[1]?.text).not.toContain(".");
+    expect(blocks[1]?.tocEntry?.label).toBe("15");
   });
 
   it("no numera una entrada sin etiqueta", () => {
@@ -199,8 +252,7 @@ describe("diseños de índice", () => {
 });
 
 it("la sangría jerárquica llega al motor y el folio permanece dentro del margen", async () => {
-  const { paginate, withTypographyDefaults, measureTextMm } =
-    await import("@escribiendo/editorial-engine");
+  const { paginate, withTypographyDefaults } = await import("@escribiendo/editorial-engine");
   const blocks = tocToBlocks(
     [{ sourceId: "h", title: "Apartado", level: 2, group: "body", label: "125" }],
     { id: "toc" },
@@ -220,7 +272,8 @@ it("la sangría jerárquica llega al motor y el folio permanece dentro del marge
   const entry = result.pages.flatMap((page) => page.blocks).find((block) => block.id === "toc-1")!;
   expect(entry.firstLineIndentMm).toBe(4);
   const line = entry.lines.at(-1)!;
-  const width = measureTextMm(line.text, entry.style);
-  expect(width + 4).toBeLessThanOrEqual(result.textWidthMm + 0.1);
-  expect(line.text.endsWith("125")).toBe(true);
+  expect(line.text).toBe("Apartado");
+  const folio = line.toc!;
+  expect(folio.text).toBe("125");
+  expect(Math.abs(folio.xMm + folio.widthMm - result.textWidthMm)).toBeLessThanOrEqual(0.5);
 });

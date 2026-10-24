@@ -97,4 +97,37 @@ describe("geometría compartida de vista previa y PDF", () => {
     expect(capital?.sizePt).toBeCloseTo(TYPOGRAPHY.body.fontSizePt * 3);
     expect(firstLine?.xMm).toBeGreaterThan((capital?.xMm ?? 0) + 1);
   });
+
+  it("coloca el folio del índice y el líder en las mismas coordenadas en PDF y vista previa", () => {
+    const tocLine = {
+      text: "Capítulo primero",
+      hyphenated: false,
+      overflow: false,
+      toc: {
+        text: "42",
+        xMm: 78,
+        widthMm: 4,
+        leaderStartMm: 40,
+        leaderEndMm: 76.5,
+        dotted: true,
+      },
+    };
+    const page: LaidOutPage = {
+      ...PAGE,
+      blocks: [{ ...PAGE.blocks[1]!, lines: [tocLine] }],
+    };
+    const leftMm = PROFILE.marginOuterMm;
+    const textWidthMm = PROFILE.pageWidthMm - PROFILE.marginInnerMm - PROFILE.marginOuterMm;
+    const preview = previewLineDrawings(page, textWidthMm, leftMm, undefined, PROFILE.marginTopMm);
+    const pdf = toPdfPages([page], PROFILE, TYPOGRAPHY, new Map()).pdfPages[0];
+    const folioRun = pdf?.runs.find((run) => run.text === "42");
+    const rule = pdf?.rules?.[0];
+
+    expect(preview[0]?.toc?.folioXMm).toBeCloseTo(tocLine.toc.xMm, 5);
+    expect(folioRun?.xMm).toBeCloseTo(leftMm + tocLine.toc.xMm, 5);
+    expect(folioRun?.baselineMm).toBeCloseTo(preview[0]!.baselineMm, 5);
+    expect(rule?.x1Mm).toBeCloseTo(leftMm + tocLine.toc.leaderStartMm, 5);
+    expect(rule?.x2Mm).toBeCloseTo(leftMm + tocLine.toc.leaderEndMm, 5);
+    expect(rule?.dash).toEqual([0.5, 1.1]);
+  });
 });

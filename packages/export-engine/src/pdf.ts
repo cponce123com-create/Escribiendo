@@ -92,6 +92,11 @@ export interface PdfRule {
   y2Mm: number;
   /** Grosor en puntos. */
   widthPt?: number;
+  /**
+   * Patrón discontinuo en milímetros: `[trazo, espacio]`. Se usa para los
+   * líderes del índice, que deben ser geometría y no caracteres.
+   */
+  dash?: readonly [number, number];
 }
 
 export interface PdfPage {
@@ -759,7 +764,13 @@ function pageContent(
     parts.push(
       "0 0 0 RG",
       `${(rule.widthPt ?? 0.5).toFixed(2)} w`,
+      ...(rule.dash
+        ? [
+            `[${(rule.dash[0] * MM_TO_POINTS).toFixed(2)} ${(rule.dash[1] * MM_TO_POINTS).toFixed(2)}] 0 d`,
+          ]
+        : []),
       `${x1.toFixed(3)} ${y1.toFixed(3)} m ${x2.toFixed(3)} ${y2.toFixed(3)} l S`,
+      ...(rule.dash ? ["[] 0 d"] : []),
     );
   }
 

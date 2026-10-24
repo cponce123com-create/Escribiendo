@@ -44,9 +44,26 @@ export type LayoutBlockKind =
 
 export interface LayoutBlock {
   styleOverride?: Partial<
-    Pick<TypographyStyle, "fontSizePt" | "lineHeight" | "spaceAfterPt" | "firstLineIndentMm">
+    Pick<
+      TypographyStyle,
+      "fontSizePt" | "lineHeight" | "spaceAfterPt" | "spaceBeforePt" | "firstLineIndentMm"
+    >
   >;
-  tocEntry?: { title: string; label: string; leaders: boolean };
+  /**
+   * Entrada de índice. El folio no forma parte del texto: se compone como una
+   * columna anclada a la derecha y los líderes se dibujan como geometría.
+   */
+  tocEntry?: {
+    title: string;
+    label: string;
+    leaders: boolean;
+    /** Sección a la que apunta la entrada, para cotejar el folio final. */
+    sourceId?: string;
+    /** Separación entre el último carácter del título, los líderes y el folio. */
+    folioGapMm?: number;
+    /** Nivel jerárquico, para sangría en formatos refluibles. */
+    level?: number;
+  };
   id: string;
   kind: LayoutBlockKind;
   text: string;
@@ -113,7 +130,10 @@ export interface LayoutDiagnostic {
     | "LONG_WORD"
     | "EMPTY_PAGE"
     | "CHAPTER_NOT_ON_RECTO"
-    | "FOOTNOTE_OVERFLOW";
+    | "FOOTNOTE_OVERFLOW"
+    | "TOC_NOT_CONVERGED"
+    | "TOC_FOLIO_MISMATCH"
+    | "MATTER_LOGO_OMITIDO";
   severity: DiagnosticSeverity;
   message: string;
   /** Página en la que se ha detectado, contando desde 1. */
@@ -128,6 +148,27 @@ export interface LaidOutLine {
   overflow: boolean;
   /** Tramos con su formato, para dibujar la línea con sus estilos. */
   segments?: InlineRun[];
+  /**
+   * Folio de una entrada de índice y sus líderes, en milímetros relativos al
+   * borde izquierdo de la caja de texto. No forma parte de `text`.
+   */
+  toc?: TocFolioGeometry;
+}
+
+/** Columna de folio de una línea de índice, ya medida. */
+export interface TocFolioGeometry {
+  /** Texto impreso del folio. */
+  text: string;
+  /** Borde izquierdo del folio. */
+  xMm: number;
+  /** Ancho medido del folio. */
+  widthMm: number;
+  /** Inicio del líder; `null` si la plantilla no dibuja puntos. */
+  leaderStartMm: number | null;
+  /** Fin del líder. */
+  leaderEndMm: number | null;
+  /** El líder se dibuja punteado. */
+  dotted: boolean;
 }
 
 export interface LaidOutBlock {
@@ -561,21 +602,40 @@ export function paginate(
     if (block.tocEntry) {
       const entry = block.tocEntry;
       const measureString = (text: string) => measureTextMm(text, { ...breakOptions });
+      const gapMm = Math.max(0, entry.folioGapMm ?? 1.5);
       const labelWidth = measureString(entry.label);
+      // El folio se ancla al borde derecho de la caja: su columna empieza donde
+      // termina el ancho útil menos el ancho medido del número.
+      const folioXMm = Math.max(0, widthMm - labelWidth);
       const titles = breakIntoLines(entry.title, {
         ...breakOptions,
-        lineWidthMm: Math.max(10, widthMm - labelWidth - measureString("  ")),
+        lineWidthMm: Math.max(10, folioXMm - gapMm),
       });
+
       lines = titles.map((line, index) => {
-        if (index !== titles.length - 1) return { ...line, segments: [{ text: line.text }] };
-        const remaining = Math.max(
-          0,
-          widthMm - (index === 0 ? indentMm : 0) - measureString(line.text) - labelWidth,
-        );
-        const unit = entry.leaders ? "." : "\u2002";
-        const count = Math.max(1, Math.floor(remaining / Math.max(0.01, measureString(unit))));
-        const text = `${line.text}${unit.repeat(count)}${entry.label}`;
-        return { ...line, text, segments: [{ text }] };
+        const segments = [{ text: line.text }];
+
+        if (index !== titles.length - 1) {
+          return { ...line, segments };
+        }
+
+        const titleEndMm = (index === 0 ? indentMm : 0) + measureString(line.text);
+        const leaderStartMm = titleEndMm + gapMm;
+        const leaderEndMm = folioXMm - gapMm;
+        const hasLeader = entry.leaders && leaderEndMm - leaderStartMm >= 0.5;
+
+        return {
+          ...line,
+          segments,
+          toc: {
+            text: entry.label,
+            xMm: folioXMm,
+            widthMm: labelWidth,
+            leaderStartMm: hasLeader ? leaderStartMm : null,
+            leaderEndMm: hasLeader ? leaderEndMm : null,
+            dotted: entry.leaders,
+          },
+        };
       });
     }
     if (lines.length === 0) {
@@ -799,12 +859,15 @@ export function paginate(
   };
 }
 
-function toLaidOutLine(line: LineBreak & { segments?: InlineRun[] }): LaidOutLine {
+function toLaidOutLine(
+  line: LineBreak & { segments?: InlineRun[]; toc?: TocFolioGeometry },
+): LaidOutLine {
   return {
     text: line.text,
     hyphenated: line.hyphenated,
     overflow: line.overflow,
     ...(line.segments && line.segments.length > 0 ? { segments: line.segments } : {}),
+    ...(line.toc ? { toc: line.toc } : {}),
   };
 }
 

@@ -15,6 +15,15 @@ export interface PreviewLineDrawing {
   baselineMm: number;
   text: string;
   bold: boolean;
+  /** Columna de folio de una entrada de índice, relativa a la página. */
+  toc?: {
+    folioText: string;
+    folioXMm: number;
+    folioWidthMm: number;
+    leaderStartMm: number | null;
+    leaderEndMm: number | null;
+    dotted: boolean;
+  };
 }
 
 /** Prepara la geometría CSS con las mismas métricas que usa el escritor de PDF. */
@@ -56,6 +65,18 @@ export function previewLineDrawings(
         baselineMm: yMm + lineHeightMm * 0.8,
         text: line.text,
         bold: isHeadingKind(block.kind),
+        ...(line.toc
+          ? {
+              toc: {
+                folioText: line.toc.text,
+                folioXMm: line.toc.xMm,
+                folioWidthMm: line.toc.widthMm,
+                leaderStartMm: line.toc.leaderStartMm,
+                leaderEndMm: line.toc.leaderEndMm,
+                dotted: line.toc.dotted,
+              },
+            }
+          : {}),
       });
       yMm += lineHeightMm;
     });

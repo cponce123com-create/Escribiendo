@@ -12,8 +12,8 @@ const matter: BookMatter = {
 };
 it("un índice antiguo no apaga el automático sin modo MANUAL explícito", () => {
   expect(
-    composeMatter(matter, new Map([["chapter", 12]])).front[0]?.blocks.some((block) =>
-      block.text.includes("12"),
+    composeMatter(matter, new Map([["chapter", 12]])).front[0]?.blocks.some(
+      (block) => block.tocEntry?.label === "12",
     ),
   ).toBe(true);
   expect(composeMatter({ ...matter, tocMode: "MANUAL" }, new Map()).front).toEqual([]);
