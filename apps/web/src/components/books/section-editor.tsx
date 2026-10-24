@@ -28,6 +28,7 @@ import {
 } from "@/lib/editor/sync";
 import { SectionConflictPanel } from "@/components/books/section-conflict";
 import { EditorToolbar } from "@/components/books/editor-toolbar";
+import { proofreadDocument, type ProofreadingIssue } from "@/lib/editor/local-proofreader";
 import { SectionImageControls } from "@/components/books/section-image-controls";
 import { EditorialFootnote } from "@/components/editor/editorial-footnote";
 import {
@@ -109,6 +110,10 @@ export function SectionEditor({
 
   const [imageToolsOpen, setImageToolsOpen] = useState(false);
   const [focused, setFocused] = useState(false);
+  const [proofreadingIssues, setProofreadingIssues] = useState<ProofreadingIssue[] | null>(null);
+  const [proofreadingStale, setProofreadingStale] = useState(false);
+  const [proofreadingApplied, setProofreadingApplied] = useState(0);
+  const proofreadingIssuesRef = useRef<ProofreadingIssue[] | null>(null);
   const searchPosition = useRef({ query: "", from: -1 });
 
   const machineRef = useRef(machine);
@@ -159,11 +164,13 @@ export function SectionEditor({
         role: "textbox",
         "aria-multiline": "true",
         "aria-label": `Manuscrito de la sección «${sectionTitle}»`,
+        spellcheck: "false",
         ...(canEdit ? {} : { "aria-readonly": "true" }),
       },
     },
     onUpdate: ({ editor: current }) => {
       latestContentRef.current = JSON.stringify(current.getJSON());
+      if (proofreadingIssuesRef.current) setProofreadingStale(true);
       if (!canEdit) {
         return;
       }
@@ -650,6 +657,57 @@ export function SectionEditor({
 
   const currentWords = liveStats?.words ?? wordCount;
 
+  const revisarTextoLocal = (): void => {
+    if (!editor) return;
+    const issues = proofreadDocument(editor.state.doc);
+    proofreadingIssuesRef.current = issues;
+    setProofreadingIssues(issues);
+    setProofreadingStale(false);
+    setProofreadingApplied(0);
+  };
+
+  const descartarRevisionLocal = (): void => {
+    proofreadingIssuesRef.current = null;
+    setProofreadingIssues(null);
+    setProofreadingStale(false);
+  };
+
+  const ignorarCorreccion = (issueId: string): void => {
+    const next = proofreadingIssuesRef.current?.filter((issue) => issue.id !== issueId) ?? null;
+    proofreadingIssuesRef.current = next;
+    setProofreadingIssues(next);
+  };
+
+  const aplicarCorreccion = (issue: ProofreadingIssue): void => {
+    if (!editor || proofreadingStale) return;
+    const currentText = editor.state.doc.textBetween(issue.from, issue.to, "\n", "\ufffc");
+    if (currentText !== issue.original) {
+      const refreshed = proofreadDocument(editor.state.doc);
+      proofreadingIssuesRef.current = refreshed;
+      setProofreadingIssues(refreshed);
+      setProofreadingStale(false);
+      return;
+    }
+
+    const transaction = editor.state.tr.insertText(issue.suggestion, issue.from, issue.to);
+    editor.view.dispatch(transaction);
+    editor.commands.focus();
+    const shift = issue.suggestion.length - issue.original.length;
+    const next =
+      proofreadingIssuesRef.current
+        ?.filter((candidate) => candidate.id !== issue.id)
+        .flatMap((candidate) => {
+          if (candidate.from >= issue.to) {
+            return [{ ...candidate, from: candidate.from + shift, to: candidate.to + shift }];
+          }
+          return candidate.to <= issue.from ? [candidate] : [];
+        }) ?? [];
+    proofreadingIssuesRef.current = next;
+    setProofreadingIssues(next);
+    setProofreadingApplied((count) => count + 1);
+    setProofreadingStale(false);
+  };
+
   const abrirEnlace = (): void => {
     if (!editor) {
       return;
@@ -689,7 +747,93 @@ export function SectionEditor({
           onLink={abrirEnlace}
           onFootnote={abrirNota}
           onImage={() => setImageToolsOpen((value) => !value)}
+          onProofread={revisarTextoLocal}
         />
+      ) : null}
+
+      {canEdit && proofreadingIssues !== null ? (
+        <section className="local-proofreader" aria-labelledby="local-proofreader-heading">
+          <header className="local-proofreader__header">
+            <div>
+              <h2 id="local-proofreader-heading">Corrector local</h2>
+              <p>
+                Revisa reglas frecuentes en español (hasta 100 propuestas). El análisis ocurre en
+                esta página y no envía texto a servicios externos. Las propuestas no cambian el
+                manuscrito hasta que las aceptes.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={descartarRevisionLocal}
+              aria-label="Cerrar corrector local"
+            >
+              Cerrar
+            </button>
+          </header>
+          {proofreadingStale ? (
+            <div className="local-proofreader__notice" role="status">
+              El texto cambió después de la revisión. Vuelve a revisar antes de aplicar propuestas.
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={revisarTextoLocal}
+              >
+                Revisar de nuevo
+              </button>
+            </div>
+          ) : null}
+          {proofreadingIssues.length ? (
+            <>
+              <p className="local-proofreader__summary" aria-live="polite">
+                {proofreadingIssues.length} propuesta{proofreadingIssues.length === 1 ? "" : "s"}{" "}
+                por revisar
+                {proofreadingApplied
+                  ? ` · ${proofreadingApplied} aplicada${proofreadingApplied === 1 ? "" : "s"}`
+                  : ""}
+                .
+              </p>
+              <ul className="local-proofreader__list">
+                {proofreadingIssues.map((issue) => (
+                  <li key={issue.id} className="local-proofreader__item">
+                    <div className="local-proofreader__suggestion">
+                      <del>{issue.original}</del>
+                      <span aria-hidden="true">→</span>
+                      <strong>{issue.suggestion}</strong>
+                    </div>
+                    <p>{issue.explanation}</p>
+                    <div className="local-proofreader__actions">
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        disabled={proofreadingStale}
+                        onClick={() => aplicarCorreccion(issue)}
+                      >
+                        Aplicar
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        disabled={proofreadingStale}
+                        onClick={() => ignorarCorreccion(issue.id)}
+                      >
+                        Ignorar
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p className="local-proofreader__summary" role="status">
+              No se encontraron problemas cubiertos por las reglas locales. Esto no garantiza que el
+              texto esté libre de errores.
+              {proofreadingApplied
+                ? ` Has aplicado ${proofreadingApplied} corrección${proofreadingApplied === 1 ? "" : "es"}.`
+                : ""}
+            </p>
+          )}
+        </section>
       ) : null}
 
       {canEdit && (imageToolsOpen || liveStats?.imageSelected) ? (

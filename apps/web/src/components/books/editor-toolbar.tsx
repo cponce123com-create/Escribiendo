@@ -11,6 +11,7 @@ interface EditorToolbarProps {
   onLink: () => void;
   onFootnote: () => void;
   onImage: () => void;
+  onProofread: () => void;
 }
 
 interface EditorToolbarState {
@@ -106,7 +107,13 @@ function ToolbarButton({
   );
 }
 
-export function EditorToolbar({ editor, onLink, onFootnote, onImage }: EditorToolbarProps) {
+export function EditorToolbar({
+  editor,
+  onLink,
+  onFootnote,
+  onImage,
+  onProofread,
+}: EditorToolbarProps) {
   const estado = useEditorState({
     editor,
     selector: ({ editor: instancia }): EditorToolbarState => {
@@ -286,6 +293,16 @@ export function EditorToolbar({ editor, onLink, onFootnote, onImage }: EditorToo
             onClick={() => editor.chain().focus().redo().run()}
           >
             <span aria-hidden="true">↷</span>
+          </ToolbarButton>
+        </div>
+        <div className="editor-toolbar__group" role="group" aria-label="Revisión local">
+          <ToolbarButton
+            label="Corrector local"
+            title="Buscar errores frecuentes en español sin enviar el texto fuera de esta página"
+            onClick={onProofread}
+          >
+            <StudioIcon name="check" />
+            <span>Revisar</span>
           </ToolbarButton>
         </div>
         <details className="studio-toolbar-more">
