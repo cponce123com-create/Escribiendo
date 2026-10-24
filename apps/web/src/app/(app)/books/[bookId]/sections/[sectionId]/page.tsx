@@ -37,7 +37,13 @@ export const metadata: Metadata = {
 
 interface SectionPageProps {
   params: Promise<{ bookId: string; sectionId: string }>;
-  searchParams: Promise<{ find?: string; editLegacy?: string }>;
+  searchParams: Promise<{
+    find?: string;
+    editLegacy?: string;
+    findingStart?: string;
+    findingEnd?: string;
+    findingVersion?: string;
+  }>;
 }
 
 /** Normaliza el contenido guardado: un documento inválido se abre vacío. */
@@ -49,10 +55,35 @@ function safeContent(value: unknown): TiptapDocument {
   }
 }
 
+function parseFindingRange(
+  startValue?: string,
+  endValue?: string,
+  versionValue?: string,
+): { start: number; end: number; version: number } | null {
+  if (!startValue || !endValue || !versionValue) return null;
+
+  const start = Number(startValue);
+  const end = Number(endValue);
+  const version = Number(versionValue);
+
+  if (
+    !Number.isSafeInteger(start) ||
+    !Number.isSafeInteger(end) ||
+    !Number.isSafeInteger(version) ||
+    start < 1 ||
+    end <= start ||
+    version < 1
+  ) {
+    return null;
+  }
+
+  return { start, end, version };
+}
+
 export default async function SectionPage({ params, searchParams }: SectionPageProps) {
   const session = await requireSession();
   const { bookId, sectionId } = await params;
-  const { find = "", editLegacy } = await searchParams;
+  const { find = "", editLegacy, findingStart, findingEnd, findingVersion } = await searchParams;
 
   const section = await getSection(session, bookId, sectionId);
 
@@ -81,6 +112,7 @@ export default async function SectionPage({ params, searchParams }: SectionPageP
       .filter((node) => node.type === "CHAPTER")
       .findIndex((node) => node.id === section.id) + 1;
   const historyHref = `/books/${bookId}/sections/${section.id}/history`;
+  const findingRange = parseFindingRange(findingStart, findingEnd, findingVersion);
   return (
     <ManuscriptWorkspace
       bookId={bookId}
@@ -143,6 +175,7 @@ export default async function SectionPage({ params, searchParams }: SectionPageP
               <details className="studio-hero-menu">
                 <summary aria-label="Más acciones del libro">•••</summary>
                 <nav>
+                  <Link href={`/books/${bookId}/analysis`}>Análisis editorial</Link>
                   <Link href={`/books/${bookId}/preview`}>Vista previa</Link>
                   <Link href={`/books/${bookId}/layout`}>Maquetación</Link>
                   <Link href={editorialGalleryHref(bookId, "legal")}>Página legal e índice</Link>
@@ -163,6 +196,7 @@ export default async function SectionPage({ params, searchParams }: SectionPageP
             wordCount={section.wordCount}
             canEdit={canEdit}
             bookAssets={imagenes}
+            findingRange={findingRange}
           />
         </>
       }

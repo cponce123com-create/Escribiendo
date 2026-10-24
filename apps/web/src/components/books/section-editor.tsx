@@ -56,6 +56,7 @@ interface SectionEditorProps {
   wordCount: number;
   canEdit: boolean;
   bookAssets: BookAssetSummary[];
+  findingRange?: { start: number; end: number; version: number } | null;
 }
 
 /**
@@ -84,6 +85,7 @@ export function SectionEditor({
   wordCount,
   canEdit,
   bookAssets,
+  findingRange = null,
 }: SectionEditorProps) {
   const router = useRouter();
   const [machine, setMachine] = useState<SyncMachine>(() => initialSyncMachine(version));
@@ -121,6 +123,11 @@ export function SectionEditor({
   const [proofreadingApplied, setProofreadingApplied] = useState(0);
   const [proofreadingLoading, setProofreadingLoading] = useState(false);
   const [proofreadingError, setProofreadingError] = useState<string | null>(null);
+  const [findingNavigationNotice, setFindingNavigationNotice] = useState<string | null>(null);
+  const findingNavigationMessage =
+    findingRange && findingRange.version !== version
+      ? "Esta sección cambió desde el análisis. Vuelve a calcularlo para encontrar la observación actual."
+      : findingNavigationNotice;
   const proofreadingIssuesRef = useRef<ProofreadingIssue[] | null>(null);
   const linguisticEngineRef = useRef<LinguisticAnalysisEngine | null>(null);
   if (linguisticEngineRef.current === null) {
@@ -193,6 +200,35 @@ export function SectionEditor({
       dispatch({ type: "edit" });
     },
   });
+
+  useEffect(() => {
+    if (!editor || !findingRange) return;
+
+    if (findingRange.version !== version) return;
+
+    const { start, end } = findingRange;
+    const timer = window.setTimeout(() => {
+      const documentSize = editor.state.doc.content.size;
+
+      if (
+        !Number.isSafeInteger(start) ||
+        !Number.isSafeInteger(end) ||
+        start < 1 ||
+        end <= start ||
+        end > documentSize
+      ) {
+        setFindingNavigationNotice(
+          "No se pudo seleccionar el fragmento porque su posición ya no coincide con el manuscrito.",
+        );
+        return;
+      }
+
+      editor.chain().focus().setTextSelection({ from: start, to: end }).scrollIntoView().run();
+      setFindingNavigationNotice(null);
+    }, 180);
+
+    return () => window.clearTimeout(timer);
+  }, [editor, findingRange, version]);
 
   const liveStats = useEditorState({
     editor,
@@ -797,6 +833,11 @@ export function SectionEditor({
 
   return (
     <div className={`studio-editor-body ${focused ? "is-focused" : ""}`}>
+      {findingNavigationMessage ? (
+        <p className="alert" role="status">
+          {findingNavigationMessage}
+        </p>
+      ) : null}
       {canEdit ? (
         <EditorToolbar
           editor={editor}

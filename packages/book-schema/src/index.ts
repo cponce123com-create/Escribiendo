@@ -63,3 +63,49 @@ export type {
   LinguisticSentence,
   LinguisticToken,
 } from "./linguistics/types";
+export { createSpanishStyleRules } from "./linguistics/style-rules";
+export type {
+  SpanishStyleRuleThresholds,
+  SpanishStyleRulesOptions,
+} from "./linguistics/style-rules";
+export { analyzeRepetition } from "./linguistics/repetition";
+export type {
+  RepetitionAnalysisOptions,
+  RepetitionAnalysisResult,
+  RepetitionAnchor,
+  RepetitionKind,
+  RepetitionObservation,
+  RepetitionScope,
+  RepetitionSectionInput,
+} from "./linguistics/repetition";
+export {
+  analyzeReadability,
+  countSpanishSyllables,
+  READABILITY_METADATA,
+  READABILITY_SUGGESTED_MINIMUM_SENTENCES,
+  READABILITY_SUGGESTED_MINIMUM_WORDS,
+} from "./linguistics/readability";
+export type {
+  ReadabilityAnalysis,
+  ReadabilityDocumentResult,
+  ReadabilityInput,
+  ReadabilityMetadata,
+  ReadabilityMetrics,
+  ReadabilityParagraphStatistics,
+} from "./linguistics/readability";
+export {
+  analyzeRhythm,
+  PARAGRAPH_LENGTH_BUCKETS,
+  RHYTHM_ANALYSIS_LIMITS,
+  RHYTHM_ANALYSIS_VERSION,
+} from "./linguistics/rhythm";
+export type {
+  ParagraphLengthBucket,
+  RhythmAnalysisResult,
+  RhythmChapterInput,
+  RhythmChapterMetrics,
+  RhythmChapterValue,
+  RhythmDistributionSeries,
+  RhythmParagraphMetrics,
+  RhythmParagraphValue,
+} from "./linguistics/rhythm";
