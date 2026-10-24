@@ -129,9 +129,9 @@ describe("tocToBlocks", () => {
     expect(blocks[0]?.kind).toBe("chapterTitle");
     expect(blocks[0]?.text).toBe("Índice");
     expect(blocks[0]?.breaksBefore).toBe(true);
-    expect(blocks[1]?.text).toContain("Capítulo primero");
-    expect(blocks[1]?.text?.endsWith("15")).toBe(true);
-    expect(blocks[1]?.text).toContain(".");
+    expect(blocks[1]?.text).toBe("Capítulo primero");
+    expect(blocks[1]?.text).not.toContain(".");
+    expect(blocks[1]?.tocEntry?.label).toBe("15");
   });
 
   it("no numera una entrada sin etiqueta", () => {
@@ -199,8 +199,7 @@ describe("diseños de índice", () => {
 });
 
 it("la sangría jerárquica llega al motor y el folio permanece dentro del margen", async () => {
-  const { paginate, withTypographyDefaults, measureTextMm } =
-    await import("@escribiendo/editorial-engine");
+  const { paginate, withTypographyDefaults } = await import("@escribiendo/editorial-engine");
   const blocks = tocToBlocks(
     [{ sourceId: "h", title: "Apartado", level: 2, group: "body", label: "125" }],
     { id: "toc" },
@@ -220,7 +219,10 @@ it("la sangría jerárquica llega al motor y el folio permanece dentro del marge
   const entry = result.pages.flatMap((page) => page.blocks).find((block) => block.id === "toc-1")!;
   expect(entry.firstLineIndentMm).toBe(4);
   const line = entry.lines.at(-1)!;
-  const width = measureTextMm(line.text, entry.style);
-  expect(width + 4).toBeLessThanOrEqual(result.textWidthMm + 0.1);
-  expect(line.text.endsWith("125")).toBe(true);
+  expect(line.text).toBe("Apartado");
+  const folio = line.toc!;
+  expect(folio.text).toBe("125");
+  expect(
+    Math.abs(folio.xMm + folio.widthMm - result.textWidthMm),
+  ).toBeLessThanOrEqual(0.5);
 });

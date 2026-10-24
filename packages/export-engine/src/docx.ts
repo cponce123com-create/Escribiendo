@@ -324,6 +324,33 @@ function blockParagraph(
 const RULE_PARAGRAPH =
   '<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="808080"/></w:pBdr></w:pPr></w:p>';
 
+/**
+ * Ancho útil de la página de Word: A4 (11906 twips) menos los márgenes de
+ * 1418 twips de cada lado. La tabulación derecha se ancla ahí.
+ */
+const DOCX_TEXT_WIDTH_TWIPS = 11906 - 1418 * 2;
+
+/** Párrafo de índice: título, tabulación derecha con relleno y folio. */
+function tocParagraph(block: ExportBlock): string {
+  const entry = block.toc;
+  if (!entry) {
+    return blockParagraph(block, null, []);
+  }
+
+  const title = escapeXml(entry.title);
+  const label = entry.label ? escapeXml(entry.label) : "";
+  const level = Math.max(0, (entry.level ?? 1) - 1);
+  const indent = level > 0 ? `<w:ind w:left="${Math.min(7200, level * 283)}"/>` : "";
+  const tab = label
+    ? `<w:tabs><w:tab w:val="right"${entry.leaders ? ' w:leader="dot"' : ""} w:pos="${DOCX_TEXT_WIDTH_TWIPS}"/></w:tabs>`
+    : "";
+  const runs = label
+    ? `<w:r><w:t xml:space="preserve">${title}</w:t></w:r><w:r><w:tab/></w:r><w:r><w:t xml:space="preserve">${label}</w:t></w:r>`
+    : `<w:r><w:t xml:space="preserve">${title}</w:t></w:r>`;
+
+  return `<w:p><w:pPr>${tab}${indent}</w:pPr>${runs}</w:p>`;
+}
+
 /** Relaciones del documento, incluidas las de enlaces e imágenes. */
 function documentRels(links: readonly string[], images: readonly DocxImageEntry[]): string {
   const hyperlinks = links
@@ -434,6 +461,11 @@ export function buildDocx(
 
       if (block.kind === "quote") {
         body.push(blockParagraph(block, "Cita", links));
+        continue;
+      }
+
+      if (block.toc) {
+        body.push(tocParagraph(block));
         continue;
       }
 

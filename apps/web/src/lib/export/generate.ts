@@ -387,6 +387,18 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
               : "body") as ExportBlock["kind"],
           text: block.text,
           ...(block.runs ? { runs: block.runs } : {}),
+          ...(block.tocEntry
+            ? {
+                toc: {
+                  title: block.tocEntry.title.trim(),
+                  label: block.tocEntry.label,
+                  leaders: block.tocEntry.leaders,
+                  ...(block.tocEntry.level !== undefined
+                    ? { level: block.tocEntry.level }
+                    : {}),
+                },
+              }
+            : {}),
           ...(["left", "center", "right"].includes(block.alignment ?? "")
             ? { alignment: block.alignment as "left" | "center" | "right" }
             : {}),

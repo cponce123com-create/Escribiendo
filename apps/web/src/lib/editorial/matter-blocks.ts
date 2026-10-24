@@ -7,7 +7,6 @@ import type {
 import {
   tocParametersFrom,
   type TocParameters,
-  formatTocLine,
   type LegalPageBlock,
   type LegalPageResult,
   type MatterBlock,
@@ -197,7 +196,6 @@ export interface TocBlockOptions extends MatterBlockOptions {
  */
 export function tocToBlocks(entries: readonly TocEntry[], options: TocBlockOptions): LayoutBlock[] {
   const heading = normalizedText(options.heading ?? "") || "Índice";
-  const widthChars = options.widthChars ?? 60;
   const blocks: LayoutBlock[] = [
     {
       id: `${options.id}-title`,
@@ -227,15 +225,11 @@ export function tocToBlocks(entries: readonly TocEntry[], options: TocBlockOptio
         (!entry.sectionType && entry.level === 1 && entry.group === "body"));
     const title = numbered ? `${chapterNumber}. ${entry.title}` : entry.title;
     const pageLabel = parameters.tocPageNumbers ? entry.label : null;
-    const line = formatTocLine({ ...entry, title, label: pageLabel }, widthChars);
     const indent = "\u2003".repeat(
       parameters.tocTemplate !== "toc-minimal"
         ? Math.max(0, entry.level - (parameters.tocTemplate === "toc-parts" ? 0 : 1))
         : 0,
     );
-    const dots = line.label && parameters.tocLeaders ? ` ${".".repeat(line.leaderDots)} ` : "";
-    const text =
-      `${indent}${line.title}${dots || (line.label ? " " : "")}${line.label ?? ""}`.trimEnd();
 
     blocks.push({
       id: `${options.id}-${index + 1}`,
@@ -243,7 +237,9 @@ export function tocToBlocks(entries: readonly TocEntry[], options: TocBlockOptio
         part || (parameters.tocTemplate === "toc-detailed" && entry.level === 1)
           ? "heading2"
           : "body",
-      text,
+      // El texto es solo el título: el folio y los líderes se componen como
+      // geometría en el motor. `widthChars` queda como compatibilidad de API.
+      text: `${indent}${title}`,
       alignment: part ? "left" : parameters.tocAlignment,
       ...(pageLabel
         ? {
@@ -251,6 +247,7 @@ export function tocToBlocks(entries: readonly TocEntry[], options: TocBlockOptio
               title: `${indent}${title}`,
               label: pageLabel,
               leaders: parameters.tocLeaders,
+              level: entry.level,
             },
           }
         : {}),
