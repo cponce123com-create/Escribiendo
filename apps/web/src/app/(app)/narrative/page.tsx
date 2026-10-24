@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { RelationshipMap } from "@/components/story/relationship-map";
 import Link from "next/link";
 import { requireSession } from "@/lib/auth/session";
 import { getStoryBookOption, listStoryBooks } from "@/lib/story/queries";
@@ -7,15 +8,6 @@ import { getNarrativeDashboard } from "@/lib/story/narrative-queries";
 
 export const metadata: Metadata = { title: "Análisis narrativo" };
 
-const RELATION_LABELS: Record<string, string> = {
-  FAMILY: "Familiar",
-  FRIENDSHIP: "Amistad",
-  ROMANCE: "Sentimental",
-  RIVALRY: "Rivalidad",
-  CONFLICT: "Conflicto",
-  ALLIANCE: "Alianza",
-  OTHER: "Otro vínculo",
-};
 const STAGES = {
   FREE: ["Estructura libre"],
   THREE_ACTS: ["Acto I · Planteamiento", "Acto II · Confrontación", "Acto III · Resolución"],
@@ -54,7 +46,7 @@ export default async function NarrativePage({ searchParams }: PageProps) {
         <p className="eyebrow">
           Herramientas ·{" "}
           {selectedBook ? (
-            <Link className="underline" href={`/books/${selectedBook.id}`}>
+            <Link className="underline" href={`/books/${selectedBook.id}/laboratorio`}>
               {selectedBook.title}
             </Link>
           ) : (
@@ -275,76 +267,7 @@ export default async function NarrativePage({ searchParams }: PageProps) {
               Solo se visualizan vínculos guardados por el escritor. La aparición conjunta no crea
               relaciones.
             </p>
-            <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_1fr]">
-              <div className="rounded-xl border border-line bg-surface-subtle p-3">
-                <svg
-                  viewBox="0 0 620 260"
-                  className="h-64 w-full"
-                  role="img"
-                  aria-label="Mapa de relaciones manuales"
-                >
-                  <text x="310" y="28" textAnchor="middle" className="fill-ink-muted text-[12px]">
-                    {dashboard.relations.length
-                      ? "Relaciones definidas en la ficha"
-                      : "Sin relaciones manuales"}
-                  </text>
-                  {dashboard.characters.slice(0, 12).map((character, index) => {
-                    const angle = (Math.PI * 2 * index) / Math.max(dashboard.characters.length, 1);
-                    const x = 310 + Math.cos(angle) * 220;
-                    const y = 140 + Math.sin(angle) * 90;
-                    return (
-                      <g key={character.id}>
-                        <circle cx={x} cy={y} r="25" className="fill-white stroke-accent/50" />
-                        <text x={x} y={y + 4} textAnchor="middle" className="fill-ink text-[10px]">
-                          {character.name.slice(0, 14)}
-                        </text>
-                      </g>
-                    );
-                  })}
-                  {dashboard.relations.slice(0, 20).map((relation, index) => {
-                    const a = dashboard.characters.findIndex(
-                      (item) => item.id === relation.source.id,
-                    );
-                    const b = dashboard.characters.findIndex(
-                      (item) => item.id === relation.target.id,
-                    );
-                    if (a < 0 || b < 0) return null;
-                    const angleA = (Math.PI * 2 * a) / Math.max(dashboard.characters.length, 1);
-                    const angleB = (Math.PI * 2 * b) / Math.max(dashboard.characters.length, 1);
-                    return (
-                      <line
-                        key={relation.id}
-                        x1={310 + Math.cos(angleA) * 220}
-                        y1={140 + Math.sin(angleA) * 90}
-                        x2={310 + Math.cos(angleB) * 220}
-                        y2={140 + Math.sin(angleB) * 90}
-                        className="stroke-accent/60"
-                        strokeWidth="2"
-                        data-index={index}
-                      />
-                    );
-                  })}
-                </svg>
-              </div>
-              <ul className="space-y-2">
-                {dashboard.relations.map((relation) => (
-                  <li className="rounded-lg border border-line p-3 text-sm" key={relation.id}>
-                    <strong>
-                      {relation.source.name} — {RELATION_LABELS[relation.kind] ?? relation.kind} —{" "}
-                      {relation.target.name}
-                    </strong>
-                    {relation.description ? (
-                      <p className="mt-1 text-ink-muted">{relation.description}</p>
-                    ) : null}
-                  </li>
-                ))}
-                {!dashboard.relations.length ? (
-                  <li className="text-sm text-ink-muted">
-                    Añade relaciones desde la ficha de un personaje.
-                  </li>
-                ) : null}
-              </ul>
-            </div>
+            <RelationshipMap characters={dashboard.characters} relations={dashboard.relations} />
           </section>
           <section className="panel p-6" aria-labelledby="timeline-title">
             <p className="eyebrow">Módulo D</p>
@@ -440,7 +363,7 @@ export default async function NarrativePage({ searchParams }: PageProps) {
                   <p className="meta-label">Etapa {index + 1}</p>
                   <h3 className="mt-1 font-serif text-lg text-ink">{stage}</h3>
                   <p className="mt-2 text-xs text-ink-muted">
-                    Asocia aquí capítulos o escenas desde{" "}
+                    Consulta capítulos y escenas en{" "}
                     <Link className="underline" href={`/planning?book=${dashboard.book.id}`}>
                       planificación
                     </Link>

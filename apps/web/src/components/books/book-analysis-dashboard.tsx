@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ObservationFilters } from "./observation-filters";
+import { STYLE_RULE_OPTIONS } from "@/lib/books/analysis-options";
 import { IgnoreAnalysisObservation } from "./ignore-analysis-observation";
 
 export interface AnalysisTarget {
@@ -64,6 +66,9 @@ export interface BookAnalysisDashboardProps {
   bookId: string;
   userId: string;
   bookTitle: string;
+  sectionOptions?: readonly { id: string; title: string }[];
+  selectedSectionId?: string;
+  disabledRules?: readonly string[];
   sectionsAnalyzed: number;
   omittedSections: number;
   styleFindings: readonly StyleAnalysisItem[];
@@ -145,6 +150,9 @@ export function BookAnalysisDashboard({
   bookId,
   userId,
   bookTitle,
+  sectionOptions = [],
+  selectedSectionId,
+  disabledRules = [],
   sectionsAnalyzed,
   omittedSections,
   styleFindings,
@@ -174,6 +182,63 @@ export function BookAnalysisDashboard({
           correcciones obligatorias ni medidas de la calidad literaria.
         </p>
       </header>
+
+      <form
+        id="analysis-options"
+        method="get"
+        action={`/books/${bookId}/analysis`}
+        className="panel scroll-mt-24 space-y-4 p-5"
+        aria-label="Configurar análisis editorial"
+      >
+        <div>
+          <label className="field-label" htmlFor="analysis-section">
+            Texto que quieres analizar
+          </label>
+          <select
+            id="analysis-section"
+            name="section"
+            className="field-input"
+            defaultValue={selectedSectionId ?? ""}
+          >
+            <option value="">Todo el manuscrito</option>
+            {sectionOptions.map((section) => (
+              <option key={section.id} value={section.id}>
+                {section.title} (incluye subsecciones)
+              </option>
+            ))}
+          </select>
+        </div>
+        <details>
+          <summary className="cursor-pointer text-sm font-semibold text-ink">
+            Configurar reglas de estilo
+          </summary>
+          <p className="mt-2 text-xs text-ink-muted">
+            Marca las reglas que quieras omitir en este análisis. La selección se conserva en el
+            enlace.
+          </p>
+          <fieldset className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <legend className="sr-only">Reglas que se omiten</legend>
+            {STYLE_RULE_OPTIONS.map(([id, label]) => (
+              <label key={id} className="flex items-center gap-2 text-sm text-ink-soft">
+                <input
+                  type="checkbox"
+                  name="disableRule"
+                  value={id}
+                  defaultChecked={disabledRules.includes(id)}
+                />
+                Omitir {label.toLocaleLowerCase("es")}
+              </label>
+            ))}
+          </fieldset>
+        </details>
+        <button type="submit" className="btn btn-primary">
+          Analizar selección
+        </button>
+        <p className="text-xs text-ink-muted">
+          Se analiza el contenido guardado. Los enlaces a observaciones comprueban la versión antes
+          de seleccionar el fragmento.
+        </p>
+      </form>
 
       {analysisWarning ? (
         <p className="alert" role="status">
@@ -231,39 +296,43 @@ export function BookAnalysisDashboard({
               patrones de puntuación. Cada señal puede reflejar una elección deliberada.
             </p>
             {visibleStyleFindings.length ? (
-              <ol className="mt-5 space-y-3">
-                {visibleStyleFindings.map((finding) => (
-                  <IgnoreAnalysisObservation
-                    key={finding.id}
-                    storageKey={`escribiendo:analysis-ignore:${userId}:${bookId}:style:${finding.id}`}
-                    title={finding.message}
-                  >
-                    <p className="font-medium text-ink">{finding.message}</p>
-                    {finding.matchedText ? (
-                      <blockquote className="mt-2 border-l-2 border-accent/60 pl-3 font-serif text-sm italic text-ink-soft">
-                        «{finding.matchedText}»
-                      </blockquote>
-                    ) : null}
-                    <p className="mt-2 text-sm leading-relaxed text-ink-muted">
-                      {finding.explanation}
-                    </p>
-                    {finding.suggestions?.length ? (
-                      <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-ink-soft">
-                        {finding.suggestions.map((suggestion) => (
-                          <li key={suggestion}>{suggestion}</li>
-                        ))}
-                      </ul>
-                    ) : null}
-                    <p className="mt-3 text-xs text-ink-muted">
-                      {finding.category} · Confianza heurística{" "}
-                      {number(finding.confidence * 100, 0)}%
-                    </p>
-                    <p className="mt-2 text-sm">
-                      <TargetLink bookId={bookId} target={finding} label="Ir al texto" />
-                    </p>
-                  </IgnoreAnalysisObservation>
-                ))}
-              </ol>
+              <ObservationFilters>
+                <ol className="mt-5 space-y-3">
+                  {visibleStyleFindings.map((finding) => (
+                    <IgnoreAnalysisObservation
+                      key={finding.id}
+                      storageKey={`escribiendo:analysis-ignore:${userId}:${bookId}:style:${finding.id}`}
+                      title={finding.message}
+                      severity={finding.severity}
+                      searchText={finding.matchedText}
+                    >
+                      <p className="font-medium text-ink">{finding.message}</p>
+                      {finding.matchedText ? (
+                        <blockquote className="mt-2 border-l-2 border-accent/60 pl-3 font-serif text-sm italic text-ink-soft">
+                          «{finding.matchedText}»
+                        </blockquote>
+                      ) : null}
+                      <p className="mt-2 text-sm leading-relaxed text-ink-muted">
+                        {finding.explanation}
+                      </p>
+                      {finding.suggestions?.length ? (
+                        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-ink-soft">
+                          {finding.suggestions.map((suggestion) => (
+                            <li key={suggestion}>{suggestion}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                      <p className="mt-3 text-xs text-ink-muted">
+                        {finding.category} · Confianza heurística{" "}
+                        {number(finding.confidence * 100, 0)}%
+                      </p>
+                      <p className="mt-2 text-sm">
+                        <TargetLink bookId={bookId} target={finding} label="Ir al texto" />
+                      </p>
+                    </IgnoreAnalysisObservation>
+                  ))}
+                </ol>
+              </ObservationFilters>
             ) : (
               <p className="mt-4 rounded-lg bg-ink/5 p-4 text-sm text-ink-soft">
                 No se encontraron sugerencias con las reglas actuales. Eso no garantiza que el texto
@@ -297,39 +366,42 @@ export function BookAnalysisDashboard({
               capítulo o entre capítulos. La similitud no prueba que dos pasajes digan lo mismo.
             </p>
             {visibleRepetitionFindings.length ? (
-              <ol className="mt-5 space-y-3">
-                {visibleRepetitionFindings.map((finding) => (
-                  <IgnoreAnalysisObservation
-                    key={finding.id}
-                    storageKey={`escribiendo:analysis-ignore:${userId}:${bookId}:repetition:${finding.id}:${finding.first.contentVersion}:${finding.second.contentVersion}`}
-                    title={finding.message}
-                  >
-                    <p className="font-medium text-ink">{finding.message}</p>
-                    <blockquote className="mt-2 border-l-2 border-accent/60 pl-3 font-serif text-sm italic text-ink-soft">
-                      «{finding.matchedText}»
-                    </blockquote>
-                    <p className="mt-2 text-sm leading-relaxed text-ink-muted">
-                      {finding.explanation}
-                    </p>
-                    <p className="mt-3 text-xs text-ink-muted">
-                      {finding.scope === "chapter" ? "Dentro del capítulo" : "Entre capítulos"} ·{" "}
-                      {finding.algorithm} · Similitud {number(finding.score * 100, 0)}%
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                      <TargetLink
-                        bookId={bookId}
-                        target={finding.first}
-                        label="Primera aparición"
-                      />
-                      <TargetLink
-                        bookId={bookId}
-                        target={finding.second}
-                        label="Segunda aparición"
-                      />
-                    </div>
-                  </IgnoreAnalysisObservation>
-                ))}
-              </ol>
+              <ObservationFilters>
+                <ol className="mt-5 space-y-3">
+                  {visibleRepetitionFindings.map((finding) => (
+                    <IgnoreAnalysisObservation
+                      key={finding.id}
+                      storageKey={`escribiendo:analysis-ignore:${userId}:${bookId}:repetition:${finding.id}:${finding.first.contentVersion}:${finding.second.contentVersion}`}
+                      title={finding.message}
+                      searchText={finding.matchedText}
+                    >
+                      <p className="font-medium text-ink">{finding.message}</p>
+                      <blockquote className="mt-2 border-l-2 border-accent/60 pl-3 font-serif text-sm italic text-ink-soft">
+                        «{finding.matchedText}»
+                      </blockquote>
+                      <p className="mt-2 text-sm leading-relaxed text-ink-muted">
+                        {finding.explanation}
+                      </p>
+                      <p className="mt-3 text-xs text-ink-muted">
+                        {finding.scope === "chapter" ? "Dentro del capítulo" : "Entre capítulos"} ·{" "}
+                        {finding.algorithm} · Similitud {number(finding.score * 100, 0)}%
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                        <TargetLink
+                          bookId={bookId}
+                          target={finding.first}
+                          label="Primera aparición"
+                        />
+                        <TargetLink
+                          bookId={bookId}
+                          target={finding.second}
+                          label="Segunda aparición"
+                        />
+                      </div>
+                    </IgnoreAnalysisObservation>
+                  ))}
+                </ol>
+              </ObservationFilters>
             ) : (
               <p className="mt-4 rounded-lg bg-ink/5 p-4 text-sm text-ink-soft">
                 No se encontraron coincidencias sobre los umbrales actuales.
@@ -358,7 +430,12 @@ export function BookAnalysisDashboard({
               automática.
             </p>
             {readability.length ? (
-              <div className="mt-5 overflow-x-auto">
+              <div
+                className="mt-5 overflow-x-auto"
+                tabIndex={0}
+                role="region"
+                aria-label="Tabla de legibilidad"
+              >
                 <table className="w-full min-w-[48rem] border-collapse text-left text-sm">
                   <caption className="sr-only">
                     Indicadores de legibilidad por sección narrativa
@@ -550,7 +627,12 @@ export function BookAnalysisDashboard({
                     narrativas; describe diferencias de extensión, no tensión narrativa.
                   </p>
                 </section>
-                <div className="overflow-x-auto">
+                <div
+                  className="overflow-x-auto"
+                  tabIndex={0}
+                  role="region"
+                  aria-label="Tabla de ritmo narrativo"
+                >
                   <table className="w-full min-w-[38rem] border-collapse text-left text-sm">
                     <caption className="sr-only">
                       Métricas de párrafo y diálogo por capítulo
@@ -615,7 +697,12 @@ export function BookAnalysisDashboard({
                   <summary className="cursor-pointer font-medium text-ink-soft">
                     Distribución de extensión de párrafos por capítulo
                   </summary>
-                  <div className="mt-3 overflow-x-auto">
+                  <div
+                    className="mt-3 overflow-x-auto"
+                    tabIndex={0}
+                    role="region"
+                    aria-label="Tabla de distribución de párrafos"
+                  >
                     <table className="w-full min-w-[34rem] border-collapse text-left">
                       <thead>
                         <tr className="border-b border-line">

@@ -302,6 +302,13 @@ export function ManuscriptSidebar({
           >
             Personajes del libro →
           </Link>
+          <Link
+            className="mt-2 block text-xs text-ink-soft underline underline-offset-4"
+            href={`/books/${bookId}/laboratorio`}
+            prefetch={false}
+          >
+            Laboratorio Editorial →
+          </Link>
           <div id="studio-chapter-tree" className="studio-chapter-tree">
             {groupSections(nodes).map((group) => (
               <details className="studio-section-group" key={group.label} open>
