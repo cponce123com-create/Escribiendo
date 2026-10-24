@@ -1,5 +1,6 @@
 "use client";
 import { useActionState, useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { TOC_TEMPLATE_CATALOG, type TocParameters } from "@escribiendo/templates";
 import type { MatterPreview } from "@/lib/layout/preview";
@@ -72,6 +73,11 @@ export function TocTemplateGallery({
       <p className="text-sm text-ink-soft">
         Los títulos y folios se calculan a partir del manuscrito. El diseño no cambia el texto del
         libro.
+      </p>
+      <p className="text-sm">
+        <Link className="underline" href={`/books/${bookId}/preview`}>
+          Ver el libro completo
+        </Link>
       </p>
       {warning ? (
         <p className="alert alert-error" role="status">
