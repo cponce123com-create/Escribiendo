@@ -2,22 +2,29 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_TYPOGRAPHY_STYLE } from "@escribiendo/editorial-engine";
 import type { SessionContext } from "@/lib/auth/session";
 
-const { mockPrisma, mockBookToBlocks, mockGetBookCover, mockGetBookEdition, mockOutlineFromPages } =
-  vi.hoisted(() => ({
-    mockPrisma: {
-      bookSection: { findMany: vi.fn() },
-      book: { findFirst: vi.fn() },
-    },
-    mockBookToBlocks: vi.fn(),
-    mockGetBookCover: vi.fn(),
-    mockGetBookEdition: vi.fn(),
-    mockOutlineFromPages: vi.fn(),
-  }));
+const {
+  mockPrisma,
+  mockBookToBlocks,
+  mockGetBookCover,
+  mockGetBookEdition,
+  mockOutlineFromPages,
+  mockLoadBookMatter,
+} = vi.hoisted(() => ({
+  mockPrisma: {
+    bookSection: { findMany: vi.fn() },
+    book: { findFirst: vi.fn() },
+  },
+  mockBookToBlocks: vi.fn(),
+  mockGetBookCover: vi.fn(),
+  mockGetBookEdition: vi.fn(),
+  mockOutlineFromPages: vi.fn(),
+  mockLoadBookMatter: vi.fn(),
+}));
 
 // Estas pruebas aíslan composición/reproducción de las materias automáticas.
 vi.mock("@/lib/editorial/book-matter", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  loadBookMatter: async () => null,
+  loadBookMatter: mockLoadBookMatter,
 }));
 
 vi.mock("server-only", () => ({}));
@@ -75,6 +82,7 @@ const bloque = {
 describe("vista previa paginada", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockLoadBookMatter.mockResolvedValue(null);
     mockGetBookEdition.mockResolvedValue({ profile, template: null });
     mockBookToBlocks.mockReturnValue([bloque]);
     mockOutlineFromPages.mockReturnValue([{ title: "Capítulo", pageIndex: 0 }]);
@@ -104,6 +112,7 @@ describe("vista previa paginada", () => {
     expect(preview?.dropCaps).toBe(true);
     expect(mockBookToBlocks).toHaveBeenCalledWith(expect.any(Array), {
       dropCaps: true,
+      dropCapLines: 3,
       frontMatter: [],
       backMatter: [],
       contentHeightMm: 170,
@@ -116,6 +125,37 @@ describe("vista previa paginada", () => {
     expect(preview?.dropCaps).toBe(false);
     expect(mockBookToBlocks).toHaveBeenCalledWith(expect.any(Array), {
       dropCaps: false,
+      dropCapLines: 3,
+      frontMatter: [],
+      backMatter: [],
+      contentHeightMm: 170,
+    });
+  });
+
+  it("usa la inicial persistida en la edición", async () => {
+    mockLoadBookMatter.mockResolvedValue({
+      tocMode: "AUTOMATIC",
+      tocSources: [],
+      tocOptions: {
+        depth: "chapters-h1",
+        includeFrontMatter: true,
+        includeBackMatter: true,
+        skipEmptyTitles: true,
+      },
+      legal: null,
+      dropCap: { enabled: true, lines: 2 },
+      legalMode: "print",
+      hasTocSection: false,
+      hasCopyrightSection: false,
+    });
+
+    const preview = await buildPreview(session, "book-1");
+
+    expect(preview?.dropCaps).toBe(true);
+    expect(preview?.dropCapLines).toBe(2);
+    expect(mockBookToBlocks).toHaveBeenCalledWith(expect.any(Array), {
+      dropCaps: true,
+      dropCapLines: 2,
       frontMatter: [],
       backMatter: [],
       contentHeightMm: 170,

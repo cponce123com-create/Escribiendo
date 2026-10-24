@@ -1,6 +1,6 @@
 "use client";
 import { useActionState, useCallback, useEffect, useState, useTransition } from "react";
-import type { PreviewResult } from "@/lib/layout/preview";
+import type { MatterPreview } from "@/lib/layout/preview";
 import Link from "next/link";
 import { LEGAL_FIELD_LABELS } from "@/lib/editorial/template-settings";
 import { useRouter } from "next/navigation";
@@ -20,7 +20,7 @@ import { MatterSheet } from "./matter-sheet";
 import { LegalClausesField } from "./legal-clauses-field";
 
 type PreviewData = {
-  preview: PreviewResult | null;
+  preview: MatterPreview | null;
   warnings: NonNullable<Awaited<ReturnType<typeof legalGalleryPreview>>>["warnings"];
 } | null;
 export function LegalTemplateGallery({
@@ -39,7 +39,7 @@ export function LegalTemplateGallery({
 }: {
   bookId: string;
   cards: Array<{
-    preview: PreviewResult | null;
+    preview: MatterPreview | null;
     warnings: NonNullable<PreviewData>["warnings"];
     slug: string;
   }>;

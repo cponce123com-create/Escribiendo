@@ -1,5 +1,6 @@
 import "server-only";
 import { loadBookMatter } from "@/lib/editorial/book-matter";
+import { DEFAULT_DROP_CAP_SETTINGS } from "@/lib/editorial/template-settings";
 import { buildLegalPage } from "@escribiendo/templates";
 import { prisma } from "@/lib/db";
 import type { SessionContext } from "@/lib/auth/session";
@@ -125,7 +126,7 @@ export async function requestExport(
   session: SessionContext,
   bookId: string,
   format: ExportFormat,
-  dropCaps = false,
+  dropCaps?: boolean,
 ): Promise<ExportJobSummary> {
   const book = await prisma.book.findFirst({
     where: { id: bookId, workspaceId: session.workspace.id, deletedAt: null },
@@ -142,6 +143,9 @@ export async function requestExport(
   const cover = await getBookCover(session, bookId);
   const matter = await loadBookMatter(session, bookId, manuscript);
   if (matter?.legal) matter.frozenLegal = buildLegalPage(matter.legal, { mode: matter.legalMode });
+  // La configuración de la edición manda. El parámetro explícito solo sirve
+  // para reproducir una petición anterior o forzar un estado en pruebas.
+  const dropCap = matter?.dropCap ?? DEFAULT_DROP_CAP_SETTINGS;
   const layoutSnapshot = {
     matter,
     profile: context.profile,
@@ -149,7 +153,8 @@ export async function requestExport(
     runningHeadTemplate: context.runningHeadTemplate,
     bookTitle: book.title,
     authorName: book.authorName,
-    dropCaps,
+    dropCaps: dropCaps ?? dropCap.enabled,
+    dropCapLines: dropCap.lines,
     cover: cover ? { url: cover.url, crop: cover.crop } : null,
   };
 

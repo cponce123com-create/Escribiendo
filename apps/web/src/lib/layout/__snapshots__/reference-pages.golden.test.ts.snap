@@ -1,0 +1,251 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`golden de las páginas de referencia > dedicatoria con plantilla clásica y posición superior 1`] = `
+[
+  {
+    "blocks": [
+      {
+        "id": "dedication-0",
+        "kind": "rule",
+        "lines": [],
+        "spaceBeforeMm": 20.4,
+      },
+      {
+        "id": "dedication-1",
+        "kind": "body",
+        "lines": [
+          {
+            "text": "Para Ana, que leyó el primer borrador.",
+          },
+        ],
+        "spaceBeforeMm": 0,
+      },
+      {
+        "id": "dedication-2",
+        "kind": "body",
+        "lines": [
+          {
+            "text": "Con todo mi cariño.",
+          },
+        ],
+        "spaceBeforeMm": 0,
+      },
+      {
+        "id": "dedication-3",
+        "kind": "rule",
+        "lines": [],
+        "spaceBeforeMm": 0,
+      },
+      {
+        "id": "dedication-4",
+        "kind": "body",
+        "lines": [
+          {
+            "text": "La autora",
+          },
+        ],
+        "spaceBeforeMm": 0,
+      },
+    ],
+    "folio": 1,
+    "side": "recto",
+    "usedHeightMm": 49.504,
+  },
+]
+`;
+
+exports[`golden de las páginas de referencia > página legal de dos regiones 1`] = `
+[
+  {
+    "blocks": [
+      {
+        "id": "matter-copyright-0",
+        "kind": "body",
+        "lines": [
+          {
+            "text": "© 2026 Ana Ruiz. Todos los derechos reservados.",
+          },
+        ],
+        "spaceBeforeMm": 0,
+      },
+      {
+        "id": "matter-copyright-1",
+        "kind": "body",
+        "lines": [
+          {
+            "text": "Queda prohibida la reproducción total o parcial de esta obra sin",
+          },
+          {
+            "text": "autorización escrita del titular de los derechos.",
+          },
+        ],
+        "spaceBeforeMm": 0,
+      },
+      {
+        "id": "matter-copyright-2",
+        "kind": "body",
+        "lines": [
+          {
+            "text": "Primera edición.",
+          },
+        ],
+        "spaceBeforeMm": 100.15,
+      },
+      {
+        "id": "matter-copyright-3",
+        "kind": "body",
+        "lines": [
+          {
+            "text": "Lima, Perú, octubre de 2026.",
+          },
+        ],
+        "spaceBeforeMm": 0,
+      },
+      {
+        "id": "matter-copyright-4",
+        "kind": "body",
+        "lines": [
+          {
+            "text": "ISBN: 978-84-376-0494-7",
+          },
+        ],
+        "spaceBeforeMm": 0,
+      },
+      {
+        "id": "matter-copyright-5",
+        "kind": "body",
+        "lines": [
+          {
+            "text": "Hecho el Depósito Legal en la Biblioteca Nacional del Perú N.º",
+          },
+          {
+            "text": "2026-12345.",
+          },
+        ],
+        "spaceBeforeMm": 0,
+      },
+      {
+        "id": "matter-copyright-6",
+        "kind": "body",
+        "lines": [
+          {
+            "text": "Publicado por Editorial No Para Todos.",
+          },
+        ],
+        "spaceBeforeMm": 0,
+      },
+      {
+        "id": "matter-copyright-7",
+        "kind": "body",
+        "lines": [
+          {
+            "text": "Av. Siempre Viva 123, Lima.",
+          },
+        ],
+        "spaceBeforeMm": 0,
+      },
+      {
+        "id": "matter-copyright-8",
+        "kind": "body",
+        "lines": [
+          {
+            "text": "hola@editorial.pe",
+          },
+        ],
+        "spaceBeforeMm": 0,
+      },
+      {
+        "id": "matter-copyright-9",
+        "kind": "body",
+        "lines": [
+          {
+            "text": "Impreso por Imprenta del Pacífico · Tirada: 500 ejemplares.",
+          },
+        ],
+        "spaceBeforeMm": 0,
+      },
+    ],
+    "folio": 1,
+    "side": "recto",
+    "usedHeightMm": 170,
+  },
+]
+`;
+
+exports[`golden de las páginas de referencia > índice con folios y líderes en columna 1`] = `
+[
+  {
+    "blocks": [
+      {
+        "id": "matter-toc-title",
+        "kind": "chapterTitle",
+        "lines": [
+          {
+            "text": "Índice",
+          },
+        ],
+        "spaceBeforeMm": 12.7,
+      },
+      {
+        "id": "matter-toc-1",
+        "kind": "body",
+        "lines": [
+          {
+            "folio": "9",
+            "leaderEndMm": 111.366,
+            "leaderStartMm": 24.007,
+            "text": "Primera parte",
+            "xMm": 112.866,
+          },
+        ],
+        "spaceBeforeMm": 0,
+      },
+      {
+        "id": "matter-toc-2",
+        "kind": "body",
+        "lines": [
+          {
+            "folio": "11",
+            "leaderEndMm": 109.231,
+            "leaderStartMm": 19.467,
+            "text": "El silencio",
+            "xMm": 110.731,
+          },
+        ],
+        "spaceBeforeMm": 0,
+      },
+      {
+        "id": "matter-toc-3",
+        "kind": "body",
+        "lines": [
+          {
+            "folio": "27",
+            "leaderEndMm": 109.231,
+            "leaderStartMm": 25.365,
+            "text": "La casa vacía",
+            "xMm": 110.731,
+          },
+        ],
+        "spaceBeforeMm": 0,
+      },
+      {
+        "id": "matter-toc-4",
+        "kind": "body",
+        "lines": [
+          {
+            "folio": "113",
+            "leaderEndMm": 107.097,
+            "leaderStartMm": 16.789,
+            "text": "Apéndice",
+            "xMm": 108.597,
+          },
+        ],
+        "spaceBeforeMm": 0,
+      },
+    ],
+    "folio": 1,
+    "side": "recto",
+    "usedHeightMm": 41.804,
+  },
+]
+`;

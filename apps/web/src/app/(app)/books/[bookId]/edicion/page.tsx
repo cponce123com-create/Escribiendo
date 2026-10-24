@@ -1,6 +1,11 @@
 import { z } from "zod";
-import { DEFAULT_DEDICATION_SETTINGS, LEGAL_FIELD_LABELS } from "@/lib/editorial/template-settings";
+import {
+  DEFAULT_DEDICATION_SETTINGS,
+  DEFAULT_DROP_CAP_SETTINGS,
+  LEGAL_FIELD_LABELS,
+} from "@/lib/editorial/template-settings";
 import { DedicationSettings } from "@/components/layout/dedication-settings";
+import { DropCapSettingsForm } from "@/components/layout/drop-cap-settings";
 import { sectionToBlocks } from "@/lib/layout/blocks";
 import { TocTemplateGallery } from "@/components/layout/toc-template-gallery";
 import { buildTocPreview } from "@/lib/editorial/toc-preview";
@@ -16,7 +21,7 @@ import { requireSession } from "@/lib/auth/session";
 import { getBook, getSection } from "@/lib/books/queries";
 import { canPerform } from "@/lib/books/permissions";
 import { loadBookMatter } from "@/lib/editorial/book-matter";
-import { buildPreview, loadPreviewSections } from "@/lib/layout/preview";
+import { buildLegalMatterPreview, loadPreviewSections } from "@/lib/layout/preview";
 import { LEGAL_TEMPLATE_CATALOG, buildLegalPage } from "@escribiendo/templates";
 import { LegalTemplateGallery } from "@/components/layout/legal-template-gallery";
 
@@ -49,35 +54,19 @@ export default async function EditionMatterPage({
   const manuscriptSection = sections.find(
     (section) => section.type !== "COPYRIGHT" && section.type !== "TABLE_OF_CONTENTS",
   );
+  const selectedLegalTemplate = matter?.legal?.template ?? "copyright-international";
   const cards = await Promise.all(
     LEGAL_TEMPLATE_CATALOG.map(async (item) => {
       const legal = matter?.legal ? { ...matter.legal, template: item.slug } : null;
       const result = legal ? buildLegalPage(legal) : null;
+      // Solo la plantilla elegida se compone con los datos del libro. El resto
+      // muestra una miniatura de catálogo hasta que el editor la seleccione:
+      // entrar en la página no dispara una composición por tarjeta.
       const preview =
-        legal && matter
-          ? await buildPreview(session, bookId, {
-              matterOverride: {
-                ...matter,
-                legal,
-                hasCopyrightSection: false,
-                legalPageMode: "TEMPLATE",
-                previewIncompleteLegal: true,
-              },
-            })
+        legal && item.slug === selectedLegalTemplate
+          ? await buildLegalMatterPreview(session, bookId, legal, matter?.legalMode ?? "print")
           : null;
-      return {
-        slug: item.slug,
-        preview: preview
-          ? {
-              ...preview,
-              cover: null,
-              pages: preview.pages.filter((page) =>
-                page.blocks.some((block) => block.sectionId === "matter-copyright"),
-              ),
-            }
-          : null,
-        warnings: result?.warnings ?? [],
-      };
+      return { slug: item.slug, preview, warnings: result?.warnings ?? [] };
     }),
   );
   const tocParameters = {
@@ -89,7 +78,12 @@ export default async function EditionMatterPage({
   const tocCards = await Promise.all(
     TOC_TEMPLATE_CATALOG.map(async (item) => ({
       slug: item.slug,
-      preview: await buildTocPreview(session, bookId, item.parameters),
+      // El índice necesita los folios reales del cuerpo, así que se compone
+      // solo el elegido; las demás tarjetas esperan a que se seleccionen.
+      preview:
+        item.slug === tocParameters.tocTemplate
+          ? await buildTocPreview(session, bookId, tocParameters)
+          : null,
     })),
   );
   const diagnostics = auditEditorialStructure(resolveEditorialStructure(), {
@@ -141,6 +135,11 @@ export default async function EditionMatterPage({
         canManage={canPerform(session.workspace.role, "layout:manage")}
         warning={diagnostics.find((item) => item.code === "INDICE_SIN_CUERPO")?.message ?? null}
         manual={matter?.tocMode === "MANUAL"}
+      />
+      <DropCapSettingsForm
+        bookId={bookId}
+        initial={matter?.dropCap ?? DEFAULT_DROP_CAP_SETTINGS}
+        canManage={canPerform(session.workspace.role, "layout:manage")}
       />
       <DedicationSettings
         bookId={bookId}

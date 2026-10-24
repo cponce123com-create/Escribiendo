@@ -6,6 +6,7 @@ const matter: BookMatter = {
   tocSources: [{ id: "chapter", title: "Capítulo", level: 1, group: "body", showInToc: true }],
   tocOptions: { depth: "chapters-h1" },
   legal: null,
+  dropCap: { enabled: false, lines: 3 },
   legalMode: "print",
   hasTocSection: true,
   hasCopyrightSection: false,

@@ -16,7 +16,12 @@ import { writeAuditLog } from "@/lib/auth/audit";
 import { prisma } from "@/lib/db";
 import { errorState, successState, formValue } from "@/lib/form-helpers";
 import type { ActionState } from "@/lib/action-state";
-import { dedicationSettingsSchema, legalFieldsSchema, settingsRecord } from "./template-settings";
+import {
+  dedicationSettingsSchema,
+  dropCapSettingsSchema,
+  legalFieldsSchema,
+  settingsRecord,
+} from "./template-settings";
 
 export async function updateLegalTemplateAction(
   _previous: ActionState,
@@ -343,4 +348,84 @@ export async function updateDedicationAction(
   for (const path of ["/edicion", "/layout", "/preview", "/export"])
     revalidatePath(`/books/${bookId.data}${path}`);
   return successState("Dedicatoria guardada.");
+}
+
+/**
+ * Guarda la letra capital de la edición.
+ *
+ * Vista previa y exportación leen esta única decisión: no hay dos
+ * interruptores que puedan mostrar estados distintos.
+ */
+export async function updateDropCapAction(
+  _previous: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  let context;
+  try {
+    context = await assertServerActionOrigin();
+  } catch {
+    return errorState("No se ha podido validar la solicitud.");
+  }
+  const session = await getSession();
+  if (!session) return errorState("Inicia sesión para guardar la letra capital.");
+  try {
+    assertCanPerform(session.workspace.role, "layout:manage");
+  } catch {
+    return errorState("No tienes permisos para gestionar la maquetación.");
+  }
+  const bookId = z.string().uuid().safeParse(formValue(form, "bookId"));
+  if (!bookId.success) return errorState("El libro no es válido.");
+  const dropCap = dropCapSettingsSchema.safeParse({
+    enabled: formValue(form, "enabled") === "true",
+    lines: Number(formValue(form, "lines")),
+  });
+  if (!dropCap.success)
+    return errorState(
+      dropCap.error.issues[0]?.message ?? "Revisa la configuración de la letra capital.",
+    );
+  try {
+    const editionId = await prisma.$transaction(
+      async (tx) => {
+        const edition = await tx.bookEdition.findFirst({
+          where: {
+            bookId: bookId.data,
+            book: { workspaceId: session.workspace.id, deletedAt: null },
+          },
+          orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+          select: { id: true, settings: true },
+        });
+        if (!edition) throw new Error("Aplica primero una maqueta a este libro.");
+        const settings = {
+          ...settingsRecord(edition.settings),
+          dropCap: dropCap.data,
+        };
+        await tx.bookEdition.update({
+          where: { id: edition.id },
+          data: { settings: JSON.parse(JSON.stringify(settings)) },
+        });
+        return edition.id;
+      },
+      { isolationLevel: "Serializable" },
+    );
+    await writeAuditLog(
+      {
+        action: "DROP_CAP_UPDATED",
+        entityType: "BookEdition",
+        entityId: editionId,
+        workspaceId: session.workspace.id,
+        actorId: session.user.id,
+        metadata: { enabled: dropCap.data.enabled, lines: dropCap.data.lines },
+      },
+      context,
+    );
+  } catch (error) {
+    return errorState(
+      error instanceof Error && error.message === "Aplica primero una maqueta a este libro."
+        ? error.message
+        : "No se pudo guardar. Vuelve a intentarlo.",
+    );
+  }
+  for (const path of ["/edicion", "/layout", "/preview", "/export"])
+    revalidatePath(`/books/${bookId.data}${path}`);
+  return successState("Letra capital guardada.");
 }

@@ -2,7 +2,7 @@
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { TOC_TEMPLATE_CATALOG, type TocParameters } from "@escribiendo/templates";
-import type { PreviewResult } from "@/lib/layout/preview";
+import type { MatterPreview } from "@/lib/layout/preview";
 import { tocGalleryPreview } from "@/lib/editorial/gallery-preview";
 import { updateTocTemplateAction } from "@/lib/editorial/template-actions";
 import { initialActionState } from "@/lib/action-state";
@@ -18,7 +18,7 @@ export function TocTemplateGallery({
   manual,
 }: {
   bookId: string;
-  cards: Array<{ slug: string; preview: PreviewResult | null }>;
+  cards: Array<{ slug: string; preview: MatterPreview | null }>;
   initial: TocParameters;
   canManage: boolean;
   warning: string | null;

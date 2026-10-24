@@ -69,6 +69,28 @@ export function dedicationSettingsFrom(value: unknown): DedicationSettings | nul
   const parsed = dedicationSettingsSchema.safeParse(value);
   return parsed.success ? parsed.data : null;
 }
+/**
+ * Letra capital de la edición.
+ *
+ * La geometría (cuerpo, sangría y corrección) la calcula el motor con
+ * `dropCapMetrics`; aquí solo se decide si se compone y cuántas líneas ocupa,
+ * para que vista previa y PDF no puedan mostrar estados distintos.
+ */
+export const dropCapSettingsSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+    lines: z.union([z.literal(2), z.literal(3)]).default(3),
+  })
+  .strict();
+export type DropCapSettings = z.infer<typeof dropCapSettingsSchema>;
+export const DEFAULT_DROP_CAP_SETTINGS: DropCapSettings = { enabled: false, lines: 3 };
+export function dropCapSettingsFrom(value: unknown): DropCapSettings {
+  if (value === null || value === undefined) {
+    return DEFAULT_DROP_CAP_SETTINGS;
+  }
+  const parsed = dropCapSettingsSchema.safeParse(value);
+  return parsed.success ? parsed.data : DEFAULT_DROP_CAP_SETTINGS;
+}
 export function settingsRecord(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)

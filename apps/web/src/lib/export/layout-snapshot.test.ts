@@ -10,10 +10,12 @@ describe("instantánea de exportación", () => {
         runningHeadTemplate: null,
         bookTitle: "Libro de prueba",
         dropCaps: true,
+        dropCapLines: 2,
       },
     });
 
     expect(snapshot?.dropCaps).toBe(true);
+    expect(snapshot?.dropCapLines).toBe(2);
   });
 
   it("mantiene desactivada la letra capital en instantáneas antiguas", () => {
@@ -27,6 +29,7 @@ describe("instantánea de exportación", () => {
     });
 
     expect(snapshot?.dropCaps).toBe(false);
+    expect(snapshot?.dropCapLines).toBe(3);
     expect(readExportLayoutSnapshot({ options: {} })).toBeNull();
   });
 

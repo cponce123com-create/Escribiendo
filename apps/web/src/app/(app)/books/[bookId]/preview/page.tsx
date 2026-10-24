@@ -14,14 +14,11 @@ export const metadata: Metadata = {
 
 interface BookPreviewPageProps {
   params: Promise<{ bookId: string }>;
-  searchParams: Promise<{ dropCaps?: string | string[] }>;
 }
 
-export default async function BookPreviewPage({ params, searchParams }: BookPreviewPageProps) {
+export default async function BookPreviewPage({ params }: BookPreviewPageProps) {
   const session = await requireSession();
   const { bookId } = await params;
-  const { dropCaps: dropCapsParam } = await searchParams;
-  const dropCaps = (Array.isArray(dropCapsParam) ? dropCapsParam[0] : dropCapsParam) === "true";
 
   const book = await getBook(session, bookId);
 
@@ -29,7 +26,7 @@ export default async function BookPreviewPage({ params, searchParams }: BookPrev
     notFound();
   }
 
-  const preview = await buildPreview(session, book.id, { dropCaps });
+  const preview = await buildPreview(session, book.id);
 
   if (!preview) {
     return (
@@ -72,23 +69,14 @@ export default async function BookPreviewPage({ params, searchParams }: BookPrev
             ? "La composición usa las métricas reales de la fuente que se incrusta en el PDF: los cortes de línea de esta vista previa son los mismos que los del archivo exportado."
             : "La composición se estima con un modelo de anchos medios de carácter, porque no se han podido cargar las fuentes: sirve para ver la estructura y detectar problemas, pero la paginación definitiva se calcula al exportar."}
         </p>
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="text-ink-muted">Inicial capitular:</span>
-          <Link
-            className={dropCaps ? "btn btn-secondary btn-sm" : "btn btn-primary btn-sm"}
-            href={`/books/${book.id}/preview`}
-            aria-current={dropCaps ? undefined : "page"}
-          >
-            Sin inicial
+        <p className="text-xs leading-relaxed text-ink-muted">
+          Inicial capitular:{" "}
+          {preview.dropCaps ? `activada (${preview.dropCapLines} líneas)` : "desactivada"}.{" "}
+          <Link className="underline" href={`/books/${book.id}/edicion`}>
+            Configurar en Páginas de la edición
           </Link>
-          <Link
-            className={dropCaps ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"}
-            href={`/books/${book.id}/preview?dropCaps=true`}
-            aria-current={dropCaps ? "page" : undefined}
-          >
-            Con inicial
-          </Link>
-        </div>
+          .
+        </p>
       </header>
 
       <section className="panel p-6" aria-label="diagnóstico de composición">
