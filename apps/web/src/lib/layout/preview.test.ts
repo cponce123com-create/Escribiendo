@@ -106,6 +106,7 @@ describe("vista previa paginada", () => {
       dropCaps: true,
       frontMatter: [],
       backMatter: [],
+      contentHeightMm: 170,
     });
   });
 
@@ -117,6 +118,7 @@ describe("vista previa paginada", () => {
       dropCaps: false,
       frontMatter: [],
       backMatter: [],
+      contentHeightMm: 170,
     });
   });
 

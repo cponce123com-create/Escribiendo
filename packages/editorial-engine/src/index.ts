@@ -55,6 +55,15 @@ export {
   type TextLinePlacement,
 } from "./drawing";
 export {
+  DEFAULT_DROP_CAP_LINES,
+  dropCapGrapheme,
+  dropCapMetrics,
+  normalizeDropCapLines,
+  type DropCapLines,
+  type DropCapMetrics,
+  type DropCapStyle,
+} from "./drop-cap";
+export {
   DEFAULT_IMAGE_WIDTH_PERCENT,
   IMAGE_CAPTION_GAP_MM,
   IMAGE_CAPTION_SCALE,

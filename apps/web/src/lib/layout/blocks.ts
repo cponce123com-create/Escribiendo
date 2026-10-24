@@ -5,11 +5,16 @@ import {
   type TiptapNode,
 } from "@escribiendo/book-schema";
 import {
+  dropCapGrapheme,
   runsToText,
+  type DropCapLines,
   type InlineRun,
   type LayoutBlock,
   type LayoutBlockKind,
 } from "@escribiendo/editorial-engine";
+import { buildDedicationPage } from "@escribiendo/templates";
+import { matterPageToBlocks } from "@/lib/editorial/matter-blocks";
+import type { DedicationSettings } from "@/lib/editorial/template-settings";
 import { editorialImageFromNode } from "./image";
 import { inlineRuns, listRuns, trimRuns, type FootnoteCounter } from "./inline";
 import { sectionDisplayTitles } from "./section-title";
@@ -76,10 +81,19 @@ export interface MatterLayout {
 export interface BookBlocksOptions {
   /** Compone la inicial capitular del primer párrafo de cada capítulo. */
   dropCaps?: boolean;
+  /** Líneas de cuerpo que ocupa la inicial (2 o 3; por defecto, 3). */
+  dropCapLines?: DropCapLines;
   /** Preliminares, en orden editorial y ya compuestos. */
   frontMatter?: readonly MatterLayout[];
-  /** Materias finales, en orden editorial y ya compuestas. */
+  /** Materias finales, en orden editorial y ya compuestos. */
   backMatter?: readonly MatterLayout[];
+  /**
+   * Composición elegida para la dedicatoria. Si falta, la sección se compone
+   * como antes: activar el preset nunca altera libros que no lo pidieron.
+   */
+  dedication?: DedicationSettings;
+  /** Altura útil real, para resolver las posiciones proporcionales al formato. */
+  contentHeightMm?: number;
 }
 
 /** Indica si el tipo de sección presenta el título guardado. */
@@ -259,6 +273,49 @@ export function sectionToBlocks(
 }
 
 /**
+ * Compone el contenido de una sección.
+ *
+ * La dedicatoria puede tener una composición elegida por edición: se alimenta
+ * del texto de la propia sección y pasa por el generador de materias, de modo
+ * que plantilla, alineación, posición y firma son las mismas en la vista previa
+ * y en el PDF. Sin configuración guardada se conserva la composición anterior.
+ */
+function composeSectionBlocks(
+  section: PreviewSection,
+  footnotes: FootnoteCounter,
+  options: BookBlocksOptions,
+): LayoutBlock[] {
+  const blocks = sectionToBlocks(section, footnotes);
+
+  if (section.type !== "DEDICATION" || !options.dedication) {
+    return blocks.map((block) =>
+      section.type === "DEDICATION" ? { ...block, alignment: "right" as const } : block,
+    );
+  }
+
+  // La sección es la fuente del texto: cada párrafo compuesto vuelve a ser un
+  // párrafo de la dedicatoria, sin inventar ni recortar contenido.
+  const text = blocks
+    .map((block) => block.text.trim())
+    .filter(Boolean)
+    .join("\n\n");
+  const page = buildDedicationPage({
+    text,
+    template: options.dedication.template,
+    alignment: options.dedication.alignment,
+    verticalPosition: options.dedication.verticalPosition,
+    signature: options.dedication.signature,
+  });
+
+  return matterPageToBlocks(page, {
+    id: section.id,
+    sectionTitle: section.title,
+    ...(section.pageBreakBefore ? { pageBreakBefore: true } : {}),
+    ...(options.contentHeightMm !== undefined ? { contentHeightMm: options.contentHeightMm } : {}),
+  });
+}
+
+/**
  * Compone los bloques de todas las secciones de un libro.
  *
  * El título editorial se compone aquí con la etiqueta y el número que haya
@@ -284,9 +341,7 @@ export function bookToBlocks(
   const bodyStart = blocks.length;
 
   for (const section of sections) {
-    const sectionBlocks = sectionToBlocks(section, footnotes).map((block) =>
-      section.type === "DEDICATION" ? { ...block, alignment: "right" as const } : block,
-    );
+    const sectionBlocks = composeSectionBlocks(section, footnotes, options);
     const opensChapter = section.isChapter && (chapterSeen || section.startOnOddPage);
     const visibleTitle = titles.get(section.id) ?? null;
     // Convención editorial (por tipo) y elección del autor: el título compuesto
@@ -329,14 +384,21 @@ export function bookToBlocks(
         firstBodyAfterTitle = true;
       }
 
-      blocks.push({
-        ...block,
-        ...(options.dropCaps &&
+      const dropCapCharacter =
+        options.dropCaps &&
         section.isChapter &&
         section.type.toUpperCase() !== "SUBCHAPTER" &&
-        firstParagraph &&
-        block.text.length > 0
-          ? { dropCapCharacter: Array.from(block.text)[0] }
+        firstParagraph
+          ? dropCapGrapheme(block.text)
+          : null;
+
+      blocks.push({
+        ...block,
+        ...(dropCapCharacter
+          ? {
+              dropCapCharacter,
+              ...(options.dropCapLines ? { dropCapLines: options.dropCapLines } : {}),
+            }
           : {}),
         startsChapter: !titleBlock && opensChapter && index === 0,
         firstOfSection: titleBlock ? firstParagraph : index === 0,

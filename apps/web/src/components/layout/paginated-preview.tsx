@@ -364,8 +364,8 @@ function PreviewBlock({
           style={{
             position: "absolute",
             left: 0,
-            top: `calc(${dropCapCorrectionPt(style.fontFamily, style.fontSizePt, lineHeight)}pt + ${block.spaceBeforeMm * PX_PER_MM}px)`,
-            fontSize: `${style.fontSizePt * 3}pt`,
+            top: `calc(${dropCapCorrectionPt(style.fontFamily, style.fontSizePt, lineHeight, block.dropCapLines ?? 3)}pt + ${block.spaceBeforeMm * PX_PER_MM}px)`,
+            fontSize: `${block.dropCapSizePt ?? style.fontSizePt * 3}pt`,
             lineHeight: `${lineHeight}pt`,
             fontFamily: FAMILIAS[style.fontFamily] ?? FAMILIAS.serif,
             fontWeight: isHeadingKind(block.kind) ? 700 : undefined,
@@ -456,7 +456,10 @@ function PreviewBlock({
             }
 
             dropCapPending = false;
-            return text.replace(/^./u, "");
+            const [, ...rest] = [
+              ...new Intl.Segmenter("es", { granularity: "grapheme" }).segment(text),
+            ];
+            return rest.map((item) => item.segment).join("");
           };
 
           return (

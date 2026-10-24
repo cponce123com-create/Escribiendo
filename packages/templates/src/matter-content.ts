@@ -32,6 +32,11 @@ export interface MatterBlock {
    * depender del formato de papel.
    */
   spaceFraction?: number;
+  /**
+   * Alineación propia del bloque. Permite combinar un papel tipográfico
+   * (por ejemplo, la cursiva literaria) con la alineación que pida el autor.
+   */
+  alignment?: "left" | "center" | "right";
 }
 
 export type MatterWarningSeverity = "info" | "warning" | "error";
@@ -222,15 +227,11 @@ export function buildDedicationPage(input: DedicationInput): DedicationCompositi
   }
   for (const paragraph of paragraphs(text)) {
     blocks.push({
-      role:
-        alignment === "right"
-          ? "right"
-          : template === "literary"
-            ? "italic"
-            : alignment === "left"
-              ? "body"
-              : "center",
+      // La cursiva literaria no impone la alineación: el autor puede pedir
+      // derecha, centro o izquierda y el papel tipográfico se conserva.
+      role: template === "literary" ? "italic" : alignment === "left" ? "body" : alignment,
       text: paragraph,
+      alignment,
     });
   }
   if (template === "classic") {

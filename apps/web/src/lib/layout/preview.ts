@@ -4,6 +4,7 @@ import { editorialOrder } from "@/lib/books/reading-order";
 import { prisma } from "@/lib/db";
 import type { SessionContext } from "@/lib/auth/session";
 import {
+  textBlockSize,
   withTypographyDefaults,
   type LayoutBlock,
   type LayoutDiagnostic,
@@ -216,6 +217,8 @@ export async function buildPreview(
       dropCaps,
       frontMatter: front,
       backMatter: back,
+      ...(matter?.dedication ? { dedication: matter.dedication } : {}),
+      contentHeightMm: textBlockSize(geometry).heightMm,
     });
 
   // Primera pasada: materias sin páginas. Después se estabiliza el índice,

@@ -6,6 +6,7 @@ import {
   lineHeightMm,
   paginate,
   textBlockSize,
+  type LaidOutPage,
   type LayoutBlock,
   type PageGeometry,
 } from "./pagination";
@@ -660,5 +661,55 @@ describe("physical parity with a cover", () => {
     expect(result.pages[0]?.side).toBe("verso");
     expect(result.pages[1]?.side).toBe("recto");
     expect(result.pages[1]?.folio).toBe(2);
+  });
+});
+
+/** Altura ocupada por los bloques compuestos de una página. */
+function alturaOcupada(page: LaidOutPage | undefined): number {
+  return (page?.blocks ?? []).reduce(
+    (total, block) =>
+      total +
+      block.spaceBeforeMm +
+      block.lines.length * lineHeightMm(block.style) +
+      block.spaceAfterMm,
+    0,
+  );
+}
+
+describe("anclaje de la región inferior de una materia", () => {
+  it("lleva el primer bloque anclado al pie del área de texto", () => {
+    const blocks: LayoutBlock[] = [
+      { id: "top", kind: "body", text: "© 2026 Autora. Todos los derechos reservados." },
+      { id: "bottom-1", kind: "body", text: "ISBN: 978-84-376-0494-7", bottomAnchor: true },
+      {
+        id: "bottom-2",
+        kind: "body",
+        text: "Impreso por Imprenta del Pacífico.",
+        bottomAnchor: true,
+      },
+    ];
+
+    const result = paginate(blocks, GEOMETRY, TIPOGRAFIA);
+    const page = result.pages[0];
+    const primeroInferior = page?.blocks.find((block) => block.id === "bottom-1");
+
+    expect(result.pages).toHaveLength(1);
+    expect(primeroInferior?.spaceBeforeMm).toBeGreaterThan(0);
+    expect(page?.blocks.at(-1)?.id).toBe("bottom-2");
+    expect(alturaOcupada(page)).toBeCloseTo(80, 5);
+  });
+
+  it("ancla la región inferior en la página en la que cae", () => {
+    const blocks: LayoutBlock[] = [
+      { id: "top", kind: "body", text: palabras(400) },
+      { id: "bottom", kind: "body", text: "Créditos de edición.", bottomAnchor: true },
+    ];
+
+    const result = paginate(blocks, GEOMETRY, TIPOGRAFIA);
+    const ultima = result.pages.at(-1);
+
+    expect(result.pages.length).toBeGreaterThan(1);
+    expect(ultima?.blocks.some((block) => block.id === "bottom")).toBe(true);
+    expect(alturaOcupada(ultima)).toBeCloseTo(80, 5);
   });
 });

@@ -12,7 +12,11 @@ import {
   type ExportImageMap,
   type ImageTarget,
 } from "@escribiendo/export-engine";
-import { withTypographyDefaults, type PageGeometry } from "@escribiendo/editorial-engine";
+import {
+  textBlockSize,
+  withTypographyDefaults,
+  type PageGeometry,
+} from "@escribiendo/editorial-engine";
 import { getBookEdition, getDefaultLayoutProfile } from "@/lib/layout/profiles";
 import {
   sectionToBlocks as layoutSectionToBlocks,
@@ -227,20 +231,21 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
       showSectionType: section.showSectionType,
       showSectionNumber: section.showSectionNumber,
     }));
+    const geometry = {
+      ...geometryFromProfile(input.profile),
+      physicalPageOffset: input.cover ? 1 : 0,
+    };
     const compose = (front: readonly MatterLayout[], back: readonly MatterLayout[]) =>
       bookToBlocks(sectionsForMatter(previewSections, input.matter ?? null), {
         dropCaps: input.dropCaps === true,
         frontMatter: front,
         backMatter: back,
+        ...(input.matter?.dedication ? { dedication: input.matter.dedication } : {}),
+        contentHeightMm: textBlockSize(geometry).heightMm,
       });
     const pdfFonts = await loadPdfFonts();
     const measure = pdfFonts?.measure;
     estimatedPagination = !pdfFonts;
-
-    const geometry = {
-      ...geometryFromProfile(input.profile),
-      physicalPageOffset: input.cover ? 1 : 0,
-    };
     const matter = input.matter ?? null;
     const { composition, stability } = stabilizeComposition({
       matter,

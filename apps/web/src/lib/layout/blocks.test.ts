@@ -388,6 +388,51 @@ describe("bookToBlocks", () => {
     expect(sectionShowsTitle("COPYRIGHT", "Derechos")).toBe(false);
   });
 
+  it("compone la dedicatoria con la plantilla, posición y firma elegidas", () => {
+    const dedication: PreviewSection = {
+      ...seccion(
+        documento(
+          { type: "paragraph", content: [{ type: "text", text: "Para Ana." }] },
+          { type: "paragraph", content: [{ type: "text", text: "Con todo mi cariño." }] },
+        ),
+        "Dedicatoria",
+      ),
+      type: "DEDICATION",
+    };
+
+    const bloques = bookToBlocks([dedication], {
+      dedication: {
+        template: "classic",
+        alignment: "right",
+        verticalPosition: "lower",
+        signature: "La autora",
+      },
+      contentHeightMm: 200,
+    });
+
+    expect(bloques.map((bloque) => bloque.kind)).toEqual(["rule", "body", "body", "rule", "body"]);
+    expect(bloques[0]?.styleOverride?.spaceBeforePt).toBeCloseTo((0.64 * 200 * 72) / 25.4, 5);
+    expect(bloques[1]?.alignment).toBe("right");
+    expect(bloques.at(-1)?.text).toBe("La autora");
+    expect(bloques.at(-1)?.alignment).toBe("right");
+  });
+
+  it("conserva la dedicatoria anterior si la edición no configuró una", () => {
+    const dedication: PreviewSection = {
+      ...seccion(
+        documento({ type: "paragraph", content: [{ type: "text", text: "Para Ana." }] }),
+        "Dedicatoria",
+      ),
+      type: "DEDICATION",
+    };
+
+    const bloques = bookToBlocks([dedication]);
+
+    expect(bloques.map((bloque) => bloque.kind)).toEqual(["body"]);
+    expect(bloques[0]?.alignment).toBe("right");
+    expect(bloques[0]?.styleOverride).toBeUndefined();
+  });
+
   it("marca el salto de página propio de la sección", () => {
     const conSalto: PreviewSection = {
       ...seccion(documento({ type: "paragraph", content: [{ type: "text", text: "Texto." }] })),
