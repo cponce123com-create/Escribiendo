@@ -19,43 +19,53 @@ Las migraciones están versionadas en:
 ```text
 packages/database/prisma/migrations/
 ├─ migration_lock.toml
-├─ 20261020120000_init/                            # Fase 1: esquema completo
-├─ 20261020180000_add_writing_goals_and_comments/  # Fase 3: escritura asistida
-├─ 20261020190000_add_team_governance/             # Fase 6: equipo y gobernanza
-├─ 20261021210000_session_workspace/               # Espacio de trabajo en sesión
-└─ 20261022120000_add_story_tools/                 # Planificación, personajes y mundos
+├─ 20261020120000_init/                             # Fase 1: esquema completo
+├─ 20261020180000_add_writing_goals_and_comments/   # Fase 3: escritura asistida
+├─ 20261020190000_add_team_governance/              # Fase 6: equipo y gobernanza
+├─ 20261021210000_session_workspace/                # Espacio de trabajo en sesión
+├─ 20261022120000_add_story_tools/                  # Planificación, personajes y mundos
+├─ 20261022140000_add_section_title_display/        # Título, etiqueta y número de sección
+├─ 20261022200000_character_narrative_intelligence/ # Relaciones y análisis de personajes
+├─ 20261022210000_incremental_character_analysis/   # Análisis incremental de personajes
+├─ 20261023120000_editorial_matter/                 # Preliminares, derechos y publicación
+└─ 20261024101800_narrative_continuity/             # Continuidad narrativa y hechos
 ```
 
-La segunda migración es **aditiva**: crea el enum `CommentStatus` y las tablas
-`writing_goals` y `editorial_comments`, con sus índices y claves foráneas. No
-modifica ni elimina ningún objeto de la migración inicial, de modo que puede
-aplicarse sobre una base ya productive sin riesgo.
+Todas las migraciones posteriores a `init` son **aditivas**: crean tablas,
+enums, columnas e índices nuevos, o añaden restricciones, sin borrar ni
+reescribir datos existentes. La migración inicial crea el esquema completo.
 
-Estado actual de las migraciones:
+Estado de las migraciones:
 
-| Migración                                       | Local     | Neon      |
-| ----------------------------------------------- | --------- | --------- |
-| `20261020120000_init`                           | Sí        | Sí        |
-| `20261020180000_add_writing_goals_and_comments` | Sí        | Sí        |
-| `20261020190000_add_team_governance`            | Sí        | Sí        |
-| `20261021210000_session_workspace`              | Sí        | Sí        |
-| `20261022120000_add_story_tools`                | Pendiente | Pendiente |
+| Migración                                         | Local | Neon           |
+| ------------------------------------------------- | ----- | -------------- |
+| `20261020120000_init`                             | Sí    | Sí (histórico) |
+| `20261020180000_add_writing_goals_and_comments`   | Sí    | Sí (histórico) |
+| `20261020190000_add_team_governance`              | Sí    | Sí (histórico) |
+| `20261021210000_session_workspace`                | Sí    | Sí (histórico) |
+| `20261022120000_add_story_tools`                  | Sí    | Por verificar  |
+| `20261022140000_add_section_title_display`        | Sí    | Por verificar  |
+| `20261022200000_character_narrative_intelligence` | Sí    | Por verificar  |
+| `20261022210000_incremental_character_analysis`   | Sí    | Por verificar  |
+| `20261023120000_editorial_matter`                 | Sí    | Por verificar  |
+| `20261024101800_narrative_continuity`             | Sí    | Por verificar  |
 
-La migración de herramientas de historia está creada y validada contra el
-esquema, pero todavía no se ha aplicado a ninguna base de datos: hay que
-ejecutar `pnpm db:migrate` con las credenciales de Neon antes de desplegar el
-código.
+El estado de Neon **no se puede inferir del repositorio**: hay que consultarlo
+contra la base real con las credenciales de producción (`DIRECT_URL`). Antes
+de desplegar código que use una migración nueva:
 
-La migración de la Fase 3 se aplicó en Neon con la API SQL por HTTPS, dentro
-de un bloque `DO` transaccional y registrando la fila en `_prisma_migrations`
-con el checksum SHA-256 del archivo, que es el mismo valor que calcula
-`prisma migrate deploy`. Comprobado además que las definiciones de las cuatro
-restricciones en Neon son idénticas a las de la base local.
+```bash
+pnpm db:migrate:status   # lista las pendientes en la base configurada
+pnpm db:migrate          # aplica con prisma migrate deploy
+pnpm db:status           # comprobación final
+```
 
-La migración de la Fase 6 se aplicó en Neon con el mismo procedimiento, y sus
-dos restricciones se comprobaron con consultas de comportamiento: una
-invitación que caduca antes de crearse y una que está aceptada y revocada a la
-vez son rechazadas.
+Las migraciones de las fases 3 y 6 se aplicaron en su momento en Neon con la
+API SQL por HTTPS, dentro de un bloque `DO` transaccional y registrando la fila
+en `_prisma_migrations` con el checksum SHA-256 del archivo. Ese procedimiento
+manual solo debe usarse si no hay acceso directo: **no se debe pegar el SQL de
+una migración en el editor de Neon sin registrar su checksum**, porque Prisma
+dejaría de reconocer el historial. Lo normal es `pnpm db:migrate`.
 
 Aplicar migraciones pendientes (producción, CI o local):
 
@@ -437,4 +447,8 @@ creado por una persona real o por una migración explícita y revisada.
 
 ## Revisión de integridad v6.1
 
-`sql/audit-section-integrity.sql` contiene consultas de diagnóstico, sin reparación automática. `sql/proposed-section-constraints.sql` es una propuesta fuera de Prisma Migrate y no debe ejecutarse como migración de despliegue. Necesita análisis de datos, ensayo de bloqueos y restricciones en PostgreSQL desechable, respaldo y revisión previa. La auditoría v6.1 enumera las comprobaciones todavía pendientes. No se han modificado los checksums de las migraciones existentes.
+`sql/audit-section-integrity.sql` contiene consultas de diagnóstico, sin reparación automática. `sql/proposed-section-constraints.sql` es una propuesta fuera de Prisma Migrate y no debe ejecutarse como migración de despliegue.
+
+El procedimiento completo —diagnóstico, remediación manual, ensayo con `lock_timeout`, aplicación con `NOT VALID`, validación, verificación de comportamiento y rollback— está en [`sql/PROCEDIMIENTO_RESTRICCIONES.md`](sql/PROCEDIMIENTO_RESTRICCIONES.md). No debe pegarse en el editor SQL de Neon sin haber completado el ensayo y la remediación.
+
+No queda SQL pendiente por los cambios editoriales de esta rama: la configuración de dedicatoria y letra capital vive en el JSON existente de `book_editions.settings`. No se han modificado los checksums de las migraciones existentes.

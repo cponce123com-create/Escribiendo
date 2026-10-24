@@ -364,6 +364,39 @@ describe("bookToBlocks", () => {
     expect(bookToBlocks([section])[1]?.dropCapCharacter).toBeUndefined();
   });
 
+  it("aplica excepciones de inicial por capítulo en ambos sentidos", () => {
+    const uno: PreviewSection = {
+      ...seccion(
+        documento({ type: "paragraph", content: [{ type: "text", text: "Uno." }] }),
+        "Uno",
+      ),
+      id: "s1",
+    };
+    const dos: PreviewSection = {
+      ...seccion(
+        documento({ type: "paragraph", content: [{ type: "text", text: "Dos." }] }),
+        "Dos",
+      ),
+      id: "s2",
+    };
+
+    const globalOn = bookToBlocks([uno, dos], {
+      dropCaps: true,
+      dropCapLines: 3,
+      dropCapOverrides: { s2: { enabled: false, lines: 2 } },
+    });
+    expect(globalOn.filter((bloque) => bloque.dropCapCharacter)).toHaveLength(1);
+    expect(globalOn.find((bloque) => bloque.dropCapCharacter)?.dropCapLines).toBe(3);
+
+    const globalOff = bookToBlocks([uno, dos], {
+      dropCaps: false,
+      dropCapOverrides: { s2: { enabled: true, lines: 2 } },
+    });
+    const conInicial = globalOff.filter((bloque) => bloque.dropCapCharacter);
+    expect(conInicial).toHaveLength(1);
+    expect(conInicial[0]?.dropCapLines).toBe(2);
+  });
+
   it("quita un título de contenido repetido sin distinguir espacios ni mayúsculas", () => {
     const section = seccion(
       documento(

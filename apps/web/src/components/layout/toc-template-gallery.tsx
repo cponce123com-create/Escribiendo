@@ -1,5 +1,6 @@
 "use client";
 import { useActionState, useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { TOC_TEMPLATE_CATALOG, type TocParameters } from "@escribiendo/templates";
 import type { MatterPreview } from "@/lib/layout/preview";
@@ -60,6 +61,10 @@ export function TocTemplateGallery({
   function update<K extends keyof TocParameters>(key: K, value: TocParameters[K]) {
     setParameters((previous) => ({ ...previous, [key]: value }));
   }
+  function reset() {
+    const preset = TOC_TEMPLATE_CATALOG.find((item) => item.slug === parameters.tocTemplate);
+    if (preset) setParameters(preset.parameters);
+  }
   return (
     <section className="space-y-5" aria-labelledby="toc-title">
       <h2 id="toc-title" className="scroll-mt-28 font-serif text-2xl">
@@ -68,6 +73,11 @@ export function TocTemplateGallery({
       <p className="text-sm text-ink-soft">
         Los títulos y folios se calculan a partir del manuscrito. El diseño no cambia el texto del
         libro.
+      </p>
+      <p className="text-sm">
+        <Link className="underline" href={`/books/${bookId}/preview`}>
+          Ver el libro completo
+        </Link>
       </p>
       {warning ? (
         <p className="alert alert-error" role="status">
@@ -178,7 +188,17 @@ export function TocTemplateGallery({
               índice extenso continúa en otra página para no perder entradas.
             </p>
             <FormMessage state={state} />
-            <SubmitButton label="Usar esta plantilla" pendingLabel="Guardando…" disabled={busy} />
+            <div className="flex flex-wrap items-center gap-3">
+              <SubmitButton label="Usar esta plantilla" pendingLabel="Guardando…" disabled={busy} />
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={reset}
+                disabled={!canManage || busy}
+              >
+                Restaurar valores del preset
+              </button>
+            </div>
           </fieldset>
           <div className="space-y-3">
             {busy ? <p role="status">Recalculando páginas…</p> : null}

@@ -83,6 +83,11 @@ export interface BookBlocksOptions {
   dropCaps?: boolean;
   /** Líneas de cuerpo que ocupa la inicial (2 o 3; por defecto, 3). */
   dropCapLines?: DropCapLines;
+  /**
+   * Excepciones por sección: permiten activar o desactivar la inicial y fijar
+   * sus líneas sin cambiar la decisión general de la edición.
+   */
+  dropCapOverrides?: Record<string, { enabled: boolean; lines: DropCapLines }>;
   /** Preliminares, en orden editorial y ya compuestos. */
   frontMatter?: readonly MatterLayout[];
   /** Materias finales, en orden editorial y ya compuestos. */
@@ -375,6 +380,10 @@ export function bookToBlocks(
       });
     }
 
+    const dropCapOverride = options.dropCapOverrides?.[section.id];
+    const sectionDropCaps = dropCapOverride?.enabled ?? options.dropCaps === true;
+    const sectionDropCapLines = dropCapOverride?.lines ?? options.dropCapLines;
+
     let firstBodyAfterTitle = false;
 
     contentBlocks.forEach((block, index) => {
@@ -385,7 +394,7 @@ export function bookToBlocks(
       }
 
       const dropCapCharacter =
-        options.dropCaps &&
+        sectionDropCaps &&
         section.isChapter &&
         section.type.toUpperCase() !== "SUBCHAPTER" &&
         firstParagraph
@@ -397,7 +406,7 @@ export function bookToBlocks(
         ...(dropCapCharacter
           ? {
               dropCapCharacter,
-              ...(options.dropCapLines ? { dropCapLines: options.dropCapLines } : {}),
+              ...(sectionDropCapLines ? { dropCapLines: sectionDropCapLines } : {}),
             }
           : {}),
         startsChapter: !titleBlock && opensChapter && index === 0,

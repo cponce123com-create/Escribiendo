@@ -242,6 +242,9 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
       bookToBlocks(sectionsForMatter(previewSections, input.matter ?? null), {
         dropCaps: input.dropCaps === true,
         ...(input.dropCapLines ? { dropCapLines: input.dropCapLines } : {}),
+        ...(input.matter?.dropCap?.overrides
+          ? { dropCapOverrides: input.matter.dropCap.overrides }
+          : {}),
         frontMatter: front,
         backMatter: back,
         ...(input.matter?.dedication ? { dedication: input.matter.dedication } : {}),

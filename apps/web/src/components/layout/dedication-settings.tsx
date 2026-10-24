@@ -10,7 +10,10 @@ import {
 } from "@escribiendo/templates";
 import { initialActionState } from "@/lib/action-state";
 import { updateDedicationAction } from "@/lib/editorial/template-actions";
-import type { DedicationSettings } from "@/lib/editorial/template-settings";
+import {
+  DEFAULT_DEDICATION_SETTINGS,
+  type DedicationSettings,
+} from "@/lib/editorial/template-settings";
 import { FormMessage } from "@/components/forms/form-message";
 import { SubmitButton } from "@/components/forms/submit-button";
 
@@ -65,6 +68,13 @@ export function DedicationSettings({
   const visible = page.blocks.filter((block) => block.role !== "spacer");
   const overRecommended = page.characters > DEDICATION_RECOMMENDED_CHARS;
   const overMaximum = page.characters > DEDICATION_MAX_CHARS;
+
+  function reset() {
+    setTemplate(DEFAULT_DEDICATION_SETTINGS.template);
+    setAlignment(DEFAULT_DEDICATION_SETTINGS.alignment);
+    setVerticalPosition(DEFAULT_DEDICATION_SETTINGS.verticalPosition);
+    setSignature(DEFAULT_DEDICATION_SETTINGS.signature);
+  }
 
   return (
     <section className="space-y-5" aria-labelledby="dedication-title">
@@ -156,11 +166,21 @@ export function DedicationSettings({
             </p>
           </fieldset>
           <FormMessage state={state} />
-          <SubmitButton
-            label="Guardar dedicatoria"
-            pendingLabel="Guardando…"
-            disabled={!canManage}
-          />
+          <div className="flex flex-wrap items-center gap-4">
+            <SubmitButton
+              label="Guardar dedicatoria"
+              pendingLabel="Guardando…"
+              disabled={!canManage}
+            />
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={reset}
+              disabled={!canManage}
+            >
+              Restaurar valores del preset
+            </button>
+          </div>
         </form>
         <div className="space-y-2">
           <p className="text-xs uppercase tracking-wide text-ink-soft">Vista de posición</p>

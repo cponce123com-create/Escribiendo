@@ -151,9 +151,9 @@ async function readPreviewSections(
 
 // Caché limitada a la petición de render: nunca comparte datos entre usuarios.
 export const loadPreviewSections = cache(readPreviewSections);
-const previewEdition = cache(getBookEdition);
+export const loadPreviewEdition = cache(getBookEdition);
 const previewDefaultProfile = cache(getDefaultLayoutProfile);
-const previewCover = cache(getBookCover);
+export const loadPreviewCover = cache(getBookCover);
 const previewBookTitle = cache(
   async (session: SessionContext, bookId: string) =>
     (
@@ -198,7 +198,7 @@ export async function buildPreview(
   bookId: string,
   options: PreviewOptions = {},
 ): Promise<PreviewResult | null> {
-  const edition = await previewEdition(session, bookId);
+  const edition = await loadPreviewEdition(session, bookId);
   const profile = edition?.profile ?? (await previewDefaultProfile(session));
 
   if (!profile) {
@@ -222,12 +222,13 @@ export async function buildPreview(
   // La misma métrica que usa el PDF: si las fuentes están disponibles, la
   // vista previa y el archivo salen con los mismos cortes de línea.
   const fuentes = await loadPdfFonts();
-  const cover = await previewCover(session, bookId);
+  const cover = await loadPreviewCover(session, bookId);
   const geometry = { ...geometryFromProfile(profile), physicalPageOffset: cover ? 1 : 0 };
   const compose = (front: readonly MatterLayout[], back: readonly MatterLayout[]): LayoutBlock[] =>
     bookToBlocks(sectionsForMatter(sections, matter), {
       dropCaps,
       dropCapLines,
+      ...(matter?.dropCap?.overrides ? { dropCapOverrides: matter.dropCap.overrides } : {}),
       frontMatter: front,
       backMatter: back,
       ...(matter?.dedication ? { dedication: matter.dedication } : {}),
@@ -333,7 +334,7 @@ export async function buildLegalMatterPreview(
   legal: LegalPageInput,
   mode: "print" | "digital" = "print",
 ): Promise<MatterPreview | null> {
-  const edition = await previewEdition(session, bookId);
+  const edition = await loadPreviewEdition(session, bookId);
   const profile = edition?.profile ?? (await previewDefaultProfile(session));
 
   if (!profile) {
@@ -344,7 +345,7 @@ export async function buildLegalMatterPreview(
     ? withTypographyDefaults(edition.template.config.typography)
     : withTypographyDefaults(profile.typography);
   const fuentes = await loadPdfFonts();
-  const cover = await previewCover(session, bookId);
+  const cover = await loadPreviewCover(session, bookId);
   const geometry = { ...geometryFromProfile(profile), physicalPageOffset: cover ? 1 : 0 };
   const composed = buildLegalPage(legal, { mode });
   const blocks = legalPageToBlocks(

@@ -116,6 +116,11 @@ export function LegalTemplateGallery({
         Plantillas informativas; no constituyen asesoría legal. Revisa los datos y adapta el texto
         antes de publicar.
       </p>
+      <p className="text-sm">
+        <Link className="underline" href={`/books/${bookId}/preview`}>
+          Ver el libro completo
+        </Link>
+      </p>
       <fieldset disabled={!canManage}>
         <legend className="sr-only">Plantilla de página legal</legend>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
