@@ -7,6 +7,7 @@ import { BookIcon, LayoutIcon, UsersIcon } from "@/components/icons";
 const TOOL_ITEMS = [
   { href: "/planning", label: "Planificación", icon: LayoutIcon },
   { href: "/characters", label: "Personajes", icon: UsersIcon },
+  { href: "/narrative", label: "Análisis narrativo", icon: LayoutIcon },
   { href: "/worlds", label: "Mundos", icon: BookIcon },
 ] as const;
 
