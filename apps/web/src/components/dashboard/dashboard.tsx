@@ -251,7 +251,7 @@ export function Dashboard({
               </li>
             ))}
           </ul>
-          <p className="mt-3 text-xs text-ink-muted">Últimos 7 días · zona horaria del estudio</p>
+          <p className="mt-3 text-xs text-ink-muted">Últimos 7 días · hora de Perú</p>
         </section>
         <section className="panel p-5">
           <h2 className="dashboard-small-title">Acciones rápidas</h2>

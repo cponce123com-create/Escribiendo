@@ -26,6 +26,7 @@ describe("panel editorial", () => {
     expect(html).toContain('class="panel dashboard-year" open=""');
     expect(html).toContain('role="progressbar"');
     expect(html).toContain('aria-valuenow="81.1"');
+    expect(html).toContain('style="width:81.1%"');
     expect(html).toContain("Día 296 de 365");
     expect(html).toContain("quedan 69 días");
   });

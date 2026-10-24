@@ -18,13 +18,21 @@ function sample(
 }
 
 describe("dayKey", () => {
-  it("agrupa por día en la zona horaria del estudio", () => {
+  it("agrupa por día en la zona horaria de Perú", () => {
     expect(dayKey(new Date("2026-10-20T08:00:00.000Z"))).toBe("2026-10-20");
   });
 
   it("no cambia de día una revisión nocturna tardía", () => {
-    // 23:30 en Madrid (21:30 UTC) sigue siendo el mismo día.
-    expect(dayKey(new Date("2026-10-20T21:30:00.000Z"))).toBe("2026-10-20");
+    // 23:30 en Perú (04:30 UTC del día siguiente) sigue siendo el mismo día.
+    expect(dayKey(new Date("2026-10-21T04:30:00.000Z"))).toBe("2026-10-20");
+  });
+
+  it("usa la fecha peruana antes de la medianoche local aunque UTC ya haya avanzado", () => {
+    expect(dayKey(new Date("2026-10-24T04:59:00.000Z"))).toBe("2026-10-23");
+  });
+
+  it("cambia de fecha al pasar la medianoche peruana", () => {
+    expect(dayKey(new Date("2026-10-24T05:00:00.000Z"))).toBe("2026-10-24");
   });
 });
 

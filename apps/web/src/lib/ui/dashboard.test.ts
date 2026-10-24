@@ -12,10 +12,10 @@ describe("semana del panel", () => {
     expect(week[5]?.words).toBe(234);
     expect(week[6]).toEqual({ date: "2026-10-23", words: 0, label: "vie" });
   });
-  it("usa la fecha de Madrid, incluso cerca de medianoche y del cambio de año", () => {
+  it("usa la fecha de Perú, incluso cerca de medianoche y del cambio de año", () => {
     const week = dashboardWeek([], new Date("2026-12-31T23:30:00Z"));
-    expect(week[6]?.date).toBe("2027-01-01");
-    expect(week[0]?.date).toBe("2026-12-26");
+    expect(week[6]?.date).toBe("2026-12-31");
+    expect(week[0]?.date).toBe("2026-12-25");
   });
   it("no cuenta datos fuera del periodo ni crea actividad ficticia", () => {
     const week = dashboardWeek(
@@ -47,8 +47,15 @@ describe("progreso del año", () => {
     });
   });
 
-  it("usa la misma fecha local del estudio cerca del cambio de año", () => {
+  it("usa la fecha peruana cerca del cambio de año", () => {
     expect(dashboardYearProgress(new Date("2026-12-31T23:30:00Z"))).toEqual({
+      year: 2026,
+      dayNumber: 365,
+      daysInYear: 365,
+      daysRemaining: 0,
+      percent: 100,
+    });
+    expect(dashboardYearProgress(new Date("2027-01-01T05:00:00Z"))).toEqual({
       year: 2027,
       dayNumber: 1,
       daysInYear: 365,
@@ -98,7 +105,7 @@ describe("actividad de escritura del dashboard", () => {
 
     expect(
       dashboardWritingActivity(
-        [{ date: "2026-10-24", words: 9 }],
+        [{ date: "2026-10-23", words: 9 }],
         new Date("2026-10-23T23:30:00Z"),
       ),
     ).toEqual({ wordsToday: 9, activeStreakDays: 1, wroteToday: true });

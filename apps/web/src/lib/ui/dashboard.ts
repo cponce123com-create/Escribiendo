@@ -14,7 +14,7 @@ export interface DashboardWritingActivity {
   wroteToday: boolean;
 }
 
-/** Progreso del año calendario en la zona horaria del estudio. */
+/** Progreso del año calendario en la zona horaria del estudio (Perú). */
 export function dashboardYearProgress(now = new Date()): DashboardYearProgress {
   const [year = 0, month = 1, day = 1] = dayKey(now).split("-").map(Number);
   const yearStart = Date.UTC(year, 0, 1);
@@ -22,7 +22,7 @@ export function dashboardYearProgress(now = new Date()): DashboardYearProgress {
   const nextYearStart = Date.UTC(year + 1, 0, 1);
   const dayNumber = Math.floor((currentDate - yearStart) / 86_400_000) + 1;
   const daysInYear = Math.round((nextYearStart - yearStart) / 86_400_000);
-  const percent = Math.round((dayNumber / daysInYear) * 1_000) / 10;
+  const percent = Math.min(100, Math.max(0, Math.round((dayNumber / daysInYear) * 1_000) / 10));
 
   return {
     year,

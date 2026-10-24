@@ -279,7 +279,7 @@ export async function getWorkspaceActivityDays(
         AND section."deletedAt" IS NULL
     ), revision_deltas AS (
       SELECT
-        (revision."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Madrid') AS local_created_at,
+        (revision."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Lima') AS local_created_at,
         GREATEST(
           revision."wordCount" - LAG(revision."wordCount", 1, 0)
             OVER (PARTITION BY revision."sectionId" ORDER BY revision.version),

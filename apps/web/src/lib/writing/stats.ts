@@ -27,8 +27,8 @@ export interface PeriodStat {
   days: DailyStat[];
 }
 
-/** Zona horaria con la que se agrupan los días. */
-const TIME_ZONE = "Europe/Madrid";
+/** Zona horaria en la que el estudio agrupa sus días. */
+const TIME_ZONE = "America/Lima";
 
 const DAY_FORMATTER = new Intl.DateTimeFormat("en-CA", {
   year: "numeric",
@@ -37,9 +37,18 @@ const DAY_FORMATTER = new Intl.DateTimeFormat("en-CA", {
   timeZone: TIME_ZONE,
 });
 
-/** Clave de día en la zona horaria del estudio. */
+/** Clave ISO de día en la zona horaria del estudio, independiente del locale ICU. */
 export function dayKey(date: Date): string {
-  return DAY_FORMATTER.format(date);
+  const parts = DAY_FORMATTER.formatToParts(date);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+
+  if (!year || !month || !day) {
+    throw new RangeError("No se pudo determinar la fecha local del estudio.");
+  }
+
+  return `${year}-${month}-${day}`;
 }
 
 /**

@@ -11,12 +11,12 @@ export function getInitials(name: string): string {
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("es-ES", {
   dateStyle: "medium",
   timeStyle: "short",
-  timeZone: "Europe/Madrid",
+  timeZone: "America/Lima",
 });
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("es-ES", {
   dateStyle: "long",
-  timeZone: "Europe/Madrid",
+  timeZone: "America/Lima",
 });
 
 export function formatDateTime(value: Date): string {
