@@ -3,8 +3,8 @@ import { Dashboard } from "@/components/dashboard/dashboard";
 import { requireSession } from "@/lib/auth/session";
 import { canPerform } from "@/lib/books/permissions";
 import { prisma } from "@/lib/db";
-import { getWorkspaceStats } from "@/lib/writing/goals";
-import { dashboardWeek } from "@/lib/ui/dashboard";
+import { getWorkspaceActivityDays, getWorkspaceStats } from "@/lib/writing/goals";
+import { dashboardWeek, dashboardWritingActivity, dashboardYearProgress } from "@/lib/ui/dashboard";
 import { auditActionLabel, BOOK_STATUS_LABELS, formatDateTime } from "@/lib/ui/format";
 
 export const metadata: Metadata = { title: "Panel" };
@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Panel" };
 export default async function DashboardPage() {
   const session = await requireSession();
   const workspaceId = session.workspace.id;
-  const [aggregate, books, activity, members, writing] = await Promise.all([
+  const [aggregate, books, activity, members, writing, writingDays] = await Promise.all([
     prisma.book.aggregate({
       where: { workspaceId, deletedAt: null },
       _count: { _all: true },
@@ -41,6 +41,7 @@ export default async function DashboardPage() {
     }),
     prisma.workspaceMember.count({ where: { workspaceId } }),
     getWorkspaceStats(session, 7),
+    getWorkspaceActivityDays(session),
   ]);
   return (
     <Dashboard
@@ -63,6 +64,8 @@ export default async function DashboardPage() {
         detail: `${entry.actor?.name ?? "Sistema"} · ${formatDateTime(entry.createdAt)}`,
       }))}
       week={dashboardWeek(writing.days)}
+      writingActivity={dashboardWritingActivity(writingDays)}
+      yearProgress={dashboardYearProgress()}
     />
   );
 }

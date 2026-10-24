@@ -10,6 +10,7 @@ import {
   LayoutIcon,
 } from "@/components/icons";
 import { formatNumber } from "@/lib/ui/format";
+import type { DashboardWritingActivity, DashboardYearProgress } from "@/lib/ui/dashboard";
 
 export interface DashboardProps {
   name: string;
@@ -27,10 +28,24 @@ export interface DashboardProps {
   }[];
   activity: { id: string; label: string; detail: string }[];
   week: { date: string; label: string; words: number }[];
+  writingActivity: DashboardWritingActivity;
+  yearProgress: DashboardYearProgress;
 }
 
-export function Dashboard({ name, canCreate, totals, books, activity, week }: DashboardProps) {
+export function Dashboard({
+  name,
+  canCreate,
+  totals,
+  books,
+  activity,
+  week,
+  writingActivity,
+  yearProgress,
+}: DashboardProps) {
   const activeDays = week.filter((day) => day.words > 0).length;
+  const yearPercent = new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 }).format(
+    yearProgress.percent,
+  );
   const stats = [
     { label: "Libros", value: totals.books, detail: "En tu biblioteca", icon: BookIcon },
     { label: "Palabras", value: totals.words, detail: "En tus manuscritos", icon: PenIcon },
@@ -69,6 +84,69 @@ export function Dashboard({ name, canCreate, totals, books, activity, week }: Da
             </div>
           </div>
         </section>
+        <details className="panel dashboard-year" open>
+          <summary className="dashboard-year-summary">
+            <span>
+              <span className="meta-label">Progreso del año</span>
+              <span className="dashboard-year-date">
+                {formatNumber(yearProgress.year)} · Día {formatNumber(yearProgress.dayNumber)} de{" "}
+                {formatNumber(yearProgress.daysInYear)}
+              </span>
+            </span>
+            <span className="dashboard-year-value">
+              <strong>{yearPercent}%</strong>
+              <span className="dashboard-year-chevron" aria-hidden="true" />
+            </span>
+          </summary>
+          <div className="dashboard-year-content">
+            <div
+              className="dashboard-year-track"
+              role="progressbar"
+              aria-label={`Porcentaje transcurrido del año ${yearProgress.year}`}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={yearProgress.percent}
+              aria-valuetext={`${yearPercent}% del año; día ${yearProgress.dayNumber} de ${yearProgress.daysInYear}`}
+            >
+              <span style={{ width: `${yearProgress.percent}%` }} />
+            </div>
+            <p>
+              {yearPercent}% del año ·{" "}
+              {yearProgress.daysRemaining === 1
+                ? "queda 1 día"
+                : `quedan ${formatNumber(yearProgress.daysRemaining)} días`}
+            </p>
+          </div>
+        </details>
+        <details className="panel dashboard-year dashboard-writing-panel" open>
+          <summary className="dashboard-year-summary">
+            <span>
+              <span className="meta-label">Tu actividad de escritura</span>
+              <span className="dashboard-year-date">Hoy y tu constancia</span>
+            </span>
+            <span className="dashboard-year-chevron" aria-hidden="true" />
+          </summary>
+          <div className="dashboard-writing-content">
+            <div className="dashboard-writing-stat">
+              <span className="meta-label">Palabras escritas hoy</span>
+              <strong>{formatNumber(writingActivity.wordsToday)}</strong>
+            </div>
+            <div className="dashboard-writing-stat">
+              <span className="meta-label">Racha activa</span>
+              <strong>
+                {formatNumber(writingActivity.activeStreakDays)}{" "}
+                <span>{writingActivity.activeStreakDays === 1 ? "día" : "días"}</span>
+              </strong>
+            </div>
+            <p>
+              {writingActivity.wroteToday
+                ? "¡Hoy cuenta! Sigue sumando palabras."
+                : writingActivity.activeStreakDays > 0
+                  ? "Escribe hoy para sumar un día más a tu racha."
+                  : "Empieza una racha con tu próxima sesión de escritura."}
+            </p>
+          </div>
+        </details>
         <section className="dashboard-stats" aria-label="Resumen del estudio">
           {stats.map(({ label, value, detail, icon: Icon }) => (
             <div className="stat-card" key={label}>

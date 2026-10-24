@@ -258,3 +258,42 @@ export async function getWorkspaceStats(
 
   return summarizePeriod(daily.filter((day) => day.date >= since));
 }
+
+/**
+ * Días en los que se añadieron palabras en el espacio de trabajo.
+ *
+ * La agregación se realiza en Postgres para que la racha pueda ser exacta sin
+ * cargar el historial completo de revisiones en memoria ni limitarla a un
+ * periodo arbitrario. Solo se devuelven las fechas activas agregadas.
+ */
+export async function getWorkspaceActivityDays(
+  session: SessionContext,
+): Promise<Array<{ date: string; words: number }>> {
+  return prisma.$queryRaw<Array<{ date: string; words: number }>>`
+    WITH workspace_sections AS (
+      SELECT section.id
+      FROM book_sections AS section
+      INNER JOIN books AS book ON book.id = section."bookId"
+      WHERE book."workspaceId" = ${session.workspace.id}::uuid
+        AND book."deletedAt" IS NULL
+        AND section."deletedAt" IS NULL
+    ), revision_deltas AS (
+      SELECT
+        (revision."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Madrid') AS local_created_at,
+        GREATEST(
+          revision."wordCount" - LAG(revision."wordCount", 1, 0)
+            OVER (PARTITION BY revision."sectionId" ORDER BY revision.version),
+          0
+        ) AS added_words
+      FROM section_revisions AS revision
+      INNER JOIN workspace_sections AS section ON section.id = revision."sectionId"
+    )
+    SELECT
+      TO_CHAR(local_created_at::date, 'YYYY-MM-DD') AS date,
+      SUM(added_words)::int AS words
+    FROM revision_deltas
+    WHERE added_words > 0
+    GROUP BY local_created_at::date
+    ORDER BY local_created_at::date DESC
+  `;
+}
