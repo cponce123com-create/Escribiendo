@@ -13,6 +13,11 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   compress: true,
   productionBrowserSourceMaps: false,
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "16mb",
+    },
+  },
   // Next.js 16 bloquea los recursos de desarrollo servidos desde otro origen.
   // La aplicación se prueba en 127.0.0.1, por lo que se autoriza ese host
   // en desarrollo. No afecta a la compilación de producción.
@@ -27,7 +32,7 @@ const nextConfig: NextConfig = {
     "@escribiendo/editorial-engine",
     "@escribiendo/shared",
   ],
-  serverExternalPackages: ["@prisma/client", "@node-rs/argon2"],
+  serverExternalPackages: ["@prisma/client", "@node-rs/argon2", "pdfjs-dist"],
   images: {
     remotePatterns: [
       {

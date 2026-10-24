@@ -33,6 +33,14 @@ export default async function NewBookPage() {
         <BookForm mode="create" />
       </section>
 
+      <p className="text-sm text-ink-soft">
+        ¿Ya tienes un manuscrito?{" "}
+        <Link className="underline" href="/books/import">
+          Importar EPUB, DOCX o PDF
+        </Link>
+        .
+      </p>
+
       <p className="text-xs text-ink-muted">
         <Link className="underline" href="/books">
           Volver a la biblioteca

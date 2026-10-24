@@ -65,9 +65,14 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
         </div>
 
         {canCreate ? (
-          <Link className="btn btn-primary" href="/books/new">
-            Nuevo libro
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <Link className="btn btn-secondary" href="/books/import">
+              Importar libro
+            </Link>
+            <Link className="btn btn-primary" href="/books/new">
+              Nuevo libro
+            </Link>
+          </div>
         ) : null}
       </header>
 
