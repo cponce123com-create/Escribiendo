@@ -228,6 +228,7 @@ export async function buildPreview(
     bookToBlocks(sectionsForMatter(sections, matter), {
       dropCaps,
       dropCapLines,
+      ...(matter?.dropCap?.overrides ? { dropCapOverrides: matter.dropCap.overrides } : {}),
       frontMatter: front,
       backMatter: back,
       ...(matter?.dedication ? { dedication: matter.dedication } : {}),

@@ -18,6 +18,7 @@ import { errorState, successState, formValue } from "@/lib/form-helpers";
 import type { ActionState } from "@/lib/action-state";
 import {
   dedicationSettingsSchema,
+  dropCapOverrideSchema,
   dropCapSettingsSchema,
   legalFieldsSchema,
   settingsRecord,
@@ -375,9 +376,22 @@ export async function updateDropCapAction(
   }
   const bookId = z.string().uuid().safeParse(formValue(form, "bookId"));
   if (!bookId.success) return errorState("El libro no es válido.");
+  const overridesSchema = z.record(z.string().uuid(), dropCapOverrideSchema);
+  let overrides: Record<string, { enabled: boolean; lines: 2 | 3 }> = {};
+  const rawOverrides = formValue(form, "overrides");
+  if (rawOverrides) {
+    try {
+      const parsed = overridesSchema.safeParse(JSON.parse(rawOverrides));
+      if (!parsed.success) return errorState("Revisa las excepciones por capítulo.");
+      overrides = parsed.data;
+    } catch {
+      return errorState("Revisa las excepciones por capítulo.");
+    }
+  }
   const dropCap = dropCapSettingsSchema.safeParse({
     enabled: formValue(form, "enabled") === "true",
     lines: Number(formValue(form, "lines")),
+    ...(Object.keys(overrides).length > 0 ? { overrides } : {}),
   });
   if (!dropCap.success)
     return errorState(
@@ -395,6 +409,17 @@ export async function updateDropCapAction(
           select: { id: true, settings: true },
         });
         if (!edition) throw new Error("Aplica primero una maqueta a este libro.");
+        const sectionIds = new Set(
+          (
+            await tx.bookSection.findMany({
+              where: { bookId: bookId.data, deletedAt: null },
+              select: { id: true },
+            })
+          ).map((section) => section.id),
+        );
+        if (Object.keys(dropCap.data.overrides ?? {}).some((id) => !sectionIds.has(id))) {
+          throw new Error("Alguna de las secciones ya no existe.");
+        }
         const settings = {
           ...settingsRecord(edition.settings),
           dropCap: dropCap.data,
@@ -414,16 +439,20 @@ export async function updateDropCapAction(
         entityId: editionId,
         workspaceId: session.workspace.id,
         actorId: session.user.id,
-        metadata: { enabled: dropCap.data.enabled, lines: dropCap.data.lines },
+        metadata: {
+          enabled: dropCap.data.enabled,
+          lines: dropCap.data.lines,
+          overrides: Object.keys(dropCap.data.overrides ?? {}).length,
+        },
       },
       context,
     );
   } catch (error) {
-    return errorState(
-      error instanceof Error && error.message === "Aplica primero una maqueta a este libro."
-        ? error.message
-        : "No se pudo guardar. Vuelve a intentarlo.",
-    );
+    const known =
+      error instanceof Error &&
+      (error.message === "Aplica primero una maqueta a este libro." ||
+        error.message === "Alguna de las secciones ya no existe.");
+    return errorState(known ? error.message : "No se pudo guardar. Vuelve a intentarlo.");
   }
   for (const path of ["/edicion", "/layout", "/preview", "/export"])
     revalidatePath(`/books/${bookId.data}${path}`);

@@ -7,6 +7,7 @@ const m = vi.hoisted(() => ({
   rows: vi.fn(),
   create: vi.fn(),
   section: vi.fn(),
+  sectionList: vi.fn(),
   audit: vi.fn(),
 }));
 vi.mock("server-only", () => ({}));
@@ -22,7 +23,7 @@ vi.mock("@/lib/db", () => ({
       callback({
         bookEdition: { findFirst: m.edition, update: m.update },
         editorialMatter: { findMany: m.rows, create: m.create },
-        bookSection: { findFirst: m.section },
+        bookSection: { findFirst: m.section, findMany: m.sectionList },
       }),
   },
 }));
@@ -48,6 +49,7 @@ beforeEach(() => {
   m.edition.mockResolvedValue({ id: "edition", settings: { unrelated: true } });
   m.rows.mockResolvedValue([]);
   m.section.mockResolvedValue(null);
+  m.sectionList.mockResolvedValue([]);
 });
 it("guarda settings sin perder otras claves y registra versión por edición", async () => {
   expect((await updateLegalTemplateAction({ status: "idle" }, form())).status).toBe("success");
@@ -185,4 +187,43 @@ it("desactiva la inicial y rechaza un número de líneas inválido", async () =>
   invalid.set("lines", "4");
   expect((await updateDropCapAction({ status: "idle" }, invalid)).status).toBe("error");
   expect(m.update).toHaveBeenCalledTimes(1);
+});
+
+it("guarda excepciones de inicial solo para secciones del libro", async () => {
+  const { updateDropCapAction } = await import("./template-actions");
+  const primero = "22222222-2222-4222-8222-222222222222";
+  const segundo = "33333333-3333-4333-8333-333333333333";
+  m.sectionList.mockResolvedValue([{ id: primero }, { id: segundo }]);
+  const f = new FormData();
+  f.set("bookId", bookId);
+  f.set("enabled", "true");
+  f.set("lines", "3");
+  f.set("overrides", JSON.stringify({ [segundo]: { enabled: false, lines: 2 } }));
+
+  expect((await updateDropCapAction({ status: "idle" }, f)).status).toBe("success");
+  expect(m.update.mock.calls[0]?.[0].data.settings.dropCap).toEqual({
+    enabled: true,
+    lines: 3,
+    overrides: { [segundo]: { enabled: false, lines: 2 } },
+  });
+});
+
+it("rechaza una excepción de una sección ajena o un JSON inválido", async () => {
+  const { updateDropCapAction } = await import("./template-actions");
+  const ajeno = new FormData();
+  ajeno.set("bookId", bookId);
+  ajeno.set("lines", "3");
+  ajeno.set(
+    "overrides",
+    JSON.stringify({ "99999999-9999-4999-8999-999999999999": { enabled: true, lines: 2 } }),
+  );
+  expect((await updateDropCapAction({ status: "idle" }, ajeno)).status).toBe("error");
+  expect(m.update).not.toHaveBeenCalled();
+
+  const roto = new FormData();
+  roto.set("bookId", bookId);
+  roto.set("lines", "3");
+  roto.set("overrides", "{no es json");
+  expect((await updateDropCapAction({ status: "idle" }, roto)).status).toBe("error");
+  expect(m.update).not.toHaveBeenCalled();
 });

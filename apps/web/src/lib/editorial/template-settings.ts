@@ -76,10 +76,21 @@ export function dedicationSettingsFrom(value: unknown): DedicationSettings | nul
  * `dropCapMetrics`; aquí solo se decide si se compone y cuántas líneas ocupa,
  * para que vista previa y PDF no puedan mostrar estados distintos.
  */
+export const dropCapOverrideSchema = z
+  .object({
+    enabled: z.boolean(),
+    lines: z.union([z.literal(2), z.literal(3)]),
+  })
+  .strict();
 export const dropCapSettingsSchema = z
   .object({
     enabled: z.boolean().default(false),
     lines: z.union([z.literal(2), z.literal(3)]).default(3),
+    /**
+     * Excepciones por sección, indexadas por id. Solo se guardan las
+     * secciones que se apartan de la decisión de la edición.
+     */
+    overrides: z.record(z.string().uuid(), dropCapOverrideSchema).optional(),
   })
   .strict();
 export type DropCapSettings = z.infer<typeof dropCapSettingsSchema>;

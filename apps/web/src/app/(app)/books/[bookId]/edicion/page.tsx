@@ -51,6 +51,9 @@ export default async function EditionMatterPage({
         .filter(Boolean)
         .join("\n\n")
     : "";
+  const dropCapChapters = sections
+    .filter((section) => section.isChapter && section.type.toUpperCase() !== "SUBCHAPTER")
+    .map((section) => ({ id: section.id, title: section.title }));
   const manuscriptSection = sections.find(
     (section) => section.type !== "COPYRIGHT" && section.type !== "TABLE_OF_CONTENTS",
   );
@@ -139,6 +142,7 @@ export default async function EditionMatterPage({
       <DropCapSettingsForm
         bookId={bookId}
         initial={matter?.dropCap ?? DEFAULT_DROP_CAP_SETTINGS}
+        chapters={dropCapChapters}
         canManage={canPerform(session.workspace.role, "layout:manage")}
       />
       <DedicationSettings
