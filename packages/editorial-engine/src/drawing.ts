@@ -36,9 +36,10 @@ export function dropCapCorrectionPt(
   fontFamily: LaidOutBlock["style"]["fontFamily"],
   fontSizePt: number,
   lineHeightPt: number,
+  lines: number = 3,
 ): number {
   const metrics = LIBERATION_VERTICAL_METRICS[fontFamily];
-  const capitalSizePt = fontSizePt * 3;
+  const capitalSizePt = fontSizePt * lines;
 
   return (
     baselineCorrectionPt(fontFamily, capitalSizePt, lineHeightPt) +
@@ -70,7 +71,7 @@ export function textLinePlacement(
   const italic = block.kind === "blockquote";
   const indentMm =
     (lineIndex === 0 ? (block.firstLineIndentMm ?? 0) : 0) +
-    (lineIndex < 3 ? (block.dropCapIndentMm ?? 0) : 0);
+    (lineIndex < (block.dropCapLines ?? 3) ? (block.dropCapIndentMm ?? 0) : 0);
   const widthMm = Math.max(0, textWidthMm - indentMm);
   const segments = line?.segments?.length ? line.segments : [{ text: line?.text ?? "" }];
   const naturalWidthMm = segments.reduce((sum, segment) => {

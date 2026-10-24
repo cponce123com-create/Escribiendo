@@ -5,7 +5,9 @@ import {
   type TiptapNode,
 } from "@escribiendo/book-schema";
 import {
+  dropCapGrapheme,
   runsToText,
+  type DropCapLines,
   type InlineRun,
   type LayoutBlock,
   type LayoutBlockKind,
@@ -76,6 +78,8 @@ export interface MatterLayout {
 export interface BookBlocksOptions {
   /** Compone la inicial capitular del primer párrafo de cada capítulo. */
   dropCaps?: boolean;
+  /** Líneas de cuerpo que ocupa la inicial (2 o 3; por defecto, 3). */
+  dropCapLines?: DropCapLines;
   /** Preliminares, en orden editorial y ya compuestos. */
   frontMatter?: readonly MatterLayout[];
   /** Materias finales, en orden editorial y ya compuestas. */
@@ -329,14 +333,21 @@ export function bookToBlocks(
         firstBodyAfterTitle = true;
       }
 
-      blocks.push({
-        ...block,
-        ...(options.dropCaps &&
+      const dropCapCharacter =
+        options.dropCaps &&
         section.isChapter &&
         section.type.toUpperCase() !== "SUBCHAPTER" &&
-        firstParagraph &&
-        block.text.length > 0
-          ? { dropCapCharacter: Array.from(block.text)[0] }
+        firstParagraph
+          ? dropCapGrapheme(block.text)
+          : null;
+
+      blocks.push({
+        ...block,
+        ...(dropCapCharacter
+          ? {
+              dropCapCharacter,
+              ...(options.dropCapLines ? { dropCapLines: options.dropCapLines } : {}),
+            }
           : {}),
         startsChapter: !titleBlock && opensChapter && index === 0,
         firstOfSection: titleBlock ? firstParagraph : index === 0,

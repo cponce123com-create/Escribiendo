@@ -207,8 +207,7 @@ export function toPdfPages(
         if (index === 0 && block.dropCapCharacter) {
           const capital = block.dropCapCharacter;
           const capitalText = block.style.uppercase ? capital.toLocaleUpperCase("es") : capital;
-          const capitalSize = block.style.fontSizePt * 3;
-          const capitalWidth = measureSegment(capitalText, capitalSize, baseBold, baseItalic);
+          const capitalSize = block.dropCapSizePt ?? block.style.fontSizePt * 3;
           const ascent = {
             serif: 0.891,
             "sans-serif": 0.905,
@@ -222,7 +221,8 @@ export function toPdfPages(
             xMm: leftMm,
             baselineMm: baselineMm + ((capitalSize - block.style.fontSizePt) * ascent * 25.4) / 72,
           });
-          x = Math.max(x, leftMm + capitalWidth + (block.style.fontSizePt * 0.12 * 25.4) / 72);
+          // La sangría del motor ya incluye el ancho medido y la separación.
+          x = Math.max(x, leftMm + (block.dropCapIndentMm ?? 0));
         }
 
         // Un renglón puede mezclar negrita, cursiva y redonda: cada tramo se
@@ -244,7 +244,10 @@ export function toPdfPages(
           // dibujo tienen que ir juntos.
           let segmentText = segment.text;
           if (index === 0 && block.dropCapCharacter && firstSegment) {
-            segmentText = segmentText.replace(/^./u, "");
+            const [, ...rest] = [
+              ...new Intl.Segmenter("es", { granularity: "grapheme" }).segment(segmentText),
+            ];
+            segmentText = rest.map((item) => item.segment).join("");
             firstSegment = false;
           }
           const texto = block.style.uppercase ? segmentText.toLocaleUpperCase("es") : segmentText;

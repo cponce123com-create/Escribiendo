@@ -4,6 +4,7 @@ import {
   type EditorialImage,
   type ImageLayout,
 } from "./image";
+import { dropCapMetrics, normalizeDropCapLines, type DropCapLines } from "./drop-cap";
 import { breakIntoLines, measureTextMm, type LineBreak, type MeasureText } from "./measure";
 import { breakRunsIntoLines, type InlineFootnote, type InlineRun } from "./rich-text";
 import {
@@ -82,7 +83,9 @@ export interface LayoutBlock {
   firstOfSection?: boolean;
   /** Inicial opcional para el primer párrafo del capítulo. */
   dropCapCharacter?: string;
-  /** Espacio reservado a la inicial capitular durante sus tres líneas. */
+  /** Líneas de cuerpo que ocupa la inicial (2 o 3). */
+  dropCapLines?: DropCapLines;
+  /** Espacio reservado a la inicial capitular durante sus líneas. */
   dropCapIndentMm?: number;
   /**
    * El bloque tiene que empezar en una página nueva. Se usa para los saltos
@@ -189,7 +192,11 @@ export interface LaidOutBlock {
   continued?: boolean;
   /** Inicial opcional para la primera línea del párrafo. */
   dropCapCharacter?: string;
-  /** Espacio reservado a la inicial capitular durante sus tres líneas. */
+  /** Líneas de cuerpo que ocupa la inicial. */
+  dropCapLines?: DropCapLines;
+  /** Cuerpo de la inicial, en puntos. */
+  dropCapSizePt?: number;
+  /** Espacio reservado a la inicial capitular durante sus líneas. */
   dropCapIndentMm?: number;
   /** Sangría aplicada solo a la primera línea del primer fragmento. */
   firstLineIndentMm?: number;
@@ -562,17 +569,25 @@ export function paginate(
           ? 0
           : style.firstLineIndentMm;
 
-    const dropCapIndentMm = block.dropCapCharacter
-      ? measureTextMm(block.dropCapCharacter, {
-          fontFamily: style.fontFamily,
-          fontSizePt: style.fontSizePt * 3,
-          letterSpacingPt: style.letterSpacingPt,
-          uppercase: style.uppercase,
-          bold: isHeadingKind(block.kind),
-          ...(measure ? { measure } : {}),
-        }) +
-        (style.fontSizePt * 0.12 * 25.4) / 72
-      : 0;
+    const dropCapLines = normalizeDropCapLines(block.dropCapLines);
+    const dropCap = block.dropCapCharacter
+      ? dropCapMetrics(
+          block.dropCapCharacter,
+          {
+            fontFamily: style.fontFamily,
+            fontSizePt: style.fontSizePt,
+            letterSpacingPt: style.letterSpacingPt,
+            uppercase: style.uppercase,
+            bold: isHeadingKind(block.kind),
+          },
+          dropCapLines,
+          measure,
+        )
+      : null;
+    const dropCapIndentMm = dropCap?.advanceMm ?? 0;
+    const dropCapFields = dropCap
+      ? { dropCapSizePt: dropCap.sizePt, dropCapLines: dropCap.lines }
+      : {};
     const breakOptions = {
       fontFamily: style.fontFamily,
       fontSizePt: style.fontSizePt,
@@ -581,8 +596,12 @@ export function paginate(
       smallCaps: style.smallCaps,
       lineWidthMm: widthMm,
       firstLineIndentMm: indentMm + dropCapIndentMm,
-      ...(block.dropCapCharacter
-        ? { lineIndentsMm: [indentMm + dropCapIndentMm, dropCapIndentMm, dropCapIndentMm] }
+      ...(dropCap
+        ? {
+            lineIndentsMm: Array.from({ length: dropCap.lines }, (_, lineIndex) =>
+              lineIndex === 0 ? indentMm + dropCapIndentMm : dropCapIndentMm,
+            ),
+          }
         : {}),
       hyphenation: style.hyphenation,
       // Los títulos se componen en negrita: si se midieran como redonda, la
@@ -725,6 +744,7 @@ export function paginate(
               firstLineIndentMm: isFirstChunk ? indentMm : 0,
               dropCapCharacter: isFirstChunk ? block.dropCapCharacter : undefined,
               dropCapIndentMm: isFirstChunk ? dropCapIndentMm : undefined,
+              ...(isFirstChunk ? dropCapFields : {}),
             },
             before + lineHeight,
           );
@@ -776,6 +796,7 @@ export function paginate(
             firstLineIndentMm: isFirstChunk ? indentMm : 0,
             dropCapCharacter: isFirstChunk ? block.dropCapCharacter : undefined,
             dropCapIndentMm: isFirstChunk ? dropCapIndentMm : undefined,
+            ...(isFirstChunk ? dropCapFields : {}),
           },
           before + pending.length * lineHeight + spaceAfterMm,
         );
@@ -833,6 +854,7 @@ export function paginate(
           firstLineIndentMm: isFirstChunk ? indentMm : 0,
           dropCapCharacter: isFirstChunk ? block.dropCapCharacter : undefined,
           dropCapIndentMm: isFirstChunk ? dropCapIndentMm : undefined,
+          ...(isFirstChunk ? dropCapFields : {}),
         },
         before + take * lineHeight,
       );
