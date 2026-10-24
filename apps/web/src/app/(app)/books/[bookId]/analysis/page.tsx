@@ -24,6 +24,9 @@ export default async function BookAnalysisPage({
       <Link className="btn btn-ghost btn-sm" href={`/books/${bookId}`}>
         ← Volver al libro
       </Link>
+      <Link className="btn btn-secondary btn-sm ml-2" href={`/books/${bookId}/continuity`}>
+        Fase 3 · Continuidad narrativa →
+      </Link>
       <BookAnalysisDashboard {...analysis} />
     </div>
   );

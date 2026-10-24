@@ -69,6 +69,10 @@ model User {
   storyPlanItemsCreated  StoryPlanItem[]       @relation("StoryPlanItemCreatedBy")
   storyCharactersCreated StoryCharacter[]      @relation("StoryCharacterCreatedBy")
   storyWorldsCreated     StoryWorld[]          @relation("StoryWorldCreatedBy")
+  narrativeFactsReviewed NarrativeFact[]       @relation("NarrativeFactReviewer")
+  narrativeFactsOverridden NarrativeFact[]     @relation("NarrativeFactOverrideBy")
+  narrativeDecisions     NarrativeFindingDecision[] @relation("NarrativeDecisionActor")
+  narrativeDecisionHistory NarrativeFindingDecisionHistory[] @relation("NarrativeDecisionHistoryActor")
 
   @@index([isActive])
   @@index([deletedAt])
@@ -98,6 +102,9 @@ model Workspace {
   characterEvents        StoryCharacterEvent[]
   characterAnalysisTasks CharacterAnalysisTask[]
   characterSuggestions   StoryCharacterSuggestion[]
+  narrativeFacts         NarrativeFact[]
+  narrativeAnalyses      NarrativeSectionAnalysis[]
+  narrativeDecisions     NarrativeFindingDecision[]
   storyWorlds            StoryWorld[]
   editorialProfiles      EditorialProfile[]
 
@@ -271,6 +278,9 @@ model Book {
   storyWorlds               StoryWorld[]
   characterAnalysisTasks    CharacterAnalysisTask[]
   storyCharacterSuggestions StoryCharacterSuggestion[]
+  narrativeFacts            NarrativeFact[]
+  narrativeAnalyses         NarrativeSectionAnalysis[]
+  narrativeDecisions        NarrativeFindingDecision[]
   editorialMetadata         BookEditorialMetadata?
   contributors              BookContributor[]
   identifiers               BookIdentifier[]
@@ -316,6 +326,8 @@ model BookSection {
   revisions              SectionRevision[]
   characterAnalysisTasks CharacterAnalysisTask[]
   characterSuggestions   StoryCharacterSuggestion[]
+  narrativeFacts         NarrativeFact[]
+  narrativeAnalyses      NarrativeSectionAnalysis[]
   notes                  WritingNote[]
   comments               EditorialComment[]
   assignee               User?                      @relation("SectionAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
@@ -341,6 +353,7 @@ model SectionRevision {
 
   section   BookSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   createdBy User        @relation("RevisionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  narrativeFacts NarrativeFact[]
 
   @@unique([sectionId, version])
   @@index([sectionId, createdAt])
@@ -757,6 +770,29 @@ enum CharacterSuggestionStatus {
   MERGED
 }
 
+enum NarrativeEvidenceMode {
+  NARRATION
+  DIALOGUE
+  RECOLLECTION
+  HYPOTHESIS
+}
+
+enum NarrativeFactReviewStatus {
+  PROPOSED
+  CONFIRMED
+  REJECTED
+  STALE
+}
+
+enum NarrativeFindingStatus {
+  OPEN
+  CONFIRMED
+  TEXT_CORRECTED
+  IGNORED
+  INTENTIONAL
+  FACT_UPDATED
+}
+
 model CharacterAnalysisTask {
   id          String                      @id @default(uuid()) @db.Uuid
   workspaceId String                      @db.Uuid
@@ -804,6 +840,127 @@ model StoryCharacterSuggestion {
   @@index([workspaceId, bookId, status, stale])
   @@index([characterId])
   @@map("story_character_suggestions")
+}
+
+/// Afirmación extraída localmente de una instantánea de sección.
+/// La cita y los offsets UTF-16 anclan la evidencia; no la convierten por sí
+/// solos en un hecho canónico confirmado por el autor.
+model NarrativeFact {
+  id                String                    @id @default(uuid()) @db.Uuid
+  workspaceId       String                    @db.Uuid
+  bookId            String                    @db.Uuid
+  sectionId         String                    @db.Uuid
+  revisionId        String?                   @db.Uuid
+  contentVersion    Int
+  contentHash       String                    @db.VarChar(64)
+  factType          String                    @db.VarChar(40)
+  subjectLabel      String                    @db.VarChar(160)
+  subjectNormalized String                    @db.VarChar(160)
+  valueText         String                    @db.VarChar(300)
+  normalizedValue   String                    @db.VarChar(300)
+  evidenceMode      NarrativeEvidenceMode
+  confidence        Float
+  temporalYear      Int?
+  startOffset       Int
+  endOffset         Int
+  exactQuote        String                    @db.Text
+  ruleVersion       String                    @db.VarChar(40)
+  authorValueOverride     String?              @db.VarChar(300)
+  authorNormalizedOverride String?             @db.VarChar(300)
+  overrideById      String?                    @db.Uuid
+  overrideAt        DateTime?
+  reviewStatus      NarrativeFactReviewStatus @default(PROPOSED)
+  reviewedById      String?                   @db.Uuid
+  reviewedAt        DateTime?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  workspace   Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  book        Book                    @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  section     BookSection             @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  revision    SectionRevision?        @relation(fields: [revisionId], references: [id], onDelete: SetNull)
+  reviewedBy  User?                   @relation("NarrativeFactReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  overriddenBy User?                  @relation("NarrativeFactOverrideBy", fields: [overrideById], references: [id], onDelete: SetNull)
+  decisionsAsA NarrativeFindingDecision[] @relation("NarrativeDecisionFactA")
+  decisionsAsB NarrativeFindingDecision[] @relation("NarrativeDecisionFactB")
+
+  @@unique([sectionId, contentHash, startOffset, endOffset, factType])
+  @@index([workspaceId, bookId, reviewStatus])
+  @@index([bookId, sectionId, contentVersion])
+  @@index([bookId, subjectNormalized, factType])
+  @@map("narrative_facts")
+}
+
+/// Marca análisis incremental terminado incluso cuando el capítulo no contiene
+/// hechos que cumplan las reglas locales.
+model NarrativeSectionAnalysis {
+  id             String   @id @default(uuid()) @db.Uuid
+  workspaceId    String   @db.Uuid
+  bookId         String   @db.Uuid
+  sectionId      String   @db.Uuid
+  contentVersion Int
+  contentHash    String   @db.VarChar(64)
+  ruleVersion    String   @db.VarChar(40)
+  factsCount     Int      @default(0)
+  analyzedAt     DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  workspace Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  book      Book        @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  section   BookSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@unique([sectionId, contentHash])
+  @@index([workspaceId, bookId, analyzedAt])
+  @@index([bookId, sectionId, contentVersion])
+  @@map("narrative_section_analyses")
+}
+
+/// Conserva la resolución del autor para una alerta basada en pruebas concretas.
+model NarrativeFindingDecision {
+  id              String                 @id @default(uuid()) @db.Uuid
+  workspaceId     String                 @db.Uuid
+  bookId          String                 @db.Uuid
+  findingKey      String                 @unique @db.VarChar(64)
+  findingType     String                 @db.VarChar(40)
+  factAId         String                 @db.Uuid
+  factBId         String?                @db.Uuid
+  status          NarrativeFindingStatus @default(OPEN)
+  note            String?                @db.VarChar(500)
+  decidedById     String                 @db.Uuid
+  decisionVersion Int                    @default(1)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  workspace Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  book      Book           @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  factA     NarrativeFact  @relation("NarrativeDecisionFactA", fields: [factAId], references: [id], onDelete: Cascade)
+  factB     NarrativeFact? @relation("NarrativeDecisionFactB", fields: [factBId], references: [id], onDelete: Cascade)
+  decidedBy User           @relation("NarrativeDecisionActor", fields: [decidedById], references: [id], onDelete: Restrict)
+  history   NarrativeFindingDecisionHistory[]
+
+  @@index([workspaceId, bookId, status, updatedAt])
+  @@index([factAId])
+  @@index([factBId])
+  @@map("narrative_finding_decisions")
+}
+
+/// Historial append-only: no se pierde una decisión anterior al cambiarla.
+model NarrativeFindingDecisionHistory {
+  id          String                 @id @default(uuid()) @db.Uuid
+  decisionId  String                 @db.Uuid
+  version     Int
+  status      NarrativeFindingStatus
+  note        String?                @db.VarChar(500)
+  decidedById String                 @db.Uuid
+  createdAt   DateTime               @default(now())
+
+  decision  NarrativeFindingDecision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  decidedBy User                     @relation("NarrativeDecisionHistoryActor", fields: [decidedById], references: [id], onDelete: Restrict)
+
+  @@unique([decisionId, version])
+  @@index([decisionId, createdAt])
+  @@index([decidedById, createdAt])
+  @@map("narrative_finding_decision_history")
 }
 
 enum CharacterRelationshipKind {

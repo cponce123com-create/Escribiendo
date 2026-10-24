@@ -44,6 +44,20 @@ export {
   type TiptapTextBlock,
   type TiptapTextBlockType,
 } from "./linguistics/text";
+export {
+  NARRATIVE_FACT_RULE_VERSION,
+  detectNarrativeInconsistencies,
+  extractNarrativeFacts,
+} from "./linguistics/continuity";
+export type {
+  AnalyzeNarrativeSectionInput,
+  NarrativeEntityCandidate,
+  NarrativeEvidenceMode,
+  NarrativeFactEvidence,
+  NarrativeFactType,
+  NarrativeFindingType,
+  NarrativeInconsistency,
+} from "./linguistics/continuity";
 export type {
   AnalyzeBatchesOptions,
   EditorialFinding,
