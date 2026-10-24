@@ -393,8 +393,10 @@ export function SectionEditor({
       serverVersion: versionRef.current,
     };
 
-    await saveDraft(registro);
-    dispatch({ type: "local-saved" });
+    const persisted = await saveDraft(registro);
+    if (registro.localVersion === localVersionRef.current) {
+      dispatch({ type: "local-saved", persisted });
+    }
   }, [bookId, dispatch, editor, sectionId, userId]);
 
   // --- Sincronización con el servidor --------------------------------------

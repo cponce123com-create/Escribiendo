@@ -71,13 +71,15 @@ export interface SyncMachine {
   message: string | null;
   /** Espera hasta el siguiente reintento, en milisegundos. */
   retryInMs: number | null;
+  /** Última escritura local confirmada; false incluye el respaldo solo en memoria. */
+  localPersisted?: boolean;
 }
 
 export type SyncEvent =
   /** La persona ha escrito algo. */
   | { type: "edit" }
   /** El borrador ya está en el equipo. */
-  | { type: "local-saved" }
+  | { type: "local-saved"; persisted?: boolean }
   /** Empieza el envío al servidor. */
   | { type: "sync-start" }
   /** El servidor ha confirmado el guardado. */
@@ -128,6 +130,14 @@ export function initialSyncMachine(serverVersion: number): SyncMachine {
 
 /** Texto que se muestra a la persona que escribe. */
 export function statusMessage(machine: SyncMachine): string {
+  if (
+    machine.pending &&
+    machine.localPersisted === false &&
+    machine.state !== "syncing" &&
+    machine.state !== "conflict"
+  ) {
+    return "El borrador solo está en memoria. Mantén esta pestaña abierta hasta confirmar el guardado en el servidor.";
+  }
   switch (machine.state) {
     case "idle":
       return "Todo guardado.";
@@ -158,20 +168,12 @@ export function reduceSync(machine: SyncMachine, event: SyncEvent): SyncMachine 
         attempts: 0,
         retryInMs: null,
         message: null,
+        localPersisted: false,
       };
 
     case "local-saved":
-      // El borrador local ya está: si había un error del servidor, el
-      // trabajo sigue a salvo, así que el estado pasa a «en el equipo».
-      if (
-        machine.state === "error" ||
-        machine.state === "offline" ||
-        machine.state === "conflict"
-      ) {
-        return { ...machine, state: "local" };
-      }
-
-      return machine.state === "idle" ? { ...machine, state: "local" } : machine;
+      // Un respaldo local nunca resuelve conflictos ni confirma el servidor.
+      return { ...machine, localPersisted: event.persisted ?? true };
 
     case "sync-start":
       return { ...machine, state: "syncing", message: null };
@@ -200,7 +202,7 @@ export function reduceSync(machine: SyncMachine, event: SyncEvent): SyncMachine 
       return {
         ...machine,
         state: "offline",
-        pending: true,
+        pending: machine.pending,
         attempts: machine.attempts + 1,
         retryInMs: retryDelay(machine.attempts),
         message: null,
@@ -245,12 +247,7 @@ export function reduceSync(machine: SyncMachine, event: SyncEvent): SyncMachine 
  * syncing ya. Un conflicto espera a que la persona decida.
  */
 export function shouldSync(machine: SyncMachine): boolean {
-  return (
-    machine.pending &&
-    machine.state !== "syncing" &&
-    machine.state !== "conflict" &&
-    machine.state !== "offline"
-  );
+  return machine.pending && machine.state !== "syncing" && machine.state !== "conflict";
 }
 
 /** Indica si el editor debe avisar de que hay trabajo sin guardar. */

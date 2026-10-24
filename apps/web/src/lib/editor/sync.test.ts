@@ -41,11 +41,11 @@ describe("reduceSync", () => {
     expect(machine.state).toBe("synced");
   });
 
-  it("el guardado local saca del estado de error sin perder lo pendiente", () => {
+  it("el guardado local conserva el error y lo pendiente", () => {
     const conError = reduceSync(initialSyncMachine(1), { type: "sync-error" });
     const machine = reduceSync(conError, { type: "local-saved" });
 
-    expect(machine.state).toBe("local");
+    expect(machine.state).toBe("error");
     expect(machine.pending).toBe(true);
   });
 
@@ -145,10 +145,10 @@ describe("shouldSync", () => {
     expect(shouldSync(enCurso)).toBe(false);
   });
 
-  it("no sincroniza sin conexión", () => {
+  it("permite reintentar tras recuperar la conexión", () => {
     const sinRed = reduceSync(reduceSync(base, { type: "edit" }), { type: "sync-offline" });
 
-    expect(shouldSync(sinRed)).toBe(false);
+    expect(shouldSync(sinRed)).toBe(true);
   });
 });
 
@@ -212,4 +212,30 @@ describe("hasUnsavedWork", () => {
 
     expect(hasUnsavedWork(maquina)).toBe(false);
   });
+});
+
+describe("certeza de persistencia local", () => {
+  it("no promete durabilidad si IndexedDB falla", () => {
+    const edited = reduceSync(initialSyncMachine(1), { type: "edit" });
+    const memory = reduceSync(edited, { type: "local-saved", persisted: false });
+    expect(statusMessage(memory)).toContain("solo está en memoria");
+    expect(memory.pending).toBe(true);
+    const persisted = reduceSync(memory, { type: "local-saved", persisted: true });
+    expect(statusMessage(persisted)).toContain("Guardado en este equipo");
+    expect(statusMessage(reduceSync(memory, { type: "sync-ok", version: 2 }))).toBe(
+      "Guardado en el servidor.",
+    );
+  });
+  it("un borrador local no resuelve un conflicto ni pierde su bloqueo", () => {
+    const conflict = reduceSync(initialSyncMachine(1), { type: "sync-conflict" });
+    const result = reduceSync(conflict, { type: "local-saved", persisted: true });
+    expect(result.state).toBe("conflict");
+    expect(shouldSync(result)).toBe(false);
+  });
+});
+
+it("perder la red sin editar no inventa trabajo pendiente", () => {
+  const offline = reduceSync(initialSyncMachine(7), { type: "sync-offline" });
+  expect(hasUnsavedWork(offline)).toBe(false);
+  expect(shouldSync(offline)).toBe(false);
 });
