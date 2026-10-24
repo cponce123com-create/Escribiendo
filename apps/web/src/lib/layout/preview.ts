@@ -4,7 +4,6 @@ import { editorialOrder } from "@/lib/books/reading-order";
 import { prisma } from "@/lib/db";
 import type { SessionContext } from "@/lib/auth/session";
 import {
-  paginate,
   withTypographyDefaults,
   type LayoutBlock,
   type LayoutDiagnostic,
@@ -22,11 +21,13 @@ import {
 import {
   sectionsForMatter,
   type BookMatter,
-  EMPTY_MATTER,
-  composeMatter,
   loadBookMatter,
-  pageFolioBySection,
 } from "@/lib/editorial/book-matter";
+import {
+  stabilizeComposition,
+  tocDiagnostics,
+  type TocStability,
+} from "@/lib/editorial/toc-stabilization";
 import { resolveRunningHeads } from "./running-heads";
 import { previewLineDrawings, type PreviewLineDrawing } from "./preview-drawing";
 import { loadPdfFonts } from "@/lib/export/fonts";
@@ -92,6 +93,8 @@ export interface PreviewResult {
    * fuente. Si es `false`, la paginación es aproximada.
    */
   realMetrics: boolean;
+  /** Convergencia del índice y folios que no coinciden con su sección. */
+  toc: TocStability;
 }
 
 /** Secciones del libro con su contenido, en orden de lectura. */
@@ -221,24 +224,15 @@ export async function buildPreview(
 
   // Primera pasada: materias sin páginas. Después se estabiliza el índice,
   // porque sus propias páginas desplazan el cuerpo que numera.
-  let composedMatter = matter ? composeMatter(matter, new Map()) : EMPTY_MATTER;
-  let blocks = compose(composedMatter.front, composedMatter.back);
-  let result = paginate(blocks, geometry, typography, fuentes?.measure);
-
-  for (let pass = 0; pass < 3 && matter; pass += 1) {
-    const next = composeMatter(matter, pageFolioBySection(result.pages));
-    const nextBlocks = compose(next.front, next.back);
-    const nextResult = paginate(nextBlocks, geometry, typography, fuentes?.measure);
-    const stable = next.signature === composedMatter.signature;
-
-    composedMatter = next;
-    blocks = nextBlocks;
-    result = nextResult;
-
-    if (stable) {
-      break;
-    }
-  }
+  const stabilized = stabilizeComposition({
+    matter,
+    geometry,
+    typography,
+    ...(fuentes?.measure ? { measure: fuentes.measure } : {}),
+    compose,
+  });
+  const { composition: result, stability } = stabilized;
+  const blocks = compose(stabilized.composedMatter.front, stabilized.composedMatter.back);
 
   // El encabezado de página lo define la plantilla. Si la plantilla no dice
   // nada, se usa el título de la sección, que es lo que hace el motor.
@@ -275,7 +269,8 @@ export async function buildPreview(
 
   return {
     pages,
-    diagnostics: result.diagnostics,
+    diagnostics: [...result.diagnostics, ...tocDiagnostics(stability)],
+    toc: stability,
     profile,
     template: edition?.template ?? null,
     typography,

@@ -44,7 +44,10 @@ export type LayoutBlockKind =
 
 export interface LayoutBlock {
   styleOverride?: Partial<
-    Pick<TypographyStyle, "fontSizePt" | "lineHeight" | "spaceAfterPt" | "firstLineIndentMm">
+    Pick<
+      TypographyStyle,
+      "fontSizePt" | "lineHeight" | "spaceAfterPt" | "spaceBeforePt" | "firstLineIndentMm"
+    >
   >;
   /**
    * Entrada de índice. El folio no forma parte del texto: se compone como una
@@ -54,6 +57,8 @@ export interface LayoutBlock {
     title: string;
     label: string;
     leaders: boolean;
+    /** Sección a la que apunta la entrada, para cotejar el folio final. */
+    sourceId?: string;
     /** Separación entre el último carácter del título, los líderes y el folio. */
     folioGapMm?: number;
     /** Nivel jerárquico, para sangría en formatos refluibles. */
@@ -125,7 +130,10 @@ export interface LayoutDiagnostic {
     | "LONG_WORD"
     | "EMPTY_PAGE"
     | "CHAPTER_NOT_ON_RECTO"
-    | "FOOTNOTE_OVERFLOW";
+    | "FOOTNOTE_OVERFLOW"
+    | "TOC_NOT_CONVERGED"
+    | "TOC_FOLIO_MISMATCH"
+    | "MATTER_LOGO_OMITIDO";
   severity: DiagnosticSeverity;
   message: string;
   /** Página en la que se ha detectado, contando desde 1. */

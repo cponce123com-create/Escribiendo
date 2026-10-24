@@ -16,6 +16,9 @@ const TITULOS: Record<LayoutDiagnostic["code"], string> = {
   EMPTY_PAGE: "Página en blanco",
   CHAPTER_NOT_ON_RECTO: "Capítulo en página par",
   FOOTNOTE_OVERFLOW: "Nota al pie sin espacio",
+  TOC_NOT_CONVERGED: "Índice inestable",
+  TOC_FOLIO_MISMATCH: "Folio del índice descuadrado",
+  MATTER_LOGO_OMITIDO: "Logotipo de materia omitido",
 };
 
 interface DiagnosticsPanelProps {

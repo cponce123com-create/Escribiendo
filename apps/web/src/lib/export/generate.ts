@@ -12,7 +12,7 @@ import {
   type ExportImageMap,
   type ImageTarget,
 } from "@escribiendo/export-engine";
-import { paginate, withTypographyDefaults, type PageGeometry } from "@escribiendo/editorial-engine";
+import { withTypographyDefaults, type PageGeometry } from "@escribiendo/editorial-engine";
 import { getBookEdition, getDefaultLayoutProfile } from "@/lib/layout/profiles";
 import {
   sectionToBlocks as layoutSectionToBlocks,
@@ -24,9 +24,12 @@ import {
   sectionsForMatter,
   EMPTY_MATTER,
   composeMatter,
-  pageFolioBySection,
   type BookMatter,
 } from "@/lib/editorial/book-matter";
+import {
+  assertTocReliable,
+  stabilizeComposition,
+} from "@/lib/editorial/toc-stabilization";
 import type { SessionContext } from "@/lib/auth/session";
 import type { ExportSection } from "./manuscript";
 import { sectionToBlocks } from "./manuscript";
@@ -242,31 +245,15 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
       physicalPageOffset: input.cover ? 1 : 0,
     };
     const matter = input.matter ?? null;
-    let composedMatter = matter ? composeMatter(matter, new Map()) : EMPTY_MATTER;
-    let composition = paginate(
-      compose(composedMatter.front, composedMatter.back),
+    const { composition, stability } = stabilizeComposition({
+      matter,
       geometry,
       typography,
-      measure,
-    );
+      ...(measure ? { measure } : {}),
+      compose,
+    });
 
-    for (let pass = 0; pass < 3 && matter; pass += 1) {
-      const next = composeMatter(matter, pageFolioBySection(composition.pages));
-      const nextComposition = paginate(
-        compose(next.front, next.back),
-        geometry,
-        typography,
-        measure,
-      );
-      const stable = next.signature === composedMatter.signature;
-
-      composedMatter = next;
-      composition = nextComposition;
-
-      if (stable) {
-        break;
-      }
-    }
+    assertTocReliable(stability);
     const pdfComposition = toPdfPages(
       composition.pages,
       input.profile,
