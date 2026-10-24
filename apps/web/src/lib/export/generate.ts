@@ -26,10 +26,7 @@ import {
   composeMatter,
   type BookMatter,
 } from "@/lib/editorial/book-matter";
-import {
-  assertTocReliable,
-  stabilizeComposition,
-} from "@/lib/editorial/toc-stabilization";
+import { assertTocReliable, stabilizeComposition } from "@/lib/editorial/toc-stabilization";
 import type { SessionContext } from "@/lib/auth/session";
 import type { ExportSection } from "./manuscript";
 import { sectionToBlocks } from "./manuscript";
@@ -380,9 +377,7 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
                   title: block.tocEntry.title.trim(),
                   label: block.tocEntry.label,
                   leaders: block.tocEntry.leaders,
-                  ...(block.tocEntry.level !== undefined
-                    ? { level: block.tocEntry.level }
-                    : {}),
+                  ...(block.tocEntry.level !== undefined ? { level: block.tocEntry.level } : {}),
                 },
               }
             : {}),

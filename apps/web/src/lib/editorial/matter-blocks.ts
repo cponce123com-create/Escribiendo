@@ -127,12 +127,7 @@ export function roleBlocksToBlocks(
     ...(options.sectionTitle ? { sectionTitle: options.sectionTitle } : {}),
   });
 
-  const push = (
-    kind: LayoutBlockKind,
-    text: string,
-    style: RoleStyle,
-    spaceBeforePt = 0,
-  ): void => {
+  const push = (kind: LayoutBlockKind, text: string, style: RoleStyle, spaceBeforePt = 0): void => {
     const runs: InlineRun[] | undefined = style.italic
       ? [{ text, marks: { italic: true } }]
       : undefined;
@@ -158,8 +153,7 @@ export function roleBlocksToBlocks(
 
   for (const block of blocks) {
     if (block.role === "spacer") {
-      pendingSpaceMm +=
-        (block.spaceMm ?? 0) + (block.spaceFraction ?? 0) * contentHeightMm;
+      pendingSpaceMm += (block.spaceMm ?? 0) + (block.spaceFraction ?? 0) * contentHeightMm;
       continue;
     }
 

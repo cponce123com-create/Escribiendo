@@ -18,11 +18,7 @@ import {
   type MatterLayout,
   type PreviewSection,
 } from "./blocks";
-import {
-  sectionsForMatter,
-  type BookMatter,
-  loadBookMatter,
-} from "@/lib/editorial/book-matter";
+import { sectionsForMatter, type BookMatter, loadBookMatter } from "@/lib/editorial/book-matter";
 import {
   stabilizeComposition,
   tocDiagnostics,

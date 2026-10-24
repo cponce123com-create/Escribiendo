@@ -197,6 +197,13 @@ La migración inicial documenta todo esto en
 - Configuración tipográfica por clase de bloque, con valores por defecto.
 - Medición del texto y motor de paginación: reparte el manuscrito en páginas y
   avisa de viudas, huérfanas y desbordes.
+- Índice con folio en columna: `LayoutBlock.tocEntry` se compone midiendo el
+  número con la fuente del bloque, anclándolo al margen derecho y dibujando los
+  líderes como línea vectorial. `LaidOutLine.toc` publica esas coordenadas para
+  que la vista previa y el PDF no puedan divergir.
+- Estabilización verificada: `stabilizeComposition` itera hasta que la firma del
+  índice (título y folio) deja de cambiar, coteja cada folio con su sección y
+  bloquea la exportación si algo no coincide.
 
 ### `@escribiendo/export-engine`
 

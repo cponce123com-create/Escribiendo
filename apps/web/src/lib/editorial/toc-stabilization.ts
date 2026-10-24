@@ -193,9 +193,7 @@ export function describeTocFailure(stability: TocStability): string {
   const parts: string[] = [];
 
   if (!stability.converged) {
-    parts.push(
-      `el índice no convergió tras ${stability.passes} de ${stability.maxPasses} pasadas`,
-    );
+    parts.push(`el índice no convergió tras ${stability.passes} de ${stability.maxPasses} pasadas`);
   }
 
   if (stability.mismatches.length > 0) {
@@ -204,7 +202,9 @@ export function describeTocFailure(stability: TocStability): string {
       .map((item) => `«${item.sectionId}» anuncia ${item.expected} y empieza en ${item.actual}`)
       .join("; ");
     const rest = stability.mismatches.length - 3;
-    parts.push(`${stability.mismatches.length} folios no coinciden: ${shown}${rest > 0 ? ` y ${rest} más` : ""}`);
+    parts.push(
+      `${stability.mismatches.length} folios no coinciden: ${shown}${rest > 0 ? ` y ${rest} más` : ""}`,
+    );
   }
 
   return `No se ha generado el archivo porque ${parts.join(" y ")}. Corrige el índice y vuelve a intentarlo.`;

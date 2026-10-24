@@ -57,7 +57,10 @@ const TIPOGRAFIA: TypographyConfig = {
  */
 const TOC_FIXTURE = [
   { title: "Uno", label: "7" },
-  { title: "Un capítulo con un título deliberadamente largo que no cabe en una línea", label: "42" },
+  {
+    title: "Un capítulo con un título deliberadamente largo que no cabe en una línea",
+    label: "42",
+  },
   { title: "Subapartado anidado", label: "137" },
   { title: "Epílogo", label: "1.024" },
 ] as const;
@@ -90,9 +93,9 @@ describe("columna de folio del índice", () => {
       );
       // El folio se mide con la misma fuente del bloque: el ancho declarado
       // tiene que coincidir con la medición real del número.
-      expect(
-        Math.abs(folio!.widthMm - measureTextMm(expected, { ...ESTILO })),
-      ).toBeLessThanOrEqual(0.01);
+      expect(Math.abs(folio!.widthMm - measureTextMm(expected, { ...ESTILO }))).toBeLessThanOrEqual(
+        0.01,
+      );
     }
   });
 

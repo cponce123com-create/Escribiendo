@@ -765,7 +765,9 @@ function pageContent(
       "0 0 0 RG",
       `${(rule.widthPt ?? 0.5).toFixed(2)} w`,
       ...(rule.dash
-        ? [`[${(rule.dash[0] * MM_TO_POINTS).toFixed(2)} ${(rule.dash[1] * MM_TO_POINTS).toFixed(2)}] 0 d`]
+        ? [
+            `[${(rule.dash[0] * MM_TO_POINTS).toFixed(2)} ${(rule.dash[1] * MM_TO_POINTS).toFixed(2)}] 0 d`,
+          ]
         : []),
       `${x1.toFixed(3)} ${y1.toFixed(3)} m ${x2.toFixed(3)} ${y2.toFixed(3)} l S`,
       ...(rule.dash ? ["[] 0 d"] : []),

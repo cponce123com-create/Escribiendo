@@ -28,6 +28,25 @@ El catálogo versiona los diseños. Las materias están incluidas en la huella d
 
 La dedicatoria se alinea a la derecha en vista previa, PDF, EPUB y DOCX; el manuscrito no se modifica. Es una decisión de composición literaria, no un formato legal obligatorio.
 
+## Columna de folios y estabilización
+
+El folio no forma parte del texto de la entrada: el motor mide su ancho con la
+fuente real, lo ancla al borde derecho del área de texto y compone el título en
+el espacio restante. Los líderes son geometría (una línea de 0,25 pt con patrón
+discontinuo), no caracteres repetidos, de modo que el borde derecho del número
+queda en el margen con una tolerancia de 0,5 mm para folios de uno a cuatro
+dígitos. Vista previa y PDF consumen las mismas coordenadas; DOCX usa una
+tabulación derecha con relleno de puntos y EPUB conserva la jerarquía sin folios
+físicos.
+
+`stabilizeComposition` compone las materias hasta que la firma del índice deja
+de cambiar (máximo cinco pasadas) y después coteja cada folio anunciado con la
+página real de su sección. La firma incluye el número, no solo el título: sin él
+dos índices distintos se considerarían iguales. Si el índice no converge o
+algún folio no coincide, la vista previa muestra un diagnóstico de error y la
+exportación se rechaza con un mensaje que nombra la sección y los folios
+esperado y obtenido. Nunca se emite un archivo con folios sin verificar.
+
 ## Libros antiguos
 
 La existencia de una sección `TABLE_OF_CONTENTS` no desactiva el índice automático. Solo una fila explícita `MANUAL` conserva el índice manual como salida de esa edición. El texto antiguo permanece en el manuscrito al elegir una plantilla automática.

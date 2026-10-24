@@ -275,7 +275,5 @@ it("la sangría jerárquica llega al motor y el folio permanece dentro del marge
   expect(line.text).toBe("Apartado");
   const folio = line.toc!;
   expect(folio.text).toBe("125");
-  expect(
-    Math.abs(folio.xMm + folio.widthMm - result.textWidthMm),
-  ).toBeLessThanOrEqual(0.5);
+  expect(Math.abs(folio.xMm + folio.widthMm - result.textWidthMm)).toBeLessThanOrEqual(0.5);
 });

@@ -50,7 +50,10 @@ const BODY: LayoutBlock[] = [
   },
 ];
 
-function compose(front: readonly { blocks: readonly LayoutBlock[] }[], back: readonly { blocks: readonly LayoutBlock[] }[]): LayoutBlock[] {
+function compose(
+  front: readonly { blocks: readonly LayoutBlock[] }[],
+  back: readonly { blocks: readonly LayoutBlock[] }[],
+): LayoutBlock[] {
   return [...front.flatMap((item) => item.blocks), ...back.flatMap((item) => item.blocks), ...BODY];
 }
 
