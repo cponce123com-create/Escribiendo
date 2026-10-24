@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import Link from "next/link";
+import { useActionState } from "react";
 import { FormMessage } from "@/components/forms/form-message";
 import { requestExportAction, type ExportActionState } from "@/lib/export/actions";
 import { initialActionState } from "@/lib/action-state";
@@ -12,26 +13,39 @@ interface ExportPanelProps {
   hasLayout: boolean;
 }
 
-const FORMATOS: Array<{ id: ExportFormat; label: string; description: string }> = [
+const FORMATOS: Array<{
+  id: ExportFormat;
+  label: string;
+  description: string;
+  guarantee: string;
+}> = [
   {
     id: "PDF_DIGITAL",
     label: "PDF digital",
     description: "Para leer y distribuir. Sin marcas de corte.",
+    guarantee:
+      "Equivalencia exacta con la vista previa: misma paginación, cortes de línea, folios, encabezados e iniciales.",
   },
   {
     id: "PDF_PRINT",
     label: "PDF de imprenta",
     description: "Con sangrado y marcas de corte.",
+    guarantee:
+      "Misma composición que el PDF digital, más el sangrado y las marcas de corte que pide la imprenta.",
   },
   {
     id: "EPUB3",
     label: "EPUB 3",
     description: "Para lectores y tiendas. Texto adaptable.",
+    guarantee:
+      "Equivalencia de contenido, jerarquía y estilos. El texto refluye: la paginación y los folios dependen del lector.",
   },
   {
     id: "DOCX",
     label: "DOCX",
     description: "Para revisión y maquetación en Word.",
+    guarantee:
+      "Equivalencia de contenido, jerarquía y estilos. La paginación depende de Word y de las fuentes instaladas.",
   },
 ];
 
@@ -42,7 +56,6 @@ const FORMATOS: Array<{ id: ExportFormat; label: string; description: string }> 
  * caduca a los pocos minutos: si caduca, se vuelve a pedir.
  */
 export function ExportPanel({ bookId, hasLayout }: ExportPanelProps) {
-  const [dropCaps, setDropCaps] = useState(false);
   const [state, formAction] = useActionState<ExportActionState, FormData>(
     requestExportAction,
     initialActionState,
@@ -54,22 +67,20 @@ export function ExportPanel({ bookId, hasLayout }: ExportPanelProps) {
 
       <section className="panel p-5" aria-labelledby="export-options-title">
         <h2 id="export-options-title" className="font-serif text-lg text-ink">
-          Opciones de composición
+          Composición de la edición
         </h2>
-        <label className="mt-3 flex cursor-pointer items-start gap-3 text-sm text-ink-soft">
-          <input
-            type="checkbox"
-            checked={dropCaps}
-            onChange={(event) => setDropCaps(event.target.checked)}
-            className="mt-0.5 accent-accent"
-          />
-          <span>
-            <span className="block font-medium text-ink">Letra capital al inicio del capítulo</span>
-            <span className="mt-1 block text-ink-muted">
-              Destaca la primera letra del primer párrafo en PDF, EPUB y DOCX.
-            </span>
-          </span>
-        </label>
+        <p className="mt-2 text-sm leading-relaxed text-ink-soft">
+          La letra capital y las líneas que ocupa se configuran una vez en{" "}
+          <Link className="underline" href={`/books/${bookId}/edicion`}>
+            Páginas de la edición
+          </Link>
+          . La exportación usa esa misma decisión: no hay un interruptor aquí que pueda contradecir
+          la vista previa.
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-ink-soft">
+          Contrato de formatos: los PDF reproducen la vista previa página por página; EPUB y DOCX
+          conservan contenido, jerarquía y estilos, pero el texto refluye y no fijan folios.
+        </p>
       </section>
 
       <ul className="space-y-3">
@@ -86,12 +97,12 @@ export function ExportPanel({ bookId, hasLayout }: ExportPanelProps) {
                       ? "El libro necesita una plantilla de maquetación para componer el PDF. Elígela en Maquetación."
                       : formato.description}
                   </p>
+                  <p className="mt-1 text-xs leading-relaxed text-ink-muted">{formato.guarantee}</p>
                 </div>
 
                 <form action={formAction}>
                   <input type="hidden" name="bookId" value={bookId} />
                   <input type="hidden" name="format" value={formato.id} />
-                  <input type="hidden" name="dropCaps" value={dropCaps ? "true" : "false"} />
                   <button type="submit" className="btn btn-secondary" disabled={sinMaqueta}>
                     Generar
                   </button>

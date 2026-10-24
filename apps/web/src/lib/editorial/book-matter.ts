@@ -2,9 +2,11 @@ import "server-only";
 import { cache } from "react";
 import {
   dedicationSettingsFrom,
+  dropCapSettingsFrom,
   legalFieldsSchema,
   settingsRecord,
   type DedicationSettings,
+  type DropCapSettings,
 } from "./template-settings";
 import type { LaidOutPage } from "@escribiendo/editorial-engine";
 import {
@@ -51,6 +53,8 @@ export interface BookMatter {
    * anterior de la sección, sin migraciones silenciosas.
    */
   dedication?: DedicationSettings;
+  /** Letra capital de la edición; siempre presente, con valores por defecto. */
+  dropCap: DropCapSettings;
   legalMode: "print" | "digital";
   /** El manuscrito ya incluye una sección de índice. */
   hasTocSection: boolean;
@@ -444,6 +448,7 @@ async function readBookMatter(
     tocRows.find((row) => settingsRecord(row.data).editionId === edition?.id) ??
     tocRows.find((row) => !settingsRecord(row.data).editionId);
   const dedication = dedicationSettingsFrom(settingsRecord(edition?.settings).dedication);
+  const dropCap = dropCapSettingsFrom(settingsRecord(edition?.settings).dropCap);
   return {
     tocMode:
       tocRow?.mode === "MANUAL"
@@ -470,6 +475,7 @@ async function readBookMatter(
     },
     legal,
     ...(dedication ? { dedication } : {}),
+    dropCap,
     legalPageMode:
       mode === "MANUAL" || mode === "DISABLED"
         ? mode

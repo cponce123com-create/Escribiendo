@@ -15,6 +15,7 @@ import {
 import {
   textBlockSize,
   withTypographyDefaults,
+  type DropCapLines,
   type PageGeometry,
 } from "@escribiendo/editorial-engine";
 import { getBookEdition, getDefaultLayoutProfile } from "@/lib/layout/profiles";
@@ -101,6 +102,8 @@ export interface GenerateInput {
   bookTitle?: string;
   /** Activa una inicial capitular en el primer párrafo de cada capítulo. */
   dropCaps?: boolean;
+  /** Líneas de cuerpo que ocupa la inicial (2 o 3; por defecto, 3). */
+  dropCapLines?: DropCapLines;
   /** Imágenes ya resueltas, para pruebas o para una exportación reproducible. */
   images?: ExportImageMap;
   /** Portada del libro, cuando existe. */
@@ -238,6 +241,7 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
     const compose = (front: readonly MatterLayout[], back: readonly MatterLayout[]) =>
       bookToBlocks(sectionsForMatter(previewSections, input.matter ?? null), {
         dropCaps: input.dropCaps === true,
+        ...(input.dropCapLines ? { dropCapLines: input.dropCapLines } : {}),
         frontMatter: front,
         backMatter: back,
         ...(input.matter?.dedication ? { dedication: input.matter.dedication } : {}),

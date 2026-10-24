@@ -73,6 +73,7 @@ export async function resolveExportJobInput(
       : (context?.runningHeadTemplate ?? null),
     bookTitle: title,
     dropCaps: snapshot?.dropCaps ?? false,
+    dropCapLines: snapshot?.dropCapLines ?? 3,
     cover: cover ? { src: cover.url, alt: `Portada de ${title}`, crop: cover.crop } : undefined,
     createdAt: job.createdAt,
   };

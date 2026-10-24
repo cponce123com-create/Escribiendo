@@ -4,14 +4,20 @@ import { editorialOrder } from "@/lib/books/reading-order";
 import { prisma } from "@/lib/db";
 import type { SessionContext } from "@/lib/auth/session";
 import {
+  paginate,
   textBlockSize,
   withTypographyDefaults,
+  type DropCapLines,
   type LayoutBlock,
   type LayoutDiagnostic,
   type LaidOutPage,
+  type MeasureText,
   type PageGeometry,
+  type PaginationResult,
   type TypographyConfig,
 } from "@escribiendo/editorial-engine";
+import { buildLegalPage, type LegalPageInput } from "@escribiendo/templates";
+import { legalPageToBlocks } from "@/lib/editorial/matter-blocks";
 import {
   bookToBlocks,
   isChapterType,
@@ -79,6 +85,8 @@ export interface PreviewResult {
   cover: PreviewCover | null;
   /** Si la composición incluye la inicial capitular, como el PDF. */
   dropCaps: boolean;
+  /** Líneas de cuerpo que ocupa la inicial (2 o 3). */
+  dropCapLines: DropCapLines;
   /** Secciones que se han compuesto. */
   sectionCount: number;
   /** Palabras del manuscrito. */
@@ -197,9 +205,13 @@ export async function buildPreview(
     return null;
   }
 
-  const dropCaps = options.dropCaps === true;
   const sections = await loadPreviewSections(session, bookId);
   const matter = options.matterOverride ?? (await loadBookMatter(session, bookId, sections));
+
+  // La inicial es una decisión persistida de la edición. La opción explícita
+  // solo permite previsualizar un estado sin guardarlo (pruebas y galerías).
+  const dropCaps = options.dropCaps ?? matter?.dropCap.enabled ?? false;
+  const dropCapLines: DropCapLines = matter?.dropCap.lines ?? 3;
 
   // La tipografía de la plantilla prima sobre la del perfil: la plantilla
   // describe el estilo editorial y el perfil la geometría.
@@ -215,6 +227,7 @@ export async function buildPreview(
   const compose = (front: readonly MatterLayout[], back: readonly MatterLayout[]): LayoutBlock[] =>
     bookToBlocks(sectionsForMatter(sections, matter), {
       dropCaps,
+      dropCapLines,
       frontMatter: front,
       backMatter: back,
       ...(matter?.dedication ? { dedication: matter.dedication } : {}),
@@ -235,25 +248,14 @@ export async function buildPreview(
 
   // El encabezado de página lo define la plantilla. Si la plantilla no dice
   // nada, se usa el título de la sección, que es lo que hace el motor.
-  const plantilla = edition?.template;
   const tituloLibro = await previewBookTitle(session, bookId);
-
-  const resolvedPages = resolveRunningHeads(result.pages, plantilla?.config ?? null, tituloLibro);
-  const pages: PreviewPage[] = resolvedPages.map((page) => {
-    const interior = profile.mirrorMargins ? page.side === "recto" : true;
-    const leftMm = interior ? profile.marginInnerMm + profile.gutterMm : profile.marginOuterMm;
-
-    return {
-      ...page,
-      drawnLines: previewLineDrawings(
-        page,
-        result.textWidthMm,
-        leftMm,
-        fuentes?.measure,
-        profile.marginTopMm,
-      ),
-    };
-  });
+  const pages = toPreviewPages(
+    result,
+    profile,
+    edition?.template ?? null,
+    tituloLibro,
+    fuentes?.measure,
+  );
 
   // La portada ocupa la primera página del archivo: el índice se desplaza
   // para que sus números apunten a la página física, igual que en el PDF.
@@ -278,9 +280,85 @@ export async function buildPreview(
       ? { url: cover.url, alt: `Portada de ${tituloLibro || "el libro"}`, crop: cover.crop }
       : null,
     dropCaps,
+    dropCapLines,
     sectionCount: sections.length,
     wordCount: blocks.reduce((total, block) => total + (block.text.match(/\S+/gu)?.length ?? 0), 0),
     usingDefaultProfile: !edition?.profile,
     realMetrics: Boolean(fuentes),
+  };
+}
+
+/** Lo mínimo que necesita una miniatura: páginas ya compuestas con su hoja. */
+export interface MatterPreview {
+  pages: PreviewPage[];
+  profile: LayoutProfileSummary;
+  typography: TypographyConfig;
+  diagnostics: LayoutDiagnostic[];
+}
+
+function toPreviewPages(
+  result: PaginationResult,
+  profile: LayoutProfileSummary,
+  template: TemplateSummary | null,
+  bookTitle: string,
+  measure?: MeasureText,
+): PreviewPage[] {
+  return resolveRunningHeads(result.pages, template?.config ?? null, bookTitle).map((page) => {
+    const interior = profile.mirrorMargins ? page.side === "recto" : true;
+    const leftMm = interior ? profile.marginInnerMm + profile.gutterMm : profile.marginOuterMm;
+
+    return {
+      ...page,
+      drawnLines: previewLineDrawings(
+        page,
+        result.textWidthMm,
+        leftMm,
+        measure,
+        profile.marginTopMm,
+      ),
+    };
+  });
+}
+
+/**
+ * Compone solo la página legal, sin paginar el libro.
+ *
+ * La galería necesita ver la hoja con los datos reales, pero no que el cuerpo
+ * entero se componga por cada plantilla o cada tecla. Esta ruta usa la misma
+ * geometría y tipografía que la vista previa completa y no lee el manuscrito.
+ */
+export async function buildLegalMatterPreview(
+  session: SessionContext,
+  bookId: string,
+  legal: LegalPageInput,
+  mode: "print" | "digital" = "print",
+): Promise<MatterPreview | null> {
+  const edition = await previewEdition(session, bookId);
+  const profile = edition?.profile ?? (await previewDefaultProfile(session));
+
+  if (!profile) {
+    return null;
+  }
+
+  const typography = edition?.template
+    ? withTypographyDefaults(edition.template.config.typography)
+    : withTypographyDefaults(profile.typography);
+  const fuentes = await loadPdfFonts();
+  const cover = await previewCover(session, bookId);
+  const geometry = { ...geometryFromProfile(profile), physicalPageOffset: cover ? 1 : 0 };
+  const composed = buildLegalPage(legal, { mode });
+  const blocks = legalPageToBlocks(
+    // La galería enseña también las plantillas incompletas y sus avisos.
+    { ...composed, ready: true },
+    { id: "matter-copyright", sectionTitle: "Créditos", pageBreakBefore: true },
+  );
+  const result = paginate(blocks, geometry, typography, fuentes?.measure);
+  const bookTitle = await previewBookTitle(session, bookId);
+
+  return {
+    pages: toPreviewPages(result, profile, edition?.template ?? null, bookTitle, fuentes?.measure),
+    profile,
+    typography,
+    diagnostics: result.diagnostics,
   };
 }

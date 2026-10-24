@@ -1,4 +1,5 @@
 import type { BookMatter } from "@/lib/editorial/book-matter";
+import type { DropCapLines } from "@escribiendo/editorial-engine";
 import type { PdfLayoutProfile } from "./pdf-layout";
 import type { RunningHeadTemplate } from "@/lib/layout/running-heads";
 import type { CoverCrop } from "@/lib/books/cover-shared";
@@ -18,6 +19,8 @@ export interface ExportLayoutSnapshot {
   bookTitle: string;
   authorName: string;
   dropCaps: boolean;
+  /** Líneas de cuerpo de la inicial; los trabajos antiguos usan tres. */
+  dropCapLines: DropCapLines;
   cover: ExportCoverSnapshot | null;
   /**
    * Indica si la instantánea capturó la portada, aunque fuera nula.
@@ -103,6 +106,7 @@ export function readExportLayoutSnapshot(options: unknown): ExportLayoutSnapshot
     bookTitle: typeof layout.bookTitle === "string" ? layout.bookTitle : "",
     authorName: typeof layout.authorName === "string" ? layout.authorName : "",
     dropCaps: layout.dropCaps === true,
+    dropCapLines: layout.dropCapLines === 2 ? 2 : 3,
     cover: hasCoverSnapshot ? readCover(layout.cover) : null,
     hasCoverSnapshot,
   };

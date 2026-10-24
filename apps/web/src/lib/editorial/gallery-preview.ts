@@ -7,7 +7,7 @@ import {
 } from "@escribiendo/templates";
 import { buildTocPreview } from "./toc-preview";
 import { getSession } from "@/lib/auth/session";
-import { buildPreview, loadPreviewSections } from "@/lib/layout/preview";
+import { buildLegalMatterPreview } from "@/lib/layout/preview";
 import { loadBookMatter } from "./book-matter";
 import { assertServerActionOrigin } from "@/lib/security/request-context";
 import { legalFieldsSchema } from "./template-settings";
@@ -26,8 +26,9 @@ export async function legalGalleryPreview(
   const id = z.string().uuid().parse(bookId);
   const template = legalPageTemplateSchema.parse(slug);
   const customClauses = legalClausesSchema.parse(clauses);
-  const sections = await loadPreviewSections(session, id);
-  const matter = await loadBookMatter(session, id, sections);
+  // La galería solo necesita la hoja legal: no se cargan las secciones ni se
+  // pagina el cuerpo por cada cambio de campo.
+  const matter = await loadBookMatter(session, id, []);
   if (!matter?.legal) return null;
   const input = {
     ...matter.legal,
@@ -38,27 +39,9 @@ export async function legalGalleryPreview(
       ? { license: z.enum(["cc-by", "cc-by-sa", "cc-by-nc", "cc-by-nc-nd", "cc0"]).parse(license) }
       : {}),
   };
-  const result = buildLegalPage(input);
-  const preview = await buildPreview(session, id, {
-    matterOverride: {
-      ...matter,
-      legal: input,
-      hasCopyrightSection: false,
-      legalPageMode: "TEMPLATE",
-      previewIncompleteLegal: true,
-    },
-  });
-  if (!preview) return null;
-  return {
-    preview: {
-      ...preview,
-      cover: null,
-      pages: preview.pages.filter((page) =>
-        page.blocks.some((block) => block.sectionId === "matter-copyright"),
-      ),
-    },
-    warnings: result.warnings,
-  };
+  const result = buildLegalPage(input, { mode: matter.legalMode });
+  const preview = await buildLegalMatterPreview(session, id, input, matter.legalMode);
+  return { preview, warnings: result.warnings };
 }
 
 export async function tocGalleryPreview(bookId: string, raw: unknown) {

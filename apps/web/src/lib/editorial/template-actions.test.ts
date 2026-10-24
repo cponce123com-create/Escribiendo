@@ -152,3 +152,37 @@ it("rechaza una dedicatoria inválida o sin permiso", async () => {
   expect((await updateDedicationAction({ status: "idle" }, valid)).status).toBe("error");
   expect(m.update).not.toHaveBeenCalled();
 });
+
+it("persiste la letra capital y su número de líneas", async () => {
+  const { updateDropCapAction } = await import("./template-actions");
+  const f = new FormData();
+  f.set("bookId", bookId);
+  f.set("enabled", "true");
+  f.set("lines", "2");
+
+  expect((await updateDropCapAction({ status: "idle" }, f)).status).toBe("success");
+  expect(m.update.mock.calls[0]?.[0].data.settings).toMatchObject({
+    unrelated: true,
+    dropCap: { enabled: true, lines: 2 },
+  });
+  expect(m.audit).toHaveBeenCalledWith(
+    expect.objectContaining({ action: "DROP_CAP_UPDATED" }),
+    expect.anything(),
+  );
+});
+
+it("desactiva la inicial y rechaza un número de líneas inválido", async () => {
+  const { updateDropCapAction } = await import("./template-actions");
+  const off = new FormData();
+  off.set("bookId", bookId);
+  off.set("lines", "3");
+
+  expect((await updateDropCapAction({ status: "idle" }, off)).status).toBe("success");
+  expect(m.update.mock.calls[0]?.[0].data.settings.dropCap).toEqual({ enabled: false, lines: 3 });
+
+  const invalid = new FormData();
+  invalid.set("bookId", bookId);
+  invalid.set("lines", "4");
+  expect((await updateDropCapAction({ status: "idle" }, invalid)).status).toBe("error");
+  expect(m.update).toHaveBeenCalledTimes(1);
+});
