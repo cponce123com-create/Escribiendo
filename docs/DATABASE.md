@@ -37,22 +37,23 @@ reescribir datos existentes. La migración inicial crea el esquema completo.
 
 Estado de las migraciones:
 
-| Migración                                         | Local | Neon           |
-| ------------------------------------------------- | ----- | -------------- |
-| `20261020120000_init`                             | Sí    | Sí (histórico) |
-| `20261020180000_add_writing_goals_and_comments`   | Sí    | Sí (histórico) |
-| `20261020190000_add_team_governance`              | Sí    | Sí (histórico) |
-| `20261021210000_session_workspace`                | Sí    | Sí (histórico) |
-| `20261022120000_add_story_tools`                  | Sí    | Por verificar  |
-| `20261022140000_add_section_title_display`        | Sí    | Por verificar  |
-| `20261022200000_character_narrative_intelligence` | Sí    | Por verificar  |
-| `20261022210000_incremental_character_analysis`   | Sí    | Por verificar  |
-| `20261023120000_editorial_matter`                 | Sí    | Por verificar  |
-| `20261024101800_narrative_continuity`             | Sí    | Por verificar  |
+| Migración                                         | Local | Neon             |
+| ------------------------------------------------- | ----- | ---------------- |
+| `20261020120000_init`                             | Sí    | Sí (histórico)   |
+| `20261020180000_add_writing_goals_and_comments`   | Sí    | Sí (histórico)   |
+| `20261020190000_add_team_governance`              | Sí    | Sí (histórico)   |
+| `20261021210000_session_workspace`                | Sí    | Sí (histórico)   |
+| `20261022120000_add_story_tools`                  | Sí    | Sí (histórico)   |
+| `20261022140000_add_section_title_display`        | Sí    | Sí (histórico)   |
+| `20261022200000_character_narrative_intelligence` | Sí    | Sí (histórico)   |
+| `20261022210000_incremental_character_analysis`   | Sí    | Sí (histórico)   |
+| `20261023120000_editorial_matter`                 | Sí    | Sí (histórico)   |
+| `20261024101800_narrative_continuity`             | Sí    | Sí (24-oct-2026) |
 
-El estado de Neon **no se puede inferir del repositorio**: hay que consultarlo
-contra la base real con las credenciales de producción (`DIRECT_URL`). Antes
-de desplegar código que use una migración nueva:
+El estado de Neon se verificó el **24 de octubre de 2026**: las 10 migraciones
+están aplicadas. No se puede inferir del repositorio, así que cada migración
+nueva debe comprobarse contra la base real con `DIRECT_URL`. Antes de desplegar
+código que use una migración nueva:
 
 ```bash
 pnpm db:migrate:status   # lista las pendientes en la base configurada
