@@ -68,10 +68,19 @@ export function marksOf(marks: readonly TiptapMark[] | undefined): InlineMarks |
 /**
  * Tramos de un nodo en línea.
  *
- * Los saltos duros se convierten en un espacio: el motor compone por párrafos
- * y no necesita distinguir un salto manual de un espacio.
+ * Por defecto los saltos duros se convierten en un espacio, porque el cuerpo
+ * se compone por párrafos. Las materias que conservan la disposición del autor
+ * (dedicatoria) piden `hardBreak: "newline"`.
  */
-export function inlineRuns(node: TiptapNode, footnotes?: FootnoteCounter): InlineRun[] {
+export interface InlineOptions {
+  hardBreak?: "space" | "newline";
+}
+
+export function inlineRuns(
+  node: TiptapNode,
+  footnotes?: FootnoteCounter,
+  options: InlineOptions = {},
+): InlineRun[] {
   if (node.type === "text") {
     const text = node.text ?? "";
     const marks = marksOf(node.marks);
@@ -80,7 +89,7 @@ export function inlineRuns(node: TiptapNode, footnotes?: FootnoteCounter): Inlin
   }
 
   if (node.type === "hardBreak") {
-    return [{ text: " " }];
+    return [{ text: options.hardBreak === "newline" ? "\n" : " " }];
   }
 
   if (node.type === "footnote") {
@@ -111,7 +120,7 @@ export function inlineRuns(node: TiptapNode, footnotes?: FootnoteCounter): Inlin
     ];
   }
 
-  return (node.content ?? []).flatMap((child) => inlineRuns(child, footnotes));
+  return (node.content ?? []).flatMap((child) => inlineRuns(child, footnotes, options));
 }
 
 /** Texto de un nodo, incluidos sus descendientes. */
@@ -161,7 +170,11 @@ export function trimRuns(runs: readonly InlineRun[]): InlineRun[] {
 }
 
 /** Tramos de una lista: cada elemento en su propia línea. */
-export function listRuns(node: TiptapNode, footnotes?: FootnoteCounter): InlineRun[] {
+export function listRuns(
+  node: TiptapNode,
+  footnotes?: FootnoteCounter,
+  options: InlineOptions = {},
+): InlineRun[] {
   const runs: InlineRun[] = [];
   let position = 1;
 
@@ -170,7 +183,7 @@ export function listRuns(node: TiptapNode, footnotes?: FootnoteCounter): InlineR
       continue;
     }
 
-    const itemRuns = trimRuns(inlineRuns(child, footnotes));
+    const itemRuns = trimRuns(inlineRuns(child, footnotes, options));
 
     if (itemRuns.length === 0) {
       continue;

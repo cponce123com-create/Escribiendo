@@ -61,6 +61,15 @@ describe("dedicatoria", () => {
     expect(paragraph?.alignment).toBe("right");
   });
 
+  it("conserva los saltos de línea del autor", () => {
+    const page = buildDedicationPage({
+      text: "Para Ana,\nque siempre lee.\n\nCon cariño.",
+    });
+
+    expect(page.blocks.some((block) => block.text === "Para Ana,\nque siempre lee.")).toBe(true);
+    expect(page.blocks.some((block) => block.text === "Con cariño.")).toBe(true);
+  });
+
   it("avisa cuando la dedicatoria es demasiado larga sin recortarla", () => {
     const text = "a".repeat(600);
     const page = buildDedicationPage({ text });

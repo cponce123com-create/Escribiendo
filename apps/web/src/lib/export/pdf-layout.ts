@@ -1,4 +1,5 @@
 import {
+  extractDropCapGrapheme,
   isHeadingKind,
   measureTextMm,
   textLinePlacement,
@@ -197,14 +198,21 @@ export function toPdfPages(
           block.style.fontSizePt *
           (segment.marks?.superscript || segment.marks?.subscript ? 0.72 : 1);
 
-        const segments =
+        const rawSegments =
           line.segments && line.segments.length > 0 ? line.segments : [{ text: line.text }];
+        // Se quita exactamente el grafema de la inicial, no el primer grafema:
+        // las comillas, rayas y signos de apertura deben permanecer.
+        const dropCap =
+          index === 0 && block.dropCapCharacter
+            ? extractDropCapGrapheme(rawSegments, block.dropCapCharacter)
+            : null;
+        const segments = dropCap ? dropCap.segments : rawSegments;
 
         const placement = textLinePlacement(block, index, textWidthMm, leftMm, measure);
         let x = placement.xMm;
         const wordSpacing = placement.wordSpacingPt;
 
-        if (index === 0 && block.dropCapCharacter) {
+        if (dropCap?.removed && block.dropCapCharacter) {
           const capital = block.dropCapCharacter;
           const capitalText = block.style.uppercase ? capital.toLocaleUpperCase("es") : capital;
           const capitalSize = block.dropCapSizePt ?? block.style.fontSizePt * 3;
@@ -227,7 +235,6 @@ export function toPdfPages(
 
         // Un renglón puede mezclar negrita, cursiva y redonda: cada tramo se
         // dibuja con su fuente y en su posición, no se aplana a un solo estilo.
-        let firstSegment = true;
         for (const segment of segments) {
           if (segment.text.length === 0) {
             continue;
@@ -242,14 +249,7 @@ export function toPdfPages(
           // El texto se dibuja en mayúsculas si el estilo lo pide: la
           // medición ya cuenta con esa transformación, así que el ancho y el
           // dibujo tienen que ir juntos.
-          let segmentText = segment.text;
-          if (index === 0 && block.dropCapCharacter && firstSegment) {
-            const [, ...rest] = [
-              ...new Intl.Segmenter("es", { granularity: "grapheme" }).segment(segmentText),
-            ];
-            segmentText = rest.map((item) => item.segment).join("");
-            firstSegment = false;
-          }
+          const segmentText = segment.text;
           const texto = block.style.uppercase ? segmentText.toLocaleUpperCase("es") : segmentText;
           if (texto.length === 0) continue;
           const segmentWidth = measureSegment(texto, sizePt, bold, italic, family);

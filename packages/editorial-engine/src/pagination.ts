@@ -143,7 +143,8 @@ export interface LayoutDiagnostic {
     | "FOOTNOTE_OVERFLOW"
     | "TOC_NOT_CONVERGED"
     | "TOC_FOLIO_MISMATCH"
-    | "MATTER_LOGO_OMITIDO";
+    | "MATTER_LOGO_OMITIDO"
+    | "LEGAL_PAGE_INVALID";
   severity: DiagnosticSeverity;
   message: string;
   /** Página en la que se ha detectado, contando desde 1. */
