@@ -111,7 +111,7 @@ it("la barra lateral y el árbol real enlazan ambas materias a las galerías", (
   expect(sidebar).toContain("/books/book/edicion#toc-title");
   expect(sidebar).toContain("/books/book/edicion#legal-title");
 });
-it("muestra una acción accesible para eliminar cada parte cuando el rol tiene permiso", () => {
+it("muestra el menú de opciones para eliminar cada parte cuando el rol tiene permiso", () => {
   const sidebar = renderToStaticMarkup(
     createElement(ManuscriptSidebar, {
       bookId: "book",
@@ -125,8 +125,9 @@ it("muestra una acción accesible para eliminar cada parte cuando el rol tiene p
     }),
   );
 
-  expect(sidebar).toContain('aria-label="Eliminar parte «Copyright»"');
-  expect(sidebar).toContain('aria-label="Eliminar parte «Índice»"');
+  expect(sidebar).toContain('aria-label="Opciones de Copyright"');
+  expect(sidebar).toContain('aria-label="Opciones de Índice"');
+  expect(sidebar).not.toContain('class="studio-delete-section"');
 });
 it("explica la restricción de rol cuando no se permite eliminar partes", () => {
   const sidebar = renderToStaticMarkup(
@@ -142,9 +143,6 @@ it("explica la restricción de rol cuando no se permite eliminar partes", () => 
     }),
   );
 
-  expect(sidebar).toContain(
-    'aria-label="Eliminar «Copyright»: solo propietarios o administradores"',
-  );
   expect(sidebar).toContain('aria-label="Opciones de Copyright"');
   expect(sidebar).toContain('aria-expanded="false"');
   expect(sidebar).not.toContain('aria-label="Eliminar parte «Copyright»"');

@@ -1958,6 +1958,21 @@ html[data-focus-mode="true"] .app-topbar {
 .studio-section-menu > div button:disabled {
   opacity: 0.4;
 }
+.studio-section-menu-danger {
+  display: flex !important;
+  align-items: center;
+  gap: 7px;
+  color: var(--danger);
+}
+.studio-section-menu-danger svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+.studio-section-menu-danger:hover,
+.studio-section-menu-danger:focus-visible {
+  background: color-mix(in srgb, var(--danger) 9%, transparent);
+}
 .studio-section-delete-help {
   padding: 7px;
   color: var(--ink-muted);

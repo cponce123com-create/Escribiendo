@@ -149,28 +149,7 @@ export function ManuscriptSidebar({
                 )}
                 <span>{node.title}</span>
               </Link>
-              <button
-                type="button"
-                className="studio-delete-section"
-                aria-label={
-                  canDelete
-                    ? `Eliminar parte «${node.title}»`
-                    : `Eliminar «${node.title}»: solo propietarios o administradores`
-                }
-                title={
-                  canDelete
-                    ? `Eliminar parte «${node.title}»`
-                    : "Solo propietarios o administradores pueden eliminar partes."
-                }
-                disabled={!canDelete || deletePending}
-                onClick={() => {
-                  setMessage(initialActionState);
-                  setDeletingNode(node);
-                }}
-              >
-                <StudioIcon name="trash" />
-              </button>
-              {canMove ? (
+              {canMove || canDelete ? (
                 <div
                   className="studio-section-menu"
                   ref={openMenuId === node.id ? openMenuRef : null}
@@ -253,6 +232,24 @@ export function ManuscriptSidebar({
                           </button>
                         </>
                       ) : null}
+                      <button
+                        type="button"
+                        className="studio-section-menu-danger"
+                        aria-label={
+                          canDelete
+                            ? `Eliminar parte «${node.title}»`
+                            : `Eliminar «${node.title}»: solo propietarios o administradores`
+                        }
+                        disabled={!canDelete || deletePending}
+                        onClick={() => {
+                          setOpenMenuId(null);
+                          setMessage(initialActionState);
+                          setDeletingNode(node);
+                        }}
+                      >
+                        <StudioIcon name="trash" />
+                        Eliminar parte
+                      </button>
                       {!canDelete ? (
                         <p className="studio-section-delete-help">
                           Eliminar partes: solo propietarios o administradores.
