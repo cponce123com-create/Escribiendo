@@ -1,7 +1,9 @@
 import type {
+  EditorialImage,
   InlineRun,
   LayoutBlock,
   LayoutBlockKind,
+  LayoutDiagnostic,
   TextAlignment,
 } from "@escribiendo/editorial-engine";
 import {
@@ -23,14 +25,14 @@ import {
  * única frontera entre ambos mundos y la comparten la vista previa y el PDF,
  * de modo que la materia impresa y la de pantalla no pueden divergir.
  *
- * Dos límites deliberados:
+ * Dos reglas deliberadas:
  *
- * - Los `spacer` se descartan. El motor compone por altura y todavía no admite
- *   espacio vertical inicial; convertirlos en líneas vacías inventaría renglones
- *   que después aparecerían en el archivo.
- * - Los `logo` se descartan. Son URLs, no imágenes resueltas: incrustarlas
- *   exige el mapa de imágenes de la exportación, que no existe en la vista
- *   previa. La materia se compone sin el logotipo antes que con un hueco falso.
+ * - Los `spacer` se acumulan como espacio anterior del siguiente bloque
+ *   (`spaceBeforePt`). Nunca se convierten en líneas vacías: eso inventaría
+ *   renglones que después aparecerían en el archivo.
+ * - Los `logo` se emiten como imagen cuando el llamador aporta un resolvedor
+ *   (`resolveImage`); si no, se avisa por `diagnostics` en lugar de descartarlos
+ *   en silencio.
  */
 
 /** Papeles que pueden llegar desde una materia o desde la página legal. */
@@ -39,6 +41,8 @@ type MatterRole = MatterBlock["role"] | LegalPageBlock["role"];
 interface RoleBlock {
   role: MatterRole;
   text: string;
+  spaceMm?: number;
+  spaceFraction?: number;
 }
 
 export interface MatterBlockOptions {
@@ -50,6 +54,15 @@ export interface MatterBlockOptions {
   pageBreakBefore?: boolean;
   /** El encabezado de la materia abre capítulo y puede forzar página par. */
   startsChapter?: boolean;
+  /**
+   * Altura útil de la página, para resolver los espaciadores expresados como
+   * fracción. Por defecto, 200 mm (un formato de libro habitual).
+   */
+  contentHeightMm?: number;
+  /** Resuelve la URL de un logotipo a una imagen con sus dimensiones. */
+  resolveImage?: (src: string) => EditorialImage | null;
+  /** Recoge los avisos de composición (por ejemplo, un logo no resuelto). */
+  diagnostics?: LayoutDiagnostic[];
 }
 
 interface RoleStyle {
@@ -90,6 +103,11 @@ function normalizedText(value: string): string {
   return value.replace(/\s+/gu, " ").trim();
 }
 
+/** Milímetros a puntos tipográficos (1 pt = 25,4/72 mm). */
+function mmToPoints(mm: number): number {
+  return (mm * 72) / 25.4;
+}
+
 /**
  * Convierte una lista de bloques con papel editorial en bloques del motor.
  *
@@ -109,7 +127,12 @@ export function roleBlocksToBlocks(
     ...(options.sectionTitle ? { sectionTitle: options.sectionTitle } : {}),
   });
 
-  const push = (kind: LayoutBlockKind, text: string, style: RoleStyle): void => {
+  const push = (
+    kind: LayoutBlockKind,
+    text: string,
+    style: RoleStyle,
+    spaceBeforePt = 0,
+  ): void => {
     const runs: InlineRun[] | undefined = style.italic
       ? [{ text, marks: { italic: true } }]
       : undefined;
@@ -121,6 +144,7 @@ export function roleBlocksToBlocks(
       ...(runs ? { runs } : {}),
       ...registration(),
       ...(style.alignment ? { alignment: style.alignment } : {}),
+      ...(spaceBeforePt > 0 ? { styleOverride: { spaceBeforePt } } : {}),
       firstOfSection: index === 0,
       ...(index === 0 && options.pageBreakBefore === true ? { breaksBefore: true } : {}),
       ...(index === 0 && options.startsChapter === true ? { startsChapter: true } : {}),
@@ -129,7 +153,48 @@ export function roleBlocksToBlocks(
     index += 1;
   };
 
+  const contentHeightMm = options.contentHeightMm ?? 200;
+  let pendingSpaceMm = 0;
+
   for (const block of blocks) {
+    if (block.role === "spacer") {
+      pendingSpaceMm +=
+        (block.spaceMm ?? 0) + (block.spaceFraction ?? 0) * contentHeightMm;
+      continue;
+    }
+
+    if (block.role === "logo") {
+      const src = normalizedText(block.text);
+      const image = src.length > 0 && options.resolveImage ? options.resolveImage(src) : null;
+
+      if (image) {
+        const spaceBeforePt = mmToPoints(pendingSpaceMm);
+        result.push({
+          id: `${options.id}-${index}`,
+          kind: "image",
+          text: "",
+          image,
+          ...registration(),
+          ...(spaceBeforePt > 0 ? { styleOverride: { spaceBeforePt } } : {}),
+          firstOfSection: index === 0,
+          ...(index === 0 && options.pageBreakBefore === true ? { breaksBefore: true } : {}),
+          ...(index === 0 && options.startsChapter === true ? { startsChapter: true } : {}),
+        });
+        pendingSpaceMm = 0;
+        index += 1;
+        continue;
+      }
+
+      // El espacio pendiente se conserva: omitir el logo no debe mover el texto.
+      options.diagnostics?.push({
+        code: "MATTER_LOGO_OMITIDO",
+        severity: "warning",
+        message: "El logotipo de la materia no se ha podido resolver y se ha omitido.",
+        sectionId: options.id,
+      });
+      continue;
+    }
+
     const style = styleForRole(block.role);
 
     if (!style) {
@@ -137,7 +202,8 @@ export function roleBlocksToBlocks(
     }
 
     if (style.kind === "rule") {
-      push("rule", "", style);
+      push("rule", "", style, mmToPoints(pendingSpaceMm));
+      pendingSpaceMm = 0;
       continue;
     }
 
@@ -147,7 +213,8 @@ export function roleBlocksToBlocks(
       continue;
     }
 
-    push(style.kind, text, style);
+    push(style.kind, text, style, mmToPoints(pendingSpaceMm));
+    pendingSpaceMm = 0;
   }
 
   return result;
@@ -247,6 +314,7 @@ export function tocToBlocks(entries: readonly TocEntry[], options: TocBlockOptio
               title: `${indent}${title}`,
               label: pageLabel,
               leaders: parameters.tocLeaders,
+              sourceId: entry.sourceId,
               level: entry.level,
             },
           }

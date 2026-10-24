@@ -24,6 +24,14 @@ export type MatterBlockRole =
 export interface MatterBlock {
   role: MatterBlockRole;
   text: string;
+  /** Espacio vertical antes del siguiente bloque, en milímetros. */
+  spaceMm?: number;
+  /**
+   * Espacio vertical como fracción de la altura útil de la página. Permite
+   * colocar la dedicatoria en el tercio superior, el centro o el pie sin
+   * depender del formato de papel.
+   */
+  spaceFraction?: number;
 }
 
 export type MatterWarningSeverity = "info" | "warning" | "error";
@@ -203,10 +211,12 @@ export function buildDedicationPage(input: DedicationInput): DedicationCompositi
   }
 
   const position = input.verticalPosition ?? (template === "minimal" ? "upper" : "center");
-  const top = position === "upper" ? 2 : position === "center" ? 6 : 11;
+  // La posición se expresa como fracción de la altura útil: así el tercio
+  // superior, el centro y el pie no dependen del cuerpo de letra ni del papel.
+  const spaceFraction = position === "upper" ? 0.12 : position === "center" ? 0.38 : 0.64;
   const alignment = input.alignment ?? "right";
 
-  const blocks: MatterBlock[] = [...spacers(top)];
+  const blocks: MatterBlock[] = [{ role: "spacer", text: "", spaceFraction }];
   if (template === "classic") {
     blocks.push({ role: "rule", text: "" });
   }
