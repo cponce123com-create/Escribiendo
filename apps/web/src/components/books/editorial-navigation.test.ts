@@ -142,7 +142,11 @@ it("explica la restricción de rol cuando no se permite eliminar partes", () => 
     }),
   );
 
-  expect(sidebar).toContain("Eliminar partes: solo propietarios o administradores.");
+  expect(sidebar).toContain(
+    'aria-label="Eliminar «Copyright»: solo propietarios o administradores"',
+  );
+  expect(sidebar).toContain('aria-label="Opciones de Copyright"');
+  expect(sidebar).toContain('aria-expanded="false"');
   expect(sidebar).not.toContain('aria-label="Eliminar parte «Copyright»"');
 });
 it("una URL antigua comprueba la sección y redirige a su galería", async () => {

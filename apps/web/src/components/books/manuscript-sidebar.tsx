@@ -3,7 +3,7 @@
 import { editorialGalleryHref, sectionNavigationHref } from "@/lib/editorial/navigation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition, type ReactNode } from "react";
+import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { deleteSectionAction, moveSectionAction } from "@/lib/books/actions";
 import type { ActionState } from "@/lib/action-state";
 import { initialActionState } from "@/lib/action-state";
@@ -43,10 +43,27 @@ export function ManuscriptSidebar({
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [deletingNode, setDeletingNode] = useState<SectionNode | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const openMenuRef = useRef<HTMLDivElement | null>(null);
   const flat = flattenSectionTree(nodes);
   const chapters = flat.filter((node) => node.type === "CHAPTER");
+  useEffect(() => {
+    if (!openMenuId) return;
+    const closeOnOutsideTap = (event: PointerEvent): void => {
+      if (!openMenuRef.current?.contains(event.target as Node)) setOpenMenuId(null);
+    };
+    const closeOnEscape = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") setOpenMenuId(null);
+    };
+    document.addEventListener("pointerdown", closeOnOutsideTap, true);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideTap, true);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [openMenuId]);
   const move = (node: SectionNode, position: number, parentId = node.parentId): void => {
-    if (!canMove || pending) return;
+    if (!canMove || pending || deletePending) return;
     const data = new FormData();
     data.set("sectionId", node.id);
     data.set("parentId", parentId ?? "");
@@ -132,92 +149,118 @@ export function ManuscriptSidebar({
                 )}
                 <span>{node.title}</span>
               </Link>
-              {canDelete ? (
-                <button
-                  type="button"
-                  className="studio-delete-section"
-                  aria-label={`Eliminar parte «${node.title}»`}
-                  title={`Eliminar parte «${node.title}»`}
-                  disabled={deletePending}
-                  onClick={() => {
-                    setMessage(initialActionState);
-                    setDeletingNode(node);
-                  }}
-                >
-                  <StudioIcon name="trash" />
-                </button>
-              ) : null}
+              <button
+                type="button"
+                className="studio-delete-section"
+                aria-label={
+                  canDelete
+                    ? `Eliminar parte «${node.title}»`
+                    : `Eliminar «${node.title}»: solo propietarios o administradores`
+                }
+                title={
+                  canDelete
+                    ? `Eliminar parte «${node.title}»`
+                    : "Solo propietarios o administradores pueden eliminar partes."
+                }
+                disabled={!canDelete || deletePending}
+                onClick={() => {
+                  setMessage(initialActionState);
+                  setDeletingNode(node);
+                }}
+              >
+                <StudioIcon name="trash" />
+              </button>
               {canMove ? (
-                <details className="studio-section-menu">
-                  <summary aria-label={`Opciones de ${node.title}`} title="Opciones de la sección">
+                <div
+                  className="studio-section-menu"
+                  ref={openMenuId === node.id ? openMenuRef : null}
+                >
+                  <button
+                    type="button"
+                    className="studio-section-menu-trigger"
+                    aria-label={`Opciones de ${node.title}`}
+                    title="Opciones de la sección"
+                    aria-haspopup="true"
+                    aria-expanded={openMenuId === node.id}
+                    aria-controls={`studio-section-menu-${node.id}`}
+                    onClick={() =>
+                      setOpenMenuId((current) => (current === node.id ? null : node.id))
+                    }
+                  >
                     ⋮
-                  </summary>
-                  <div>
-                    {canMove ? (
-                      <>
-                        <button
-                          type="button"
-                          disabled={pending || deletePending || groupIndex === 0}
-                          onClick={(event) => {
-                            event.currentTarget.closest("details")?.removeAttribute("open");
-                            move(
-                              node,
-                              siblings.findIndex((item) => item.id === list[groupIndex - 1]?.id),
-                            );
-                          }}
-                          aria-label={`Subir ${node.title}`}
-                        >
-                          ↑ Subir
-                        </button>
-                        <button
-                          type="button"
-                          disabled={pending || deletePending || groupIndex === list.length - 1}
-                          onClick={(event) => {
-                            event.currentTarget.closest("details")?.removeAttribute("open");
-                            move(
-                              node,
-                              siblings.findIndex((item) => item.id === list[groupIndex + 1]?.id),
-                            );
-                          }}
-                          aria-label={`Bajar ${node.title}`}
-                        >
-                          ↓ Bajar
-                        </button>
-                      </>
-                    ) : null}
-                    {canMove ? (
-                      <>
-                        <button
-                          type="button"
-                          disabled={pending || deletePending || !targets.indent}
-                          onClick={(event) => {
-                            event.currentTarget.closest("details")?.removeAttribute("open");
-                            if (targets.indent)
-                              move(node, targets.indent.position, targets.indent.parentId);
-                          }}
-                        >
-                          Sangrar
-                        </button>
-                        <button
-                          type="button"
-                          disabled={pending || deletePending || !targets.outdent}
-                          onClick={(event) => {
-                            event.currentTarget.closest("details")?.removeAttribute("open");
-                            if (targets.outdent)
-                              move(node, targets.outdent.position, targets.outdent.parentId);
-                          }}
-                        >
-                          Sacar de
-                        </button>
-                      </>
-                    ) : null}
-                    {!canDelete ? (
-                      <p className="studio-section-delete-help">
-                        Eliminar partes: solo propietarios o administradores.
-                      </p>
-                    ) : null}
-                  </div>
-                </details>
+                  </button>
+                  {openMenuId === node.id ? (
+                    <div
+                      id={`studio-section-menu-${node.id}`}
+                      role="group"
+                      aria-label={`Opciones de ${node.title}`}
+                    >
+                      {canMove ? (
+                        <>
+                          <button
+                            type="button"
+                            disabled={pending || deletePending || groupIndex === 0}
+                            onClick={() => {
+                              setOpenMenuId(null);
+                              move(
+                                node,
+                                siblings.findIndex((item) => item.id === list[groupIndex - 1]?.id),
+                              );
+                            }}
+                            aria-label={`Subir ${node.title}`}
+                          >
+                            ↑ Subir
+                          </button>
+                          <button
+                            type="button"
+                            disabled={pending || deletePending || groupIndex === list.length - 1}
+                            onClick={() => {
+                              setOpenMenuId(null);
+                              move(
+                                node,
+                                siblings.findIndex((item) => item.id === list[groupIndex + 1]?.id),
+                              );
+                            }}
+                            aria-label={`Bajar ${node.title}`}
+                          >
+                            ↓ Bajar
+                          </button>
+                        </>
+                      ) : null}
+                      {canMove ? (
+                        <>
+                          <button
+                            type="button"
+                            disabled={pending || deletePending || !targets.indent}
+                            onClick={() => {
+                              setOpenMenuId(null);
+                              if (targets.indent)
+                                move(node, targets.indent.position, targets.indent.parentId);
+                            }}
+                          >
+                            Sangrar
+                          </button>
+                          <button
+                            type="button"
+                            disabled={pending || deletePending || !targets.outdent}
+                            onClick={() => {
+                              setOpenMenuId(null);
+                              if (targets.outdent)
+                                move(node, targets.outdent.position, targets.outdent.parentId);
+                            }}
+                          >
+                            Sacar de
+                          </button>
+                        </>
+                      ) : null}
+                      {!canDelete ? (
+                        <p className="studio-section-delete-help">
+                          Eliminar partes: solo propietarios o administradores.
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
               ) : null}
             </div>
             {node.children.length ? renderNodes(node.children, depth + 1) : null}

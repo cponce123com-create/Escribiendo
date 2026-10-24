@@ -1885,6 +1885,7 @@ html[data-focus-mode="true"] .app-topbar {
 }
 .studio-section-menu {
   position: relative;
+  flex: 0 0 auto;
 }
 .studio-delete-section {
   display: grid;
@@ -1910,36 +1911,51 @@ html[data-focus-mode="true"] .app-topbar {
   outline-offset: 2px;
 }
 .studio-delete-section:disabled {
-  cursor: wait;
+  cursor: not-allowed;
   opacity: 0.5;
 }
-.studio-section-menu summary {
-  list-style: none;
+.studio-section-menu-trigger {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
   cursor: pointer;
-  padding: 4px 10px;
   font-size: 20px;
   line-height: 1;
+}
+.studio-section-menu-trigger:hover,
+.studio-section-menu-trigger:focus-visible {
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+}
+.studio-section-menu-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .studio-section-menu > div {
   position: absolute;
   top: 25px;
   right: 4px;
-  z-index: 12;
-  width: 115px;
+  z-index: 40;
+  width: min(12rem, calc(100vw - 2rem));
+  max-height: min(65svh, 24rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 6px;
   border: 1px solid var(--line);
   background: var(--surface-raised);
+  color: var(--ink);
   box-shadow: 0 6px 20px #0002;
   border-radius: 8px;
 }
-.studio-section-menu button {
+.studio-section-menu > div button {
   display: block;
   padding: 7px;
   width: 100%;
   text-align: left;
   font-size: 13px;
 }
-.studio-section-menu button:disabled {
+.studio-section-menu > div button:disabled {
   opacity: 0.4;
 }
 .studio-section-delete-help {
@@ -3760,11 +3776,7 @@ html[data-focus-mode="true"] .app-topbar {
   }
 }
 
-/* La confirmación de borrado debe caber y mostrar el alcance completo. */
+/* Mantener el menú dentro de la navegación lateral en viewports estrechos. */
 .studio-section-menu > div {
-  width: min(17rem, calc(100vw - 2rem));
-}
-.studio-section-menu form [role="group"] {
-  flex-direction: column;
-  align-items: stretch;
+  width: min(12rem, calc(100vw - 2rem));
 }
