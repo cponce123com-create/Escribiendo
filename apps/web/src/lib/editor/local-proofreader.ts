@@ -1,4 +1,5 @@
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+import { tokenizeSpanishText } from "@escribiendo/book-schema";
 
 export interface ProofreadingIssue {
   id: string;
@@ -107,8 +108,14 @@ function preserveInitialCase(original: string, suggestion: string): string {
 }
 
 /** Analiza un bloque de texto en memoria y devuelve propuestas locales, nunca edita el documento. */
-export function proofreadText(text: string): ProofreadingIssue[] {
+export function proofreadText(
+  text: string,
+  enabledRules?: readonly ProofreadingIssue["rule"][],
+): ProofreadingIssue[] {
   const found: LocalIssue[] = [];
+  const enabled = enabledRules === undefined ? null : new Set(enabledRules);
+  const isEnabled = (rule: ProofreadingIssue["rule"]): boolean =>
+    enabled === null || enabled.has(rule);
   const add = (
     match: RegExpExecArray,
     rule: LocalIssue["rule"],
@@ -130,59 +137,81 @@ export function proofreadText(text: string): ProofreadingIssue[] {
     });
   };
 
-  for (const match of text.matchAll(/(?<![\p{L}\p{M}])([\p{L}]{2,})[ \t]+\1(?![\p{L}\p{M}])/giu)) {
-    const repeated = match[0];
-    const word = match[1];
-    if (!word) continue;
-    found.push({
-      rule: "repeated-word",
-      start: match.index,
-      end: match.index + repeated.length,
-      original: repeated,
-      suggestion: word,
-      explanation: "Parece que esta palabra se repitió por accidente.",
-    });
-  }
-
-  for (const match of text.matchAll(/(?<=\S)[ \t]{2,}(?=\S)/gu)) {
-    add(match, "spacing", " ", "Hay varios espacios seguidos.");
-  }
-  for (const match of text.matchAll(/[ \t]+([,;:!?])/gu)) {
-    add(
-      match,
-      "spacing",
-      match[1] ?? "",
-      "En español no se deja espacio antes del signo de puntuación.",
-    );
-  }
-  for (const match of text.matchAll(/([!?])\1+/gu)) {
-    add(match, "punctuation", match[1] ?? "", "Revisa si querías repetir este signo.");
-  }
-  for (const match of text.matchAll(/([.!?][”’"')\]]?)([ \t]+)([a-záéíóúüñ])/gu)) {
-    const punctuation = match[1] ?? "";
-    const letter = match[3] ?? "";
-    const before = text.slice(Math.max(0, match.index - 12), match.index).toLocaleLowerCase("es");
-    // «P. ej.» y «etc.» suelen ir en minúscula; los títulos como «Sr.» pueden
-    // preceder a nombres propios que sí deben comenzar con mayúscula.
-    if (punctuation.startsWith(".") && /(?:\b(?:p|ej|etc)\.)\s*$/u.test(before + punctuation))
-      continue;
-    add(
-      match,
-      "capitalization",
-      letter.toLocaleUpperCase("es"),
-      "Después de cerrar una oración, suele escribirse mayúscula.",
-      3,
-    );
-  }
-
-  for (const { pattern, suggestion, explanation } of COMMON_TYPOS) {
-    for (const match of text.matchAll(pattern)) {
-      const replacement = suggestion.replace("$1", match[1] ?? "");
-      add(match, "common-typo", replacement, explanation);
+  if (isEnabled("repeated-word")) {
+    const tokens = tokenizeSpanishText(text);
+    for (let index = 1; index < tokens.length; index += 1) {
+      const previous = tokens[index - 1];
+      const current = tokens[index];
+      if (
+        !previous ||
+        !current ||
+        !/^\p{L}[\p{L}\p{M}]+$/u.test(previous.text) ||
+        !/^\p{L}[\p{L}\p{M}]+$/u.test(current.text) ||
+        previous.normalized !== current.normalized ||
+        !/^[ \t]+$/u.test(text.slice(previous.endOffset, current.startOffset))
+      ) {
+        continue;
+      }
+      const repeated = text.slice(previous.startOffset, current.endOffset);
+      found.push({
+        rule: "repeated-word",
+        start: previous.startOffset,
+        end: current.endOffset,
+        original: repeated,
+        suggestion: previous.text,
+        explanation: "Parece que esta palabra se repitió por accidente.",
+      });
     }
   }
-  for (const [pattern, suggestion, explanation] of ACCENT_TYPOS) {
-    for (const match of text.matchAll(pattern)) add(match, "common-typo", suggestion, explanation);
+
+  if (isEnabled("spacing")) {
+    for (const match of text.matchAll(/(?<=\S)[ \t]{2,}(?=\S)/gu)) {
+      add(match, "spacing", " ", "Hay varios espacios seguidos.");
+    }
+    for (const match of text.matchAll(/[ \t]+([,;:!?])/gu)) {
+      add(
+        match,
+        "spacing",
+        match[1] ?? "",
+        "En español no se deja espacio antes del signo de puntuación.",
+      );
+    }
+  }
+  if (isEnabled("punctuation")) {
+    for (const match of text.matchAll(/([!?])\1+/gu)) {
+      add(match, "punctuation", match[1] ?? "", "Revisa si querías repetir este signo.");
+    }
+  }
+  if (isEnabled("capitalization")) {
+    for (const match of text.matchAll(/([.!?][”’"')\]]?)([ \t]+)([a-záéíóúüñ])/gu)) {
+      const punctuation = match[1] ?? "";
+      const letter = match[3] ?? "";
+      const before = text.slice(Math.max(0, match.index - 12), match.index).toLocaleLowerCase("es");
+      // «P. ej.» y «etc.» suelen ir en minúscula; los títulos como «Sr.» pueden
+      // preceder a nombres propios que sí deben comenzar con mayúscula.
+      if (punctuation.startsWith(".") && /(?:\b(?:p|ej|etc)\.)\s*$/u.test(before + punctuation))
+        continue;
+      add(
+        match,
+        "capitalization",
+        letter.toLocaleUpperCase("es"),
+        "Después de cerrar una oración, suele escribirse mayúscula.",
+        3,
+      );
+    }
+  }
+
+  if (isEnabled("common-typo")) {
+    for (const { pattern, suggestion, explanation } of COMMON_TYPOS) {
+      for (const match of text.matchAll(pattern)) {
+        const replacement = suggestion.replace("$1", match[1] ?? "");
+        add(match, "common-typo", replacement, explanation);
+      }
+    }
+    for (const [pattern, suggestion, explanation] of ACCENT_TYPOS) {
+      for (const match of text.matchAll(pattern))
+        add(match, "common-typo", suggestion, explanation);
+    }
   }
 
   // Las reglas pueden señalar la misma zona. Conservamos la primera propuesta

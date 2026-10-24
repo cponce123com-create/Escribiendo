@@ -21,12 +21,23 @@ export interface WritingPreferences {
   lineHeight: number;
   /** Oculta el panel lateral para ampliar la superficie de escritura. */
   focusMode: boolean;
+  /** Reglas editoriales activadas, guardadas solo en este navegador. */
+  editorialRulesEnabled: Record<string, boolean>;
 }
+
+export const EDITORIAL_RULE_OPTIONS = [
+  { id: "local-proofreader/repeated-word", label: "Palabras repetidas" },
+  { id: "local-proofreader/spacing", label: "Espacios y puntuación" },
+  { id: "local-proofreader/punctuation", label: "Signos repetidos" },
+  { id: "local-proofreader/capitalization", label: "Mayúsculas al comenzar oración" },
+  { id: "local-proofreader/common-typo", label: "Errores ortográficos frecuentes" },
+] as const;
 
 export const DEFAULT_WRITING_PREFERENCES: WritingPreferences = {
   fontSize: 17,
   lineHeight: 1.85,
   focusMode: false,
+  editorialRulesEnabled: {},
 };
 
 const STORAGE_KEY = "escribiendo-writing-preferences";
@@ -46,18 +57,29 @@ function clamp(value: unknown, min: number, max: number, fallback: number): numb
   return Math.min(max, Math.max(min, value));
 }
 
-function parsePreferences(raw: string | null): WritingPreferences {
+export function parseWritingPreferences(raw: string | null): WritingPreferences {
   if (!raw) {
     return DEFAULT_WRITING_PREFERENCES;
   }
 
   try {
     const parsed = JSON.parse(raw) as Partial<WritingPreferences>;
+    const editorialRulesEnabled =
+      parsed.editorialRulesEnabled &&
+      typeof parsed.editorialRulesEnabled === "object" &&
+      !Array.isArray(parsed.editorialRulesEnabled)
+        ? Object.fromEntries(
+            Object.entries(parsed.editorialRulesEnabled).filter(
+              (entry): entry is [string, boolean] => typeof entry[1] === "boolean",
+            ),
+          )
+        : {};
 
     return {
       fontSize: clamp(parsed.fontSize, 14, 26, DEFAULT_WRITING_PREFERENCES.fontSize),
       lineHeight: clamp(parsed.lineHeight, 1.4, 2.4, DEFAULT_WRITING_PREFERENCES.lineHeight),
       focusMode: Boolean(parsed.focusMode),
+      editorialRulesEnabled,
     };
   } catch {
     return DEFAULT_WRITING_PREFERENCES;
@@ -78,7 +100,7 @@ function getSnapshot(): WritingPreferences {
 
   if (raw !== snapshotRaw) {
     snapshotRaw = raw;
-    snapshot = parsePreferences(raw);
+    snapshot = parseWritingPreferences(raw);
   }
 
   return snapshot;
@@ -185,6 +207,31 @@ export function WritingPreferencesPanel() {
           />
           Modo concentración (oculta el panel lateral mientras escribes)
         </label>
+
+        <fieldset className="space-y-3 border-t border-line pt-4">
+          <legend className="field-label">Reglas de revisión local</legend>
+          <p className="text-sm leading-relaxed text-ink-muted">
+            Se ejecutan en este dispositivo. Puedes activar o desactivar cada grupo.
+          </p>
+          {EDITORIAL_RULE_OPTIONS.map((rule) => (
+            <label key={rule.id} className="flex items-center gap-3 text-sm text-ink-soft">
+              <input
+                type="checkbox"
+                checked={preferences.editorialRulesEnabled[rule.id] ?? true}
+                onChange={(event) =>
+                  update({
+                    editorialRulesEnabled: {
+                      ...preferences.editorialRulesEnabled,
+                      [rule.id]: event.target.checked,
+                    },
+                  })
+                }
+                className="size-4"
+              />
+              {rule.label}
+            </label>
+          ))}
+        </fieldset>
       </div>
     </section>
   );

@@ -6,8 +6,12 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import type { TiptapDocument } from "@escribiendo/book-schema";
-import { countWordsInDocument, MAX_FOOTNOTE_LENGTH } from "@escribiendo/book-schema";
+import {
+  countWordsInDocument,
+  LinguisticAnalysisEngine,
+  MAX_FOOTNOTE_LENGTH,
+  type TiptapDocument,
+} from "@escribiendo/book-schema";
 import { esEnlaceSeguro } from "@escribiendo/shared";
 import { Dialog } from "@/components/forms/dialog";
 import { saveSectionAction } from "@/lib/books/actions";
@@ -28,7 +32,9 @@ import {
 } from "@/lib/editor/sync";
 import { SectionConflictPanel } from "@/components/books/section-conflict";
 import { EditorToolbar } from "@/components/books/editor-toolbar";
-import { proofreadDocument, type ProofreadingIssue } from "@/lib/editor/local-proofreader";
+import type { EditorialFindingStatus } from "@escribiendo/book-schema";
+import type { ProofreadingIssue } from "@/lib/editor/local-proofreader";
+import { analyzeLocalSection } from "@/lib/editor/linguistic-rules";
 import { SectionImageControls } from "@/components/books/section-image-controls";
 import { EditorialFootnote } from "@/components/editor/editorial-footnote";
 import {
@@ -113,7 +119,15 @@ export function SectionEditor({
   const [proofreadingIssues, setProofreadingIssues] = useState<ProofreadingIssue[] | null>(null);
   const [proofreadingStale, setProofreadingStale] = useState(false);
   const [proofreadingApplied, setProofreadingApplied] = useState(0);
+  const [proofreadingLoading, setProofreadingLoading] = useState(false);
+  const [proofreadingError, setProofreadingError] = useState<string | null>(null);
   const proofreadingIssuesRef = useRef<ProofreadingIssue[] | null>(null);
+  const linguisticEngineRef = useRef<LinguisticAnalysisEngine | null>(null);
+  if (linguisticEngineRef.current === null) {
+    linguisticEngineRef.current = new LinguisticAnalysisEngine({ maxCachedSections: 50 });
+  }
+  const proofreadingRequestRef = useRef(0);
+  const findingStatusesRef = useRef(new Map<string, EditorialFindingStatus>());
   const searchPosition = useRef({ query: "", from: -1 });
 
   const machineRef = useRef(machine);
@@ -657,22 +671,67 @@ export function SectionEditor({
 
   const currentWords = liveStats?.words ?? wordCount;
 
-  const revisarTextoLocal = (): void => {
-    if (!editor) return;
-    const issues = proofreadDocument(editor.state.doc);
-    proofreadingIssuesRef.current = issues;
-    setProofreadingIssues(issues);
-    setProofreadingStale(false);
-    setProofreadingApplied(0);
+  const revisarTextoLocal = async (): Promise<void> => {
+    if (!editor || !linguisticEngineRef.current) return;
+    const requestId = ++proofreadingRequestRef.current;
+    const documentAtStart = editor.state.doc;
+    const documentSnapshot = documentAtStart.toJSON() as TiptapDocument;
+    setProofreadingLoading(true);
+    setProofreadingError(null);
+    setProofreadingIssues([]);
+    proofreadingIssuesRef.current = [];
+
+    try {
+      const issues = await analyzeLocalSection(
+        linguisticEngineRef.current,
+        {
+          bookId,
+          sectionId,
+          sectionTitle: sectionTitleRef.current,
+          contentVersion: Math.max(1, versionRef.current),
+          document: documentSnapshot,
+        },
+        {
+          enabledByRuleId: readWritingPreferences().editorialRulesEnabled,
+          previousFindings: Array.from(findingStatusesRef.current, ([id, status]) => ({
+            id,
+            status,
+          })),
+        },
+      );
+
+      if (
+        requestId !== proofreadingRequestRef.current ||
+        editor.isDestroyed ||
+        !editor.state.doc.eq(documentAtStart)
+      ) {
+        return;
+      }
+
+      proofreadingIssuesRef.current = issues;
+      setProofreadingIssues(issues);
+      setProofreadingStale(false);
+      setProofreadingApplied(0);
+    } catch {
+      if (requestId === proofreadingRequestRef.current) {
+        setProofreadingError("No se pudo analizar este borrador localmente. Vuelve a intentarlo.");
+      }
+    } finally {
+      if (requestId === proofreadingRequestRef.current) setProofreadingLoading(false);
+    }
   };
 
   const descartarRevisionLocal = (): void => {
+    proofreadingRequestRef.current += 1;
     proofreadingIssuesRef.current = null;
     setProofreadingIssues(null);
     setProofreadingStale(false);
+    setProofreadingLoading(false);
+    setProofreadingError(null);
   };
 
   const ignorarCorreccion = (issueId: string): void => {
+    findingStatusesRef.current.set(issueId, "ignored");
     const next = proofreadingIssuesRef.current?.filter((issue) => issue.id !== issueId) ?? null;
     proofreadingIssuesRef.current = next;
     setProofreadingIssues(next);
@@ -682,10 +741,7 @@ export function SectionEditor({
     if (!editor || proofreadingStale) return;
     const currentText = editor.state.doc.textBetween(issue.from, issue.to, "\n", "\ufffc");
     if (currentText !== issue.original) {
-      const refreshed = proofreadDocument(editor.state.doc);
-      proofreadingIssuesRef.current = refreshed;
-      setProofreadingIssues(refreshed);
-      setProofreadingStale(false);
+      void revisarTextoLocal();
       return;
     }
 
@@ -783,7 +839,17 @@ export function SectionEditor({
               </button>
             </div>
           ) : null}
-          {proofreadingIssues.length ? (
+          {proofreadingLoading ? (
+            <p className="local-proofreader__summary" role="status">
+              Analizando este borrador en el navegador…
+            </p>
+          ) : null}
+          {proofreadingError ? (
+            <p className="local-proofreader__notice" role="alert">
+              {proofreadingError}
+            </p>
+          ) : null}
+          {!proofreadingLoading && !proofreadingError && proofreadingIssues.length ? (
             <>
               <p className="local-proofreader__summary" aria-live="polite">
                 {proofreadingIssues.length} propuesta{proofreadingIssues.length === 1 ? "" : "s"}{" "}
@@ -824,7 +890,8 @@ export function SectionEditor({
                 ))}
               </ul>
             </>
-          ) : (
+          ) : null}
+          {!proofreadingLoading && !proofreadingError && !proofreadingIssues.length ? (
             <p className="local-proofreader__summary" role="status">
               No se encontraron problemas cubiertos por las reglas locales. Esto no garantiza que el
               texto esté libre de errores.
@@ -832,7 +899,7 @@ export function SectionEditor({
                 ? ` Has aplicado ${proofreadingApplied} corrección${proofreadingApplied === 1 ? "" : "es"}.`
                 : ""}
             </p>
-          )}
+          ) : null}
         </section>
       ) : null}
 

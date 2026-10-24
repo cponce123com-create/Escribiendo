@@ -220,6 +220,12 @@ describe("word count", () => {
     expect(countWords("Un fuera-de-lugar, dos veces.")).toBe(4);
   });
 
+  it("cuenta igual las tildes NFC/NFD y trata el decimal como un token", () => {
+    expect(countWords("Cafe\u0301 noir")).toBe(2);
+    expect(countWords("Café noir")).toBe(2);
+    expect(countWords("El valor es 3,14.")).toBe(4);
+  });
+
   it("cuenta las palabras de un documento", () => {
     expect(countWordsInDocument(parseTiptapDocument(documentWithParagraphs))).toBe(13);
   });

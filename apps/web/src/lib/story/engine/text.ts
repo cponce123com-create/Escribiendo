@@ -6,6 +6,8 @@
  * No se envía nada a servicios externos.
  */
 
+import { countWords, splitSpanishSentences } from "@escribiendo/book-schema";
+
 export interface Sentence {
   text: string;
   start: number;
@@ -154,119 +156,9 @@ export function extractPlainText(content: string): string {
   return normalizePlainText(decodeHtmlEntities(content));
 }
 
-const ABBREVIATIONS = new Set([
-  "sr",
-  "sra",
-  "srta",
-  "dr",
-  "dra",
-  "lic",
-  "prof",
-  "profa",
-  "cap",
-  "gral",
-  "tte",
-  "sarg",
-  "av",
-  "num",
-  "núm",
-  "pág",
-  "pag",
-  "etc",
-  "ej",
-  "aprox",
-  "vs",
-  "ud",
-  "uds",
-  "ee",
-  "uu",
-  "a.c",
-  "d.c",
-]);
-
-function previousWord(value: string, end: number): string {
-  const fragment = value.slice(Math.max(0, end - 30), end);
-  const match = /([\p{L}]+)\.?$/u.exec(fragment);
-  return (match?.[1] ?? "").toLowerCase();
-}
-
-function isBoundaryCharacter(value: string, index: number): boolean {
-  if (index >= value.length) return true;
-  const char = value[index] ?? "";
-  return /[\p{Lu}\p{N}¿¡"“«—–]/u.test(char);
-}
-
-/**
- * Segmentador prudente: respeta abreviaturas, decimales y diálogos con guion.
- */
+/** Adaptador de compatibilidad hacia el segmentador compartido del paquete. */
 export function splitSentences(text: string): Sentence[] {
-  const sentences: Sentence[] = [];
-  let start = 0;
-  let index = 0;
-
-  const push = (from: number, to: number) => {
-    let realStart = from;
-    let realEnd = to;
-
-    while (realStart < realEnd && /\s/.test(text[realStart] ?? "")) realStart += 1;
-    while (realEnd > realStart && /\s/.test(text[realEnd - 1] ?? "")) realEnd -= 1;
-    if (realEnd <= realStart) return;
-
-    const value = text.slice(realStart, realEnd);
-    if (!/[\p{L}\p{N}]/u.test(value)) return;
-
-    sentences.push({ text: value, start: realStart, end: realEnd, index });
-    index += 1;
-  };
-
-  for (let cursor = 0; cursor < text.length; cursor += 1) {
-    const char = text[cursor];
-    if (char === undefined) break;
-
-    if (char === "\n") {
-      push(start, cursor);
-      start = cursor + 1;
-      continue;
-    }
-
-    if (!".!?…".includes(char)) continue;
-
-    let punctuationEnd = cursor + 1;
-    while (punctuationEnd < text.length && ".!?…".includes(text[punctuationEnd] ?? "")) {
-      punctuationEnd += 1;
-    }
-
-    let next = punctuationEnd;
-    while (next < text.length && /[\s"”’»]/.test(text[next] ?? "")) next += 1;
-
-    const isAbbreviation =
-      char === "." && ABBREVIATIONS.has(previousWord(text, cursor).replace(/\.$/, ""));
-    const isDecimal =
-      char === "." && /\d/.test(text[cursor - 1] ?? "") && /\d/.test(text[cursor + 1] ?? "");
-    const continuesDialogue =
-      next < text.length &&
-      /[—–]/.test(text[next] ?? "") &&
-      /^\s*[—–]\s*\p{Ll}/u.test(text.slice(next, next + 12));
-
-    const boundary =
-      !isAbbreviation &&
-      !isDecimal &&
-      !continuesDialogue &&
-      (next >= text.length || isBoundaryCharacter(text, next));
-
-    if (!boundary) {
-      cursor = punctuationEnd - 1;
-      continue;
-    }
-
-    push(start, punctuationEnd);
-    start = punctuationEnd;
-    while (start < text.length && /[\s"”’»]/.test(text[start] ?? "")) start += 1;
-    cursor = start - 1;
-  }
-
-  push(start, text.length);
-  return sentences;
+  return splitSpanishSentences(text);
 }
 
 /** Elimina diacríticos, signos y mayúsculas para comparar nombres. */
@@ -315,8 +207,7 @@ export function tokenizeSentence(sentence: Sentence): TextToken[] {
 }
 
 export function wordCount(text: string): number {
-  const matches = text.match(/[\p{L}\p{N}]+(?:['’.-][\p{L}\p{N}]+)*/gu);
-  return matches?.length ?? 0;
+  return countWords(text);
 }
 
 function trimExcerpt(value: string, maxLength: number): string {

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { esEnlaceSeguro, tieneControlesIlegales } from "@escribiendo/shared";
+import { countSpanishWords } from "./linguistics/text";
 
 export const MAX_DOCUMENT_BYTES = 2 * 1024 * 1024;
 export const MAX_NODE_COUNT = 20_000;
@@ -241,7 +242,7 @@ export function extractPlainText(document: TiptapDocument): string {
 }
 
 export function countWords(text: string): number {
-  return text.match(/[\p{L}\p{N}]+(?:[’'-][\p{L}\p{N}]+)*/gu)?.length ?? 0;
+  return countSpanishWords(text);
 }
 
 export function countWordsInDocument(document: TiptapDocument): number {

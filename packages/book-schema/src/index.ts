@@ -28,3 +28,38 @@ export {
   type TiptapMark,
   type TiptapNode,
 } from "./tiptap";
+export {
+  analyzeBookLinguistically,
+  isRuleFinding,
+  LinguisticAnalysisEngine,
+} from "./linguistics/engine";
+export {
+  countSpanishWords,
+  extractTiptapTextBlocks,
+  normalizeSpanishForComparison,
+  normalizeSpanishText,
+  splitSpanishSentences,
+  tokenizeSpanishText,
+  type SpanishSentence,
+  type TiptapTextBlock,
+  type TiptapTextBlockType,
+} from "./linguistics/text";
+export type {
+  AnalyzeBatchesOptions,
+  EditorialFinding,
+  EditorialFindingCategory,
+  EditorialFindingSeverity,
+  EditorialFindingStatus,
+  EditorialRule,
+  EditorialRuleFinding,
+  LinguisticAnalysisError,
+  LinguisticAnalysisOptions,
+  LinguisticAnalysisResult,
+  LinguisticRuleContext,
+  LinguisticRulePreferences,
+  LinguisticSectionInput,
+  LinguisticSectionResult,
+  LinguisticSectionStats,
+  LinguisticSentence,
+  LinguisticToken,
+} from "./linguistics/types";

@@ -32,6 +32,19 @@ describe("proofreadText", () => {
     }
   });
 
+  it("detecta palabras repetidas con formas Unicode canónicamente equivalentes", () => {
+    const text = "Cafe\u0301 CAFÉ";
+    const [issue] = proofreadText(text, ["repeated-word"]);
+
+    expect(issue).toMatchObject({
+      rule: "repeated-word",
+      original: text,
+      suggestion: "Cafe\u0301",
+      from: 0,
+      to: text.length,
+    });
+  });
+
   it("propone mayúscula tras cierre, incluso en nombres tras título, y respeta «p. ej.»", () => {
     const issues = proofreadText("Llegó tarde. después habló con el Sr. pérez, p. ej. en casa.");
 
