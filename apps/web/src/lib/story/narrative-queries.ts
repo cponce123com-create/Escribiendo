@@ -85,11 +85,11 @@ function dialogueBlocks(text: string): string[] {
     const value = paragraph.replace(/\s+/g, " ").trim();
     if (!value) continue;
     const isDash = /^[—–-]\s*/u.test(value);
-    const isQuote = /^[«“\"]/u.test(value) && /[»”\"]$/u.test(value);
+    const isQuote = /^[«“"]/u.test(value) && /[»”"]$/u.test(value);
     if (isDash || isQuote) blocks.push(value.replace(/^[—–-]\s*/u, ""));
   }
   if (blocks.length) return blocks;
-  return [...text.matchAll(/[«“\"]([^»”\"]{2,1200})[»”\"]/gu)].map((match) => match[1] ?? "");
+  return [...text.matchAll(/[«“"]([^»”"]{2,1200})[»”"]/gu)].map((match) => match[1] ?? "");
 }
 
 const ATTRIBUTION_PATTERNS = [
@@ -131,7 +131,6 @@ export async function getNarrativeDashboard(
       where: { bookId, workspaceId: session.workspace.id },
       include: {
         character: { select: { name: true } },
-        section: { select: { title: true, sortOrder: true } },
       },
       orderBy: [{ sequence: "asc" }, { createdAt: "asc" }],
     }),
@@ -141,6 +140,23 @@ export async function getNarrativeDashboard(
       select: { id: true, title: true, kind: true, status: true, summary: true },
     }),
   ]);
+  // sectionId es un escalar, no una relación de Prisma. Resolver las referencias
+  // en una sola consulta evita inventar un include y conserva el ámbito del libro.
+  const eventSectionIds = [
+    ...new Set(events.flatMap((event) => (event.sectionId ? [event.sectionId] : []))),
+  ];
+  const eventSections = eventSectionIds.length
+    ? await prisma.bookSection.findMany({
+        where: {
+          id: { in: eventSectionIds },
+          bookId,
+          deletedAt: null,
+          book: { workspaceId: session.workspace.id, deletedAt: null },
+        },
+        select: { id: true, title: true, sortOrder: true },
+      })
+    : [];
+  const eventSectionById = new Map(eventSections.map((section) => [section.id, section]));
   const chapterMetrics: DialogueChapterMetric[] = [];
   const interventions: DialogueIntervention[] = [];
   const attributionCounts = new Map<string, number>();
@@ -174,7 +190,7 @@ export async function getNarrativeDashboard(
     for (const character of characters) {
       const mentions = text.match(
         new RegExp(
-          `(?<![\\p{L}])${character.name.replace(/[.*+?^${}()|[\\]\\]/g, "\\\\$&")}(?![\\p{L}])`,
+          `(?<![\\p{L}])${character.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}])`,
           "giu",
         ),
       );
@@ -232,8 +248,8 @@ export async function getNarrativeDashboard(
       details: event.details,
       sourceExcerpt: event.sourceExcerpt,
       sectionId: event.sectionId,
-      sectionTitle: event.section?.title ?? null,
-      narrativeOrder: event.section?.sortOrder ?? 0,
+      sectionTitle: event.sectionId ? (eventSectionById.get(event.sectionId)?.title ?? null) : null,
+      narrativeOrder: event.sectionId ? (eventSectionById.get(event.sectionId)?.sortOrder ?? 0) : 0,
       chronologicalOrder: event.sequence,
       suggested: event.suggested,
       characterName: event.character.name,

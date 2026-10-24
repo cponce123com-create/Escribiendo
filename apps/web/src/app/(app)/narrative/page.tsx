@@ -16,7 +16,7 @@ const RELATION_LABELS: Record<string, string> = {
   ALLIANCE: "Alianza",
   OTHER: "Otro vínculo",
 };
-const STAGES: Record<string, string[]> = {
+const STAGES = {
   FREE: ["Estructura libre"],
   THREE_ACTS: ["Acto I · Planteamiento", "Acto II · Confrontación", "Acto III · Resolución"],
   FIVE_ACTS: ["Exposición", "Acción ascendente", "Clímax", "Acción descendente", "Desenlace"],
@@ -42,7 +42,12 @@ export default async function NarrativePage({ searchParams }: PageProps) {
   const dashboard = selectedBook
     ? await guardStorySchema(() => getNarrativeDashboard(session, selectedBook.id))
     : null;
-  const structure = STAGES[params.structure ?? "FREE"] ? (params.structure ?? "FREE") : "FREE";
+  const structure =
+    params.structure === "THREE_ACTS" ||
+    params.structure === "FIVE_ACTS" ||
+    params.structure === "HERO_JOURNEY"
+      ? params.structure
+      : "FREE";
   return (
     <div className="mx-auto max-w-7xl space-y-8">
       <header className="space-y-3">
@@ -413,7 +418,12 @@ export default async function NarrativePage({ searchParams }: PageProps) {
                 <label className="field-label" htmlFor="structure">
                   Plantilla
                 </label>
-                <select id="structure" name="structure" className="field-input">
+                <select
+                  id="structure"
+                  name="structure"
+                  className="field-input"
+                  defaultValue={structure}
+                >
                   <option value="FREE">Estructura libre</option>
                   <option value="THREE_ACTS">Tres actos</option>
                   <option value="FIVE_ACTS">Cinco actos</option>
