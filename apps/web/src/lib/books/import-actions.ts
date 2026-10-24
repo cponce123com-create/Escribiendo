@@ -1,8 +1,14 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import {
+  IMPORT_SECTION_TYPES,
+  type ImportAnalysisState,
+  type ImportSectionType,
+} from "./import-types";
+import { tieneControlesIlegales } from "@escribiendo/shared";
 import { z } from "zod";
 import { countWordsInDocument, parseTiptapDocument } from "@escribiendo/book-schema";
 import type { Prisma } from "@escribiendo/database";
@@ -25,7 +31,12 @@ function formText(formData: FormData, key: string): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-const titleSchema = z.string().trim().min(1, "El título es obligatorio.").max(300);
+const titleSchema = z
+  .string()
+  .trim()
+  .min(1, "El título es obligatorio.")
+  .max(300)
+  .refine((value) => !tieneControlesIlegales(value), "El título contiene caracteres de control.");
 const authorSchema = z.string().trim().min(1, "La autoría es obligatoria.").max(200);
 const languageSchema = z
   .string()
@@ -66,8 +77,11 @@ export async function importBookAction(
   }
 
   let imported;
+  let fingerprint: string;
   try {
-    imported = await parseBookImport(upload.name, new Uint8Array(await upload.arrayBuffer()));
+    const bytes = new Uint8Array(await upload.arrayBuffer());
+    fingerprint = createHash("sha256").update(bytes).digest("hex");
+    imported = await parseBookImport(upload.name, bytes);
   } catch (error) {
     if (error instanceof BookImportError) return errorState(error.message, { file: error.message });
     logger.error("books.import_parse_error", {
@@ -87,7 +101,7 @@ export async function importBookAction(
   }
 
   const parsedAuthor = authorSchema.safeParse(
-    formText(formData, "authorName") || imported.authorName || "Autor desconocido",
+    formText(formData, "authorName") || imported.authorName || "",
   );
   if (!parsedAuthor.success) {
     return errorState(parsedAuthor.error.issues[0]?.message ?? "La autoría no es válida.", {
@@ -98,22 +112,62 @@ export async function importBookAction(
   const parsedLanguage = languageSchema.safeParse(imported.language || "es");
   const language = parsedLanguage.success ? parsedLanguage.data : "es";
 
+  const rawChoices = formText(formData, "sectionChoices");
+  if (!rawChoices || !formText(formData, "fingerprint"))
+    return errorState("Primero analiza el archivo y revisa sus secciones antes de confirmar.");
+  let choices:
+    Array<{ index: number; title: string; type: ImportSectionType; include: boolean }> | undefined;
+  if (rawChoices) {
+    if (rawChoices.length > 200_000)
+      return errorState("La revisión del archivo es demasiado grande.");
+    try {
+      choices = z
+        .array(
+          z.object({
+            index: z.number().int().min(0),
+            title: titleSchema,
+            type: z.enum(
+              Object.keys(IMPORT_SECTION_TYPES) as [ImportSectionType, ...ImportSectionType[]],
+            ),
+            include: z.boolean(),
+          }),
+        )
+        .max(200)
+        .parse(JSON.parse(rawChoices));
+      if (
+        formText(formData, "fingerprint") !== fingerprint ||
+        choices.length !== imported.sections.length ||
+        choices.some((choice, index) => choice.index !== index)
+      )
+        return errorState("El archivo cambió. Vuelve a analizarlo antes de importar.");
+      if (!choices.some((choice) => choice.include))
+        return errorState("Selecciona al menos una sección para importar.");
+    } catch {
+      return errorState("La selección de secciones no es válida. Vuelve a analizar el archivo.");
+    }
+  }
   let sections: Array<{
     title: string;
+    type: ImportSectionType;
     content: Prisma.InputJsonValue;
     wordCount: number;
   }>;
   try {
-    sections = imported.sections.map((section) => {
-      const document = parseTiptapDocument({
-        type: "doc",
-        content: section.paragraphs.map((text) => ({
-          type: "paragraph",
-          content: [{ type: "text", text }],
-        })),
-      });
+    sections = imported.sections.flatMap((section, index) => {
+      const choice = choices?.[index];
+      if (choice && !choice.include) return [];
+      const document = parseTiptapDocument(
+        section.content ?? {
+          type: "doc",
+          content: section.paragraphs.map((text) => ({
+            type: "paragraph",
+            content: [{ type: "text", text }],
+          })),
+        },
+      );
       return {
-        title: section.title.slice(0, 300),
+        title: (choice?.title ?? section.title).slice(0, 300),
+        type: choice?.type ?? section.type ?? "CHAPTER",
         content: document as unknown as Prisma.InputJsonValue,
         wordCount: countWordsInDocument(document),
       };
@@ -143,7 +197,14 @@ export async function importBookAction(
         const sectionRows = sections.map((section, sortOrder) => ({
           id: randomUUID(),
           bookId: created.id,
-          type: "CHAPTER" as const,
+          type: section.type,
+          showInToc: ![
+            "COPYRIGHT",
+            "TABLE_OF_CONTENTS",
+            "TITLE_PAGE",
+            "DEDICATION",
+            "EPIGRAPH",
+          ].includes(section.type),
           title: section.title,
           content: section.content,
           wordCount: section.wordCount,
@@ -151,6 +212,21 @@ export async function importBookAction(
           sortOrder,
         }));
         await transaction.bookSection.createMany({ data: sectionRows });
+        const manualMatters = sectionRows.filter(
+          (section) => section.type === "COPYRIGHT" || section.type === "TABLE_OF_CONTENTS",
+        );
+        if (manualMatters.length)
+          await transaction.editorialMatter.createMany({
+            data: manualMatters.map((section) => ({
+              bookId: created.id,
+              sectionId: section.id,
+              kind: section.type as "COPYRIGHT" | "TABLE_OF_CONTENTS",
+              mode: "MANUAL",
+              title: section.title,
+              showInToc: false,
+              data: { source: "book-import" },
+            })),
+          });
 
         await transaction.sectionRevision.createMany({
           data: sections.map((section, index) => ({
@@ -192,5 +268,63 @@ export async function importBookAction(
       errorName: error instanceof Error ? error.name : "UnknownError",
     });
     return errorState("No se pudo guardar el libro importado. Inténtalo de nuevo.");
+  }
+}
+
+/** Analiza sin escribir en BD. El archivo vuelve a validarse al confirmar. */
+export async function analyzeBookImportAction(formData: FormData): Promise<ImportAnalysisState> {
+  try {
+    await assertServerActionOrigin();
+  } catch {
+    return { status: "error", message: "No se ha podido validar la solicitud." };
+  }
+  const session = await getSession();
+  if (!session) return { status: "error", message: "Inicia sesión para analizar el archivo." };
+  try {
+    assertCanPerform(session.workspace.role, "book:create");
+  } catch {
+    return { status: "error", message: "No tienes permisos para importar libros." };
+  }
+  const upload = formData.get("file");
+  if (!upload || typeof upload === "string" || typeof upload.arrayBuffer !== "function")
+    return { status: "error", message: "Selecciona un archivo EPUB, DOCX o PDF." };
+  if (upload.size > MAX_IMPORT_FILE_BYTES)
+    return { status: "error", message: "El archivo no puede superar los 15 MB." };
+  try {
+    const bytes = new Uint8Array(await upload.arrayBuffer());
+    const imported = await parseBookImport(upload.name, bytes);
+    return {
+      status: "success",
+      preview: {
+        fingerprint: createHash("sha256").update(bytes).digest("hex"),
+        format: imported.format,
+        title: imported.title ?? "",
+        authorName: imported.authorName ?? "",
+        warnings: [
+          ...(imported.warnings ?? []),
+          ...(!imported.authorName
+            ? ["No se detectó la autoría: complétala antes de confirmar."]
+            : []),
+          ...(imported.sections.length === 1
+            ? ["Solo se detectó una sección. Revisa si el original contiene divisiones que faltan."]
+            : []),
+        ],
+        sections: imported.sections.map((section, index) => ({
+          index,
+          title: section.title,
+          type: section.type ?? "CHAPTER",
+          words: section.paragraphs.join(" ").split(/\s+/u).filter(Boolean).length,
+          excerpt: section.paragraphs.join("\n").slice(0, 500),
+        })),
+      },
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message:
+        error instanceof BookImportError
+          ? error.message
+          : "No se pudo analizar el archivo. Comprueba su formato e inténtalo de nuevo.",
+    };
   }
 }
