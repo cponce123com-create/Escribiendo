@@ -126,8 +126,8 @@ export default async function BookPage({ params }: BookPageProps) {
           <Link className="btn btn-ghost btn-sm" href={`/books/${book.id}/notes`}>
             Notas
           </Link>
-          <Link className="btn btn-ghost btn-sm" href={`/books/${book.id}/analysis`}>
-            Análisis editorial
+          <Link className="btn btn-ghost btn-sm" href={`/books/${book.id}/laboratorio`}>
+            Laboratorio Editorial
           </Link>
           <Link className="btn btn-ghost btn-sm" href={`/books/${book.id}/review`}>
             Revisión

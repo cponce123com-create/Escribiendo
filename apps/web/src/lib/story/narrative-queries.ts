@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import type { SessionContext } from "@/lib/auth/session";
 import { extractPlainText, wordCount } from "./engine/text";
+import { dialogueBlocks, extractSpeaker } from "./dialogue-analysis";
 
 export interface DialogueIntervention {
   text: string;
@@ -65,31 +66,6 @@ export interface NarrativeDashboard {
     status: string;
     summary: string | null;
   }>;
-}
-
-function extractSpeaker(text: string, characters: Array<{ name: string }>) {
-  const match = text.match(
-    /(?:dijo|preguntó|respondió|contestó|susurró|gritó|murmuró|replicó)\s+([\p{Lu}][\p{L}'’-]*(?:\s+[\p{Lu}][\p{L}'’-]*){0,2})/u,
-  );
-  if (!match?.[1]) return { speaker: null, confidence: 0 };
-  const candidate = match[1].trim();
-  const found = characters.find((character) =>
-    character.name.toLocaleLowerCase().startsWith(candidate.toLocaleLowerCase()),
-  );
-  return found ? { speaker: found.name, confidence: 0.86 } : { speaker: null, confidence: 0 };
-}
-
-function dialogueBlocks(text: string): string[] {
-  const blocks: string[] = [];
-  for (const paragraph of text.split(/\n{2,}|(?<=\n)/u)) {
-    const value = paragraph.replace(/\s+/g, " ").trim();
-    if (!value) continue;
-    const isDash = /^[—–-]\s*/u.test(value);
-    const isQuote = /^[«“"]/u.test(value) && /[»”"]$/u.test(value);
-    if (isDash || isQuote) blocks.push(value.replace(/^[—–-]\s*/u, ""));
-  }
-  if (blocks.length) return blocks;
-  return [...text.matchAll(/[«“"]([^»”"]{2,1200})[»”"]/gu)].map((match) => match[1] ?? "");
 }
 
 const ATTRIBUTION_PATTERNS = [

@@ -93,3 +93,36 @@ describe("almacén de borradores", () => {
     expect(recuperado?.sectionId).toBe("seccion-1");
   });
 });
+
+describe("confirmación de transacción IndexedDB", () => {
+  it("no confirma persistencia si el commit se aborta después del put", async () => {
+    const putRequest = { result: "usuario:libro:abortada" };
+    const tx = {
+      objectStore: () => ({ put: () => putRequest }),
+      oncomplete: null as null | (() => void),
+      onabort: null as null | (() => void),
+      onerror: null as null | (() => void),
+    };
+    const openRequest = {
+      result: { transaction: () => tx, close: () => {} },
+      onsuccess: null as null | (() => void),
+    };
+    Object.defineProperty(globalThis, "indexedDB", {
+      configurable: true,
+      value: {
+        open: () => {
+          queueMicrotask(() => openRequest.onsuccess?.());
+          return openRequest;
+        },
+      },
+    });
+    try {
+      const pending = saveDraft(borrador("abortada"));
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      tx.onabort?.();
+      expect(await pending).toBe(false);
+    } finally {
+      Reflect.deleteProperty(globalThis, "indexedDB");
+    }
+  });
+});

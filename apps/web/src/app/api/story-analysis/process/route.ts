@@ -9,6 +9,7 @@ import {
   normalizeCharacterName,
 } from "@/lib/story/character-analysis-quality";
 import { z } from "zod";
+import { assertCanPerform } from "@/lib/books/permissions";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const bodySchema = z.object({ taskId: z.string().uuid() });
@@ -42,10 +43,22 @@ export async function POST(request: Request) {
   }
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Sesión requerida." }, { status: 401 });
+  try {
+    assertCanPerform(session.workspace.role, "story:manage");
+  } catch {
+    return NextResponse.json(
+      { error: "No tienes permiso para analizar personajes." },
+      { status: 403 },
+    );
+  }
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Solicitud no válida." }, { status: 400 });
   const task = await prisma.characterAnalysisTask.findFirst({
-    where: { id: parsed.data.taskId, workspaceId: session.workspace.id },
+    where: {
+      id: parsed.data.taskId,
+      workspaceId: session.workspace.id,
+      book: { workspaceId: session.workspace.id, deletedAt: null },
+    },
     select: { id: true, bookId: true, sectionId: true, contentHash: true, status: true },
   });
   if (!task) return NextResponse.json({ error: "Tarea no encontrada." }, { status: 404 });

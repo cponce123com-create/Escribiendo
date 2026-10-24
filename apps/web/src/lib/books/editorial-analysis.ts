@@ -2,6 +2,12 @@ import "server-only";
 import { createHash } from "node:crypto";
 import type { Prisma } from "@escribiendo/database";
 import {
+  disabledStyleRules,
+  selectAnalysisSections,
+  NARRATIVE_ANALYSIS_TYPES,
+  type BookAnalysisOptions,
+} from "./analysis-options";
+import {
   analyzeRepetition,
   analyzeReadability,
   analyzeRhythm,
@@ -30,20 +36,13 @@ import type {
   StyleAnalysisItem,
 } from "@/components/books/book-analysis-dashboard";
 
-const NARRATIVE_TYPES = [
-  "PART",
-  "CHAPTER",
-  "SUBCHAPTER",
-  "INTERLUDE",
-  "EPILOGUE",
-  "PROLOGUE",
-  "INTRODUCTION",
-] as const;
 const MAX_ANALYSIS_SECTIONS = 120;
 const MAX_TOTAL_DOCUMENT_BYTES = 16_000_000;
 const MAX_TOTAL_BLOCKS = 25_000;
 const MAX_FINDINGS_PER_SECTION = 80;
 const MAX_VISIBLE_OBSERVATIONS = 100;
+// Caché acotada por proceso: no retiene documentos; cada petición autoriza y verifica hash.
+const editorialEngine = new LinguisticAnalysisEngine({ maxCachedSections: 240 });
 
 interface AnalysisSection {
   id: string;
@@ -178,30 +177,34 @@ function mapRhythm(
 export async function analyzeBookEditorially(
   session: SessionContext,
   bookId: string,
+  options: BookAnalysisOptions = {},
 ): Promise<BookAnalysisDashboardProps | null> {
   const book = await getBook(session, bookId);
   if (!book) return null;
 
+  const tree = await getSectionTree(session, bookId);
+  const selectedNodes = selectAnalysisSections(tree, options.sectionId);
+  if (!selectedNodes) return null;
+  const selectedIds = selectedNodes.slice(0, MAX_ANALYSIS_SECTIONS).map((node) => node.id);
   const narrativeWhere: Prisma.BookSectionWhereInput = {
     bookId,
     deletedAt: null,
-    type: { in: [...NARRATIVE_TYPES] },
+    id: { in: selectedIds },
+    type: { in: [...NARRATIVE_ANALYSIS_TYPES] as BookSectionType[] },
     book: { workspaceId: session.workspace.id, deletedAt: null },
   };
-  const [tree, narrativeSectionCount, rows] = await Promise.all([
-    getSectionTree(session, bookId),
-    prisma.bookSection.count({ where: narrativeWhere }),
-    prisma.bookSection.findMany({
-      where: narrativeWhere,
-      orderBy: [{ sortOrder: "asc" }, { title: "asc" }],
-      take: MAX_ANALYSIS_SECTIONS,
-      select: { id: true, type: true, title: true, version: true, content: true },
-    }),
-  ]);
+  const rows = selectedIds.length
+    ? await prisma.bookSection.findMany({
+        where: narrativeWhere,
+        take: MAX_ANALYSIS_SECTIONS,
+        select: { id: true, type: true, title: true, version: true, content: true },
+      })
+    : [];
+  const narrativeSectionCount = selectedNodes.length;
 
   const chapterBySection = mapEditorialSectionsToChapters(tree);
   const rowById = new Map(rows.map((row) => [row.id, row]));
-  const orderedNarrativeNodes = flattenSectionTree(tree).filter((node) => rowById.has(node.id));
+  const orderedNarrativeNodes = selectedNodes.filter((node) => rowById.has(node.id));
   const analysisSections: AnalysisSection[] = [];
   let totalDocumentBytes = 0;
   let totalBlocks = 0;
@@ -266,11 +269,15 @@ export async function analyzeBookEditorially(
     document: section.document,
   }));
 
-  const engine = new LinguisticAnalysisEngine({
-    maxCachedSections: Math.max(1, analysisSections.length),
-  });
-  const styleResult = await engine.analyzeBookInBatches(bookId, linguisticInputs, {
+  const styleResult = await editorialEngine.analyzeBookInBatches(bookId, linguisticInputs, {
     rules: createSpanishStyleRules(),
+    preferences: {
+      enabledByRuleId: Object.fromEntries(
+        disabledStyleRules(options.disabledRules ? [...options.disabledRules] : undefined).map(
+          (id) => [id, false],
+        ),
+      ),
+    },
     maxFindingsPerSection: MAX_FINDINGS_PER_SECTION,
     batchSize: 5,
   });
@@ -336,6 +343,13 @@ export async function analyzeBookEditorially(
     bookId,
     userId: session.user.id,
     bookTitle: book.title,
+    sectionOptions: flattenSectionTree(tree)
+      .filter((node) => NARRATIVE_ANALYSIS_TYPES.has(node.type))
+      .map(({ id, title }) => ({ id, title })),
+    selectedSectionId: options.sectionId,
+    disabledRules: disabledStyleRules(
+      options.disabledRules ? [...options.disabledRules] : undefined,
+    ),
     sectionsAnalyzed: analysisSections.length,
     omittedSections,
     styleFindings,

@@ -96,7 +96,10 @@ function transaccion<T>(
       const tx = db.transaction(STORE_NAME, modo);
       const peticion = operacion(tx.objectStore(STORE_NAME));
 
-      peticion.onsuccess = () => resolve(peticion.result);
+      // El éxito de una petición no garantiza que la transacción haga commit.
+      tx.oncomplete = () => resolve(peticion.result);
+      tx.onabort = () => resolve(null);
+      tx.onerror = () => resolve(null);
       peticion.onerror = () => resolve(null);
     } catch {
       resolve(null);
