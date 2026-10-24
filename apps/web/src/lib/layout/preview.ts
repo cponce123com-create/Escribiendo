@@ -363,3 +363,61 @@ export async function buildLegalMatterPreview(
     diagnostics: result.diagnostics,
   };
 }
+
+/**
+ * Compone solo un capítulo, para enseñar el efecto de la inicial.
+ *
+ * No se pagina el libro entero ni se insertan páginas en blanco para forzar
+ * el recto: el editor quiere ver la página del capítulo, no la hoja vacía que
+ * la precede en el archivo final.
+ */
+export async function buildChapterPreview(
+  session: SessionContext,
+  bookId: string,
+  sectionId: string,
+  options: {
+    dropCaps: boolean;
+    dropCapLines: DropCapLines;
+    dropCapOverrides?: Record<string, { enabled: boolean; lines: DropCapLines }>;
+  },
+): Promise<MatterPreview | null> {
+  const sections = await loadPreviewSections(session, bookId);
+  const section = sections.find((item) => item.id === sectionId && item.isChapter);
+
+  if (!section) {
+    return null;
+  }
+
+  const edition = await loadPreviewEdition(session, bookId);
+  const profile = edition?.profile ?? (await previewDefaultProfile(session));
+
+  if (!profile) {
+    return null;
+  }
+
+  const typography = edition?.template
+    ? withTypographyDefaults(edition.template.config.typography)
+    : withTypographyDefaults(profile.typography);
+  const fuentes = await loadPdfFonts();
+  const cover = await loadPreviewCover(session, bookId);
+  const geometry = {
+    ...geometryFromProfile(profile),
+    chapterStartsRecto: false,
+    physicalPageOffset: cover ? 1 : 0,
+  };
+  const blocks = bookToBlocks([section], {
+    dropCaps: options.dropCaps,
+    dropCapLines: options.dropCapLines,
+    ...(options.dropCapOverrides ? { dropCapOverrides: options.dropCapOverrides } : {}),
+    contentHeightMm: textBlockSize(geometry).heightMm,
+  });
+  const result = paginate(blocks, geometry, typography, fuentes?.measure);
+  const bookTitle = await previewBookTitle(session, bookId);
+
+  return {
+    pages: toPreviewPages(result, profile, edition?.template ?? null, bookTitle, fuentes?.measure),
+    profile,
+    typography,
+    diagnostics: result.diagnostics,
+  };
+}

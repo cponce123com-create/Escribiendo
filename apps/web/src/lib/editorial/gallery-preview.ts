@@ -7,10 +7,10 @@ import {
 } from "@escribiendo/templates";
 import { buildTocPreview } from "./toc-preview";
 import { getSession } from "@/lib/auth/session";
-import { buildLegalMatterPreview } from "@/lib/layout/preview";
+import { buildChapterPreview, buildLegalMatterPreview } from "@/lib/layout/preview";
 import { loadBookMatter } from "./book-matter";
 import { assertServerActionOrigin } from "@/lib/security/request-context";
-import { legalFieldsSchema } from "./template-settings";
+import { dropCapSettingsSchema, legalFieldsSchema } from "./template-settings";
 import { z } from "zod";
 
 export async function legalGalleryPreview(
@@ -51,4 +51,19 @@ export async function tocGalleryPreview(bookId: string, raw: unknown) {
   const id = z.string().uuid().parse(bookId);
   const parameters = tocParametersSchema.parse(raw);
   return buildTocPreview(session, id, parameters);
+}
+
+export async function dropCapGalleryPreview(bookId: string, sectionId: string, settings: unknown) {
+  await assertServerActionOrigin();
+  const session = await getSession();
+  if (!session) throw new Error("Inicia sesión para ver la inicial.");
+  const id = z.string().uuid().parse(bookId);
+  const section = z.string().uuid().parse(sectionId);
+  const parsed = dropCapSettingsSchema.parse(settings);
+
+  return buildChapterPreview(session, id, section, {
+    dropCaps: parsed.enabled,
+    dropCapLines: parsed.lines,
+    ...(parsed.overrides ? { dropCapOverrides: parsed.overrides } : {}),
+  });
 }
