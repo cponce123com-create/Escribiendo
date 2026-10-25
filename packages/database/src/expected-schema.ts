@@ -14,6 +14,7 @@ export const COLUMNAS_ESPERADAS: ReadonlyArray<{ tabla: string; columna: string 
   { tabla: "story_character_events", columna: "startsOn" },
   { tabla: "story_character_events", columna: "endsOn" },
   { tabla: "story_character_events", columna: "datePrecision" },
+  { tabla: "story_character_suggestions", columna: "nameVerification" },
   { tabla: "laboratory_review_states", columna: "decisions" },
   { tabla: "sessions", columna: "workspaceId" },
   { tabla: "export_jobs", columna: "idempotencyKey" },

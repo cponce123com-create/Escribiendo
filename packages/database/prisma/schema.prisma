@@ -849,6 +849,8 @@ model StoryCharacterSuggestion {
   @@index([workspaceId, bookId, status, stale])
   @@index([characterId])
   @@map("story_character_suggestions")
+  nameVerification Json?
+
 }
 
 /// Afirmación extraída localmente de una instantánea de sección.

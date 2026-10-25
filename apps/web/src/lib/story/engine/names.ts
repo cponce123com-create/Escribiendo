@@ -298,7 +298,13 @@ function readNameSequence(
     if (!next || !previous) break;
 
     if (next.capitalized) {
-      if (NAME_STOPWORDS.has(next.normalized) || PERSON_TITLES.has(next.normalized)) break;
+      if (
+        NAME_STOPWORDS.has(next.normalized) ||
+        PERSON_TITLES.has(next.normalized) ||
+        ACTION_VERBS.has(next.normalized) ||
+        SPEECH_VERBS.has(next.normalized)
+      )
+        break;
       if (sequence.length >= 4) break;
       if (!tokenGapIsWhitespace(sentence, previous, next)) break;
       sequence.push(next);
@@ -354,6 +360,7 @@ function tokenGapIsWhitespace(sentence: Sentence, from: TextToken, to: TextToken
 export function extractNameOccurrences(
   section: AnalysisSection,
   sentences: Sentence[],
+  options: { includeWeakCandidates?: boolean } = {},
 ): NameOccurrence[] {
   const occurrences: NameOccurrence[] = [];
 
@@ -433,7 +440,7 @@ export function extractNameOccurrences(
 
       // Un nombre de una sola aparición y sin ninguna señal personal no
       // merece una ficha; se evita llenar la interfaz de falsos positivos.
-      if (score < 0.3) continue;
+      if (score < 0.3 && !options.includeWeakCandidates) continue;
 
       occurrences.push({
         text,

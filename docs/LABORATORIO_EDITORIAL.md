@@ -100,3 +100,13 @@ Valoración técnica subjetiva del código y la evidencia local, no una métrica
 5. Reanalizar continuidad 1.1, comprobar evidencias y decisiones compartidas. Un diálogo o hipótesis sin confirmar no debe generar canon automáticamente.
 6. Desconectar/reconectar mientras se escribe; comprobar confirmación en servidor y restaurar una revisión de una copia del libro.
 7. Comparar vista previa y PDF, y abrir EPUB/DOCX con lectores habituales del autor. Los resultados locales son evidencia de regresión para el fixture, no garantía de identidad universal de cualquier documento.
+
+## Cierre de integración: verificación de personajes
+
+La entrega incorpora el verificador `personal-names-2.0` y la migración aditiva
+`20261024200000_character_name_verification`, además de la migración del laboratorio.
+Los detalles, límites y uso del script están en [Detección de personajes](./DETECCION_PERSONAJES.md).
+Tras incorporar los cambios recientes de main, pasaron 929 pruebas en 120 archivos,
+además de lint, typecheck y formato. El E2E de personajes verificó la propuesta entre
+dos capítulos, la aceptación única y la presentación móvil. Los resultados anteriores
+de 844 pruebas corresponden al estado previo a esa integración.

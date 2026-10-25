@@ -4,25 +4,14 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { assertRequestOrigin } from "@/lib/security/request-context";
 import { analyzeNarrative } from "@/lib/story/character-analysis";
-import {
-  filterCharacterCandidates,
-  normalizeCharacterName,
-} from "@/lib/story/character-analysis-quality";
+import { filterCharacterCandidates } from "@/lib/story/character-analysis-quality";
 import { z } from "zod";
+import { persistVerifiedCharacters } from "@/lib/story/verified-character-storage";
+import { extractPlainText } from "@/lib/story/engine/text";
 import { assertCanPerform } from "@/lib/books/permissions";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const bodySchema = z.object({ taskId: z.string().uuid() });
-function flatten(value: unknown): string {
-  if (!value || typeof value !== "object") return "";
-  const node = value as { text?: unknown; content?: unknown[] };
-  return [
-    typeof node.text === "string" ? node.text : "",
-    Array.isArray(node.content) ? node.content.map(flatten).join(" ") : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
 function hashContent(content: unknown): string {
   return createHash("sha256").update(JSON.stringify(content), "utf8").digest("hex");
 }
@@ -72,7 +61,7 @@ export async function POST(request: Request) {
   try {
     const section = await prisma.bookSection.findFirst({
       where: { id: task.sectionId, bookId: task.bookId, deletedAt: null },
-      select: { id: true, title: true, type: true, content: true },
+      select: { id: true, title: true, type: true, content: true, version: true },
     });
     if (!section) {
       await prisma.characterAnalysisTask.update({
@@ -89,15 +78,6 @@ export async function POST(request: Request) {
       });
       return NextResponse.json({ status: "SUPERSEDED", suggestions: 0 });
     }
-    await prisma.storyCharacterSuggestion.updateMany({
-      where: {
-        sectionId: section.id,
-        contentHash: { not: currentHash },
-        status: "PENDING",
-        stale: false,
-      },
-      data: { stale: true },
-    });
     if (NON_NARRATIVE.has(section.type)) {
       await prisma.characterAnalysisTask.update({
         where: { id: task.id },
@@ -116,59 +96,33 @@ export async function POST(request: Request) {
       }),
     ]);
     if (!book) return NextResponse.json({ error: "Libro no disponible." }, { status: 404 });
-    const text = flatten(section.content);
-    const candidates = analyzeNarrative([{ title: section.title, text }]);
+    const text = extractPlainText(JSON.stringify(section.content));
+    const candidates = analyzeNarrative([{ id: section.id, title: section.title, text }]);
     const filtered = filterCharacterCandidates(candidates, {
       bookTitle: book.title,
       existingCharacterNames: existing.map((item) => item.name),
       sectionText: text,
     });
-    let created = 0;
-    for (const candidate of filtered) {
-      const evidence = candidate.evidence[0];
-      if (!evidence?.excerpt) continue;
-      await prisma.storyCharacterSuggestion.upsert({
-        where: {
-          bookId_normalizedName: {
-            bookId: task.bookId,
-            normalizedName: normalizeCharacterName(candidate.name).slice(0, 160),
-          },
-        },
-        create: {
-          workspaceId: session.workspace.id,
-          bookId: task.bookId,
-          sectionId: section.id,
-          contentHash: currentHash,
-          normalizedName: normalizeCharacterName(candidate.name).slice(0, 160),
-          suggestedName: candidate.name.slice(0, 160),
-          suggestedAge: candidate.age ?? null,
-          suggestedDescription: candidate.description ?? null,
-          excerpt: evidence.excerpt,
-          confidence: candidate.confidence,
-          mentions: candidate.mentions,
-        },
-        update: {
-          sectionId: section.id,
-          contentHash: currentHash,
-          suggestedName: candidate.name.slice(0, 160),
-          suggestedAge: candidate.age ?? null,
-          suggestedDescription: candidate.description ?? null,
-          excerpt: evidence.excerpt,
-          confidence: candidate.confidence,
-          mentions: candidate.mentions,
-          stale: false,
-        },
-      });
-      created++;
-    }
+    const created = await persistVerifiedCharacters(
+      session,
+      task.bookId,
+      [{ id: section.id, contentHash: currentHash, version: section.version }],
+      filtered,
+      task.id,
+    );
     await prisma.characterAnalysisTask.update({
       where: { id: task.id },
       data: { status: "COMPLETED", completedAt: new Date() },
     });
     return NextResponse.json({ status: "COMPLETED", suggestions: created });
   } catch (error) {
+    if (error instanceof Error && error.message === "CHARACTER_TASK_SUPERSEDED")
+      return NextResponse.json({ status: "SUPERSEDED", suggestions: 0 });
     await prisma.characterAnalysisTask
-      .update({ where: { id: task.id }, data: { status: "FAILED" } })
+      .updateMany({
+        where: { id: task.id, status: "PROCESSING", workspaceId: session.workspace.id },
+        data: { status: "FAILED" },
+      })
       .catch(() => undefined);
     console.error(
       "character-analysis.process-failed",
