@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { SyncLocalReview } from "./sync-local-review";
+import { SaveAnalysisPreferences } from "./save-analysis-preferences";
 import { ObservationFilters } from "./observation-filters";
 import { STYLE_RULE_OPTIONS } from "@/lib/books/analysis-options";
 import { IgnoreAnalysisObservation } from "./ignore-analysis-observation";
@@ -13,6 +15,7 @@ export interface AnalysisTarget {
 
 export interface StyleAnalysisItem extends AnalysisTarget {
   id: string;
+  reviewStatus?: "open" | "ignored" | "intentional" | "resolved";
   category: string;
   severity: "info" | "warning" | "error";
   confidence: number;
@@ -23,6 +26,7 @@ export interface StyleAnalysisItem extends AnalysisTarget {
 }
 
 export interface RepetitionAnalysisItem {
+  reviewStatus?: "open" | "ignored" | "intentional" | "resolved";
   id: string;
   kind: "word" | "phrase" | "paragraph-similarity";
   scope: "chapter" | "book";
@@ -65,6 +69,9 @@ export interface RhythmAnalysisItem {
 export interface BookAnalysisDashboardProps {
   bookId: string;
   userId: string;
+  canReview?: boolean;
+  openStyleFindings?: number;
+  openRepetitionFindings?: number;
   bookTitle: string;
   sectionOptions?: readonly { id: string; title: string }[];
   selectedSectionId?: string;
@@ -150,6 +157,7 @@ export function BookAnalysisDashboard({
   bookId,
   userId,
   bookTitle,
+  canReview = false,
   sectionOptions = [],
   selectedSectionId,
   disabledRules = [],
@@ -190,6 +198,7 @@ export function BookAnalysisDashboard({
         className="panel scroll-mt-24 space-y-4 p-5"
         aria-label="Configurar análisis editorial"
       >
+        <input type="hidden" name="rules" value="custom" />
         <div>
           <label className="field-label" htmlFor="analysis-section">
             Texto que quieres analizar
@@ -231,6 +240,7 @@ export function BookAnalysisDashboard({
             ))}
           </fieldset>
         </details>
+        {canReview ? <SaveAnalysisPreferences bookId={bookId} /> : null}
         <button type="submit" className="btn btn-primary">
           Analizar selección
         </button>
@@ -239,6 +249,8 @@ export function BookAnalysisDashboard({
           de seleccionar el fragmento.
         </p>
       </form>
+
+      {canReview ? <SyncLocalReview bookId={bookId} userId={userId} /> : null}
 
       {analysisWarning ? (
         <p className="alert" role="status">
@@ -300,8 +312,11 @@ export function BookAnalysisDashboard({
                 <ol className="mt-5 space-y-3">
                   {visibleStyleFindings.map((finding) => (
                     <IgnoreAnalysisObservation
-                      key={finding.id}
+                      key={`${finding.id}-${finding.reviewStatus ?? "open"}`}
                       storageKey={`escribiendo:analysis-ignore:${userId}:${bookId}:style:${finding.id}`}
+                      bookId={bookId}
+                      initialStatus={finding.reviewStatus ?? "open"}
+                      canReview={canReview}
                       title={finding.message}
                       severity={finding.severity}
                       searchText={finding.matchedText}
@@ -370,8 +385,11 @@ export function BookAnalysisDashboard({
                 <ol className="mt-5 space-y-3">
                   {visibleRepetitionFindings.map((finding) => (
                     <IgnoreAnalysisObservation
-                      key={finding.id}
+                      key={`${finding.id}-${finding.reviewStatus ?? "open"}`}
                       storageKey={`escribiendo:analysis-ignore:${userId}:${bookId}:repetition:${finding.id}:${finding.first.contentVersion}:${finding.second.contentVersion}`}
+                      bookId={bookId}
+                      initialStatus={finding.reviewStatus ?? "open"}
+                      canReview={canReview}
                       title={finding.message}
                       searchText={finding.matchedText}
                     >

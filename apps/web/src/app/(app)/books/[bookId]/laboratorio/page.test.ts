@@ -3,6 +3,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, expect, it, vi } from "vitest";
 import { laboratoryTools } from "@/lib/books/laboratory-navigation";
 const mocks = vi.hoisted(() => ({ book: vi.fn(), tree: vi.fn(), count: vi.fn() }));
+vi.mock("@/lib/books/editorial-analysis", () => ({ analyzeBookEditorially: vi.fn() }));
+vi.mock("@/lib/books/narrative-continuity", () => ({ loadNarrativeContinuity: vi.fn() }));
 vi.mock("@/lib/auth/session", () => ({
   requireSession: async () => ({ workspace: { id: "workspace" } }),
 }));
