@@ -173,6 +173,9 @@ export function reduceSync(machine: SyncMachine, event: SyncEvent): SyncMachine 
 
     case "local-saved":
       // Un respaldo local nunca resuelve conflictos ni confirma el servidor.
+      // React debe poder omitir este evento si no cambió nada: un objeto nuevo
+      // reinstalaría el debounce de servidor cada 700 ms y lo pospondría sin fin.
+      if (machine.localPersisted === (event.persisted ?? true)) return machine;
       return { ...machine, localPersisted: event.persisted ?? true };
 
     case "sync-start":
