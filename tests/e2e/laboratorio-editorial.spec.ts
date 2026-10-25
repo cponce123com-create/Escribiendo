@@ -188,7 +188,7 @@ test("regresión editorial: recuperación de red, restauración y exportación r
     await page.goto(`/books/${bookId}/export`);
     await page
       .getByRole("listitem")
-      .filter({ hasText: format! })
+      .filter({ has: page.getByRole("heading", { name: format!, exact: true }) })
       .getByRole("button", { name: "Generar", exact: true })
       .click();
     await expect(page.getByText(/^Archivo generado\./)).toBeVisible();
