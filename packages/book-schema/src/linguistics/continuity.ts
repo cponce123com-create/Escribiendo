@@ -1,3 +1,4 @@
+import { validCalendarDate } from "./calendar";
 import {
   extractTiptapTextBlocks,
   normalizeSpanishForComparison,
@@ -6,11 +7,21 @@ import {
 } from "./text";
 import type { TiptapDocument } from "../tiptap";
 
-export const NARRATIVE_FACT_RULE_VERSION = "continuity-1.0.0";
+export const NARRATIVE_FACT_RULE_VERSION = "continuity-1.1.0";
 
 export type NarrativeEvidenceMode = "NARRATION" | "DIALOGUE" | "RECOLLECTION" | "HYPOTHESIS";
 export type NarrativeFactType =
-  "EYES" | "HAIR" | "AGE" | "BIRTH_YEAR" | "NAME_VARIANT" | "PLACE_VARIANT";
+  | "EYES"
+  | "HAIR"
+  | "AGE"
+  | "BIRTH_YEAR"
+  | "NAME_VARIANT"
+  | "PLACE_VARIANT"
+  | "FAMILY_FATHER"
+  | "FAMILY_MOTHER"
+  | "SURNAME"
+  | "BIRTH_DATE"
+  | "DEATH_DATE";
 
 export interface NarrativeEntityCandidate {
   id: string;
@@ -49,7 +60,7 @@ export interface AnalyzeNarrativeSectionInput {
 }
 
 export type NarrativeFindingType =
-  "PHYSICAL_ATTRIBUTE" | "CHRONOLOGY" | "NAME_VARIANT" | "PLACE_VARIANT";
+  "PHYSICAL_ATTRIBUTE" | "CHRONOLOGY" | "NAME_VARIANT" | "PLACE_VARIANT" | "FAMILY";
 
 export interface NarrativeInconsistency {
   findingKey: string;
@@ -343,6 +354,62 @@ export function extractNarrativeFacts(
         );
       }
 
+      // Solo formulaciones explícitas con dos entidades inequívocas; nunca coapariciones.
+      if (
+        !/[¿?]/u.test(sentence.text) &&
+        !/\b(?:no|nunca|adoptiv[oa]|padrastro|madrastra)\b/iu.test(sentence.text)
+      ) {
+        for (const parent of matches)
+          for (const child of matches) {
+            if (parent.entity.id === child.entity.id) continue;
+            const expression = new RegExp(
+              `^${escapeRegExp(parent.entity.name)}\\s+(?:era|es)\\s+(?:el padre|la madre)\\s+de\\s+${escapeRegExp(child.entity.name)}[.!]?\\s*$`,
+              "iu",
+            );
+            if (!expression.test(sentence.text.trim())) continue;
+            const type = /\bla madre\b/iu.test(sentence.text) ? "FAMILY_MOTHER" : "FAMILY_FATHER";
+            facts.push(
+              fact(input, sentence, block, child.entity, type, parent.entity.name, temporalYear),
+            );
+          }
+        const surname =
+          /\b(?:se apellidaba|se apellida)\s+([\p{Lu}][\p{L}\p{M}'’-]*(?:\s+[\p{Lu}][\p{L}\p{M}'’-]*)?)/gu;
+        for (const match of sentence.text.matchAll(surname)) {
+          const subject = nearestEntity(matches, match.index, sentence.text, true);
+          if (subject && match[1])
+            facts.push(fact(input, sentence, block, subject, "SURNAME", match[1], temporalYear));
+        }
+      }
+      const datePattern =
+        /\b(nació|nacio|murió|murio|falleció|fallecio)\s+(?:el\s+)?(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4})\b/giu;
+      for (const match of sentence.text.matchAll(datePattern)) {
+        if (
+          /[¿?]/u.test(sentence.text) ||
+          /\b(?:no|nunca)\b/iu.test(sentence.text.slice(0, match.index))
+        )
+          continue;
+        const subject = nearestEntity(matches, match.index, sentence.text, true);
+        if (!subject || !match[2]) continue;
+        const parts = match[2].split("/");
+        const date =
+          parts.length === 3
+            ? `${parts[2]}-${parts[1]!.padStart(2, "0")}-${parts[0]!.padStart(2, "0")}`
+            : match[2];
+        facts.push(
+          fact(
+            input,
+            sentence,
+            block,
+            subject,
+            /^naci/iu.test(match[1]!.normalize("NFD").replace(/\p{M}/gu, ""))
+              ? "BIRTH_DATE"
+              : "DEATH_DATE",
+            date,
+            Number(date.slice(0, 4)),
+          ),
+        );
+      }
+
       const variantGroups: Array<{
         candidates: NarrativeEntityCandidate[];
         type: "NAME_VARIANT" | "PLACE_VARIANT";
@@ -419,13 +486,15 @@ function makeFinding(
     findingKey,
     type,
     title:
-      type === "CHRONOLOGY"
-        ? "Posible inconsistencia cronológica"
-        : type === "NAME_VARIANT"
-          ? "Posible variación de nombre"
-          : type === "PLACE_VARIANT"
-            ? "Posible variación de lugar"
-            : "Posible inconsistencia física",
+      type === "FAMILY"
+        ? "Posible inconsistencia familiar"
+        : type === "CHRONOLOGY"
+          ? "Posible inconsistencia cronológica"
+          : type === "NAME_VARIANT"
+            ? "Posible variación de nombre"
+            : type === "PLACE_VARIANT"
+              ? "Posible variación de lugar"
+              : "Posible inconsistencia física",
     factA,
     factB,
     confidence: factB ? Math.min(factA.confidence, factB.confidence) : factA.confidence,
@@ -468,6 +537,19 @@ export function detectNarrativeInconsistencies(
       );
     }
   }
+  for (const item of active)
+    if (
+      (item.factType === "BIRTH_DATE" || item.factType === "DEATH_DATE") &&
+      !validCalendarDate(item.valueText)
+    )
+      findings.push(
+        makeFinding(
+          "CHRONOLOGY",
+          item,
+          null,
+          `La fecha explícita ${item.valueText} no existe en el calendario gregoriano. Revisa la fuente y el calendario de tu historia.`,
+        ),
+      );
   const bySubject = new Map<string, NarrativeFactEvidence[]>();
   for (const item of active) {
     const key = item.subjectNormalized;
@@ -495,6 +577,49 @@ export function detectNarrativeInconsistencies(
         );
       }
     }
+
+    const families = subjectFacts.filter(
+      (item) =>
+        item.factType === "FAMILY_FATHER" ||
+        item.factType === "FAMILY_MOTHER" ||
+        item.factType === "SURNAME",
+    );
+    for (let i = 0; i < families.length; i++)
+      for (let j = i + 1; j < families.length; j++) {
+        const a = families[i]!,
+          b = families[j]!;
+        if (a.factType !== b.factType || a.normalizedValue === b.normalizedValue) continue;
+        if (
+          a.factType === "SURNAME" &&
+          (a.temporalYear === null || a.temporalYear !== b.temporalYear)
+        )
+          continue;
+        findings.push(
+          makeFinding(
+            a.factType === "SURNAME" ? "NAME_VARIANT" : "FAMILY",
+            a,
+            b,
+            `Se registran valores distintos para ${a.subjectLabel}: ${a.valueText} / ${b.valueText}. Comprueba filiación, cambios de identidad y recursos intencionales; no se modificaron las fichas.`,
+          ),
+        );
+      }
+    const births = subjectFacts.filter(
+      (item) => item.factType === "BIRTH_DATE" && validCalendarDate(item.valueText),
+    );
+    const deaths = subjectFacts.filter(
+      (item) => item.factType === "DEATH_DATE" && validCalendarDate(item.valueText),
+    );
+    for (const birth of births)
+      for (const death of deaths)
+        if (death.valueText < birth.valueText)
+          findings.push(
+            makeFinding(
+              "CHRONOLOGY",
+              birth,
+              death,
+              "La fecha explícita de fallecimiento es anterior a la de nacimiento. Revisa ambas fuentes; podría ser un recurso intencional.",
+            ),
+          );
 
     const ages = subjectFacts.filter(
       (item) => item.factType === "AGE" && item.temporalYear !== null,

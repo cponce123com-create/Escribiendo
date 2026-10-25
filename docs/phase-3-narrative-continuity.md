@@ -25,7 +25,9 @@ La pantalla vive en `/books/[bookId]/continuity`, enlazada desde el dashboard ed
 
 ## Límites actuales
 
-Esta entrega no extrae todavía relaciones familiares, cambios de apellido, lugares no presentes en la biblia, intervalos de fechas completos ni orden de acontecimientos narrativos. Tampoco interpreta edades escritas con palabras, fechas ambiguas, sujetos elípticos, narradores no fiables, cambios de identidad o transformaciones sobrenaturales. Los cambios detectados son «posibles» y requieren criterio editorial.
+La versión `continuity-1.1.0` agrega filiación explícita en frases «Pedro era el padre de Lucía» / «Ana era la madre de Lucía», apellidos declarados con «se apellidaba» y fechas numéricas de nacimiento/fallecimiento en ISO o día/mes/año. Señala fechas inexistentes, fallecimiento anterior al nacimiento, filiaciones diferentes y apellidos distintos dentro del mismo año explícito. No crea relaciones ni modifica fichas a partir de esas señales. Las versiones anteriores de análisis requieren reanalizar; sus evidencias y decisiones no se borran.
+
+No extrae parentescos de coapariciones, lugares no presentes en la biblia, fechas escritas con meses en letras ni intervalos completos del texto. La planificación manual sí permite registrar fechas exactas, aproximadas, solo año e intervalos y separa el orden narrativo del cronológico. Tampoco interpreta edades escritas con palabras, fechas ambiguas, sujetos elípticos, narradores no fiables, cambios de identidad o transformaciones sobrenaturales. Los cambios detectados son «posibles» y requieren criterio editorial.
 
 El año narrativo se lee del propio texto y no depende de zona horaria. Las fechas locales de interfaz de la plataforma deben seguir usando `America/Lima`.
 

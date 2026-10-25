@@ -206,7 +206,9 @@ export default async function NarrativeContinuityPage({
                       </Link>
                     </div>
                     <span className="text-xs text-ink-muted">
-                      {section.analyzed ? `${section.factCount} hechos` : "Sin analizar"}
+                      {section.analyzed
+                        ? `${section.factCount} ${section.factCount === 1 ? "hecho" : "hechos"}`
+                        : "Sin analizar"}
                     </span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -232,11 +234,12 @@ export default async function NarrativeContinuityPage({
             <p className="font-semibold text-ink">Cobertura actual</p>
             <p className="mt-2">
               El detector reconoce color de ojos/cabello, edades numéricas y año de nacimiento;
-              también señala variantes ortográficas cercanas a nombres y lugares registrados.
+              también reconoce fechas numéricas explícitas, filiación padre/madre y apellidos
+              declarados, y señala variantes ortográficas cercanas a nombres y lugares registrados.
             </p>
             <p className="mt-2">
-              No infiere relaciones familiares ni fusiona personajes/lugares automáticamente. Se
-              abstiene si el candidato coincide con varias entidades.
+              No deduce parentescos de coapariciones ni fusiona personajes/lugares automáticamente.
+              Se abstiene si el candidato coincide con varias entidades.
             </p>
           </div>
         </aside>
