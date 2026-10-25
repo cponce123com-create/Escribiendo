@@ -110,3 +110,8 @@ Tras incorporar los cambios recientes de main, pasaron 929 pruebas en 120 archiv
 además de lint, typecheck y formato. El E2E de personajes verificó la propuesta entre
 dos capítulos, la aceptación única y la presentación móvil. Los resultados anteriores
 de 844 pruebas corresponden al estado previo a esa integración.
+
+La repetición final de las cinco pruebas E2E pasó. Se comprobó también la descarga
+real de PDF, EPUB y DOCX, y la igualdad de páginas entre vista previa y PDF en el
+libro de prueba. El selector E2E del formato usa su título exacto, porque el texto
+descriptivo del PDF de imprenta menciona también el PDF digital.
