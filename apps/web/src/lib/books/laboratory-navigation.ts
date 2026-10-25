@@ -65,15 +65,15 @@ export function laboratoryTools(bookId: string, sectionId?: string) {
       id: "cronologia",
       name: "Cronología",
       description:
-        "Consulta acontecimientos guardados y sus órdenes narrativo y cronológico. Aún sin fechas estructuradas.",
-      href: `${narrative}#timeline-title`,
+        "Consulta acontecimientos guardados y sus órdenes narrativo y cronológico. Incluye fechas exactas, aproximadas e intervalos.",
+      href: `${narrative}#timeline-edit-title`,
       action: "Ver acontecimientos",
     },
     {
       id: "estructura",
       name: "Estructura narrativa",
       description:
-        "Explora modelos opcionales y tu planificación. La elección del modelo aún no guarda etapas.",
+        "Explora modelos opcionales y tu planificación. Guarda el modelo y asigna etapas a capítulos o escenas.",
       href: `${narrative}#structure-title`,
       action: "Explorar estructura",
     },
