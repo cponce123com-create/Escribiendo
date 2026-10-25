@@ -1,7 +1,11 @@
 "use client";
 
 import { useObservationVisible } from "./observation-filters";
-import { useCallback, useSyncExternalStore, type ReactNode } from "react";
+import { useCallback, useSyncExternalStore, useState, useTransition, type ReactNode } from "react";
+
+import { saveLaboratoryReviewAction } from "@/lib/books/laboratory-review-actions";
+import { FormMessage } from "@/components/forms/form-message";
+import type { ActionState } from "@/lib/action-state";
 
 const IGNORE_CHANGE_EVENT = "escribiendo:analysis-ignore-change";
 type ReviewStatus = "open" | "ignored" | "intentional" | "resolved";
@@ -9,12 +13,18 @@ const memoryStatuses = new Map<string, ReviewStatus>();
 
 export function IgnoreAnalysisObservation({
   storageKey,
+  bookId,
+  initialStatus = "open",
+  canReview = true,
   title,
   children,
   severity = "info",
   searchText = "",
 }: {
   storageKey: string;
+  bookId?: string;
+  initialStatus?: ReviewStatus;
+  canReview?: boolean;
   title: string;
   children: ReactNode;
   severity?: string;
@@ -49,10 +59,26 @@ export function IgnoreAnalysisObservation({
     }
   }, [storageKey]);
 
-  const status = useSyncExternalStore(subscribe, getSnapshot, () => "open");
+  const localStatus = useSyncExternalStore(subscribe, getSnapshot, () => "open");
+  const [serverStatus, setServerStatus] = useState(initialStatus);
+  const [state, setState] = useState<ActionState>({ status: "idle" });
+  const [pending, start] = useTransition();
+  const status = bookId ? serverStatus : localStatus;
   const visible = useObservationVisible(`${title} ${searchText}`, severity);
 
   function setIgnoredAndPersist(nextValue: ReviewStatus) {
+    if (bookId) {
+      start(async () => {
+        const result = await saveLaboratoryReviewAction({
+          bookId,
+          key: storageKey,
+          status: nextValue,
+        });
+        setState(result);
+        if (result.status === "success") setServerStatus(nextValue);
+      });
+      return;
+    }
     if (nextValue !== "open") memoryStatuses.set(storageKey, nextValue);
     else memoryStatuses.delete(storageKey);
     try {
@@ -66,6 +92,7 @@ export function IgnoreAnalysisObservation({
 
   return (
     <li className="list-none" hidden={!visible}>
+      <FormMessage state={state} />
       {status !== "open" ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-ink/5 p-4 text-sm">
           <p className="text-ink-muted">
@@ -77,6 +104,7 @@ export function IgnoreAnalysisObservation({
             : {title}
           </p>
           <button
+            disabled={!canReview || pending}
             type="button"
             className="btn btn-ghost btn-sm"
             onClick={() => setIgnoredAndPersist("open")}
@@ -88,6 +116,7 @@ export function IgnoreAnalysisObservation({
         <div className="rounded-xl border border-line bg-surface p-4">
           <div className="mb-2 flex flex-wrap justify-end gap-2">
             <button
+              disabled={!canReview || pending}
               type="button"
               className="btn btn-ghost btn-sm"
               onClick={() => setIgnoredAndPersist("intentional")}
@@ -95,6 +124,7 @@ export function IgnoreAnalysisObservation({
               Marcar como intencional
             </button>
             <button
+              disabled={!canReview || pending}
               type="button"
               className="btn btn-ghost btn-sm"
               onClick={() => setIgnoredAndPersist("resolved")}
@@ -102,6 +132,7 @@ export function IgnoreAnalysisObservation({
               Marcar como resuelta
             </button>
             <button
+              disabled={!canReview || pending}
               type="button"
               className="btn btn-ghost btn-sm"
               aria-label={`Ignorar observación: ${title}`}

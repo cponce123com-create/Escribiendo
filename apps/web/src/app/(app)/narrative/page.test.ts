@@ -1,9 +1,22 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it, vi } from "vitest";
+const fixture = vi.hoisted(() => ({ structure: "FREE" }));
+vi.mock("@/lib/story/narrative-planning-queries", () => ({
+  loadNarrativePlanning: async () => ({
+    book: { id: "book", narrativeStructure: fixture.structure, narrativeVersion: 0 },
+    sections: [],
+    characters: [],
+    events: [],
+    truncated: false,
+  }),
+}));
+vi.mock("@/lib/story/narrative-planning-actions", () => ({
+  updateNarrativePlanningAction: vi.fn(),
+}));
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/session", () => ({
-  requireSession: async () => ({ workspace: { id: "workspace" } }),
+  requireSession: async () => ({ workspace: { id: "workspace", role: "OWNER" } }),
 }));
 vi.mock("@/lib/story/queries", () => ({
   listStoryBooks: async () => [{ id: "book", title: "Libro" }],
@@ -35,7 +48,8 @@ it.each([undefined, "no-existe", "constructor", "__proto__"])(
     expect(html).toContain('<option value="FREE" selected="">');
   },
 );
-it("muestra la estructura elegida y mantiene seleccionado el formulario", async () => {
+it("muestra la estructura guardada y no la reemplaza con un parámetro de URL", async () => {
+  fixture.structure = "THREE_ACTS";
   const html = renderToStaticMarkup(
     createElement(
       "div",
@@ -45,7 +59,6 @@ it("muestra la estructura elegida y mantiene seleccionado el formulario", async 
       }),
     ),
   );
-  expect(html).toContain("Acto I · Planteamiento");
-  expect(html).toContain("Acto III · Resolución");
+  expect(html).toContain("Estructura narrativa guardada");
   expect(html).toContain('<option value="THREE_ACTS" selected="">');
 });

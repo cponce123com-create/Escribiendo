@@ -1,4 +1,6 @@
 import "server-only";
+import { loadLaboratoryReview, reviewStatusFor } from "./laboratory-review";
+import { canPerform } from "./permissions";
 import { createHash } from "node:crypto";
 import type { Prisma } from "@escribiendo/database";
 import {
@@ -182,6 +184,11 @@ export async function analyzeBookEditorially(
   const book = await getBook(session, bookId);
   if (!book) return null;
 
+  const review = await loadLaboratoryReview(session, bookId);
+  const storedRules = Array.isArray(review?.disabledRules)
+    ? review.disabledRules.filter((value): value is string => typeof value === "string")
+    : [];
+  const configuredRules = options.disabledRules ?? storedRules;
   const tree = await getSectionTree(session, bookId);
   const selectedNodes = selectAnalysisSections(tree, options.sectionId);
   if (!selectedNodes) return null;
@@ -273,20 +280,20 @@ export async function analyzeBookEditorially(
     rules: createSpanishStyleRules(),
     preferences: {
       enabledByRuleId: Object.fromEntries(
-        disabledStyleRules(options.disabledRules ? [...options.disabledRules] : undefined).map(
-          (id) => [id, false],
-        ),
+        disabledStyleRules([...configuredRules]).map((id) => [id, false]),
       ),
     },
     maxFindingsPerSection: MAX_FINDINGS_PER_SECTION,
     batchSize: 5,
   });
   const totalStyleFindings = styleResult.findings.length;
-  const styleFindings = styleResult.findings
-    .slice(0, MAX_VISIBLE_OBSERVATIONS)
-    .map((finding) =>
-      mapStyleFinding(finding, titleBySectionId.get(finding.sectionId) ?? "Sección"),
-    );
+  const styleFindings = styleResult.findings.slice(0, MAX_VISIBLE_OBSERVATIONS).map((finding) => ({
+    ...mapStyleFinding(finding, titleBySectionId.get(finding.sectionId) ?? "Sección"),
+    reviewStatus: reviewStatusFor(
+      review?.decisions,
+      `escribiendo:analysis-ignore:${session.user.id}:${bookId}:style:${finding.id}`,
+    ),
+  }));
 
   const repetitionResult = analyzeRepetition(
     analysisSections.map((section) => ({
@@ -308,7 +315,13 @@ export async function analyzeBookEditorially(
   const totalRepetitionFindings = repetitionResult.observations.length;
   const repetitionFindings = repetitionResult.observations
     .slice(0, MAX_VISIBLE_OBSERVATIONS)
-    .map((finding) => mapRepetitionFinding(finding, titleBySectionId));
+    .map((finding) => ({
+      ...mapRepetitionFinding(finding, titleBySectionId),
+      reviewStatus: reviewStatusFor(
+        review?.decisions,
+        `escribiendo:analysis-ignore:${session.user.id}:${bookId}:repetition:${finding.id}:${finding.first.contentVersion}:${finding.second.contentVersion}`,
+      ),
+    }));
 
   const readabilityAnalysis = analyzeReadability(linguisticInputs);
   const readability = readabilityAnalysis.documents.map(mapReadability);
@@ -343,13 +356,26 @@ export async function analyzeBookEditorially(
     bookId,
     userId: session.user.id,
     bookTitle: book.title,
+    canReview: canPerform(session.workspace.role, "comment:create"),
+    openStyleFindings: styleResult.findings.filter(
+      (finding) =>
+        reviewStatusFor(
+          review?.decisions,
+          `escribiendo:analysis-ignore:${session.user.id}:${bookId}:style:${finding.id}`,
+        ) === "open",
+    ).length,
+    openRepetitionFindings: repetitionResult.observations.filter(
+      (finding) =>
+        reviewStatusFor(
+          review?.decisions,
+          `escribiendo:analysis-ignore:${session.user.id}:${bookId}:repetition:${finding.id}:${finding.first.contentVersion}:${finding.second.contentVersion}`,
+        ) === "open",
+    ).length,
     sectionOptions: flattenSectionTree(tree)
       .filter((node) => NARRATIVE_ANALYSIS_TYPES.has(node.type))
       .map(({ id, title }) => ({ id, title })),
     selectedSectionId: options.sectionId,
-    disabledRules: disabledStyleRules(
-      options.disabledRules ? [...options.disabledRules] : undefined,
-    ),
+    disabledRules: disabledStyleRules([...configuredRules]),
     sectionsAnalyzed: analysisSections.length,
     omittedSections,
     styleFindings,

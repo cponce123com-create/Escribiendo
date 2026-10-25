@@ -8,7 +8,7 @@ describe("analyzeNarrative", () => {
         text: "Andrés Salazar llegó temprano. Andrés, a sus 42 años, miró el espejo. —No volveré —dijo Andrés.",
       },
     ]);
-    const andres = result.find((x) => x.name === "Andrés");
+    const andres = result.find((x) => x.name === "Andrés Salazar");
     expect(andres).toBeDefined();
     expect(andres?.age).toBe("42");
     expect(andres?.evidence.some((e) => e.kind === "dialogue")).toBe(true);
@@ -21,14 +21,15 @@ describe("analyzeNarrative", () => {
       ]),
     ).toEqual([]);
   });
-  it("conserva separadas las variantes de nombre ambiguas", () => {
+  it("agrupa únicamente variantes observadas de una identidad completa inequívoca", () => {
     const r = analyzeNarrative([
       {
         title: "I",
         text: "Andrés Salazar miró atrás. Andrés siguió andando. Salazar cerró la puerta. Andrés Salazar volvió.",
       },
     ]);
-    expect(r.some((x) => x.name === "Andrés Salazar")).toBe(true);
-    expect(r.some((x) => x.name === "Andrés")).toBe(true);
+    expect(r).toHaveLength(1);
+    expect(r[0]?.name).toBe("Andrés Salazar");
+    expect(r[0]?.aliases).toEqual(expect.arrayContaining(["Andrés", "Salazar"]));
   });
 });

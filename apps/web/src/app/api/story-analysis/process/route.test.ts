@@ -1,4 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
+vi.mock("server-only", () => ({}));
 const mocks = vi.hoisted(() => ({ session: vi.fn(), origin: vi.fn(), task: vi.fn() }));
 vi.mock("@/lib/auth/session", () => ({ getSession: mocks.session }));
 vi.mock("@/lib/security/request-context", () => ({ assertRequestOrigin: mocks.origin }));

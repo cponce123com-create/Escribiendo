@@ -60,7 +60,7 @@ it("resuelve títulos de cronología por lote sin una relación section inexiste
   });
   expect(dashboard?.timeline[0]).toMatchObject({
     sectionTitle: "El viaje",
-    narrativeOrder: 7,
+    narrativeOrder: 0,
     chronologicalOrder: 4,
     characterName: "Ana",
   });
@@ -153,4 +153,47 @@ it("no cuenta un nombre dentro de otra palabra", async () => {
   ]);
   const dashboard = await getNarrativeDashboard(session, "book");
   expect(dashboard?.characters[0]?.appearances).toBe(2);
+});
+it("usa el orden editorial para las apariciones y conserva las fechas guardadas", async () => {
+  const document = {
+    type: "doc",
+    content: [{ type: "paragraph", content: [{ type: "text", text: "Ana llegó." }] }],
+  };
+  mocks.sections
+    .mockResolvedValueOnce([
+      {
+        id: "chapter",
+        title: "Capítulo",
+        type: "CHAPTER",
+        parentId: null,
+        sortOrder: 0,
+        content: document,
+      },
+      {
+        id: "front",
+        title: "Prólogo",
+        type: "PROLOGUE",
+        parentId: null,
+        sortOrder: 9,
+        content: document,
+      },
+    ])
+    .mockResolvedValueOnce([{ id: "chapter", title: "Capítulo", sortOrder: 0 }]);
+  mocks.events.mockResolvedValue([
+    {
+      ...event,
+      sectionId: "chapter",
+      startsOn: "2000-01-01",
+      endsOn: "2001-01-01",
+      datePrecision: "APPROXIMATE",
+    },
+  ]);
+  const result = await getNarrativeDashboard(session, "book");
+  expect(result?.chapters.map((chapter) => chapter.sectionId)).toEqual(["front", "chapter"]);
+  expect(result?.timeline[0]).toMatchObject({
+    narrativeOrder: 2,
+    startsOn: "2000-01-01",
+    endsOn: "2001-01-01",
+    datePrecision: "APPROXIMATE",
+  });
 });

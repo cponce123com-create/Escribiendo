@@ -153,6 +153,8 @@ export async function loadNarrativeContinuity(
     .filter(
       (item) =>
         currentHashes.get(item.sectionId) === item.contentHash &&
+        sections.find((section) => section.id === item.sectionId)?.version ===
+          item.contentVersion &&
         item.ruleVersion === NARRATIVE_FACT_RULE_VERSION,
     )
     .map((item) => ({

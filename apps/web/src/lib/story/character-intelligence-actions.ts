@@ -1,4 +1,5 @@
 "use server";
+import { personalIdentity, readNameVerification } from "./personal-name";
 import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
@@ -494,6 +495,25 @@ export async function reviewCharacterSuggestion(
     revalidatePath("/characters");
     return successState("Sugerencia descartada; la ficha del personaje no se modificó.");
   }
+  if (suggestion.stale || !readNameVerification(suggestion.nameVerification))
+    return errorState("Vuelve a analizar la sugerencia antes de aceptarla o fusionarla.");
+  if (!(await storyBookExists(start.session, suggestion.bookId)))
+    return errorState("Libro no disponible.");
+  const source = await prisma.bookSection.findFirst({
+    where: {
+      id: suggestion.sectionId,
+      bookId: suggestion.bookId,
+      deletedAt: null,
+      book: { workspaceId: start.session.workspace.id, deletedAt: null },
+    },
+    select: { content: true },
+  });
+  if (
+    !source ||
+    createHash("sha256").update(JSON.stringify(source.content)).digest("hex") !==
+      suggestion.contentHash
+  )
+    return errorState("El texto cambió después de la verificación. Vuelve a analizarlo.");
   let characterId = formValue(fd, "characterId");
   let target = null as {
     id: string;
@@ -523,57 +543,63 @@ export async function reviewCharacterSuggestion(
       },
       select: { id: true, name: true, age: true, description: true, notes: true },
     });
-    const exact = existing.filter((item) => norm(item.name) === norm(suggestion.suggestedName));
-    const proposedName = norm(suggestion.suggestedName);
-    const variants = proposedName.includes(" ")
-      ? []
-      : existing.filter((item) => norm(item.name).split(/\s+/).includes(proposedName));
-    const matches = exact.length ? exact : variants;
-    if (matches.length > 1)
+    if (
+      existing.some(
+        (item) => personalIdentity(item.name) === personalIdentity(suggestion.suggestedName),
+      )
+    )
       return errorState(
-        "El nombre podría corresponder a varias fichas; selecciona manualmente dónde fusionarlo.",
+        "Ya existe una ficha con ese nombre. Elige Fusionar para unirla explícitamente.",
       );
-    target = matches[0] ?? null;
   }
-  const resolved = await prisma.$transaction(async (tx) => {
-    if (!target && decision === "accept") {
-      const created = await tx.storyCharacter.create({
-        data: {
-          workspaceId: start.session.workspace.id,
-          bookId: suggestion.bookId,
-          createdById: start.session.user.id,
-          name: suggestion.suggestedName,
-          role: "OTHER",
-          age: suggestion.suggestedAge,
-          description: suggestion.suggestedDescription,
-        },
-        select: { id: true },
+  const resolved = await prisma
+    .$transaction(async (tx) => {
+      const claimed = await tx.storyCharacterSuggestion.updateMany({
+        where: { id: suggestion.id, workspaceId: start.session.workspace.id, status: "PENDING" },
+        data: { status: decision === "merge" ? "MERGED" : "ACCEPTED" },
       });
-      characterId = created.id;
-    } else if (target) {
-      // Solo completa campos vacíos; no pisa ninguna modificación escrita por el autor.
-      await tx.storyCharacter.update({
-        where: { id: target.id },
+      if (claimed.count !== 1) throw new Error("CHARACTER_ALREADY_REVIEWED");
+      if (!target && decision === "accept") {
+        const created = await tx.storyCharacter.create({
+          data: {
+            workspaceId: start.session.workspace.id,
+            bookId: suggestion.bookId,
+            createdById: start.session.user.id,
+            name: suggestion.suggestedName,
+            role: "OTHER",
+            age: suggestion.suggestedAge,
+            description: suggestion.suggestedDescription,
+          },
+          select: { id: true },
+        });
+        characterId = created.id;
+      } else if (target) {
+        // Solo completa campos vacíos; no pisa ninguna modificación escrita por el autor.
+        await tx.storyCharacter.update({
+          where: { id: target.id },
+          data: {
+            ...(target.age === null && suggestion.suggestedAge
+              ? { age: suggestion.suggestedAge }
+              : {}),
+            ...(target.description === null && suggestion.suggestedDescription
+              ? { description: suggestion.suggestedDescription }
+              : {}),
+          },
+        });
+        characterId = target.id;
+      }
+      await tx.storyCharacterSuggestion.update({
+        where: { id: suggestion.id },
         data: {
-          ...(target.age === null && suggestion.suggestedAge
-            ? { age: suggestion.suggestedAge }
-            : {}),
-          ...(target.description === null && suggestion.suggestedDescription
-            ? { description: suggestion.suggestedDescription }
-            : {}),
+          status: target || decision === "merge" ? "MERGED" : "ACCEPTED",
+          characterId: characterId || null,
         },
       });
-      characterId = target.id;
-    }
-    await tx.storyCharacterSuggestion.update({
-      where: { id: suggestion.id },
-      data: {
-        status: target || decision === "merge" ? "MERGED" : "ACCEPTED",
-        characterId: characterId || null,
-      },
-    });
-    return characterId;
-  });
+      return characterId;
+    })
+    .catch(() => null);
+  if (!resolved)
+    return errorState("No se pudo aceptar la sugerencia; quizá ya fue revisada. Recarga la lista.");
   await writeAuditLog(
     {
       action:

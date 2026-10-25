@@ -15,14 +15,17 @@ export default async function BookAnalysisPage({
   searchParams,
 }: {
   params: Promise<{ bookId: string }>;
-  searchParams: Promise<{ section?: string; disableRule?: string | string[] }>;
+  searchParams: Promise<{ section?: string; rules?: string; disableRule?: string | string[] }>;
 }) {
   const session = await requireSession();
   const { bookId } = await params;
   const query = await searchParams;
   const analysis = await analyzeBookEditorially(session, bookId, {
     sectionId: query.section || undefined,
-    disabledRules: disabledStyleRules(query.disableRule),
+    disabledRules:
+      query.rules === "custom" || query.disableRule
+        ? disabledStyleRules(query.disableRule)
+        : undefined,
   });
   if (!analysis) notFound();
 

@@ -2,9 +2,10 @@
 import { useActionState, useCallback, useEffect, useRef, useState } from "react";
 import {
   getCharacterSuggestions,
-  queueBookCharacterAnalysis,
   reviewCharacterSuggestion,
 } from "@/lib/story/character-intelligence-actions";
+import { analyzeBookCharacters } from "@/lib/story/character-analysis-actions";
+import { readNameVerification } from "@/lib/story/personal-name";
 import { initialActionState } from "@/lib/action-state";
 import type { CharacterView } from "@/lib/story/queries";
 type Snapshot = Extract<Awaited<ReturnType<typeof getCharacterSuggestions>>, { ok: true }>;
@@ -18,6 +19,7 @@ function SuggestionCard({
   bookId: string;
   characters: CharacterView[];
 }) {
+  const verification = readNameVerification(item.nameVerification);
   const [state, action, pending] = useActionState(reviewCharacterSuggestion, initialActionState);
   useEffect(() => {
     if (state.status === "success") window.dispatchEvent(new Event("story-suggestions-refresh"));
@@ -34,10 +36,57 @@ function SuggestionCard({
         </div>
         {item.stale ? (
           <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs text-amber-900">
-            Texto reescrito; revisa la evidencia
+            Texto o motor anterior; requiere verificación
           </span>
         ) : null}
       </div>
+      {verification ? (
+        <div className="mt-3 space-y-1 text-xs text-ink-soft">
+          <p>
+            Doble verificación: {verification.forwardMentions} apariciones de ida ·{" "}
+            {verification.reverseMentions} comprobadas de vuelta.
+          </p>
+          <p>
+            Nombre: {verification.givenNames || "No determinado"} · Apellido probable:{" "}
+            {verification.surnames || "No determinado"}
+          </p>
+          <p>{verification.basis}</p>
+          {verification.variants?.length ? (
+            <p>Variantes verificadas: {verification.variants.join(", ")}</p>
+          ) : null}
+          {verification.secondaryEvidence?.length ? (
+            <details>
+              <summary className="cursor-pointer font-semibold">Ver comprobación de vuelta</summary>
+              <ul className="mt-2 space-y-2">
+                {verification.secondaryEvidence.map((evidence, index) => (
+                  <li key={`${evidence.sectionId}-${index}`}>
+                    <p>
+                      {evidence.sectionTitle}: «{evidence.excerpt}»
+                    </p>
+                    <a
+                      className="underline"
+                      href={`/books/${bookId}/sections/${evidence.sectionId}?find=${encodeURIComponent(evidence.nameUsed)}`}
+                    >
+                      Abrir fragmento comprobado
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+
+          {verification.ambiguousVariants.length ? (
+            <p className="text-amber-800">
+              Forma compartida sin asignar: {verification.ambiguousVariants.join(", ")}. No se
+              unieron personajes.
+            </p>
+          ) : null}
+        </div>
+      ) : (
+        <p className="mt-2 text-xs text-ink-muted">
+          Detección anterior: vuelve a analizar para verificar nombre y apellidos.
+        </p>
+      )}
       <blockquote className="mt-3 border-l-2 border-accent/40 pl-3 text-sm text-ink-soft">
         “{item.excerpt}”
       </blockquote>
@@ -61,7 +110,7 @@ function SuggestionCard({
           className="btn btn-primary btn-sm"
           name="decision"
           value="accept"
-          disabled={pending}
+          disabled={pending || item.stale || !verification}
         >
           Aceptar como ficha nueva
         </button>
@@ -90,7 +139,7 @@ function SuggestionCard({
           className="btn btn-secondary btn-sm"
           name="decision"
           value="merge"
-          disabled={pending}
+          disabled={pending || item.stale || !verification}
         >
           Fusionar
         </button>
@@ -162,31 +211,13 @@ export function CharacterAnalyzer({
     setError("");
     setNotice("");
     try {
-      const queued = await queueBookCharacterAnalysis(bookId);
-      if (!queued.ok) {
-        setError(queued.error);
+      const result = await analyzeBookCharacters(bookId);
+      if (!result.ok) {
+        setError(result.error);
         return;
       }
-      for (let offset = 0; offset < queued.taskIds.length; offset += 4) {
-        await Promise.all(
-          queued.taskIds.slice(offset, offset + 4).map(async (taskId) => {
-            try {
-              await fetch("/api/story-analysis/process", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ taskId }),
-                keepalive: true,
-              });
-            } catch {
-              /* queda pendiente en la cola */
-            }
-          }),
-        );
-      }
       await refresh();
-      setNotice(
-        `Revisión completa solicitada para ${queued.count} secciones. Las sugerencias quedan pendientes de tu revisión.`,
-      );
+      setNotice(result.notice);
     } catch {
       setError("No se pudo iniciar la revisión completa.");
     } finally {
@@ -203,9 +234,10 @@ export function CharacterAnalyzer({
             Sugerencias de personajes
           </h2>
           <p className="mt-2 max-w-2xl text-sm text-ink-muted">
-            Los cambios guardados se ponen en cola y se analizan en una petición independiente. No
-            se escanea el libro mientras escribes. La detección es heurística: confirma cada
-            resultado y su evidencia.
+            La revisión completa contrasta nombres, posibles apellidos y sus apariciones de ida y
+            vuelta entre capítulos. Los cambios guardados se verifican por sección, sin escanear
+            todo el libro mientras escribes. Las mayúsculas por sí solas no bastan; confirma cada
+            propuesta.
           </p>
         </div>
         <button type="button" className="btn btn-secondary" onClick={reanalyze} disabled={loading}>
@@ -230,16 +262,39 @@ export function CharacterAnalyzer({
       ) : null}
       {snapshot ? (
         <div className="mt-4 space-y-3">
-          {snapshot.suggestions.length ? (
-            snapshot.suggestions.map((item) => (
-              <SuggestionCard key={item.id} item={item} bookId={bookId} characters={characters} />
-            ))
+          {snapshot.suggestions.some((item) => !item.stale) ? (
+            snapshot.suggestions
+              .filter((item) => !item.stale)
+              .map((item) => (
+                <SuggestionCard key={item.id} item={item} bookId={bookId} characters={characters} />
+              ))
           ) : (
             <p className="rounded-lg bg-surface-subtle p-4 text-sm text-ink-muted">
               No hay sugerencias pendientes. Las fichas aprobadas, descartadas y fusionadas se
               conservan como decisiones revisadas.
             </p>
           )}
+          {snapshot.suggestions.some((item) => item.stale) ? (
+            <details className="mt-4">
+              <summary className="cursor-pointer text-sm text-ink-muted">
+                Sugerencias anteriores pendientes (
+                {snapshot.suggestions.filter((item) => item.stale).length})
+              </summary>
+              <p className="my-2 text-xs text-ink-muted">
+                Se conservan para revisión, pero no se pueden aceptar hasta volver a verificarse.
+              </p>
+              {snapshot.suggestions
+                .filter((item) => item.stale)
+                .map((item) => (
+                  <SuggestionCard
+                    key={item.id}
+                    item={item}
+                    bookId={bookId}
+                    characters={characters}
+                  />
+                ))}
+            </details>
+          ) : null}
         </div>
       ) : loading ? (
         <p className="mt-4 text-sm text-ink-muted">Cargando sugerencias…</p>

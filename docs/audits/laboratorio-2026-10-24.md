@@ -87,3 +87,7 @@ No se declara completado el plan íntegro ni se asignan puntuaciones ficticias d
 8. Ejecutar el E2E nuevo exclusivamente en PostgreSQL de pruebas aislado. Verificar historial/restauración, continuidad y exportaciones PDF/EPUB/DOCX con libros reales antes de declarar aceptación final.
 
 Comprobación final de esta entrega: `pnpm lint`, `pnpm typecheck`, `pnpm format:check`, `pnpm test` (**827 pruebas / 107 archivos**) y `pnpm build` aprobados; `git diff --check` sin errores. El build registra la nueva ruta `/books/[bookId]/laboratorio`. La prueba autenticada se enumeró con Playwright (`--list`) sin ejecutar su preparación de datos. No se realizaron exportaciones ni validaciones externas EPUB/DOCX en esta entrega, que no modifica sus generadores.
+
+## Continuación posterior
+
+Los pendientes funcionales de esta instantánea se abordaron en la entrega descrita en [LABORATORIO_EDITORIAL.md](../LABORATORIO_EDITORIAL.md). Este informe conserva la evidencia y las limitaciones de la entrega inicial; consultar el nuevo documento para migración, persistencia entre dispositivos y pruebas autenticadas de cierre.

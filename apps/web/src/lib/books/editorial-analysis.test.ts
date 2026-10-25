@@ -2,6 +2,10 @@ import { beforeEach, expect, it, vi } from "vitest";
 import type { SessionContext } from "@/lib/auth/session";
 const mocks = vi.hoisted(() => ({ book: vi.fn(), tree: vi.fn(), sections: vi.fn() }));
 vi.mock("server-only", () => ({}));
+vi.mock("./laboratory-review", () => ({
+  loadLaboratoryReview: async () => null,
+  reviewStatusFor: () => "open",
+}));
 vi.mock("@/lib/books/queries", () => ({ getBook: mocks.book, getSectionTree: mocks.tree }));
 vi.mock("@/lib/db", () => ({ prisma: { bookSection: { findMany: mocks.sections } } }));
 import { analyzeBookEditorially } from "./editorial-analysis";

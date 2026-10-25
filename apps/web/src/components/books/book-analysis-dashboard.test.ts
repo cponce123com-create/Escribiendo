@@ -1,8 +1,10 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { BookAnalysisDashboard } from "./book-analysis-dashboard";
 import type { BookAnalysisDashboardProps } from "./book-analysis-dashboard";
+
+vi.mock("@/lib/books/laboratory-review-actions", () => ({ saveLaboratoryReviewAction: vi.fn() }));
 
 const props: BookAnalysisDashboardProps = {
   bookId: "libro-1",
