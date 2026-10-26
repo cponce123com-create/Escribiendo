@@ -26,7 +26,7 @@ Archivos principales: `apps/web/src/lib/books/import-{actions,detection,types}.t
 
 `pnpm build`, `pnpm typecheck`, `pnpm lint` y `pnpm test` (1058/1058) pasaron. La suite E2E de importación pasó 3/3; la de exportación, manuscrito y seguridad pasó 39/39 en Chromium con una base PGlite aislada. EPUBCheck informó cero errores y avisos; Mammoth extrajo el texto DOCX, con advertencia sobre el estilo «Cita». La vista previa y el PDF sintéticos coincidieron en 11 páginas. Los tiempos observados en fixtures locales fueron 49 ms (DOCX 10 000 palabras) y 877 ms (DOCX 200 000 palabras); falta una línea base anterior comparable, por lo que no se calcula mejora porcentual.
 
-Commits: `c1fb0e9` (integridad del importador) y `a72623a` (editor, contraste y regresión de exportación). El commit de los informes y el estado de push se registran al cerrar la rama de trabajo.
+Commits de la rama publicada: `2b65d68` (integridad del importador), `bed9b89` (editor, contraste y regresión de exportación) y `202f95b` (informes). Git HTTPS no disponía de credenciales interactivas; se publicaron los mismos árboles y mensajes mediante la conexión de GitHub. El árbol remoto coincidió con el local (`dbbb02eacdedde861e3ea51085eb1d914c040865`). La rama `feat/auditoria-95-20261026` está publicada y el PR #70 permanece en borrador; no se integró ni desplegó.
 
 ## Pendientes y riesgo
 
