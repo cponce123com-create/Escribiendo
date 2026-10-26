@@ -17,11 +17,12 @@ export interface DashboardWritingActivity {
 /** Progreso del año calendario en la zona horaria del estudio (Perú). */
 export function dashboardYearProgress(now = new Date()): DashboardYearProgress {
   const [year = 0, month = 1, day = 1] = dayKey(now).split("-").map(Number);
-  const yearStart = Date.UTC(year, 0, 1);
-  const currentDate = Date.UTC(year, month - 1, day);
-  const nextYearStart = Date.UTC(year + 1, 0, 1);
-  const dayNumber = Math.floor((currentDate - yearStart) / 86_400_000) + 1;
-  const daysInYear = Math.round((nextYearStart - yearStart) / 86_400_000);
+
+  // Calcular día del año usando la fecha de Perú (no UTC) para evitar mismatches de zona horaria
+  const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const daysInMonth = [31, isLeapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  const dayNumber = daysInMonth.slice(0, month - 1).reduce((sum, d) => sum + d, 0) + day;
+  const daysInYear = isLeapYear ? 366 : 365;
   const percent = Math.min(100, Math.max(0, Math.round((dayNumber / daysInYear) * 1_000) / 10));
 
   return {
