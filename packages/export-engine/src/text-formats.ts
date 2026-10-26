@@ -195,6 +195,10 @@ function htmlInline(run: ExportInlineRun): string {
     html = `<a href="${escapeHtml(run.link)}">${html}</a>`;
   }
 
+  if (run.glossary) {
+    html = `<span class="glossary-term" data-term="${escapeHtml(run.glossary)}">${html}</span>`;
+  }
+
   return html;
 }
 
@@ -240,7 +244,8 @@ figure.image img { max-width: 100%; height: auto; }
 figcaption, .image-alt { font-size: 0.9em; font-style: italic; color: #555; }
 nav.toc ol { list-style: none; padding-left: 1rem; }
 section.footnotes { margin-top: 3em; font-size: 0.85em; border-top: 1px solid #999; padding-top: 1em; }
-a.footnote-ref { text-decoration: none; }`;
+a.footnote-ref { text-decoration: none; }
+.glossary-term { text-decoration: underline dotted; }`;
 
 /** Documento HTML5 autónomo: se puede abrir en cualquier navegador sin recursos externos. */
 export function buildHtml(document: ExportDocumentModel): Uint8Array {

@@ -11,6 +11,7 @@ interface EditorToolbarProps {
   onLink: () => void;
   onFootnote: () => void;
   onMarginNote: () => void;
+  onGlossaryTerm: () => void;
   onImage: () => void;
   onProofread: () => void;
 }
@@ -118,6 +119,7 @@ export function EditorToolbar({
   onLink,
   onFootnote,
   onMarginNote,
+  onGlossaryTerm,
   onImage,
   onProofread,
 }: EditorToolbarProps) {
@@ -328,6 +330,14 @@ export function EditorToolbar({
             >
               <Icono tipo="margin" />
               <span>Nota al margen</span>
+            </ToolbarButton>
+            <ToolbarButton
+              label="Término de glosario"
+              title="Señala el texto seleccionado como término del glosario"
+              onClick={onGlossaryTerm}
+            >
+              <Icono tipo="margin" />
+              <span>Término de glosario</span>
             </ToolbarButton>
             <ToolbarButton
               label="Separador"

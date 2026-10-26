@@ -520,6 +520,8 @@ export interface ManuscriptRun {
   superscript?: boolean;
   subscript?: boolean;
   link?: string;
+  /** Término del glosario al que pertenece el tramo. */
+  glossary?: string;
   /** Llamada a nota al pie, con su número y su texto. */
   footnote?: InlineFootnote;
 }
@@ -547,6 +549,7 @@ function flattenRuns(runs: readonly InlineRun[]): ManuscriptRun[] {
       ...(marks?.superscript ? { superscript: true } : {}),
       ...(marks?.subscript ? { subscript: true } : {}),
       ...(marks?.link ? { link: marks.link } : {}),
+      ...(marks?.glossary ? { glossary: marks.glossary } : {}),
       ...(run.footnote ? { footnote: run.footnote } : {}),
     };
   });

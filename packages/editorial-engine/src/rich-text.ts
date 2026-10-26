@@ -30,6 +30,8 @@ export interface InlineMarks {
   code?: boolean;
   /** Dirección de un enlace. */
   link?: string;
+  /** Término del glosario al que pertenece el tramo. */
+  glossary?: string;
 }
 
 /** Referencia a una nota al pie, con su número y su texto. */

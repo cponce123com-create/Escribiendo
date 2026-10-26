@@ -48,6 +48,15 @@ export function marksOf(marks: readonly TiptapMark[] | undefined): InlineMarks |
       case "code":
         result.code = true;
         break;
+      case "glossaryTerm": {
+        const term = mark.attrs?.term;
+
+        if (typeof term === "string" && term.length > 0) {
+          result.glossary = term;
+        }
+
+        break;
+      }
       case "link": {
         const href = mark.attrs?.href;
 

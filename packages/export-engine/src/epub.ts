@@ -30,6 +30,8 @@ export interface ExportInlineRun {
   superscript?: boolean;
   subscript?: boolean;
   link?: string;
+  /** Término del glosario al que pertenece el tramo. */
+  glossary?: string;
   footnote?: ExportFootnote;
 }
 
@@ -162,7 +164,8 @@ section.footnotes { margin-top: 2em; font-size: 0.82em; line-height: 1.35; }
 section.footnotes hr { border: 0; border-top: 1px solid #777; width: 35%; margin: 0 0 1em; }
 section.footnotes ol { padding-left: 1.4em; }
 section.footnotes li { margin-bottom: 0.6em; }
-a.footnote-back { text-decoration: none; }`;
+a.footnote-back { text-decoration: none; }
+.glossary-term { text-decoration: underline dotted; }`;
 
 /** Un tramo con sus etiquetas de formato. */
 function inlineHtml(run: ExportInlineRun): string {
@@ -201,6 +204,10 @@ function inlineHtml(run: ExportInlineRun): string {
 
   if (run.link && esEnlaceSeguro(run.link)) {
     html = `<a href="${escapeXml(run.link)}">${html}</a>`;
+  }
+
+  if (run.glossary) {
+    html = `<span class="glossary-term" data-term="${escapeXml(run.glossary)}">${html}</span>`;
   }
 
   return html;

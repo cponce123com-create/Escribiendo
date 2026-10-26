@@ -3201,6 +3201,11 @@ html[data-focus-mode="true"] .app-topbar {
   font-size: 0.9rem;
   font-style: italic;
 }
+.glossary-term {
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  cursor: help;
+}
 .dashboard-year-content > p {
   margin-top: 0.55rem;
   color: var(--ink-muted);

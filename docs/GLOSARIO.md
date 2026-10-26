@@ -41,7 +41,18 @@ al construir la sección.
 `20261026150000_book_glossary` crea la tabla y su índice único. Es aditiva y se
 aplica con `pnpm db:migrate` (el build de Render ya lo ejecuta).
 
-## Pendiente
+## Marcas en línea
 
-- Marcas en línea del término dentro del texto y tooltip en EPUB/HTML.
-- Detección automática de términos presentes en el manuscrito.
+La barra del editor ofrece **«Término de glosario»** en el menú «Más». Con texto
+seleccionado, pide el término y aplica la marca `glossaryTerm`, que guarda solo
+el nombre: la definición sigue viviendo en el glosario del libro.
+
+- En el editor y en la vista previa el término aparece con subrayado punteado.
+- **HTML y EPUB** lo envuelven en
+  `<span class="glossary-term" data-term="…">` con el mismo subrayado.
+- **PDF, DOCX, Markdown y TXT** conservan el texto sin marcado especial: no hay
+  pérdida de contenido.
+
+La marca no enlaza todavía a la definición ni muestra tooltip; eso queda como
+siguiente paso, junto con la detección automática de términos presentes en el
+manuscrito.

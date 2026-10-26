@@ -37,6 +37,7 @@ import type { ProofreadingIssue } from "@/lib/editor/local-proofreader";
 import { analyzeLocalSection } from "@/lib/editor/linguistic-rules";
 import { SectionImageControls } from "@/components/books/section-image-controls";
 import { EditorialFootnote } from "@/components/editor/editorial-footnote";
+import { EditorialGlossaryTerm } from "@/components/editor/editorial-glossary-term";
 import { EditorialMarginNote } from "@/components/editor/editorial-margin-note";
 import {
   ManuscriptSearchHighlights,
@@ -98,7 +99,7 @@ export function SectionEditor({
    * puede validar mientras se escribe.
    */
   const [dialogo, setDialogo] = useState<{
-    tipo: "enlace" | "nota" | "margen";
+    tipo: "enlace" | "nota" | "margen" | "glosario";
     noteId?: string;
     valor: string;
     /** Selección en el momento de abrir el diálogo, para poder volver a ella. */
@@ -172,6 +173,7 @@ export function SectionEditor({
       }),
       EditorialImage,
       EditorialFootnote,
+      EditorialGlossaryTerm,
       EditorialMarginNote,
       ManuscriptSearchHighlights,
     ],
@@ -845,6 +847,19 @@ export function SectionEditor({
     });
   };
 
+  const abrirGlosario = (): void => {
+    if (!editor) {
+      return;
+    }
+
+    setDialogo({
+      tipo: "glosario",
+      valor: "",
+      desde: editor.state.selection.from,
+      hasta: editor.state.selection.to,
+    });
+  };
+
   const mensaje = statusMessage(machine);
   const sincronizando = machine.state === "syncing";
 
@@ -861,6 +876,7 @@ export function SectionEditor({
           onLink={abrirEnlace}
           onFootnote={abrirNota}
           onMarginNote={abrirNotaMargen}
+          onGlossaryTerm={abrirGlosario}
           onImage={() => setImageToolsOpen((value) => !value)}
           onProofread={revisarTextoLocal}
         />
@@ -1234,6 +1250,75 @@ export function SectionEditor({
                 }
               >
                 Insertar nota
+              </button>
+            </div>
+          </form>
+        </Dialog>
+      ) : null}
+
+      {dialogo?.tipo === "glosario" ? (
+        <Dialog
+          abierto
+          titulo="Término de glosario"
+          descripcion="Selecciona el texto y escribe el término al que corresponde. La definición vive en el glosario del libro."
+          onCerrar={() => setDialogo(null)}
+        >
+          <form
+            className="space-y-4"
+            onSubmit={(evento) => {
+              evento.preventDefault();
+
+              if (!editor) {
+                return;
+              }
+
+              const term = dialogo.valor.trim();
+
+              if (term.length === 0 || term.length > 160 || dialogo.desde === dialogo.hasta) {
+                return;
+              }
+
+              editor
+                .chain()
+                .focus()
+                .setTextSelection({ from: dialogo.desde, to: dialogo.hasta })
+                .setMark("glossaryTerm", { term })
+                .run();
+              setDialogo(null);
+            }}
+          >
+            <div>
+              <label className="field-label" htmlFor="campo-glosario">
+                Término
+              </label>
+              <input
+                id="campo-glosario"
+                name="term"
+                className="field-input"
+                maxLength={160}
+                value={dialogo.valor}
+                onChange={(evento) => setDialogo({ ...dialogo, valor: evento.target.value })}
+              />
+              <p className="field-hint">
+                {dialogo.desde === dialogo.hasta
+                  ? "Selecciona primero el texto que quieres marcar."
+                  : `${dialogo.valor.length} de 160 caracteres.`}
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setDialogo(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary btn-sm"
+                disabled={dialogo.valor.trim().length === 0 || dialogo.desde === dialogo.hasta}
+              >
+                Marcar término
               </button>
             </div>
           </form>
