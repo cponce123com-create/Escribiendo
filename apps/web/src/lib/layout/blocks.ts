@@ -99,6 +99,11 @@ export interface BookBlocksOptions {
   dedication?: DedicationSettings;
   /** Altura útil real, para resolver las posiciones proporcionales al formato. */
   contentHeightMm?: number;
+  /** Folios y títulos para resolver las referencias cruzadas. */
+  crossReferences?: {
+    pageMap: ReadonlyMap<string, number>;
+    titles: ReadonlyMap<string, string | null>;
+  };
   /** Tipo de sección → nombre de página maestra. */
   sectionMasters?: Record<string, string>;
 }

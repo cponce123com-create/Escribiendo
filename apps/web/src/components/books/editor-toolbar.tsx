@@ -12,6 +12,7 @@ interface EditorToolbarProps {
   onFootnote: () => void;
   onMarginNote: () => void;
   onGlossaryTerm: () => void;
+  onCrossReference: () => void;
   onImage: () => void;
   onProofread: () => void;
 }
@@ -120,6 +121,7 @@ export function EditorToolbar({
   onFootnote,
   onMarginNote,
   onGlossaryTerm,
+  onCrossReference,
   onImage,
   onProofread,
 }: EditorToolbarProps) {
@@ -338,6 +340,14 @@ export function EditorToolbar({
             >
               <Icono tipo="margin" />
               <span>Término de glosario</span>
+            </ToolbarButton>
+            <ToolbarButton
+              label="Referencia cruzada"
+              title="Inserta una referencia a otra sección"
+              onClick={onCrossReference}
+            >
+              <Icono tipo="link" />
+              <span>Referencia cruzada</span>
             </ToolbarButton>
             <ToolbarButton
               label="Separador"

@@ -43,6 +43,14 @@ export interface StabilizeCompositionInput {
   measure?: MeasureText;
   /** Páginas maestras por nombre, para que el índice cuente las mismas páginas. */
   masters?: PageMasterMap;
+  /**
+   * Folios de las referencias cruzadas. El mapa se actualiza en cada pasada y
+   * la composición continúa hasta que deja de moverse.
+   */
+  references?: {
+    pageMap: Map<string, number>;
+    titles: Map<string, string | null>;
+  };
   compose: (front: readonly MatterLayout[], back: readonly MatterLayout[]) => LayoutBlock[];
   maxPasses?: number;
 }
@@ -120,7 +128,32 @@ export function stabilizeComposition(input: StabilizeCompositionInput): Stabiliz
     );
   let composition = build(composed);
 
-  if (!input.matter) {
+  const updateReferences = (pages: readonly LaidOutPage[]): boolean => {
+    if (!input.references) {
+      return false;
+    }
+
+    const next = pageFolioBySection(pages);
+    let changed = next.size !== input.references.pageMap.size;
+
+    for (const [id, folio] of next) {
+      if (input.references.pageMap.get(id) !== folio) {
+        changed = true;
+      }
+    }
+
+    input.references.pageMap.clear();
+
+    for (const [id, folio] of next) {
+      input.references.pageMap.set(id, folio);
+    }
+
+    return changed;
+  };
+
+  const referencesChanged = updateReferences(composition.pages);
+
+  if (!input.matter && (!input.references || !referencesChanged)) {
     return {
       composedMatter: composed,
       composition,
@@ -135,16 +168,25 @@ export function stabilizeComposition(input: StabilizeCompositionInput): Stabiliz
   while (passes < maxPasses) {
     passes += 1;
 
-    const next = composeMatter(input.matter, pageFolioBySection(composition.pages));
+    const next = input.matter
+      ? composeMatter(input.matter, pageFolioBySection(composition.pages))
+      : composed;
     const nextComposition = build(next);
     const stable = next.signature === composed.signature;
+    const refsChanged = updateReferences(nextComposition.pages);
 
     composed = next;
     composition = nextComposition;
 
-    if (stable) {
+    if (stable && !refsChanged) {
       converged = true;
       break;
+    }
+
+    // El índice puede repetir su firma mientras los folios de las referencias
+    // todavía se mueven: en ese caso hay que seguir, no rendirse.
+    if (stable && refsChanged) {
+      continue;
     }
 
     // Una firma repetida significa que el índice oscila entre dos estados:

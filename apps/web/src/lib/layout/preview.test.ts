@@ -116,6 +116,7 @@ describe("vista previa paginada", () => {
       frontMatter: [],
       backMatter: [],
       contentHeightMm: 170,
+      crossReferences: expect.any(Object),
     });
   });
 
@@ -129,6 +130,7 @@ describe("vista previa paginada", () => {
       frontMatter: [],
       backMatter: [],
       contentHeightMm: 170,
+      crossReferences: expect.any(Object),
     });
   });
 
@@ -189,6 +191,7 @@ describe("vista previa paginada", () => {
       frontMatter: [],
       backMatter: [],
       contentHeightMm: 170,
+      crossReferences: expect.any(Object),
     });
   });
 

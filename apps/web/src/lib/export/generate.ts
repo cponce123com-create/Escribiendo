@@ -22,6 +22,7 @@ import {
   type PageGeometry,
 } from "@escribiendo/editorial-engine";
 import { getBookEdition, getDefaultLayoutProfile } from "@/lib/layout/profiles";
+import { sectionDisplayTitles } from "@/lib/layout/section-title";
 import { prisma } from "@/lib/db";
 import {
   sectionToBlocks as layoutSectionToBlocks,
@@ -280,8 +281,13 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
       ...geometryFromProfile(input.profile),
       physicalPageOffset: input.cover ? 1 : 0,
     };
+    const crossReferences = {
+      pageMap: new Map<string, number>(),
+      titles: sectionDisplayTitles(previewSections),
+    };
     const compose = (front: readonly MatterLayout[], back: readonly MatterLayout[]) =>
       bookToBlocks(sectionsForMatter(previewSections, matter), {
+        crossReferences,
         dropCaps: input.dropCaps === true,
         ...(input.dropCapLines ? { dropCapLines: input.dropCapLines } : {}),
         ...(matter?.dropCap?.overrides ? { dropCapOverrides: matter.dropCap.overrides } : {}),
@@ -304,6 +310,7 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
       ...(input.runningHeadTemplate?.pageMasters
         ? { masters: input.runningHeadTemplate.pageMasters }
         : {}),
+      references: crossReferences,
       compose,
     });
 

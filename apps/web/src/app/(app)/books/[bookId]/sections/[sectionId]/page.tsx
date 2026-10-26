@@ -196,6 +196,10 @@ export default async function SectionPage({ params, searchParams }: SectionPageP
             wordCount={section.wordCount}
             canEdit={canEdit}
             bookAssets={imagenes}
+            sections={flattenSectionTree(sectionTree).map((node) => ({
+              id: node.id,
+              title: node.title,
+            }))}
             findingRange={findingRange}
           />
         </>

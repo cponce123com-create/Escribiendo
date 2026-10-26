@@ -38,6 +38,7 @@ import {
   type TocStability,
 } from "@/lib/editorial/toc-stabilization";
 import { resolvePageDecorations } from "./running-heads";
+import { sectionDisplayTitles } from "./section-title";
 import { applyEditionDecoration, decorationFromSettings } from "./decoration";
 import { previewLineDrawings, type PreviewLineDrawing } from "./preview-drawing";
 import { loadPdfFonts } from "@/lib/export/fonts";
@@ -258,10 +259,15 @@ export async function buildPreview(
   const fuentes = await loadPdfFonts();
   const cover = await loadPreviewCover(session, bookId);
   const geometry = { ...geometryFromProfile(profile), physicalPageOffset: cover ? 1 : 0 };
+  const crossReferences = {
+    pageMap: new Map<string, number>(),
+    titles: sectionDisplayTitles(sections),
+  };
   const compose = (front: readonly MatterLayout[], back: readonly MatterLayout[]): LayoutBlock[] =>
     bookToBlocks(sectionsForMatter(sections, matter), {
       dropCaps,
       dropCapLines,
+      crossReferences,
       ...(matter?.dropCap?.overrides ? { dropCapOverrides: matter.dropCap.overrides } : {}),
       frontMatter: front,
       backMatter: back,
@@ -282,6 +288,7 @@ export async function buildPreview(
     ...(effectiveTemplate?.config.pageMasters
       ? { masters: effectiveTemplate.config.pageMasters }
       : {}),
+    references: crossReferences,
     compose,
   });
   const { composition: result, stability } = stabilized;

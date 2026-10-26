@@ -3206,6 +3206,11 @@ html[data-focus-mode="true"] .app-topbar {
   text-underline-offset: 2px;
   cursor: help;
 }
+.cross-reference {
+  color: var(--accent);
+  border-bottom: 1px dashed currentColor;
+  padding: 0 0.1em;
+}
 .dashboard-year-content > p {
   margin-top: 0.55rem;
   color: var(--ink-muted);

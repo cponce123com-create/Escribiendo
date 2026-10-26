@@ -83,6 +83,11 @@ export function marksOf(marks: readonly TiptapMark[] | undefined): InlineMarks |
  */
 export interface InlineOptions {
   hardBreak?: "space" | "newline";
+  /** Folios y títulos para resolver las referencias cruzadas. */
+  crossReferences?: {
+    pageMap: ReadonlyMap<string, number>;
+    titles: ReadonlyMap<string, string | null>;
+  };
 }
 
 export function inlineRuns(
@@ -90,6 +95,22 @@ export function inlineRuns(
   footnotes?: FootnoteCounter,
   options: InlineOptions = {},
 ): InlineRun[] {
+  if (node.type === "crossReference") {
+    const attrs = node.attrs ?? {};
+    const targetId = typeof attrs.targetId === "string" ? attrs.targetId : "";
+    const label = typeof attrs.label === "string" ? attrs.label : "";
+    const title = options.crossReferences?.titles.get(targetId) ?? label;
+    const format = attrs.format === "title" ? "title" : "page";
+    // Sin mapa de páginas (EPUB, DOCX) la referencia cae al título: un número
+    // inventado sería peor que el nombre de la sección.
+    const text =
+      format === "title" || !options.crossReferences
+        ? title || "sección"
+        : String(options.crossReferences.pageMap.get(targetId) ?? "00");
+
+    return text.length > 0 ? [{ text }] : [];
+  }
+
   if (node.type === "text") {
     const text = node.text ?? "";
     const marks = marksOf(node.marks);

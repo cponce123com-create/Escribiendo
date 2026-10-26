@@ -36,6 +36,7 @@ import type { EditorialFindingStatus } from "@escribiendo/book-schema";
 import type { ProofreadingIssue } from "@/lib/editor/local-proofreader";
 import { analyzeLocalSection } from "@/lib/editor/linguistic-rules";
 import { SectionImageControls } from "@/components/books/section-image-controls";
+import { EditorialCrossReference } from "@/components/editor/editorial-cross-reference";
 import { EditorialFootnote } from "@/components/editor/editorial-footnote";
 import { EditorialGlossaryTerm } from "@/components/editor/editorial-glossary-term";
 import { EditorialMarginNote } from "@/components/editor/editorial-margin-note";
@@ -58,6 +59,8 @@ interface SectionEditorProps {
   wordCount: number;
   canEdit: boolean;
   bookAssets: BookAssetSummary[];
+  /** Secciones del libro, para elegir el destino de una referencia cruzada. */
+  sections?: readonly { id: string; title: string }[];
   findingRange?: { start: number; end: number; version: number } | null;
 }
 
@@ -87,6 +90,7 @@ export function SectionEditor({
   wordCount,
   canEdit,
   bookAssets,
+  sections = [],
   findingRange = null,
 }: SectionEditorProps) {
   const router = useRouter();
@@ -99,7 +103,7 @@ export function SectionEditor({
    * puede validar mientras se escribe.
    */
   const [dialogo, setDialogo] = useState<{
-    tipo: "enlace" | "nota" | "margen" | "glosario";
+    tipo: "enlace" | "nota" | "margen" | "glosario" | "referencia";
     noteId?: string;
     valor: string;
     /** Selección en el momento de abrir el diálogo, para poder volver a ella. */
@@ -172,6 +176,7 @@ export function SectionEditor({
         link: { openOnClick: false },
       }),
       EditorialImage,
+      EditorialCrossReference,
       EditorialFootnote,
       EditorialGlossaryTerm,
       EditorialMarginNote,
@@ -860,6 +865,19 @@ export function SectionEditor({
     });
   };
 
+  const abrirReferencia = (): void => {
+    if (!editor) {
+      return;
+    }
+
+    setDialogo({
+      tipo: "referencia",
+      valor: "",
+      desde: editor.state.selection.from,
+      hasta: editor.state.selection.to,
+    });
+  };
+
   const mensaje = statusMessage(machine);
   const sincronizando = machine.state === "syncing";
 
@@ -877,6 +895,7 @@ export function SectionEditor({
           onFootnote={abrirNota}
           onMarginNote={abrirNotaMargen}
           onGlossaryTerm={abrirGlosario}
+          onCrossReference={abrirReferencia}
           onImage={() => setImageToolsOpen((value) => !value)}
           onProofread={revisarTextoLocal}
         />
@@ -1319,6 +1338,94 @@ export function SectionEditor({
                 disabled={dialogo.valor.trim().length === 0 || dialogo.desde === dialogo.hasta}
               >
                 Marcar término
+              </button>
+            </div>
+          </form>
+        </Dialog>
+      ) : null}
+
+      {dialogo?.tipo === "referencia" ? (
+        <Dialog
+          abierto
+          titulo="Referencia cruzada"
+          descripcion="Elige la sección de destino y qué debe mostrarse. El folio se calcula al maquetar."
+          onCerrar={() => setDialogo(null)}
+        >
+          <form
+            className="space-y-4"
+            onSubmit={(evento) => {
+              evento.preventDefault();
+
+              if (!editor) {
+                return;
+              }
+
+              const data = new FormData(evento.currentTarget);
+              const targetId = String(data.get("targetId") ?? "");
+              const format = data.get("format") === "title" ? "title" : "page";
+              const target = sections.find((section) => section.id === targetId);
+
+              if (!targetId) {
+                return;
+              }
+
+              editor
+                .chain()
+                .focus()
+                .insertCrossReference({
+                  targetId,
+                  label: target?.title ?? "sección",
+                  format,
+                })
+                .run();
+              setDialogo(null);
+            }}
+          >
+            <div>
+              <label className="field-label" htmlFor="campo-referencia">
+                Sección
+              </label>
+              <select
+                id="campo-referencia"
+                name="targetId"
+                className="field-input"
+                required
+                defaultValue=""
+              >
+                <option value="" disabled>
+                  Elige una sección
+                </option>
+                {sections.map((section) => (
+                  <option key={section.id} value={section.id}>
+                    {section.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="field-label" htmlFor="campo-referencia-formato">
+                Mostrar
+              </label>
+              <select
+                id="campo-referencia-formato"
+                name="format"
+                className="field-input"
+                defaultValue="page"
+              >
+                <option value="page">Número de página</option>
+                <option value="title">Título de la sección</option>
+              </select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setDialogo(null)}
+              >
+                Cancelar
+              </button>
+              <button type="submit" className="btn btn-primary btn-sm">
+                Insertar referencia
               </button>
             </div>
           </form>
