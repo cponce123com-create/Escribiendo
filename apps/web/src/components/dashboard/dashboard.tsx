@@ -99,17 +99,15 @@ export function Dashboard({
             </span>
           </summary>
           <div className="dashboard-year-content">
-            <div
+            <progress
               className="dashboard-year-track"
-              role="progressbar"
+              max={100}
+              value={yearProgress.percent}
               aria-label={`Porcentaje transcurrido del año ${yearProgress.year}`}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={yearProgress.percent}
               aria-valuetext={`${yearPercent}% del año; día ${yearProgress.dayNumber} de ${yearProgress.daysInYear}`}
             >
-              <span style={{ width: `${yearProgress.percent}%` }} />
-            </div>
+              {yearPercent}%
+            </progress>
             <p>
               {yearPercent}% del año ·{" "}
               {yearProgress.daysRemaining === 1

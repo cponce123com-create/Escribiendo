@@ -24,9 +24,11 @@ describe("panel editorial", () => {
   it("muestra la barra anual visible al inicio y accesible como progreso plegable", () => {
     const html = renderToStaticMarkup(createElement(Dashboard, empty));
     expect(html).toContain('class="panel dashboard-year" open=""');
-    expect(html).toContain('role="progressbar"');
-    expect(html).toContain('aria-valuenow="81.1"');
-    expect(html).toContain('style="width:81.1%"');
+    expect(html).toContain('class="dashboard-year-track"');
+    expect(html).toContain('max="100"');
+    expect(html).toContain('value="81.1"');
+    expect(html).toContain('aria-valuetext="81,1% del año; día 296 de 365"');
+    expect(html).not.toContain("style=");
     expect(html).toContain("Día 296 de 365");
     expect(html).toContain("quedan 69 días");
   });
