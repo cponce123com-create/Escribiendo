@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { WorldDirectory } from "@/components/story/world-directory";
+import { WorldCoveragePanel } from "@/components/story/world-coverage-panel";
 import { requireSession } from "@/lib/auth/session";
 import { canPerform } from "@/lib/books/permissions";
 import { WORLD_KIND_OPTIONS, WORLD_KIND_VALUES, type WorldKindValue } from "@/lib/story/labels";
@@ -121,6 +122,8 @@ export default async function WorldsPage({ searchParams }: WorldsPageProps) {
           </div>
         </form>
       </section>
+
+      {canManage && selectedBook ? <WorldCoveragePanel bookId={selectedBook.id} /> : null}
 
       <WorldDirectory
         books={books}

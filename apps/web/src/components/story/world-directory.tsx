@@ -80,6 +80,15 @@ export function WorldDirectory({
                 error={createState.fieldErrors?.name}
                 idPrefix="new-world"
               />
+              <TextField
+                name="aliases"
+                label="Alias"
+                placeholder="La sumergida, Ys"
+                hint="Separados por comas. Se usan para detectar el lugar en el manuscrito."
+                required={false}
+                error={createState.fieldErrors?.aliases}
+                idPrefix="new-world"
+              />
               <SelectField
                 name="kind"
                 label="Tipo"
@@ -150,6 +159,11 @@ export function WorldDirectory({
                 <div className="min-w-0">
                   <p className="meta-label">{WORLD_KIND_LABELS[world.kind]}</p>
                   <h2 className="mt-1 font-serif text-xl leading-tight text-ink">{world.name}</h2>
+                  {world.aliases.length ? (
+                    <p className="mt-1 text-xs text-ink-muted">
+                      También: {world.aliases.join(", ")}
+                    </p>
+                  ) : null}
                   <p className="mt-1 text-xs text-ink-muted">
                     {world.bookTitle ?? STORY_GENERAL_LABEL}
                   </p>
@@ -181,6 +195,16 @@ export function WorldDirectory({
                       label="Nombre"
                       defaultValue={world.name}
                       error={updateState.fieldErrors?.name}
+                      idPrefix={`world-${world.id}`}
+                    />
+                    <TextField
+                      name="aliases"
+                      label="Alias"
+                      defaultValue={world.aliases.join(", ")}
+                      placeholder="La sumergida, Ys"
+                      hint="Separados por comas. Se usan para detectar el lugar en el manuscrito."
+                      required={false}
+                      error={updateState.fieldErrors?.aliases}
                       idPrefix={`world-${world.id}`}
                     />
                     <SelectField

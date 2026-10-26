@@ -90,8 +90,15 @@ test("laboratorio: revisión entre navegadores, fechas, etapas y resumen persist
   await page.goto(`/characters?book=${bookId}`);
   await page.getByText("Añadir un personaje", { exact: true }).click();
   await page.locator("#new-character-field-name").fill("Lucía");
+  await page.locator("#new-character-field-aliases").fill("Luli, la del faro");
   await page.getByRole("button", { name: "Crear personaje", exact: true }).click();
   await expect(page.getByText("Personaje creado.", { exact: true })).toBeVisible();
+  await expect(page.getByText("También: Luli, la del faro", { exact: true })).toBeVisible();
+  const [bible] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "Exportar biblia (.md)", exact: true }).click(),
+  ]);
+  expect(bible.suggestedFilename()).toMatch(/-biblia\.md$/);
   await page.goto(`/narrative?book=${bookId}`);
   await page.getByLabel("Modelo narrativo").selectOption("THREE_ACTS");
   await page.getByRole("button", { name: "Guardar estructura", exact: true }).click();

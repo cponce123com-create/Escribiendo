@@ -8,6 +8,9 @@ import {
   type EntityMentionProposal,
   type MentionEntity,
 } from "./entity-mentions";
+// El aplanado vive en un módulo compartido; se conserva el nombre local para
+// que las llamadas de este archivo sigan leyéndose igual.
+import { tipTapToPlainText as flatten } from "./tiptap-text";
 
 /**
  * Cobertura de menciones de la biblia de la historia.
@@ -19,16 +22,6 @@ import {
  * No escribe nada: es una lectura de apoyo para decidir qué vincular o qué
  * ficha falta por completar.
  */
-
-function flatten(value: unknown): string {
-  if (!value || typeof value !== "object") return "";
-  const node = value as { text?: unknown; content?: unknown[] };
-  const own = typeof node.text === "string" ? node.text : "";
-  const children = Array.isArray(node.content)
-    ? node.content.map(flatten).filter(Boolean).join(" ")
-    : "";
-  return [own, children].filter(Boolean).join(" ");
-}
 
 const MAX_SECTIONS_PER_ENTITY = 8;
 
@@ -67,12 +60,12 @@ export async function getBookEntityMentions(bookId: string): Promise<BookMention
   const [characters, worlds, sections] = await Promise.all([
     prisma.storyCharacter.findMany({
       where: { workspaceId: session.workspace.id, bookId, deletedAt: null },
-      select: { id: true, name: true },
+      select: { id: true, name: true, aliases: true },
       orderBy: { name: "asc" },
     }),
     prisma.storyWorld.findMany({
       where: { workspaceId: session.workspace.id, bookId, deletedAt: null },
-      select: { id: true, name: true },
+      select: { id: true, name: true, aliases: true },
       orderBy: { name: "asc" },
     }),
     prisma.bookSection.findMany({
@@ -86,11 +79,13 @@ export async function getBookEntityMentions(bookId: string): Promise<BookMention
     ...characters.map((character) => ({
       id: character.id,
       name: character.name,
+      aliases: character.aliases,
       kind: "CHARACTER" as const,
     })),
     ...worlds.map((world) => ({
       id: world.id,
       name: world.name,
+      aliases: world.aliases,
       kind: "WORLD" as const,
     })),
   ];
@@ -141,6 +136,6 @@ export async function getBookEntityMentions(bookId: string): Promise<BookMention
       .filter((entity) => !mentioned.has(entity.id))
       .map((entity) => ({ id: entity.id, name: entity.name, kind: entity.kind })),
     notice:
-      "Coincidencias exactas por nombre, sin distinguir mayúsculas ni tildes. Los alias no registrados no se detectan.",
+      "Coincidencias por nombre y alias, sin distinguir mayúsculas ni tildes. Las variantes que no estén en la ficha no se detectan.",
   };
 }

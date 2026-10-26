@@ -34,6 +34,7 @@ export interface PlanItemView {
 export interface CharacterView {
   id: string;
   name: string;
+  aliases: string[];
   role: CharacterRoleValue;
   age: string | null;
   occupation: string | null;
@@ -54,6 +55,7 @@ export interface CharacterView {
 export interface WorldView {
   id: string;
   name: string;
+  aliases: string[];
   kind: WorldKindValue;
   summary: string | null;
   description: string | null;
@@ -184,6 +186,7 @@ export async function listCharacters(
     select: {
       id: true,
       name: true,
+      aliases: true,
       role: true,
       age: true,
       occupation: true,
@@ -235,6 +238,7 @@ export async function listWorlds(
     select: {
       id: true,
       name: true,
+      aliases: true,
       kind: true,
       summary: true,
       description: true,

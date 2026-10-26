@@ -53,6 +53,27 @@ export const CHARACTER_ROLE_LABELS: Record<CharacterRoleValue, string> = {
   OTHER: "Otro",
 };
 
+export const CHARACTER_RELATION_VALUES = [
+  "FAMILY",
+  "FRIENDSHIP",
+  "ROMANCE",
+  "RIVALRY",
+  "CONFLICT",
+  "ALLIANCE",
+  "OTHER",
+] as const;
+export type CharacterRelationValue = (typeof CHARACTER_RELATION_VALUES)[number];
+
+export const CHARACTER_RELATION_LABELS: Record<CharacterRelationValue, string> = {
+  FAMILY: "Familiar",
+  FRIENDSHIP: "Amistad",
+  ROMANCE: "Sentimental",
+  RIVALRY: "Rivalidad",
+  CONFLICT: "Conflicto",
+  ALLIANCE: "Alianza",
+  OTHER: "Otro vínculo",
+};
+
 export const WORLD_KIND_VALUES = [
   "PLACE",
   "CULTURE",

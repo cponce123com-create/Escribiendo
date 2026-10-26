@@ -403,7 +403,7 @@ erDiagram
 | **Recursos**    | `assets`, `book_assets`                                   | Cloudinary único proveedor, folder por workspace                          |
 | **Exportación** | `export_jobs`                                             | Cola idempotente (formato + hash manuscrito), descarga HMAC 10 min        |
 | **Escritura**   | `writing_notes`                                           | Privadas por usuario, anclables a sección, borrado lógico cascada         |
-| **Historia**    | `story_plan_items`, `story_chacters`, `story_worlds`      | Biblia del estudio, bookId opcional, búsqueda/filtros                     |
+| **Historia**    | `story_plan_items`, `story_characters`, `story_worlds`    | Biblia del estudio, bookId opcional, alias, export Markdown de la biblia  |
 | **Auditoría**   | `audit_logs`                                              | Sin contenido manuscritos/secretos, exportable CSV/JSON                   |
 
 ---

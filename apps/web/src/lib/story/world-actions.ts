@@ -19,6 +19,7 @@ function worldFields(formData: FormData) {
   return {
     bookId: formValue(formData, "bookId"),
     name: formValue(formData, "name"),
+    aliases: formValue(formData, "aliases"),
     kind: formValue(formData, "kind"),
     summary: formValue(formData, "summary"),
     description: formValue(formData, "description"),

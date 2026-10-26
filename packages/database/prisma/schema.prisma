@@ -738,6 +738,7 @@ model StoryCharacter {
   bookId      String?       @db.Uuid
   createdById String?       @db.Uuid
   name        String        @db.VarChar(160)
+  aliases     String[]      @default([])
   role        CharacterRole @default(OTHER)
   age         String?       @db.VarChar(40)
   occupation  String?       @db.VarChar(120)
@@ -1041,6 +1042,7 @@ model StoryWorld {
   bookId      String?   @db.Uuid
   createdById String?   @db.Uuid
   name        String    @db.VarChar(160)
+  aliases     String[]  @default([])
   kind        WorldKind @default(PLACE)
   summary     String?   @db.VarChar(300)
   description String?   @db.Text

@@ -19,6 +19,7 @@ function characterFields(formData: FormData) {
   return {
     bookId: formValue(formData, "bookId"),
     name: formValue(formData, "name"),
+    aliases: formValue(formData, "aliases"),
     role: formValue(formData, "role"),
     age: formValue(formData, "age"),
     occupation: formValue(formData, "occupation"),

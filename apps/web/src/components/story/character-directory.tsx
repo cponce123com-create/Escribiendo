@@ -99,6 +99,15 @@ export function CharacterDirectory({
                 error={createState.fieldErrors?.name}
                 idPrefix="new-character"
               />
+              <TextField
+                name="aliases"
+                label="Alias"
+                placeholder="La Varela, doña Elena"
+                hint="Separados por comas. Se usan para detectar el personaje en el manuscrito."
+                required={false}
+                error={createState.fieldErrors?.aliases}
+                idPrefix="new-character"
+              />
               <SelectField
                 name="role"
                 label="Papel"
@@ -192,6 +201,11 @@ export function CharacterDirectory({
                   <h2 className="mt-1 font-serif text-xl leading-tight text-ink">
                     {character.name}
                   </h2>
+                  {character.aliases.length ? (
+                    <p className="mt-1 text-xs text-ink-muted">
+                      También: {character.aliases.join(", ")}
+                    </p>
+                  ) : null}
                   <p className="mt-1 text-xs text-ink-muted">
                     {character.bookTitle ?? STORY_GENERAL_LABEL}
                     {character.age ? ` · ${character.age}` : ""}
@@ -227,6 +241,16 @@ export function CharacterDirectory({
                       label="Nombre"
                       defaultValue={character.name}
                       error={updateState.fieldErrors?.name}
+                      idPrefix={`character-${character.id}`}
+                    />
+                    <TextField
+                      name="aliases"
+                      label="Alias"
+                      defaultValue={character.aliases.join(", ")}
+                      placeholder="La Varela, doña Elena"
+                      hint="Separados por comas. Se usan para detectar el personaje en el manuscrito."
+                      required={false}
+                      error={updateState.fieldErrors?.aliases}
                       idPrefix={`character-${character.id}`}
                     />
                     <SelectField

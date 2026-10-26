@@ -11,16 +11,9 @@ import type { ActionState } from "@/lib/action-state";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { characterAnalysisError } from "./character-analysis-errors";
 import { buildAppearanceTimeline, detectAppearanceAlerts } from "./appearance-timeline";
-const plain = (v: unknown): string => {
-  if (!v || typeof v !== "object") return "";
-  const n = v as { text?: unknown; content?: unknown[] };
-  return [
-    typeof n.text === "string" ? n.text : "",
-    Array.isArray(n.content) ? n.content.map(plain).join(" ") : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-};
+// El aplanado vive en un módulo compartido; se conserva el nombre local para
+// no tocar las llamadas repartidas por este archivo.
+import { tipTapToPlainText as plain } from "./tiptap-text";
 const norm = (s: string) =>
   s
     .normalize("NFD")

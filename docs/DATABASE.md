@@ -307,9 +307,15 @@ para la biblia de la historia:
   `PLANNED`, `WRITING`, `DONE`) y un resumen libre.
 - `story_characters`: fichas de personaje con papel (`PROTAGONIST`,
   `ANTAGONIST`, `SECONDARY`, `MENTOR`, `LOVE_INTEREST`, `OTHER`), edad, oficio,
-  descripción, personalidad, motivación, conflicto, arco y notas.
+  descripción, personalidad, motivación, conflicto, arco, notas y alias.
 - `story_worlds`: lugares, culturas, organizaciones, sistemas, objetos,
-  acontecimientos y otras reglas del mundo, con descripción, reglas y notas.
+  acontecimientos y otras reglas del mundo, con descripción, reglas, notas y
+  alias.
+
+La migración `20261026160000_story_entity_aliases` añade `aliases` (`TEXT[]`,
+vacío por defecto) a `story_characters` y `story_worlds`. Son las variantes con
+las que el manuscrito nombra una ficha y alimentan la detección de menciones; el
+límite de 12 se aplica en la validación, no en la base de datos.
 
 Las tres comparten las mismas decisiones:
 

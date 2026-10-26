@@ -378,3 +378,13 @@ export function buildPlainText(document: ExportDocumentModel): Uint8Array {
       .trimEnd(),
   );
 }
+
+/**
+ * Versión pública del escapado.
+ *
+ * La usa cualquier documento Markdown generado fuera del manuscrito, para que
+ * un nombre con asteriscos o corchetes no rompa el formato.
+ */
+export function escapeMarkdownText(text: string): string {
+  return escapeMarkdown(text);
+}

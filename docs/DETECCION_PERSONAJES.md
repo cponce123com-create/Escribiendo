@@ -6,6 +6,14 @@ Se distinguen nombres compuestos y apellidos probables, incluidas partículas co
 
 El botón «Volver a analizar el libro» verifica todos los capítulos conjuntamente; el procesamiento incremental utiliza el mismo núcleo. Las propuestas muestran nombre, apellido probable, variantes y evidencia literal. Aceptar exige una verificación vigente y un texto fuente sin cambios. Las propuestas antiguas deben reanalizarse. Se preservan fichas y decisiones aceptadas o descartadas; las propuestas pendientes obsoletas se archivan.
 
+## Alias y cobertura de mundos
+
+Cada ficha de personaje y de mundo guarda una lista de alias separados por comas: hasta 12, con un mínimo de tres caracteres para que cuenten en la detección. La búsqueda aplica al nombre canónico y a sus alias el mismo criterio conservador, de modo que «el Rojo» encuentra al personaje aunque el manuscrito no repita su nombre completo.
+
+El panel «Cobertura del mundo» de `/worlds` aplica ese motor a lugares, objetos y reglas, y señala los tramos de tres secciones o más sin menciones. Como en el arco de personajes, los avisos son informativos: una ausencia puede ser deliberada.
+
+La biblia completa se descarga en Markdown desde `/characters` con «Exportar biblia (.md)»: incluye fichas con sus alias, trama, vínculos y las fichas que no aparecen en el manuscrito.
+
 ## Límites
 
 Es un verificador determinista conservador, no una garantía de reconocimiento universal. Puede omitir nombres raros sin contexto explícito y menciones aisladas. El autor siempre puede crear una ficha manualmente. Los límites de trabajo se notifican: hasta 200 secciones, 8 millones de caracteres conjuntos, un millón por sección, 30 000 menciones iniciales y 500 candidatos; la persistencia de propuestas nuevas está limitada a 100 por ejecución. No se envía el manuscrito a servicios de IA.

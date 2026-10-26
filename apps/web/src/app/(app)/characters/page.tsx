@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CharacterDirectory } from "@/components/story/character-directory";
+import { BibleExportButton } from "@/components/story/bible-export-button";
 import { requireSession } from "@/lib/auth/session";
 import { canPerform } from "@/lib/books/permissions";
 import {
@@ -130,6 +131,8 @@ export default async function CharactersPage({ searchParams }: CharactersPagePro
           </div>
         </form>
       </section>
+
+      {canManage && selectedBook ? <BibleExportButton bookId={selectedBook.id} /> : null}
 
       <CharacterDirectory
         books={books}
