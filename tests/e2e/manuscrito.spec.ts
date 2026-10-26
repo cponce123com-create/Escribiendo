@@ -121,6 +121,24 @@ test.describe("Resiliencia del manuscrito", () => {
     await expect(page).toHaveURL(new RegExp("/sections/"));
   });
 
+  test("renombra el capítulo desde la cabecera", async ({ page }) => {
+    await abrirSeccion(page, SECTION_TITLE);
+
+    const hero = page.locator(".studio-chapter-hero");
+    const campo = page.getByLabel("Título del capítulo");
+
+    await hero.getByRole("button", { name: SECTION_TITLE, exact: true }).click();
+    await expect(campo).toBeVisible();
+    await campo.fill("Capítulo renombrado");
+    await page.getByRole("button", { name: "Guardar título", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Capítulo renombrado" })).toBeVisible();
+
+    await hero.getByRole("button", { name: "Capítulo renombrado", exact: true }).click();
+    await campo.fill(SECTION_TITLE);
+    await page.getByRole("button", { name: "Guardar título", exact: true }).click();
+    await expect(page.getByRole("heading", { name: SECTION_TITLE })).toBeVisible();
+  });
+
   test("pliega y restaura la navegación del manuscrito", async ({ page }) => {
     await abrirSeccion(page, SECTION_TITLE);
 

@@ -6,6 +6,7 @@ import {
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { InlineSectionTitle } from "@/components/books/inline-section-title";
 import { RevisionList } from "@/components/books/revision-list";
 import { SectionEditor } from "@/components/books/section-editor";
 import { SectionOptionsForm } from "@/components/books/section-options-form";
@@ -144,7 +145,15 @@ export default async function SectionPage({ params, searchParams }: SectionPageP
               <span aria-hidden="true">/</span>
               <Link href={`/books/${bookId}`}>{sectionGroup(section.type)}</Link>
             </div>
-            <h1>{section.title}</h1>
+            <InlineSectionTitle
+              key={section.title}
+              sectionId={section.id}
+              title={section.title}
+              showTitle={section.showTitle}
+              showSectionType={section.showSectionType}
+              showSectionNumber={section.showSectionNumber}
+              canEdit={canEdit}
+            />
             <p className="studio-chapter-description">
               {book?.title ?? "Libro"}
               {section.assignee ? ` · ${section.assignee.name}` : ""}
