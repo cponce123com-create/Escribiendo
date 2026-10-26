@@ -151,6 +151,7 @@ export async function requestExport(
     profile: context.profile,
     typography: context.typography,
     runningHeadTemplate: context.runningHeadTemplate,
+    glossary: context.glossary,
     bookTitle: book.title,
     authorName: book.authorName,
     dropCaps: dropCaps ?? dropCap.enabled,

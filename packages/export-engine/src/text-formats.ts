@@ -174,7 +174,7 @@ export function buildMarkdown(document: ExportDocumentModel): Uint8Array {
   );
 }
 
-function htmlInline(run: ExportInlineRun): string {
+function htmlInline(run: ExportInlineRun, titles: ReadonlyMap<string, string>): string {
   if (run.footnote) {
     return (
       `<a class="footnote-ref" href="#fn-${escapeHtml(run.footnote.id)}" ` +
@@ -196,16 +196,19 @@ function htmlInline(run: ExportInlineRun): string {
   }
 
   if (run.glossary) {
-    html = `<span class="glossary-term" data-term="${escapeHtml(run.glossary)}">${html}</span>`;
+    const definition = titles.get(run.glossary.trim().toLocaleLowerCase("es"));
+    const title = definition ? ` title="${escapeHtml(definition)}"` : "";
+
+    html = `<span class="glossary-term" data-term="${escapeHtml(run.glossary)}"${title}>${html}</span>`;
   }
 
   return html;
 }
 
-function htmlBlock(block: ExportBlock): string {
+function htmlBlock(block: ExportBlock, titles: ReadonlyMap<string, string>): string {
   const inner =
     block.runs && block.runs.length > 0
-      ? block.runs.map(htmlInline).join("")
+      ? block.runs.map((run) => htmlInline(run, titles)).join("")
       : escapeHtml(block.text);
 
   switch (block.kind) {
@@ -247,9 +250,24 @@ section.footnotes { margin-top: 3em; font-size: 0.85em; border-top: 1px solid #9
 a.footnote-ref { text-decoration: none; }
 .glossary-term { text-decoration: underline dotted; }`;
 
+function glossaryTitleMap(document: ExportDocumentModel): Map<string, string> {
+  const titles = new Map<string, string>();
+
+  for (const entry of document.glossary ?? []) {
+    const key = entry.term.trim().toLocaleLowerCase("es");
+
+    if (key.length > 0) {
+      titles.set(key, entry.definition);
+    }
+  }
+
+  return titles;
+}
+
 /** Documento HTML5 autónomo: se puede abrir en cualquier navegador sin recursos externos. */
 export function buildHtml(document: ExportDocumentModel): Uint8Array {
   const lang = escapeHtml(document.language || "es");
+  const titles = glossaryTitleMap(document);
   const parts: string[] = [
     "<!doctype html>",
     `<html lang="${lang}">`,
@@ -284,7 +302,7 @@ export function buildHtml(document: ExportDocumentModel): Uint8Array {
       parts.push(`<h2>${escapeHtml(chapter.title)}</h2>`);
     }
     for (const block of chapter.blocks) {
-      parts.push(htmlBlock(block));
+      parts.push(htmlBlock(block, titles));
     }
 
     const notes = footnotesOf(chapter);

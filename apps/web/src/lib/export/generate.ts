@@ -22,6 +22,7 @@ import {
   type PageGeometry,
 } from "@escribiendo/editorial-engine";
 import { getBookEdition, getDefaultLayoutProfile } from "@/lib/layout/profiles";
+import { prisma } from "@/lib/db";
 import {
   sectionToBlocks as layoutSectionToBlocks,
   bookToBlocks,
@@ -118,6 +119,8 @@ export interface GenerateInput {
   matter?: BookMatter | null;
   /** Fecha de creación del documento; fija el resultado para que sea reproducible. */
   createdAt: Date;
+  /** Términos del glosario, para el tooltip de las marcas en HTML y EPUB. */
+  glossary?: readonly { term: string; definition: string }[];
 }
 
 /** Extensión y tipo de cada formato. */
@@ -466,6 +469,7 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
           }
         : {}),
       cover: input.cover,
+      ...(input.glossary && input.glossary.length > 0 ? { glossary: input.glossary } : {}),
     };
 
     if (input.format === "EPUB3") {
@@ -521,10 +525,16 @@ export async function exportContext(
   profile: NonNullable<GenerateInput["profile"]> | null;
   typography: unknown;
   runningHeadTemplate: RunningHeadTemplate | null;
+  glossary: readonly { term: string; definition: string }[];
 }> {
-  const [edition, defaultProfile] = await Promise.all([
+  const [edition, defaultProfile, glossary] = await Promise.all([
     getBookEdition(session, bookId),
     getDefaultLayoutProfile(session),
+    prisma.bookGlossaryTerm.findMany({
+      where: { bookId },
+      orderBy: { term: "asc" },
+      select: { term: true, definition: true },
+    }),
   ]);
 
   const profile = edition?.profile ?? defaultProfile;
@@ -541,5 +551,6 @@ export async function exportContext(
     profile,
     typography,
     runningHeadTemplate,
+    glossary,
   };
 }

@@ -53,6 +53,13 @@ el nombre: la definición sigue viviendo en el glosario del libro.
 - **PDF, DOCX, Markdown y TXT** conservan el texto sin marcado especial: no hay
   pérdida de contenido.
 
-La marca no enlaza todavía a la definición ni muestra tooltip; eso queda como
-siguiente paso, junto con la detección automática de términos presentes en el
-manuscrito.
+En HTML y EPUB la definición viaja como `title` del span, así que el lector
+muestra el tooltip al pasar el cursor. La coincidencia no distingue mayúsculas
+(`Zeugma` encuentra la definición de `zeugma`); si el término no existe en el
+glosario, el span queda sin `title` y el texto se conserva.
+
+El glosario se captura en la instantánea de la exportación, igual que la
+maqueta: reproducir un trabajo antiguo usa las definiciones de aquel momento.
+
+Pendiente: enlace clicable a la definición y detección automática de términos
+presentes en el manuscrito.

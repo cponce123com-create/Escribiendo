@@ -71,6 +71,7 @@ export async function resolveExportJobInput(
     runningHeadTemplate: snapshot
       ? snapshot.runningHeadTemplate
       : (context?.runningHeadTemplate ?? null),
+    glossary: snapshot?.glossary ?? context?.glossary ?? [],
     bookTitle: title,
     dropCaps: snapshot?.dropCaps ?? false,
     dropCapLines: snapshot?.dropCapLines ?? 3,

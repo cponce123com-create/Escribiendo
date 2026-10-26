@@ -16,6 +16,8 @@ export interface ExportLayoutSnapshot {
   profile: PdfLayoutProfile | null;
   typography: unknown;
   runningHeadTemplate: RunningHeadTemplate | null;
+  /** Glosario capturado con la exportación, para el tooltip de las marcas. */
+  glossary?: readonly { term: string; definition: string }[];
   bookTitle: string;
   authorName: string;
   dropCaps: boolean;
@@ -61,6 +63,29 @@ function readCover(value: unknown): ExportCoverSnapshot | null {
   return { url: value.url, crop: readCoverCrop(value.crop) };
 }
 
+function readGlossary(value: unknown): { term: string; definition: string }[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const terms = value.flatMap((entry) => {
+    if (
+      !isRecord(entry) ||
+      typeof entry.term !== "string" ||
+      typeof entry.definition !== "string"
+    ) {
+      return [];
+    }
+
+    const term = entry.term.trim().slice(0, 160);
+    const definition = entry.definition.trim().slice(0, 2000);
+
+    return term.length > 0 && definition.length > 0 ? [{ term, definition }] : [];
+  });
+
+  return terms.length > 0 ? terms : undefined;
+}
+
 /** Lee la instantánea guardada en un trabajo; los trabajos antiguos no la tienen. */
 export function readExportLayoutSnapshot(options: unknown): ExportLayoutSnapshot | null {
   if (!isRecord(options) || !isRecord(options.layout)) {
@@ -97,12 +122,14 @@ export function readExportLayoutSnapshot(options: unknown): ExportLayoutSnapshot
   // La presencia de la clave —aunque valga `null`— distingue «el libro no
   // tenía portada al pedir el trabajo» de «la instantánea es antigua».
   const hasCoverSnapshot = "cover" in layout;
+  const glossary = readGlossary(layout.glossary);
 
   return {
     ...("matter" in layout ? { matter: layout.matter as BookMatter | null } : {}),
     profile: layout.profile as PdfLayoutProfile | null,
     typography: layout.typography,
     runningHeadTemplate,
+    ...(glossary ? { glossary } : {}),
     bookTitle: typeof layout.bookTitle === "string" ? layout.bookTitle : "",
     authorName: typeof layout.authorName === "string" ? layout.authorName : "",
     dropCaps: layout.dropCaps === true,

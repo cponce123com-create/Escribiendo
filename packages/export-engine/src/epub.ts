@@ -84,6 +84,8 @@ export interface ExportDocumentModel {
     entries: readonly { sourceId: string; title: string; level: number; sectionId: string }[];
   };
   cover?: ExportImage;
+  /** Términos del glosario para resolver el tooltip de las marcas. */
+  glossary?: readonly { term: string; definition: string }[];
 }
 
 /** Fecha de modificación en el formato que exige EPUB 3 (`CCYY-MM-DDThh:mm:ssZ`). */
@@ -94,6 +96,20 @@ function modifiedStamp(date: Date): string {
     `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}` +
     `T${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}Z`
   );
+}
+
+function glossaryTitleMap(document: ExportDocumentModel): Map<string, string> {
+  const titles = new Map<string, string>();
+
+  for (const entry of document.glossary ?? []) {
+    const key = entry.term.trim().toLocaleLowerCase("es");
+
+    if (key.length > 0) {
+      titles.set(key, entry.definition);
+    }
+  }
+
+  return titles;
 }
 
 /**
@@ -168,7 +184,7 @@ a.footnote-back { text-decoration: none; }
 .glossary-term { text-decoration: underline dotted; }`;
 
 /** Un tramo con sus etiquetas de formato. */
-function inlineHtml(run: ExportInlineRun): string {
+function inlineHtml(run: ExportInlineRun, titles: ReadonlyMap<string, string>): string {
   if (run.footnote) {
     const id = escapeXml(run.footnote.id);
 
@@ -207,19 +223,22 @@ function inlineHtml(run: ExportInlineRun): string {
   }
 
   if (run.glossary) {
-    html = `<span class="glossary-term" data-term="${escapeXml(run.glossary)}">${html}</span>`;
+    const definition = titles.get(run.glossary.trim().toLocaleLowerCase("es"));
+    const title = definition ? ` title="${escapeXml(definition)}"` : "";
+
+    html = `<span class="glossary-term" data-term="${escapeXml(run.glossary)}"${title}>${html}</span>`;
   }
 
   return html;
 }
 
 /** Contenido en línea de un bloque, con o sin formato. */
-function inlineContent(block: ExportBlock): string {
+function inlineContent(block: ExportBlock, titles: ReadonlyMap<string, string>): string {
   if (!block.runs || block.runs.length === 0) {
     return escapeXml(block.text);
   }
 
-  return block.runs.map(inlineHtml).join("");
+  return block.runs.map((run) => inlineHtml(run, titles)).join("");
 }
 
 /** Notas de un capítulo, en orden de aparición y sin repetir. */
@@ -244,6 +263,7 @@ function chapterXhtml(
   chapter: ExportChapter,
   language: string,
   imageHrefs: ReadonlyMap<string, string>,
+  titles: ReadonlyMap<string, string>,
 ): string {
   const body: string[] = [];
 
@@ -288,27 +308,27 @@ function chapterXhtml(
     }
 
     if (block.kind === "title") {
-      body.push(`<h1>${inlineContent(block)}</h1>`);
+      body.push(`<h1>${inlineContent(block, titles)}</h1>`);
       continue;
     }
 
     if (block.kind === "heading") {
       const level = Math.min(4, Math.max(1, block.level ?? 2));
       body.push(
-        `<h${level}${block.id ? ` id="${escapeXml(block.id)}"` : ""}>${inlineContent(block)}</h${level}>`,
+        `<h${level}${block.id ? ` id="${escapeXml(block.id)}"` : ""}>${inlineContent(block, titles)}</h${level}>`,
       );
       continue;
     }
 
     if (block.kind === "quote") {
-      body.push(`<p class="quote">${inlineContent(block)}</p>`);
+      body.push(`<p class="quote">${inlineContent(block, titles)}</p>`);
       continue;
     }
 
     const dropCapClass = chapter.dropCap && !dropCapApplied && block.kind === "body";
     if (dropCapClass) dropCapApplied = true;
     body.push(
-      `<p${block.alignment ? ` style="text-align:${block.alignment}"` : ""}${dropCapClass ? ' class="drop-cap"' : ""}>${inlineContent(block)}</p>`,
+      `<p${block.alignment ? ` style="text-align:${block.alignment}"` : ""}${dropCapClass ? ' class="drop-cap"' : ""}>${inlineContent(block, titles)}</p>`,
     );
   }
 
@@ -418,6 +438,7 @@ export function buildEpub(
   assets?: ExportImageMap,
 ): Uint8Array {
   const entries: ZipEntry[] = [];
+  const glossaryTitles = glossaryTitleMap(document);
 
   const chapters =
     document.chapters.length > 0
@@ -617,7 +638,9 @@ export function buildEpub(
     const id = `chapter-${String(index + 1).padStart(3, "0")}`;
     entries.push({
       name: `EPUB/text/${id}.xhtml`,
-      data: new TextEncoder().encode(chapterXhtml(chapter, document.language, embedded.bySrc)),
+      data: new TextEncoder().encode(
+        chapterXhtml(chapter, document.language, embedded.bySrc, glossaryTitles),
+      ),
     });
   });
 
