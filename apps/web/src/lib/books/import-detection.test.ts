@@ -68,3 +68,31 @@ it("las anclas del índice separan capítulos aunque exista una cabecera de mayo
     "El regreso",
   ]);
 });
+
+it("explica la evidencia y advierte cuando un encabezado visual no prueba un capítulo", () => {
+  const sections = detectImportSections(
+    [
+      { text: "LA NOCHE ESTABA FRÍA", headingLevel: 1 },
+      { text: "Un párrafo narrativo." },
+      { text: "Capítulo 2", headingLevel: 1, boundary: true },
+      { text: "La mañana siguiente." },
+    ],
+    "Manuscrito",
+  );
+  expect(sections[0]?.detection).toMatchObject({ confidence: "baja", score: 30 });
+  expect(sections[1]?.detection).toMatchObject({ confidence: "alta", score: 90 });
+  expect(sections[0]?.paragraphs).toEqual(["Un párrafo narrativo."]);
+});
+
+it("la mayúscula por sí sola permanece en el cuerpo del capítulo", () => {
+  const sections = detectImportSections(
+    [
+      { text: "Capítulo 1", headingLevel: 1 },
+      { text: "LA NOCHE ERA MÁS OSCURA DE LO HABITUAL" },
+      { text: "Y entonces llegó Ana." },
+    ],
+    "Manuscrito",
+  );
+  expect(sections).toHaveLength(1);
+  expect(sections[0]?.paragraphs).toContain("LA NOCHE ERA MÁS OSCURA DE LO HABITUAL");
+});

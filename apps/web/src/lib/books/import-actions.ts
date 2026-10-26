@@ -113,6 +113,9 @@ export async function importBookAction(
   const language = parsedLanguage.success ? parsedLanguage.data : "es";
 
   const rawChoices = formText(formData, "sectionChoices");
+  const requestId = z.string().uuid().safeParse(formText(formData, "importRequestId"));
+  if (!requestId.success)
+    return errorState("Primero analiza el archivo de nuevo antes de importarlo.");
   if (!rawChoices || !formText(formData, "fingerprint"))
     return errorState("Primero analiza el archivo y revisa sus secciones antes de confirmar.");
   let choices:
@@ -180,6 +183,40 @@ export async function importBookAction(
     return errorState("El texto extraído supera los límites de contenido de la biblioteca.");
   }
 
+  const planHash = createHash("sha256")
+    .update(
+      JSON.stringify({
+        fingerprint,
+        title: parsedTitle.data,
+        authorName: parsedAuthor.data,
+        language,
+        choices,
+      }),
+    )
+    .digest("hex");
+  const sameRequest = () =>
+    prisma.book.findFirst({
+      where: {
+        workspaceId: session.workspace.id,
+        createdById: session.user.id,
+        importRequestId: requestId.data,
+      },
+      select: { id: true, importPlanHash: true, deletedAt: true },
+    });
+  const prior = await sameRequest();
+  if (prior) {
+    if (prior.deletedAt)
+      return errorState(
+        "Este libro se importó antes y después se eliminó. Analiza el archivo de nuevo.",
+      );
+    if (prior.importPlanHash !== planHash)
+      return errorState(
+        "Esta confirmación ya se usó con otra revisión. Analiza el archivo de nuevo.",
+      );
+    revalidatePath("/books");
+    redirect(`/books/${prior.id}`);
+  }
+
   try {
     const book = await prisma.$transaction(
       async (transaction) => {
@@ -190,6 +227,8 @@ export async function importBookAction(
             title: parsedTitle.data,
             authorName: parsedAuthor.data,
             language,
+            importRequestId: requestId.data,
+            importPlanHash: planHash,
           },
           select: { id: true },
         });
@@ -263,6 +302,22 @@ export async function importBookAction(
   } catch (error) {
     // Next redirect es una excepción de control de flujo y debe propagarse.
     if (error && typeof error === "object" && "digest" in error) throw error;
+    if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
+      // Otra petición con la misma clave terminó de confirmar mientras esta esperaba.
+      const existing = await sameRequest();
+      if (existing?.deletedAt)
+        return errorState(
+          "Este libro se importó antes y después se eliminó. Analiza el archivo de nuevo.",
+        );
+      if (existing?.importPlanHash === planHash) {
+        revalidatePath("/books");
+        redirect(`/books/${existing.id}`);
+      }
+      if (existing)
+        return errorState(
+          "Esta confirmación ya se usó con otra revisión. Analiza el archivo de nuevo.",
+        );
+    }
     logger.error("books.import_persist_error", {
       requestId: context.requestId,
       errorName: error instanceof Error ? error.name : "UnknownError",
@@ -296,6 +351,7 @@ export async function analyzeBookImportAction(formData: FormData): Promise<Impor
     return {
       status: "success",
       preview: {
+        requestId: randomUUID(),
         fingerprint: createHash("sha256").update(bytes).digest("hex"),
         format: imported.format,
         title: imported.title ?? "",
@@ -308,6 +364,11 @@ export async function analyzeBookImportAction(formData: FormData): Promise<Impor
           ...(imported.sections.length === 1
             ? ["Solo se detectó una sección. Revisa si el original contiene divisiones que faltan."]
             : []),
+          ...(imported.sections.some((section) => section.detection?.confidence === "baja")
+            ? [
+                "Algunas divisiones tienen evidencia débil. Comprueba sus títulos y límites antes de confirmar.",
+              ]
+            : []),
         ],
         sections: imported.sections.map((section, index) => ({
           index,
@@ -315,6 +376,7 @@ export async function analyzeBookImportAction(formData: FormData): Promise<Impor
           type: section.type ?? "CHAPTER",
           words: section.paragraphs.join(" ").split(/\s+/u).filter(Boolean).length,
           excerpt: section.paragraphs.join("\n").slice(0, 500),
+          ...(section.detection ? { detection: section.detection } : {}),
         })),
       },
     };

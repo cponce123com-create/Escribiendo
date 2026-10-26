@@ -6,6 +6,7 @@ const { mockPrisma, mockTx, mockSession, mockRedirect, mockWriteAuditLog } = vi.
   const mockTx = {
     book: {
       create: vi.fn(),
+      findFirst: vi.fn(),
       findUniqueOrThrow: vi.fn(),
       update: vi.fn(),
     },
@@ -75,6 +76,7 @@ function makeFormData(): FormData {
   formData.append("file", new File([buffer], "manuscrito.docx"));
   formData.set("authorName", "Ana Autora");
   formData.set("fingerprint", createHash("sha256").update(bytes).digest("hex"));
+  formData.set("importRequestId", "a9467c80-4e2c-4de6-92eb-b337aa6c4801");
   formData.set(
     "sectionChoices",
     JSON.stringify(
@@ -97,6 +99,7 @@ describe("importBookAction", () => {
       async (callback: (transaction: typeof mockTx) => unknown) => callback(mockTx),
     );
     mockTx.book.create.mockResolvedValue({ id: "book-imported" });
+    mockTx.book.findFirst.mockResolvedValue(null);
     mockTx.bookSection.createMany.mockResolvedValue({ count: 2 });
     mockTx.sectionRevision.createMany.mockResolvedValue({ count: 2 });
     mockTx.bookSection.aggregate.mockResolvedValue({ _sum: { wordCount: 8 } });
@@ -177,6 +180,7 @@ describe("importBookAction", () => {
     expect(result.status).toBe("success");
     expect(result.preview?.sections).toHaveLength(2);
     expect(result.preview?.fingerprint).toMatch(/^[a-f0-9]{64}$/u);
+    expect(result.preview?.requestId).toMatch(/^[a-f0-9-]{36}$/u);
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
   it("rechaza una revisión de otro archivo y no inventa autoría", async () => {
@@ -241,5 +245,63 @@ describe("importBookAction", () => {
       mode: "MANUAL",
       bookId: "book-imported",
     });
+  });
+
+  it("recupera el libro del mismo intento sin volver a crear secciones", async () => {
+    mockRedirect.mockImplementation((path: string) => {
+      throw Object.assign(new Error(path), { digest: "NEXT_REDIRECT" });
+    });
+    const form = makeFormData();
+    await expect(importBookAction({ status: "idle" }, form)).rejects.toThrow(
+      "/books/book-imported",
+    );
+    const hash = mockTx.book.create.mock.lastCall?.[0].data.importPlanHash;
+    mockTx.book.findFirst.mockResolvedValue({ id: "book-imported", importPlanHash: hash });
+    await expect(importBookAction({ status: "idle" }, form)).rejects.toThrow(
+      "/books/book-imported",
+    );
+    expect(mockTx.book.create).toHaveBeenCalledTimes(1);
+    expect(mockTx.bookSection.createMany).toHaveBeenCalledTimes(1);
+    expect(mockWriteAuditLog).toHaveBeenCalledTimes(1);
+  });
+
+  it("rechaza reutilizar la clave para una revisión alterada", async () => {
+    mockTx.book.findFirst.mockResolvedValue({
+      id: "book-imported",
+      importPlanHash: "otra-revisión",
+    });
+    const result = await importBookAction({ status: "idle" }, makeFormData());
+    expect(result.message).toContain("otra revisión");
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("no redirige a un libro eliminado ni lo restaura por un reintento", async () => {
+    mockTx.book.findFirst.mockResolvedValue({
+      id: "book-imported",
+      importPlanHash: "hash",
+      deletedAt: new Date(),
+    });
+    const result = await importBookAction({ status: "idle" }, makeFormData());
+    expect(result.message).toContain("se eliminó");
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("reconcilia dos confirmaciones simultáneas mediante la restricción única", async () => {
+    mockRedirect.mockImplementation((path: string) => {
+      throw Object.assign(new Error(path), { digest: "NEXT_REDIRECT" });
+    });
+    const form = makeFormData();
+    await expect(importBookAction({ status: "idle" }, form)).rejects.toThrow(
+      "/books/book-imported",
+    );
+    const hash = mockTx.book.create.mock.lastCall?.[0].data.importPlanHash;
+    mockTx.book.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "book-imported", importPlanHash: hash });
+    mockTx.book.create.mockRejectedValueOnce({ code: "P2002" });
+    await expect(importBookAction({ status: "idle" }, form)).rejects.toThrow(
+      "/books/book-imported",
+    );
+    expect(mockTx.bookSection.createMany).toHaveBeenCalledTimes(1);
   });
 });

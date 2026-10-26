@@ -123,6 +123,7 @@ export function BookImportForm() {
             />
           </div>
           <input type="hidden" name="fingerprint" value={preview.fingerprint} />
+          <input type="hidden" name="importRequestId" value={preview.requestId} />
           <input type="hidden" name="sectionChoices" value={JSON.stringify(choices)} />
           <ol
             className="max-h-[36rem] space-y-4 overflow-y-auto p-1"
@@ -133,6 +134,14 @@ export function BookImportForm() {
               if (!choice) return null;
               return (
                 <li key={section.index} className="panel space-y-3 p-4">
+                  {section.detection ? (
+                    <p className="text-xs text-ink-soft">
+                      Detección {section.detection.confidence} ({section.detection.score}/100)
+                      {section.detection.signals.length
+                        ? ` · ${section.detection.signals.join(" · ")}`
+                        : " · Sin señales estructurales; revisa este límite"}
+                    </p>
+                  ) : null}
                   <label className="flex gap-2 text-sm">
                     <input
                       type="checkbox"
