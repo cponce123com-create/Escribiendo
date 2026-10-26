@@ -59,4 +59,29 @@ describe("applyEditionDecoration", () => {
       verso: { "top-left": "{libro}" },
     });
   });
+
+  it("fusiona páginas maestras y su mapeo por sección", () => {
+    const conPlantilla = {
+      ...BASE,
+      pageMasters: { apendice: { marginInnerMm: 20 } },
+      sectionMasters: { APPENDIX: "apendice" },
+    };
+
+    const result = applyEditionDecoration(conPlantilla, {
+      pageMasters: {
+        apendice: { marginInnerMm: 30 },
+        laminas: { pageWidthMm: 200 },
+      },
+      sectionMasters: { GLOSSARY: "apendice" },
+    });
+
+    expect(result.pageMasters).toEqual({
+      apendice: { marginInnerMm: 30 },
+      laminas: { pageWidthMm: 200 },
+    });
+    expect(result.sectionMasters).toEqual({
+      APPENDIX: "apendice",
+      GLOSSARY: "apendice",
+    });
+  });
 });

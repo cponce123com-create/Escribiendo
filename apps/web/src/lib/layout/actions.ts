@@ -686,10 +686,32 @@ export async function updateEditionDecorationAction(
     }
   }
 
+  const parseJson = (name: string): unknown => {
+    const raw = formValue(formData, name).trim();
+
+    if (!raw) {
+      return {};
+    }
+
+    try {
+      return JSON.parse(raw) as unknown;
+    } catch {
+      return null;
+    }
+  };
+  const pageMasters = parseJson("pageMasters");
+  const sectionMasters = parseJson("sectionMasters");
+
+  if (pageMasters === null || sectionMasters === null) {
+    return errorState("Las páginas maestras no son válidas.");
+  }
+
   const parsed = editionDecorationSchema.safeParse({
     ...(folioPosition.success ? { folioPosition: folioPosition.data } : {}),
     ...(pageNumbering.success ? { pageNumbering: pageNumbering.data } : {}),
     ...(Object.keys(boxes).length > 0 ? { marginBoxes: boxes } : {}),
+    pageMasters,
+    sectionMasters,
   });
 
   if (!parsed.success) {

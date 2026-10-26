@@ -20,11 +20,27 @@ export const decorationMarginBoxesSchema = z
   })
   .strict();
 
+export const pageMasterOverridesSchema = z
+  .object({
+    pageWidthMm: z.number().positive().optional(),
+    pageHeightMm: z.number().positive().optional(),
+    marginTopMm: z.number().min(0).optional(),
+    marginBottomMm: z.number().min(0).optional(),
+    marginInnerMm: z.number().min(0).optional(),
+    marginOuterMm: z.number().min(0).optional(),
+    gutterMm: z.number().min(0).optional(),
+    headerDistanceMm: z.number().min(0).optional(),
+    footerDistanceMm: z.number().min(0).optional(),
+  })
+  .strict();
+
 export const editionDecorationSchema = z
   .object({
     folioPosition: z.enum(["bottomCenter", "bottomOuter", "topOuter"]).optional(),
     pageNumbering: z.enum(["arabic", "roman-lower", "roman-upper"]).optional(),
     marginBoxes: decorationMarginBoxesSchema.optional(),
+    pageMasters: z.record(z.string(), pageMasterOverridesSchema).optional(),
+    sectionMasters: z.record(z.string(), z.string()).optional(),
   })
   .strict();
 
@@ -63,6 +79,12 @@ export function applyEditionDecoration(
             base: { ...config.marginBoxes?.base, ...decoration.marginBoxes },
           },
         }
+      : {}),
+    ...(decoration.pageMasters
+      ? { pageMasters: { ...config.pageMasters, ...decoration.pageMasters } }
+      : {}),
+    ...(decoration.sectionMasters
+      ? { sectionMasters: { ...config.sectionMasters, ...decoration.sectionMasters } }
       : {}),
   };
 }

@@ -132,8 +132,10 @@ cajas base. Lo que no se define se hereda de la plantilla, y las capas
 `verso`/`recto`/`first`/`blank` de la plantilla se conservan.
 
 El formulario «Decoración de página» de la pantalla de maquetación edita esos
-valores (folio, numeración y seis cajas). La vista previa y la exportación
-aplican la decoración sobre la configuración heredada antes de paginar.
+valores: folio, numeración, seis cajas y páginas maestras con su mapeo por tipo
+de sección. Las páginas maestras de la edición se fusionan por nombre con las de
+la plantilla. La vista previa y la exportación aplican la decoración sobre la
+configuración heredada antes de paginar.
 
 ## 3. Medición del texto
 
