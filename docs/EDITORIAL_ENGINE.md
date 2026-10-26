@@ -120,8 +120,9 @@ cambia: la nota no resta ancho ni alto al área de composición.
 La vista previa y el PDF dibujan la misma nota en la columna exterior —derecha
 en recto, izquierda en verso— con las líneas ya compuestas por el motor.
 
-Pendiente: el botón de inserción en la barra del editor. Mientras no exista, el
-bloque se puede crear pegando HTML con `data-margin-note` o desde el JSON.
+La barra del editor ofrece «Nota al margen» en el menú «Más»: pide el texto e
+inserta el bloque después del párrafo actual, de modo que el ancla sea la línea
+que el autor está leyendo.
 
 ## 3. Medición del texto
 

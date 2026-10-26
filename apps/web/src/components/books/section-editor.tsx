@@ -98,7 +98,7 @@ export function SectionEditor({
    * puede validar mientras se escribe.
    */
   const [dialogo, setDialogo] = useState<{
-    tipo: "enlace" | "nota";
+    tipo: "enlace" | "nota" | "margen";
     noteId?: string;
     valor: string;
     /** Selección en el momento de abrir el diálogo, para poder volver a ella. */
@@ -832,6 +832,19 @@ export function SectionEditor({
     });
   };
 
+  const abrirNotaMargen = (): void => {
+    if (!editor) {
+      return;
+    }
+
+    setDialogo({
+      tipo: "margen",
+      valor: "",
+      desde: editor.state.selection.from,
+      hasta: editor.state.selection.to,
+    });
+  };
+
   const mensaje = statusMessage(machine);
   const sincronizando = machine.state === "syncing";
 
@@ -847,6 +860,7 @@ export function SectionEditor({
           editor={editor}
           onLink={abrirEnlace}
           onFootnote={abrirNota}
+          onMarginNote={abrirNotaMargen}
           onImage={() => setImageToolsOpen((value) => !value)}
           onProofread={revisarTextoLocal}
         />
@@ -1144,6 +1158,82 @@ export function SectionEditor({
                 }
               >
                 {dialogo.noteId ? "Guardar nota" : "Insertar nota"}
+              </button>
+            </div>
+          </form>
+        </Dialog>
+      ) : null}
+
+      {dialogo?.tipo === "margen" ? (
+        <Dialog
+          abierto
+          titulo="Nota al margen"
+          descripcion="Se compone en la columna exterior, anclada al párrafo donde la insertas."
+          onCerrar={() => setDialogo(null)}
+        >
+          <form
+            className="space-y-4"
+            onSubmit={(evento) => {
+              evento.preventDefault();
+
+              if (!editor) {
+                return;
+              }
+
+              const nota = dialogo.valor.trim();
+
+              if (nota.length === 0 || nota.length > MAX_FOOTNOTE_LENGTH) {
+                return;
+              }
+
+              const { $from } = editor.state.selection;
+              const insertAt =
+                $from.depth > 0 ? $from.after($from.depth) : editor.state.selection.to;
+
+              editor
+                .chain()
+                .focus()
+                .insertContentAt(insertAt, {
+                  type: "marginNote",
+                  content: [{ type: "text", text: nota }],
+                })
+                .run();
+              setDialogo(null);
+            }}
+          >
+            <div>
+              <label className="field-label" htmlFor="campo-margen">
+                Texto de la nota
+              </label>
+              <textarea
+                id="campo-margen"
+                name="margin-note"
+                className="field-input min-h-28"
+                maxLength={MAX_FOOTNOTE_LENGTH}
+                value={dialogo.valor}
+                onChange={(evento) => setDialogo({ ...dialogo, valor: evento.target.value })}
+              />
+              <p className="field-hint">
+                {dialogo.valor.length} de {MAX_FOOTNOTE_LENGTH} caracteres.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setDialogo(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary btn-sm"
+                disabled={
+                  dialogo.valor.trim().length === 0 ||
+                  dialogo.valor.trim().length > MAX_FOOTNOTE_LENGTH
+                }
+              >
+                Insertar nota
               </button>
             </div>
           </form>

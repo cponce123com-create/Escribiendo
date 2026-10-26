@@ -10,6 +10,7 @@ interface EditorToolbarProps {
   editor: Editor | null;
   onLink: () => void;
   onFootnote: () => void;
+  onMarginNote: () => void;
   onImage: () => void;
   onProofread: () => void;
 }
@@ -42,7 +43,11 @@ const ESTADO_VACIO: EditorToolbarState = {
   canRedo: false,
 };
 
-function Icono({ tipo }: { tipo: "bullet" | "ordered" | "quote" | "link" | "footnote" | "rule" }) {
+function Icono({
+  tipo,
+}: {
+  tipo: "bullet" | "ordered" | "quote" | "link" | "footnote" | "margin" | "rule";
+}) {
   const paths: Record<typeof tipo, string> = {
     bullet: "M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01",
     ordered: "M10 6h10M10 12h10M10 18h10M4 5h1v3M3 8h3M3 12h2a1 1 0 0 1 0 2H3l2 2H3M4 18h2v3H3",
@@ -50,6 +55,7 @@ function Icono({ tipo }: { tipo: "bullet" | "ordered" | "quote" | "link" | "foot
       "M10 11H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5v7Zm11 0h-5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5v7ZM5 11v2a3 3 0 0 1-3 3m14-5v2a3 3 0 0 1-3 3",
     link: "M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71",
     footnote: "M4 4h7v7H4zM15 4v7m-3.5-3.5h7M13 20l4-8 4 8m-6.5-2h5",
+    margin: "M4 4h10v16H4zM17 7h3M17 12h3M17 17h3",
     rule: "M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4",
   };
 
@@ -111,6 +117,7 @@ export function EditorToolbar({
   editor,
   onLink,
   onFootnote,
+  onMarginNote,
   onImage,
   onProofread,
 }: EditorToolbarProps) {
@@ -313,6 +320,14 @@ export function EditorToolbar({
             <ToolbarButton label="Nota al pie" title="Nota al pie" onClick={onFootnote}>
               <Icono tipo="footnote" />
               <span>Nota al pie</span>
+            </ToolbarButton>
+            <ToolbarButton
+              label="Nota al margen"
+              title="Nota en la columna exterior, junto al párrafo"
+              onClick={onMarginNote}
+            >
+              <Icono tipo="margin" />
+              <span>Nota al margen</span>
             </ToolbarButton>
             <ToolbarButton
               label="Separador"
