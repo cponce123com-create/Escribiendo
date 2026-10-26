@@ -123,3 +123,5 @@ export type {
   RhythmParagraphMetrics,
   RhythmParagraphValue,
 } from "./linguistics/rhythm";
+
+export { validCalendarDate } from "./linguistics/calendar";

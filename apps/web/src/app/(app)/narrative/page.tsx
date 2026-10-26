@@ -1,3 +1,7 @@
+import { NarrativePlanningPanel } from "@/components/story/narrative-planning-panel";
+import { loadNarrativePlanning } from "@/lib/story/narrative-planning-queries";
+import { canPerform } from "@/lib/books/permissions";
+import { formatNarrativePeriod } from "@/lib/story/narrative-planning";
 import type { Metadata } from "next";
 import { RelationshipMap } from "@/components/story/relationship-map";
 import Link from "next/link";
@@ -7,19 +11,6 @@ import { guardStorySchema } from "@/lib/story/schema-guard";
 import { getNarrativeDashboard } from "@/lib/story/narrative-queries";
 
 export const metadata: Metadata = { title: "Análisis narrativo" };
-
-const STAGES = {
-  FREE: ["Estructura libre"],
-  THREE_ACTS: ["Acto I · Planteamiento", "Acto II · Confrontación", "Acto III · Resolución"],
-  FIVE_ACTS: ["Exposición", "Acción ascendente", "Clímax", "Acción descendente", "Desenlace"],
-  HERO_JOURNEY: [
-    "Mundo ordinario",
-    "Llamada a la aventura",
-    "Pruebas y aliados",
-    "Ordalía",
-    "Regreso con el elixir",
-  ],
-};
 
 interface PageProps {
   searchParams: Promise<{ book?: string; structure?: string }>;
@@ -34,12 +25,9 @@ export default async function NarrativePage({ searchParams }: PageProps) {
   const dashboard = selectedBook
     ? await guardStorySchema(() => getNarrativeDashboard(session, selectedBook.id))
     : null;
-  const structure =
-    params.structure === "THREE_ACTS" ||
-    params.structure === "FIVE_ACTS" ||
-    params.structure === "HERO_JOURNEY"
-      ? params.structure
-      : "FREE";
+  const planningData = selectedBook
+    ? await guardStorySchema(() => loadNarrativePlanning(session, selectedBook.id))
+    : null;
   return (
     <div className="mx-auto max-w-7xl space-y-8">
       <header className="space-y-3">
@@ -276,8 +264,8 @@ export default async function NarrativePage({ searchParams }: PageProps) {
             </h2>
             <p className="mt-2 text-sm text-ink-muted">
               El orden narrativo corresponde al capítulo donde aparece el acontecimiento; el orden
-              cronológico usa el número temporal editable de cada acontecimiento. Las sugerencias
-              automáticas se mantienen diferenciadas.
+              cronológico se ajusta con Subir y Bajar en el panel de acontecimientos. Las
+              sugerencias automáticas se mantienen diferenciadas.
             </p>
             <div className="mt-5 grid gap-6 lg:grid-cols-2">
               <div>
@@ -309,16 +297,15 @@ export default async function NarrativePage({ searchParams }: PageProps) {
                 <ol className="mt-3 space-y-3">
                   {[...dashboard.timeline]
                     .sort((a, b) => a.chronologicalOrder - b.chronologicalOrder)
-                    .map((event) => (
+                    .map((event, index) => (
                       <li className="border-l-2 border-accent/40 pl-4" key={`c-${event.id}`}>
                         <p className="font-semibold text-ink">{event.title}</p>
                         <p className="text-xs text-ink-muted">
-                          Posición temporal {event.chronologicalOrder || "sin decidir"} ·{" "}
-                          {event.characterName}
+                          Posición temporal {index + 1} · {event.characterName}
                         </p>
                         <p className="mt-1 text-sm text-ink-soft">
-                          {event.details ??
-                            "Sin fecha o intervalo descrito; completa el acontecimiento desde la ficha."}
+                          {formatNarrativePeriod(event)}
+                          {event.details ? ` · ${event.details}` : ""}
                         </p>
                       </li>
                     ))}
@@ -326,53 +313,12 @@ export default async function NarrativePage({ searchParams }: PageProps) {
               </div>
             </div>
           </section>
-          <section className="panel p-6" aria-labelledby="structure-title">
-            <p className="eyebrow">Módulo E</p>
-            <h2 id="structure-title" className="mt-1 font-serif text-2xl text-ink">
-              Estructura narrativa opcional
-            </h2>
-            <p className="mt-2 text-sm text-ink-muted">
-              Las plantillas son ayudas de planificación, no requisitos para escribir. Asocia
-              capítulos y escenas a etapas desde las tarjetas de planificación.
-            </p>
-            <form method="get" className="mt-4 flex flex-wrap items-end gap-3">
-              <input type="hidden" name="book" value={dashboard.book.id} />
-              <div>
-                <label className="field-label" htmlFor="structure">
-                  Plantilla
-                </label>
-                <select
-                  id="structure"
-                  name="structure"
-                  className="field-input"
-                  defaultValue={structure}
-                >
-                  <option value="FREE">Estructura libre</option>
-                  <option value="THREE_ACTS">Tres actos</option>
-                  <option value="FIVE_ACTS">Cinco actos</option>
-                  <option value="HERO_JOURNEY">Viaje del héroe</option>
-                </select>
-              </div>
-              <button className="btn btn-secondary" type="submit">
-                Aplicar vista
-              </button>
-            </form>
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              {STAGES[structure].map((stage, index) => (
-                <article className="rounded-lg border border-line p-4" key={stage}>
-                  <p className="meta-label">Etapa {index + 1}</p>
-                  <h3 className="mt-1 font-serif text-lg text-ink">{stage}</h3>
-                  <p className="mt-2 text-xs text-ink-muted">
-                    Consulta capítulos y escenas en{" "}
-                    <Link className="underline" href={`/planning?book=${dashboard.book.id}`}>
-                      planificación
-                    </Link>
-                    .
-                  </p>
-                </article>
-              ))}
-            </div>
-          </section>
+          {planningData ? (
+            <NarrativePlanningPanel
+              data={planningData}
+              canManage={canPerform(session.workspace.role, "story:manage")}
+            />
+          ) : null}
         </>
       )}
     </div>

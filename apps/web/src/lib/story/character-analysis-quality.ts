@@ -1,3 +1,4 @@
+import { personalIdentity } from "./personal-name";
 import {
   analyzeNarrative,
   type CharacterCandidate,
@@ -231,10 +232,17 @@ export function filterCharacterCandidates(
   },
 ): CharacterCandidate[] {
   const title = normalizeCharacterName(input.bookTitle);
-  const known = new Set(input.existingCharacterNames.map(normalizeCharacterName));
+  const known = new Set(input.existingCharacterNames.map(personalIdentity));
   const minimum = input.minimumConfidence ?? 0.55;
   return candidates.filter((candidate) => {
     const name = normalizeCharacterName(candidate.name);
+    if (candidate.nameVerification)
+      return (
+        candidate.mentions >= 2 &&
+        candidate.nameVerification.reverseMentions >= 2 &&
+        candidate.confidence >= Math.max(minimum, 0.72) &&
+        !known.has(personalIdentity(candidate.name))
+      );
     const evidenceAcrossSections =
       new Set(candidate.evidence.map((evidence) => evidence.section)).size > 1;
     const independentNameEvidence =
@@ -251,7 +259,7 @@ export function filterCharacterCandidates(
       !title.includes(name) &&
       !LIKELY_PLACES.has(name) &&
       !isExplicitPlace(candidate.name, input.sectionText) &&
-      !known.has(name) &&
+      !known.has(personalIdentity(candidate.name)) &&
       candidate.confidence >= minimum
     );
   });

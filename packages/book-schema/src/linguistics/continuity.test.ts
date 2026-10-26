@@ -163,3 +163,50 @@ describe("detectNarrativeInconsistencies", () => {
     expect(detectNarrativeInconsistencies(facts)).toHaveLength(0);
   });
 });
+
+describe("continuidad explícita ampliada", () => {
+  it("compara filiación explícita y nunca convierte una coaparición en parentesco", () => {
+    const characters = [character, { id: "p", name: "Pedro" }, { id: "j", name: "Juan" }];
+    const a = extractNarrativeFacts({ ...input("a", "Pedro era el padre de Lucía."), characters });
+    const b = extractNarrativeFacts({ ...input("b", "Juan era el padre de Lucía."), characters });
+    expect(a.find((f) => f.factType === "FAMILY_FATHER")?.valueText).toBe("Pedro");
+    expect(detectNarrativeInconsistencies([...a, ...b]).some((f) => f.type === "FAMILY")).toBe(
+      true,
+    );
+    expect(
+      extractNarrativeFacts({ ...input("c", "Pedro caminó con Lucía."), characters }).some(
+        (f) => f.factType === "FAMILY_FATHER",
+      ),
+    ).toBe(false);
+    expect(
+      extractNarrativeFacts({ ...input("d", "Pedro no era el padre de Lucía."), characters }).some(
+        (f) => f.factType === "FAMILY_FATHER",
+      ),
+    ).toBe(false);
+  });
+  it("señala fechas imposibles y fallecimiento anterior al nacimiento", () => {
+    const impossible = extractNarrativeFacts(input("bad", "Lucía nació el 31/02/2020."));
+    expect(
+      detectNarrativeInconsistencies(impossible).some((f) => f.explanation.includes("no existe")),
+    ).toBe(true);
+    const birth = extractNarrativeFacts(input("born", "Lucía nació el 2000-01-01."));
+    const death = extractNarrativeFacts(input("death", "Lucía murió el 1990-01-01."));
+    expect(
+      detectNarrativeInconsistencies([...birth, ...death]).some((f) =>
+        f.explanation.includes("anterior"),
+      ),
+    ).toBe(true);
+    const dialogue = death.map((f) => ({ ...f, evidenceMode: "DIALOGUE" as const }));
+    expect(detectNarrativeInconsistencies([...birth, ...dialogue])).toEqual([]);
+  });
+  it("compara apellidos solo en el mismo año explícito", () => {
+    const a = extractNarrativeFacts(input("a", "En 2020, Lucía se apellidaba Pérez."));
+    const b = extractNarrativeFacts(input("b", "En 2020, Lucía se apellidaba Rojas."));
+    expect(
+      detectNarrativeInconsistencies([...a, ...b]).some((f) => f.type === "NAME_VARIANT"),
+    ).toBe(true);
+    expect(
+      detectNarrativeInconsistencies([...a, ...b.map((f) => ({ ...f, temporalYear: 2021 }))]),
+    ).toEqual([]);
+  });
+});

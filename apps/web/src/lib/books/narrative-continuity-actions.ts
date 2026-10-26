@@ -206,6 +206,7 @@ export async function analyzeNarrativeSectionAction(data: FormData): Promise<voi
       context,
     );
     revalidatePath(`/books/${bookId}/continuity`);
+    revalidatePath(`/books/${bookId}/laboratorio`);
     revalidatePath(`/books/${bookId}/analysis`);
   } catch (error) {
     logStoryError("narrative.continuity.analysis_failed", context, error);
@@ -282,6 +283,7 @@ export async function decideNarrativeFindingAction(data: FormData): Promise<void
       context,
     );
     revalidatePath(`/books/${bookId}/continuity`);
+    revalidatePath(`/books/${bookId}/laboratorio`);
   } catch (error) {
     logStoryError("narrative.continuity.decision_failed", context, error);
   }
@@ -326,6 +328,7 @@ export async function reviewNarrativeFactAction(data: FormData): Promise<void> {
       context,
     );
     revalidatePath(`/books/${bookId}/continuity`);
+    revalidatePath(`/books/${bookId}/laboratorio`);
   } catch (error) {
     logStoryError("narrative.continuity.fact_review_failed", context, error);
   }
@@ -392,6 +395,7 @@ export async function updateNarrativeFactRecordAction(data: FormData): Promise<v
       context,
     );
     revalidatePath(`/books/${bookId}/continuity`);
+    revalidatePath(`/books/${bookId}/laboratorio`);
   } catch (error) {
     logStoryError("narrative.continuity.fact_record_update_failed", context, error);
   }

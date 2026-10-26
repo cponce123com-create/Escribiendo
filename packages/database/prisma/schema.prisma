@@ -77,6 +77,8 @@ model User {
   @@index([isActive])
   @@index([deletedAt])
   @@map("users")
+  laboratoryReviews LaboratoryReviewState[]
+
 }
 
 model Workspace {
@@ -111,6 +113,8 @@ model Workspace {
   @@index([ownerId])
   @@index([deletedAt])
   @@map("workspaces")
+  laboratoryReviews LaboratoryReviewState[]
+
 }
 
 model WorkspaceMember {
@@ -281,6 +285,9 @@ model Book {
   narrativeFacts            NarrativeFact[]
   narrativeAnalyses         NarrativeSectionAnalysis[]
   narrativeDecisions        NarrativeFindingDecision[]
+  narrativeStructure        String @default("FREE") @db.VarChar(24)
+  narrativeVersion          Int @default(0)
+  laboratoryReviews         LaboratoryReviewState[]
   editorialMetadata         BookEditorialMetadata?
   contributors              BookContributor[]
   identifiers               BookIdentifier[]
@@ -338,6 +345,8 @@ model BookSection {
   @@index([bookId, deletedAt])
   @@index([assigneeId])
   @@map("book_sections")
+  narrativeStage String? @db.VarChar(64)
+
 }
 
 model SectionRevision {
@@ -843,6 +852,8 @@ model StoryCharacterSuggestion {
   @@index([workspaceId, bookId, status, stale])
   @@index([characterId])
   @@map("story_character_suggestions")
+  nameVerification Json?
+
 }
 
 /// Afirmación extraída localmente de una instantánea de sección.
@@ -1016,6 +1027,10 @@ model StoryCharacterEvent {
   @@index([workspaceId, bookId, characterId, sequence])
   @@index([sectionId])
   @@map("story_character_events")
+  startsOn String? @db.VarChar(10)
+  endsOn String? @db.VarChar(10)
+  datePrecision String @default("UNDATED") @db.VarChar(16)
+
 }
 
 /// Lugar, cultura, organización o regla del mundo de una historia.
@@ -1305,4 +1320,22 @@ model EditorialMatter {
   @@index([bookId, enabled])
   @@index([sectionId])
   @@map("editorial_matters")
+}
+
+/// Preferencias y decisiones privadas por autor, libro y espacio de trabajo.
+model LaboratoryReviewState {
+  id String @id @default(uuid()) @db.Uuid
+  workspaceId String @db.Uuid
+  bookId String @db.Uuid
+  userId String @db.Uuid
+  disabledRules Json @default("[]")
+  decisions Json @default("{}")
+  version Int @default(1)
+  updatedAt DateTime @updatedAt
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([bookId, userId])
+  @@index([workspaceId, userId])
+  @@map("laboratory_review_states")
 }

@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import type { SessionContext } from "@/lib/auth/session";
 import { extractPlainText, wordCount } from "./engine/text";
+import { editorialOrder } from "@/lib/books/reading-order";
 import { dialogueBlocks, extractSpeaker } from "./dialogue-analysis";
 
 export interface DialogueIntervention {
@@ -56,6 +57,9 @@ export interface NarrativeDashboard {
     sectionTitle: string | null;
     narrativeOrder: number;
     chronologicalOrder: number;
+    startsOn: string | null;
+    endsOn: string | null;
+    datePrecision: string;
     suggested: boolean;
     characterName: string;
   }>;
@@ -88,7 +92,15 @@ export async function getNarrativeDashboard(
     prisma.bookSection.findMany({
       where: { bookId, deletedAt: null, isHidden: false },
       orderBy: { sortOrder: "asc" },
-      select: { id: true, title: true, content: true, wordCount: true, sortOrder: true },
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        wordCount: true,
+        sortOrder: true,
+        type: true,
+        parentId: true,
+      },
     }),
     prisma.storyCharacter.findMany({
       where: { bookId, workspaceId: session.workspace.id, deletedAt: null },
@@ -139,7 +151,11 @@ export async function getNarrativeDashboard(
   const appearanceMap = new Map<string, number>();
   const firstMap = new Map<string, string>();
   const lastMap = new Map<string, string>();
-  for (const [index, section] of sections.entries()) {
+  const orderedSections = editorialOrder(sections, false);
+  const narrativeOrderById = new Map(
+    orderedSections.map((section, index) => [section.id, index + 1]),
+  );
+  for (const [index, section] of orderedSections.entries()) {
     const text = extractPlainText(JSON.stringify(section.content));
     const blocks = dialogueBlocks(text);
     const chapterWords = wordCount(text);
@@ -225,8 +241,11 @@ export async function getNarrativeDashboard(
       sourceExcerpt: event.sourceExcerpt,
       sectionId: event.sectionId,
       sectionTitle: event.sectionId ? (eventSectionById.get(event.sectionId)?.title ?? null) : null,
-      narrativeOrder: event.sectionId ? (eventSectionById.get(event.sectionId)?.sortOrder ?? 0) : 0,
+      narrativeOrder: event.sectionId ? (narrativeOrderById.get(event.sectionId) ?? 0) : 0,
       chronologicalOrder: event.sequence,
+      startsOn: event.startsOn ?? null,
+      endsOn: event.endsOn ?? null,
+      datePrecision: event.datePrecision ?? "UNDATED",
       suggested: event.suggested,
       characterName: event.character.name,
     })),

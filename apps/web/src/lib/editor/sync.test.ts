@@ -239,3 +239,11 @@ it("perder la red sin editar no inventa trabajo pendiente", () => {
   expect(hasUnsavedWork(offline)).toBe(false);
   expect(shouldSync(offline)).toBe(false);
 });
+
+it("el respaldo local repetido no reinicia el debounce de servidor", () => {
+  const edited = reduceSync(initialSyncMachine(1), { type: "edit" });
+  const saved = reduceSync(edited, { type: "local-saved", persisted: true });
+  expect(reduceSync(saved, { type: "local-saved", persisted: true })).toBe(saved);
+  const throttled = reduceSync(saved, { type: "sync-throttled", retryAfterMs: 40000 });
+  expect(reduceSync(throttled, { type: "local-saved", persisted: true })).toBe(throttled);
+});
