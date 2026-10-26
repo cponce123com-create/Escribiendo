@@ -37,6 +37,23 @@ const pageDecorationLayersSchema = z
   })
   .strict();
 
+const pageMasterSchema = z
+  .object({
+    pageWidthMm: z.number().positive().optional(),
+    pageHeightMm: z.number().positive().optional(),
+    marginTopMm: z.number().min(0).optional(),
+    marginBottomMm: z.number().min(0).optional(),
+    marginInnerMm: z.number().min(0).optional(),
+    marginOuterMm: z.number().min(0).optional(),
+    gutterMm: z.number().min(0).optional(),
+    headerDistanceMm: z.number().min(0).optional(),
+    footerDistanceMm: z.number().min(0).optional(),
+  })
+  .strict();
+
+const pageMastersSchema = z.record(z.string(), pageMasterSchema);
+const sectionMastersSchema = z.record(z.string(), z.string());
+
 export const editorialTemplateConfigSchema = z
   .object({
     typography: typographyConfigSchema,
@@ -56,6 +73,10 @@ export const editorialTemplateConfigSchema = z
      * folio derivados de `runningHead`/`folioPosition`.
      */
     marginBoxes: pageDecorationLayersSchema.optional(),
+    /** Páginas maestras con nombre: sustituyen tamaño o márgenes. */
+    pageMasters: pageMastersSchema.optional(),
+    /** Tipo de sección → nombre de página maestra. */
+    sectionMasters: sectionMastersSchema.optional(),
     /** Los capítulos empiezan en página par. */
     chapterStartsRecto: z.boolean().default(true),
     /** Se imprimen los folios. */
@@ -422,6 +443,8 @@ export function withTemplateDefaults(value: unknown): EditorialTemplateConfig {
     .strict()
     .safeParse(partial.runningHead);
   const marginBoxes = pageDecorationLayersSchema.safeParse(partial.marginBoxes);
+  const pageMasters = pageMastersSchema.safeParse(partial.pageMasters);
+  const sectionMasters = sectionMastersSchema.safeParse(partial.sectionMasters);
 
   return {
     typography: typography.success ? typography.data : DEFAULT_TYPOGRAPHY_CONFIG,
@@ -435,6 +458,8 @@ export function withTemplateDefaults(value: unknown): EditorialTemplateConfig {
         ? partial.pageNumbering
         : "arabic",
     ...(marginBoxes.success ? { marginBoxes: marginBoxes.data } : {}),
+    ...(pageMasters.success ? { pageMasters: pageMasters.data } : {}),
+    ...(sectionMasters.success ? { sectionMasters: sectionMasters.data } : {}),
     chapterStartsRecto:
       typeof partial.chapterStartsRecto === "boolean" ? partial.chapterStartsRecto : true,
     showPageNumbers: typeof partial.showPageNumbers === "boolean" ? partial.showPageNumbers : true,

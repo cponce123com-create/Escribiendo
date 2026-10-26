@@ -5,6 +5,7 @@ import {
   type LaidOutPage,
   type MeasureText,
   type PageGeometry,
+  type PageMasterMap,
   type PaginationResult,
   type TypographyConfig,
 } from "@escribiendo/editorial-engine";
@@ -40,6 +41,8 @@ export interface StabilizeCompositionInput {
   geometry: PageGeometry;
   typography: TypographyConfig;
   measure?: MeasureText;
+  /** Páginas maestras por nombre, para que el índice cuente las mismas páginas. */
+  masters?: PageMasterMap;
   compose: (front: readonly MatterLayout[], back: readonly MatterLayout[]) => LayoutBlock[];
   maxPasses?: number;
 }
@@ -113,6 +116,7 @@ export function stabilizeComposition(input: StabilizeCompositionInput): Stabiliz
       input.geometry,
       input.typography,
       input.measure,
+      input.masters,
     );
   let composition = build(composed);
 

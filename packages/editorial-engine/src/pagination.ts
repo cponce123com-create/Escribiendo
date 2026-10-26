@@ -82,6 +82,8 @@ export interface LayoutBlock {
   sectionId?: string;
   /** Título de la sección, para los encabezados de página. */
   sectionTitle?: string;
+  /** Página maestra que rige esta sección, si la plantilla la define. */
+  pageMaster?: string;
   /** El bloque abre un capítulo y puede forzar página par. */
   startsChapter?: boolean;
   /** El bloque es el primero de su sección. */
@@ -137,6 +139,43 @@ export interface PageGeometry {
 }
 
 export type DiagnosticSeverity = "error" | "warning" | "info";
+
+/** Geometría efectiva de una página, ya resuelta con su página maestra. */
+export interface PageFrame {
+  pageWidthMm: number;
+  pageHeightMm: number;
+  marginTopMm: number;
+  marginBottomMm: number;
+  marginInnerMm: number;
+  marginOuterMm: number;
+  gutterMm: number;
+  headerDistanceMm?: number;
+  footerDistanceMm?: number;
+}
+
+/** Página maestra: valores que sustituyen a la geometría base. */
+export type PageMaster = Partial<PageFrame> & { name?: string };
+
+export type PageMasterMap = Record<string, PageMaster>;
+
+/** Marco que corresponde a una geometría sin página maestra. */
+export function frameFromGeometry(geometry: PageGeometry): PageFrame {
+  return {
+    pageWidthMm: geometry.pageWidthMm,
+    pageHeightMm: geometry.pageHeightMm,
+    marginTopMm: geometry.marginTopMm,
+    marginBottomMm: geometry.marginBottomMm,
+    marginInnerMm: geometry.marginInnerMm,
+    marginOuterMm: geometry.marginOuterMm,
+    gutterMm: geometry.gutterMm ?? 0,
+    ...(geometry.headerDistanceMm !== undefined
+      ? { headerDistanceMm: geometry.headerDistanceMm }
+      : {}),
+    ...(geometry.footerDistanceMm !== undefined
+      ? { footerDistanceMm: geometry.footerDistanceMm }
+      : {}),
+  };
+}
 
 export interface LayoutDiagnostic {
   code:
@@ -239,6 +278,10 @@ export interface LaidOutPage {
   folioLabel?: string;
   /** Cajas de margen ya compuestas (cabeceras, folios, autoría). */
   marginBoxes?: ResolvedMarginBox[];
+  /** Marco efectivo de la página (tamaño y márgenes). */
+  frame?: PageFrame;
+  /** Página maestra aplicada, si la sección la declara. */
+  pageMaster?: string;
   /** `recto` es la página derecha (impar), `verso` la izquierda. */
   side: "recto" | "verso";
   blocks: LaidOutBlock[];
@@ -340,10 +383,15 @@ export function paginate(
   geometry: PageGeometry,
   typographyInput: unknown,
   measure?: MeasureText,
+  masters?: PageMasterMap,
 ): PaginationResult {
   const typography = withTypographyDefaults(typographyInput ?? DEFAULT_TYPOGRAPHY_CONFIG);
   const diagnostics: LayoutDiagnostic[] = [];
-  const { widthMm, heightMm } = textBlockSize(geometry);
+  const baseSize = textBlockSize(geometry);
+  let widthMm = baseSize.widthMm;
+  let heightMm = baseSize.heightMm;
+  let frame = frameFromGeometry(geometry);
+  let currentMaster: string | undefined;
 
   const pages: LaidOutPage[] = [];
   const chapterStartsRecto = geometry.chapterStartsRecto ?? true;
@@ -402,6 +450,8 @@ export function paginate(
       blocks: currentBlocks,
       usedHeightMm,
       totalHeightMm: heightMm,
+      frame: { ...frame },
+      ...(currentMaster ? { pageMaster: currentMaster } : {}),
       footnotes: currentFootnotes,
       footnotesHeightMm,
       // La página que abre un capítulo lleva el título en el cuerpo; repetirlo
@@ -495,6 +545,20 @@ export function paginate(
   };
 
   for (const block of blocks) {
+    const masterName = block.pageMaster;
+
+    if (masterName && masterName !== currentMaster && masters?.[masterName]) {
+      if (currentBlocks.length > 0) {
+        flushPage();
+      }
+
+      currentMaster = masterName;
+      frame = { ...frameFromGeometry(geometry), ...masters[masterName] };
+      const size = textBlockSize(frame);
+      widthMm = size.widthMm;
+      heightMm = size.heightMm;
+    }
+
     const abreCapitulo = block.startsChapter === true;
     const cortaPagina = block.breaksBefore === true;
 
@@ -923,8 +987,8 @@ export function paginate(
   return {
     pages,
     diagnostics,
-    textWidthMm: widthMm,
-    textHeightMm: heightMm,
+    textWidthMm: baseSize.widthMm,
+    textHeightMm: baseSize.heightMm,
   };
 }
 

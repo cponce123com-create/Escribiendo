@@ -99,6 +99,8 @@ export interface BookBlocksOptions {
   dedication?: DedicationSettings;
   /** Altura útil real, para resolver las posiciones proporcionales al formato. */
   contentHeightMm?: number;
+  /** Tipo de sección → nombre de página maestra. */
+  sectionMasters?: Record<string, string>;
 }
 
 /** Indica si el tipo de sección presenta el título guardado. */
@@ -351,7 +353,10 @@ export function bookToBlocks(
   const bodyStart = blocks.length;
 
   for (const section of sections) {
-    const sectionBlocks = composeSectionBlocks(section, footnotes, options);
+    const master = options.sectionMasters?.[section.type];
+    const sectionBlocks = composeSectionBlocks(section, footnotes, options).map((block) =>
+      master ? { ...block, pageMaster: master } : block,
+    );
     const opensChapter = section.isChapter && (chapterSeen || section.startOnOddPage);
     const visibleTitle = titles.get(section.id) ?? null;
     // Convención editorial (por tipo) y elección del autor: el título compuesto
@@ -369,6 +374,7 @@ export function bookToBlocks(
           kind: section.type.toUpperCase() === "SUBCHAPTER" ? "heading2" : "chapterTitle",
           text: composed,
           ...registrationFor(section),
+          ...(master ? { pageMaster: master } : {}),
           firstOfSection: true,
         }
       : null;

@@ -13,7 +13,12 @@ export type RunningHeadTemplate = Pick<EditorialTemplateConfig, "runningHead"> &
   Partial<
     Pick<
       EditorialTemplateConfig,
-      "folioPosition" | "showPageNumbers" | "pageNumbering" | "marginBoxes"
+      | "folioPosition"
+      | "showPageNumbers"
+      | "pageNumbering"
+      | "marginBoxes"
+      | "pageMasters"
+      | "sectionMasters"
     >
   >;
 

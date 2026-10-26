@@ -99,6 +99,7 @@ export {
   lineHeightMm,
   paginate,
   textBlockSize,
+  frameFromGeometry,
   type DiagnosticSeverity,
   type LaidOutBlock,
   type LaidOutFootnote,
@@ -107,6 +108,9 @@ export {
   type LayoutBlock,
   type LayoutBlockKind,
   type LayoutDiagnostic,
+  type PageFrame,
   type PageGeometry,
+  type PageMaster,
+  type PageMasterMap,
   type PaginationResult,
 } from "./pagination";

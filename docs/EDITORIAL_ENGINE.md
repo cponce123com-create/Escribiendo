@@ -78,6 +78,32 @@ La vista previa y el PDF consumen las mismas cajas resueltas (`marginBoxes` en
 guarda el folio impreso y `runningHead` se conserva para los consumidores que
 solo leen un encabezado.
 
+### Páginas maestras
+
+Una plantilla puede declarar páginas maestras con nombre en `pageMasters`
+(tamaño, márgenes y distancias de cabecera y pie) y mapear tipos de sección a
+ellas en `sectionMasters`:
+
+```json
+{
+  "pageMasters": {
+    "apendice": { "marginInnerMm": 30, "marginOuterMm": 30 }
+  },
+  "sectionMasters": { "APPENDIX": "apendice", "GLOSSARY": "apendice" }
+}
+```
+
+Al entrar en un bloque con otra página maestra, la paginación cierra la página
+en curso y recalcula el área de texto con el nuevo marco. Cada `LaidOutPage`
+lleva su `frame` y el nombre de su `pageMaster`; la vista previa y el PDF usan
+ese marco (con el perfil como respaldo) para el tamaño de hoja, los márgenes y
+la posición de las notas. El folio y el lado continúan sin reiniciarse, y la
+estabilización del índice pagina con las mismas páginas maestras para que los
+folios del índice sigan siendo ciertos.
+
+Si una plantilla no declara `pageMasters`, la composición es idéntica a la
+anterior: el marco de todas las páginas es la geometría del perfil.
+
 ## 3. Medición del texto
 
 `measure.ts` admite dos formas de medir:

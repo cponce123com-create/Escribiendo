@@ -63,13 +63,25 @@ export function toPdfPages(
     showPageNumbers: profile.showPageNumbers,
   });
   const pdfPages: PdfPage[] = pagesWithHeads.map((page) => {
+    const frame = page.frame;
+    const pageWidthMm = frame?.pageWidthMm ?? profile.pageWidthMm;
+    const pageHeightMm = frame?.pageHeightMm ?? profile.pageHeightMm;
+    const marginTopMm = frame?.marginTopMm ?? profile.marginTopMm;
+    const marginBottomMm = frame?.marginBottomMm ?? profile.marginBottomMm;
+    const marginInnerMm = frame?.marginInnerMm ?? profile.marginInnerMm;
+    const marginOuterMm = frame?.marginOuterMm ?? profile.marginOuterMm;
+    const gutterMm = frame?.gutterMm ?? profile.gutterMm;
+    const headerDistanceMm = frame?.headerDistanceMm ?? profile.headerDistanceMm;
+    const footerDistanceMm = frame?.footerDistanceMm ?? profile.footerDistanceMm;
     const interior = profile.mirrorMargins ? page.side === "recto" : true;
-    const leftMm = interior ? profile.marginInnerMm + profile.gutterMm : profile.marginOuterMm;
+    const leftMm = interior ? marginInnerMm + gutterMm : marginOuterMm;
+    const textWidthMm =
+      pageWidthMm - leftMm - (interior ? marginOuterMm : marginInnerMm + gutterMm);
 
     const runs: PdfRun[] = [];
     const pdfImages: PdfImage[] = [];
     const rules: PdfRule[] = [];
-    let y = profile.marginTopMm;
+    let y = marginTopMm;
 
     for (const block of page.blocks) {
       const lineHeightMm = (block.style.fontSizePt * block.style.lineHeight * 25.4) / 72;
@@ -319,8 +331,7 @@ export function toPdfPages(
     if (page.footnotes.length > 0) {
       const footnoteFontSizePt = typography.body.fontSizePt * 0.78;
       const footnoteLineHeightMm = (footnoteFontSizePt * 1.3 * 25.4) / 72;
-      const footnoteAreaTopMm =
-        profile.pageHeightMm - profile.marginBottomMm - page.footnotesHeightMm;
+      const footnoteAreaTopMm = pageHeightMm - marginBottomMm - page.footnotesHeightMm;
 
       rules.push({
         x1Mm: leftMm,
@@ -371,15 +382,13 @@ export function toPdfPages(
         xMm,
         // El folio va al pie con un mínimo de 4 mm: un perfil antiguo con
         // distancia cero no debe dejarlo pegado al borde de la hoja.
-        baselineMm: isTop
-          ? profile.headerDistanceMm + 2.5
-          : profile.pageHeightMm - Math.max(profile.footerDistanceMm, 4),
+        baselineMm: isTop ? headerDistanceMm + 2.5 : pageHeightMm - Math.max(footerDistanceMm, 4),
       });
     }
 
     return {
-      widthMm: profile.pageWidthMm,
-      heightMm: profile.pageHeightMm,
+      widthMm: pageWidthMm,
+      heightMm: pageHeightMm,
       runs,
       ...(pdfImages.length > 0 ? { images: pdfImages } : {}),
       ...(rules.length > 0 ? { rules } : {}),

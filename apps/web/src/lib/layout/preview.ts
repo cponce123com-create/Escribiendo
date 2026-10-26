@@ -240,6 +240,9 @@ export async function buildPreview(
       backMatter: back,
       ...(matter?.dedication ? { dedication: matter.dedication } : {}),
       contentHeightMm: textBlockSize(geometry).heightMm,
+      ...(edition?.template?.config?.sectionMasters
+        ? { sectionMasters: edition.template.config.sectionMasters }
+        : {}),
     });
 
   // Primera pasada: materias sin páginas. Después se estabiliza el índice,
@@ -249,6 +252,9 @@ export async function buildPreview(
     geometry,
     typography,
     ...(fuentes?.measure ? { measure: fuentes.measure } : {}),
+    ...(edition?.template?.config?.pageMasters
+      ? { masters: edition.template.config.pageMasters }
+      : {}),
     compose,
   });
   const { composition: result, stability } = stabilized;

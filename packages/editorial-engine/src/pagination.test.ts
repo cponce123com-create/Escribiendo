@@ -713,3 +713,61 @@ describe("anclaje de la región inferior de una materia", () => {
     expect(alturaOcupada(ultima)).toBeCloseTo(80, 5);
   });
 });
+
+describe("páginas maestras", () => {
+  it("cambia de marco y cierra la página al entrar en una sección con master", () => {
+    const result = paginate(
+      [
+        bloque("cuerpo", palabrasiguales(PALABRAS_POR_LINEA * 2)),
+        bloque("apendice", palabrasiguales(PALABRAS_POR_LINEA), { pageMaster: "apendice" }),
+      ],
+      GEOMETRY,
+      TIPOGRAFIA,
+      undefined,
+      {
+        apendice: {
+          pageWidthMm: 120,
+          marginInnerMm: 30,
+          marginOuterMm: 30,
+        },
+      },
+    );
+
+    expect(result.pages).toHaveLength(2);
+    expect(result.pages[0]?.frame?.marginInnerMm).toBe(10);
+    expect(result.pages[1]?.frame).toMatchObject({
+      pageWidthMm: 120,
+      marginInnerMm: 30,
+      marginOuterMm: 30,
+    });
+    expect(result.pages[1]?.pageMaster).toBe("apendice");
+    expect(result.pages[1]?.totalHeightMm).toBe(80);
+  });
+
+  it("ignora un master que no existe en el mapa", () => {
+    const result = paginate(
+      [bloque("uno", palabrasiguales(5), { pageMaster: "inexistente" })],
+      GEOMETRY,
+      TIPOGRAFIA,
+      undefined,
+      {},
+    );
+
+    expect(result.pages[0]?.pageMaster).toBeUndefined();
+    expect(result.pages[0]?.frame?.pageWidthMm).toBe(100);
+  });
+
+  it("conserva folio y lado al cambiar de master", () => {
+    const result = paginate(
+      [bloque("uno", "Texto"), bloque("dos", "Más texto", { pageMaster: "otro" })],
+      GEOMETRY,
+      TIPOGRAFIA,
+      undefined,
+      { otro: { marginTopMm: 20 } },
+    );
+
+    expect(result.pages.map((page) => page.folio)).toEqual([1, 2]);
+    expect(result.pages.map((page) => page.side)).toEqual(["recto", "verso"]);
+    expect(result.pages[1]?.frame?.marginTopMm).toBe(20);
+  });
+});

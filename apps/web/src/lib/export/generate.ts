@@ -285,6 +285,9 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
         backMatter: back,
         ...(matter?.dedication ? { dedication: matter.dedication } : {}),
         contentHeightMm: textBlockSize(geometry).heightMm,
+        ...(input.runningHeadTemplate?.sectionMasters
+          ? { sectionMasters: input.runningHeadTemplate.sectionMasters }
+          : {}),
       });
     const pdfFonts = await loadPdfFonts();
     const measure = pdfFonts?.measure;
@@ -294,6 +297,9 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
       geometry,
       typography,
       ...(measure ? { measure } : {}),
+      ...(input.runningHeadTemplate?.pageMasters
+        ? { masters: input.runningHeadTemplate.pageMasters }
+        : {}),
       compose,
     });
 

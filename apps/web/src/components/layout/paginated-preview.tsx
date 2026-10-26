@@ -142,30 +142,38 @@ function PageSheet({
   eager = false,
 }: PageSheetProps) {
   const mirror = profile.mirrorMargins;
+  const frame = page.frame;
+  const pageWidthMm = frame?.pageWidthMm ?? profile.pageWidthMm;
+  const pageHeightMm = frame?.pageHeightMm ?? profile.pageHeightMm;
+  const marginTopMm = frame?.marginTopMm ?? profile.marginTopMm;
+  const marginBottomMm = frame?.marginBottomMm ?? profile.marginBottomMm;
+  const marginInnerMm = frame?.marginInnerMm ?? profile.marginInnerMm;
+  const marginOuterMm = frame?.marginOuterMm ?? profile.marginOuterMm;
+  const gutterMm = frame?.gutterMm ?? profile.gutterMm;
+  const headerDistanceMm = frame?.headerDistanceMm ?? profile.headerDistanceMm;
+  const footerDistanceMm = frame?.footerDistanceMm ?? profile.footerDistanceMm;
+  const widthPx = frame ? pageWidthMm * PX_PER_MM : pageWidth;
+  const heightPx = frame ? pageHeightMm * PX_PER_MM : pageHeight;
   // En una página par (la derecha) el margen interior queda a la izquierda;
   // en una impar, a la derecha.
   const innerOnLeft = mirror ? page.side === "recto" : true;
 
-  const leftMarginMm = innerOnLeft
-    ? profile.marginInnerMm + profile.gutterMm
-    : profile.marginOuterMm;
-  const rightMarginMm = innerOnLeft
-    ? profile.marginOuterMm
-    : profile.marginInnerMm + profile.gutterMm;
+  const leftMarginMm = innerOnLeft ? marginInnerMm + gutterMm : marginOuterMm;
+  const rightMarginMm = innerOnLeft ? marginOuterMm : marginInnerMm + gutterMm;
 
-  const textWidthMm = profile.pageWidthMm - leftMarginMm - rightMarginMm;
+  const textWidthMm = pageWidthMm - leftMarginMm - rightMarginMm;
 
   return (
     <div
       className="relative overflow-hidden border border-ink/15 bg-white text-black shadow-sm dark:bg-white"
       style={{
-        width: `${pageWidth}px`,
-        height: `${pageHeight}px`,
+        width: `${widthPx}px`,
+        height: `${heightPx}px`,
         // En un libro largo, el navegador no dibuja las páginas que no se
         // ven: el tamaño se reserva para que el salto de página siga siendo
         // exacto.
         contentVisibility: eager ? "visible" : "auto",
-        containIntrinsicSize: `${pageHeight}px`,
+        containIntrinsicSize: `${heightPx}px`,
         color: "#000000",
         fontKerning: "none",
         fontVariantLigatures: "none",
@@ -187,9 +195,8 @@ function PageSheet({
             style={{
               top: `${
                 (isTop
-                  ? profile.headerDistanceMm + 2.5 - lineMm * 0.8
-                  : profile.pageHeightMm - Math.max(profile.footerDistanceMm, 4) - lineMm * 0.8) *
-                PX_PER_MM
+                  ? headerDistanceMm + 2.5 - lineMm * 0.8
+                  : pageHeightMm - Math.max(footerDistanceMm, 4) - lineMm * 0.8) * PX_PER_MM
               }px`,
               left: `${leftMarginMm * PX_PER_MM}px`,
               width: `${textWidthMm * PX_PER_MM}px`,
@@ -224,7 +231,7 @@ function PageSheet({
           data-page-text
           className="absolute"
           style={{
-            top: `${profile.marginTopMm * PX_PER_MM}px`,
+            top: `${marginTopMm * PX_PER_MM}px`,
             left: `${leftMarginMm * PX_PER_MM}px`,
             width: `${textWidthMm * PX_PER_MM}px`,
           }}
@@ -243,7 +250,7 @@ function PageSheet({
         <FootnoteArea
           page={page}
           typography={typography}
-          topMm={profile.pageHeightMm - profile.marginBottomMm - page.footnotesHeightMm}
+          topMm={pageHeightMm - marginBottomMm - page.footnotesHeightMm}
           leftMm={leftMarginMm}
           widthMm={textWidthMm}
         />
