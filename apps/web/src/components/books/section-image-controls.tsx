@@ -28,12 +28,7 @@ interface SignatureResponse {
   apiKey: string;
   uploadUrl: string;
   signature: string;
-  params: {
-    timestamp: string;
-    folder: string;
-    allowed_formats: string;
-    unique_filename: string;
-  };
+  params: Record<string, string>;
 }
 
 interface CloudinaryUpload {
@@ -137,10 +132,11 @@ export function SectionImageControls({
       const form = new FormData();
       form.append("file", file);
       form.append("api_key", signature.apiKey);
-      form.append("timestamp", signature.params.timestamp);
-      form.append("folder", signature.params.folder);
-      form.append("allowed_formats", signature.params.allowed_formats);
-      form.append("unique_filename", signature.params.unique_filename);
+      // Se envían los mismos parámetros que el servidor firmó: si falta uno,
+      // Cloudinary reconstruye otra cadena y responde «Invalid Signature».
+      for (const [key, value] of Object.entries(signature.params)) {
+        form.append(key, value);
+      }
       form.append("signature", signature.signature);
 
       const uploadResponse = await fetch(signature.uploadUrl, {

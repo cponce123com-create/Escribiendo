@@ -31,12 +31,7 @@ interface CloudinarySignature {
   apiKey: string;
   uploadUrl: string;
   signature: string;
-  params: {
-    timestamp: string;
-    folder: string;
-    allowed_formats: string;
-    unique_filename: string;
-  };
+  params: Record<string, string>;
 }
 
 interface CloudinaryUpload {
@@ -170,10 +165,12 @@ export function CoverManager({ bookId, bookTitle, initialCover }: CoverManagerPr
       const form = new FormData();
       form.append("file", file);
       form.append("api_key", signature.apiKey);
-      form.append("timestamp", signature.params.timestamp);
-      form.append("folder", signature.params.folder);
-      form.append("allowed_formats", signature.params.allowed_formats);
-      form.append("unique_filename", signature.params.unique_filename);
+      // Se envían los mismos parámetros que el servidor firmó. Enumerarlos a
+      // mano fue lo que rompió la subida: el servidor firmaba `overwrite` y el
+      // navegador no lo enviaba, así que Cloudinary calculaba otra firma.
+      for (const [key, value] of Object.entries(signature.params)) {
+        form.append(key, value);
+      }
       form.append("signature", signature.signature);
       const uploadResponse = await fetch(signature.uploadUrl, { method: "POST", body: form });
       const uploaded = await readJson<CloudinaryUpload & { error?: { message?: string } }>(

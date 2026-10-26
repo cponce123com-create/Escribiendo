@@ -27,6 +27,22 @@ fallos de integración ni datos de demostración.
   pnpm exec playwright install chromium
   ```
 
+### `NODE_ENV` en el entorno local
+
+`next build` fija `NODE_ENV=production` por su cuenta, pero **no sobrescribe** una
+variable ya exportada. Si el shell tiene `NODE_ENV=development`, la compilación
+falla al prerenderizar `/_global-error` con `Cannot read properties of null
+(reading 'useContext')`: React resuelve su build de desarrollo en un chunk que
+espera el de producción. La pista es el aviso «non-standard NODE_ENV value» al
+inicio del build.
+
+```bash
+echo $NODE_ENV          # debe estar vacío o valer production
+env -u NODE_ENV pnpm build
+```
+
+En CI no ocurre porque la variable no está definida en el runner.
+
 ---
 
 ## 2. Pruebas unitarias
