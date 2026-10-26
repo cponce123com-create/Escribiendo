@@ -104,6 +104,25 @@ folios del índice sigan siendo ciertos.
 Si una plantilla no declara `pageMasters`, la composición es idéntica a la
 anterior: el marco de todas las páginas es la geometría del perfil.
 
+### Notas al margen
+
+El manuscrito admite un bloque `marginNote` (en el editor, `<aside data-margin-note>`).
+No forma parte del flujo: la conversión a bloques lo adjunta al párrafo
+anterior como `marginNotes`.
+
+La paginación compone cada nota al ancho de la columna exterior
+(`marginOuterMm - 4`, mínimo 16 mm) con cuerpo de 8 pt y la ancla a la primera
+línea de su párrafo (`yMm` relativo al área de texto). Si dos notas coinciden,
+se apilan con 2 mm de separación. Si el párrafo empieza en la página siguiente,
+la nota viaja con él en lugar de quedarse en la anterior. El flujo del texto no
+cambia: la nota no resta ancho ni alto al área de composición.
+
+La vista previa y el PDF dibujan la misma nota en la columna exterior —derecha
+en recto, izquierda en verso— con las líneas ya compuestas por el motor.
+
+Pendiente: el botón de inserción en la barra del editor. Mientras no exista, el
+bloque se puede crear pegando HTML con `data-margin-note` o desde el JSON.
+
 ## 3. Medición del texto
 
 `measure.ts` admite dos formas de medir:

@@ -269,6 +269,23 @@ export function sectionToBlocks(
         pushImage(node);
         break;
 
+      case "marginNote": {
+        const note = (node.content ?? [])
+          .map((child) => child.text ?? "")
+          .join(" ")
+          .trim();
+        const previous = blocks.at(-1);
+
+        if (note && previous) {
+          blocks[blocks.length - 1] = {
+            ...previous,
+            marginNotes: [...(previous.marginNotes ?? []), note],
+          };
+        }
+
+        break;
+      }
+
       default: {
         const runs = inlineRuns(node, counter, inlineOptions);
 

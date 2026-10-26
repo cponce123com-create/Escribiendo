@@ -37,6 +37,7 @@ import type { ProofreadingIssue } from "@/lib/editor/local-proofreader";
 import { analyzeLocalSection } from "@/lib/editor/linguistic-rules";
 import { SectionImageControls } from "@/components/books/section-image-controls";
 import { EditorialFootnote } from "@/components/editor/editorial-footnote";
+import { EditorialMarginNote } from "@/components/editor/editorial-margin-note";
 import {
   ManuscriptSearchHighlights,
   manuscriptSearchPluginKey,
@@ -171,6 +172,7 @@ export function SectionEditor({
       }),
       EditorialImage,
       EditorialFootnote,
+      EditorialMarginNote,
       ManuscriptSearchHighlights,
     ],
     content,

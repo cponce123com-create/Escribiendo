@@ -84,6 +84,8 @@ export interface LayoutBlock {
   sectionTitle?: string;
   /** Página maestra que rige esta sección, si la plantilla la define. */
   pageMaster?: string;
+  /** Notas al margen que se anclan a la primera línea de este bloque. */
+  marginNotes?: readonly string[];
   /** El bloque abre un capítulo y puede forzar página par. */
   startsChapter?: boolean;
   /** El bloque es el primero de su sección. */
@@ -269,9 +271,21 @@ export interface LaidOutFootnote {
   lines: string[];
 }
 
+/** Nota al margen compuesta en la columna exterior de una página. */
+export interface LaidOutMarginNote {
+  text: string;
+  /** Líneas ya compuestas al ancho de la columna exterior. */
+  lines: string[];
+  /** Distancia desde el borde superior del área de texto, en milímetros. */
+  yMm: number;
+  heightMm: number;
+}
+
 export interface LaidOutPage {
   /** Número de página, contando desde 1. */
   index: number;
+  /** Notas al margen ya compuestas, con su posición vertical. */
+  marginNotes?: LaidOutMarginNote[];
   /** Folio impreso. */
   folio: number;
   /** Folio tal como se imprime, con el estilo de numeración aplicado. */
@@ -403,6 +417,8 @@ export function paginate(
   let currentBlocks: LaidOutBlock[] = [];
   let usedHeightMm = 0;
   let currentFootnotes: LaidOutFootnote[] = [];
+  type PendingMarginNote = LaidOutMarginNote & { blockId: string };
+  let currentMarginNotes: PendingMarginNote[] = [];
   let footnotesHeightMm = 0;
   let currentRunningHead: string | null = null;
   let pageIndex = 0;
@@ -441,6 +457,16 @@ export function paginate(
     pageIndex += 1;
 
     const folio = firstPageNumber + pageIndex - 1;
+    const pageBlockIds = new Set(currentBlocks.map((block) => block.id));
+    const placedNotes = currentMarginNotes.filter((note) => pageBlockIds.has(note.blockId));
+    const carriedNotes = currentMarginNotes.filter((note) => !pageBlockIds.has(note.blockId));
+    const sortedNotes = [...placedNotes].sort((a, b) => a.yMm - b.yMm);
+    let noteCursor = 0;
+
+    for (const note of sortedNotes) {
+      note.yMm = Math.max(note.yMm, noteCursor);
+      noteCursor = note.yMm + note.heightMm + 2;
+    }
 
     pages.push({
       index: pageIndex,
@@ -452,6 +478,16 @@ export function paginate(
       totalHeightMm: heightMm,
       frame: { ...frame },
       ...(currentMaster ? { pageMaster: currentMaster } : {}),
+      ...(sortedNotes.length > 0
+        ? {
+            marginNotes: sortedNotes.map((note) => ({
+              text: note.text,
+              lines: note.lines,
+              yMm: note.yMm,
+              heightMm: note.heightMm,
+            })),
+          }
+        : {}),
       footnotes: currentFootnotes,
       footnotesHeightMm,
       // La página que abre un capítulo lleva el título en el cuerpo; repetirlo
@@ -463,6 +499,7 @@ export function paginate(
 
     currentBlocks = [];
     currentFootnotes = [];
+    currentMarginNotes = carriedNotes.map((note) => ({ ...note, yMm: 0 }));
     usedHeightMm = 0;
     footnotesHeightMm = 0;
   };
@@ -470,6 +507,42 @@ export function paginate(
   const placeBlock = (block: LaidOutBlock, height: number): void => {
     currentBlocks.push(block);
     usedHeightMm += height;
+  };
+
+  /** Compone las notas al margen de un bloque y las ancla a su primera línea. */
+  const registerMarginNotes = (block: LayoutBlock, topMm: number): void => {
+    if (!block.marginNotes?.length) {
+      return;
+    }
+
+    const noteFontSizePt = 8;
+    const noteLineHeightMm = (noteFontSizePt * 1.25 * 25.4) / 72;
+    const noteWidthMm = Math.max(16, frame.marginOuterMm - 4);
+
+    for (const text of block.marginNotes) {
+      const clean = text.trim();
+
+      if (!clean) {
+        continue;
+      }
+
+      const lines = breakIntoLines(clean, {
+        fontFamily: typography.body.fontFamily,
+        fontSizePt: noteFontSizePt,
+        letterSpacingPt: 0,
+        lineWidthMm: noteWidthMm,
+        hyphenation: false,
+        ...(measure ? { measure } : {}),
+      }).map((line) => line.text);
+
+      currentMarginNotes.push({
+        blockId: block.id,
+        text: clean,
+        lines,
+        yMm: topMm,
+        heightMm: lines.length * noteLineHeightMm,
+      });
+    }
   };
 
   /** Compone el texto de una nota con el cuerpo menor y el ancho útil. */
@@ -608,6 +681,8 @@ export function paginate(
     const spaceBeforeMm = toMm(style.spaceBeforePt);
     const spaceAfterMm = toMm(style.spaceAfterPt);
     const lineHeight = lineHeightMm(style);
+
+    registerMarginNotes(block, usedHeightMm + spaceBeforeMm);
 
     if (block.kind === "rule") {
       const height = spaceBeforeMm + lineHeight + spaceAfterMm;

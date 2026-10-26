@@ -104,6 +104,7 @@ export {
   type LaidOutBlock,
   type LaidOutFootnote,
   type LaidOutLine,
+  type LaidOutMarginNote,
   type LaidOutPage,
   type LayoutBlock,
   type LayoutBlockKind,

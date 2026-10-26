@@ -386,6 +386,24 @@ export function toPdfPages(
       });
     }
 
+    for (const note of page.marginNotes ?? []) {
+      const noteX = page.side === "recto" ? pageWidthMm - marginOuterMm + 2 : 2;
+      const noteLineHeightMm = (8 * 1.25 * 25.4) / 72;
+      let noteY = marginTopMm + note.yMm;
+
+      for (const line of note.lines) {
+        runs.push({
+          text: line,
+          font: "regular",
+          family: typography.body.fontFamily,
+          sizePt: 8,
+          xMm: noteX,
+          baselineMm: noteY + noteLineHeightMm * 0.8,
+        });
+        noteY += noteLineHeightMm;
+      }
+    }
+
     return {
       widthMm: pageWidthMm,
       heightMm: pageHeightMm,

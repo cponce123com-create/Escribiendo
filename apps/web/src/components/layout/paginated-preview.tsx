@@ -226,6 +226,31 @@ function PageSheet({
         );
       })}
 
+      {(page.marginNotes ?? []).map((note, index) => {
+        const noteWidthMm = Math.max(16, marginOuterMm - 4);
+        const noteX = page.side === "recto" ? pageWidthMm - marginOuterMm + 2 : 2;
+
+        return (
+          <div
+            key={`margin-note-${index}`}
+            data-page-margin-note
+            className="absolute"
+            style={{
+              top: `${(marginTopMm + note.yMm) * PX_PER_MM}px`,
+              left: `${noteX * PX_PER_MM}px`,
+              width: `${noteWidthMm * PX_PER_MM}px`,
+              fontSize: "8pt",
+              lineHeight: 1.25,
+              fontFamily: FAMILIAS[typography.body.fontFamily],
+              color: "#000000",
+              whiteSpace: "pre-line",
+            }}
+          >
+            {note.lines.join("\n")}
+          </div>
+        );
+      })}
+
       {page.blank ? null : (
         <div
           data-page-text

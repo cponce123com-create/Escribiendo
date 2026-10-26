@@ -590,3 +590,41 @@ describe("materias en la maqueta", () => {
     expect(bloques[1]?.breaksBefore).toBe(false);
   });
 });
+
+describe("notas al margen", () => {
+  it("ancla la nota al párrafo anterior sin crear un bloque de texto", () => {
+    const bloques = sectionToBlocks(
+      seccion(
+        documento(
+          { type: "paragraph", content: [{ type: "text", text: "Un párrafo." }] },
+          { type: "marginNote", content: [{ type: "text", text: "Aclaración al margen." }] },
+        ),
+      ),
+    );
+
+    expect(bloques).toHaveLength(1);
+    expect(bloques[0]?.marginNotes).toEqual(["Aclaración al margen."]);
+  });
+
+  it("acumula varias notas en el mismo párrafo", () => {
+    const bloques = sectionToBlocks(
+      seccion(
+        documento(
+          { type: "paragraph", content: [{ type: "text", text: "Un párrafo." }] },
+          { type: "marginNote", content: [{ type: "text", text: "Primera." }] },
+          { type: "marginNote", content: [{ type: "text", text: "Segunda." }] },
+        ),
+      ),
+    );
+
+    expect(bloques[0]?.marginNotes).toEqual(["Primera.", "Segunda."]);
+  });
+
+  it("ignora una nota sin párrafo previo", () => {
+    const bloques = sectionToBlocks(
+      seccion(documento({ type: "marginNote", content: [{ type: "text", text: "Suelta." }] })),
+    );
+
+    expect(bloques).toEqual([]);
+  });
+});

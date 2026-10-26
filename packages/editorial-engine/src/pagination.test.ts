@@ -771,3 +771,41 @@ describe("páginas maestras", () => {
     expect(result.pages[1]?.frame?.marginTopMm).toBe(20);
   });
 });
+
+describe("notas al margen", () => {
+  it("ancla la nota a la primera línea del bloque y la compone", () => {
+    const result = paginate(
+      [bloque("uno", "Texto del párrafo", { marginNotes: ["Una aclaración al margen"] })],
+      GEOMETRY,
+      TIPOGRAFIA,
+    );
+    const note = result.pages[0]?.marginNotes?.[0];
+
+    expect(note?.text).toBe("Una aclaración al margen");
+    expect(note?.lines.length).toBeGreaterThan(0);
+    expect(note?.yMm).toBe(0);
+  });
+
+  it("apila dos notas del mismo bloque sin solaparlas", () => {
+    const result = paginate(
+      [bloque("uno", "Texto", { marginNotes: ["Primera", "Segunda"] })],
+      GEOMETRY,
+      TIPOGRAFIA,
+    );
+    const notes = result.pages[0]?.marginNotes ?? [];
+
+    expect(notes).toHaveLength(2);
+    expect(notes[1]?.yMm).toBeGreaterThanOrEqual((notes[0]?.yMm ?? 0) + (notes[0]?.heightMm ?? 0));
+  });
+
+  it("no altera el flujo del texto", () => {
+    const conNota = paginate(
+      [bloque("uno", "Texto", { marginNotes: ["Nota"] })],
+      GEOMETRY,
+      TIPOGRAFIA,
+    );
+    const sinNota = paginate([bloque("uno", "Texto")], GEOMETRY, TIPOGRAFIA);
+
+    expect(conNota.pages[0]?.usedHeightMm).toBe(sinNota.pages[0]?.usedHeightMm);
+  });
+});

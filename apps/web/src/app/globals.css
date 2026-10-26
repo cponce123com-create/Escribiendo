@@ -3192,6 +3192,15 @@ html[data-focus-mode="true"] .app-topbar {
   border-radius: inherit;
   background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 65%, white), var(--accent));
 }
+.margin-note {
+  margin: 0.75rem 0;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--gold);
+  background: var(--surface-subtle);
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  font-style: italic;
+}
 .dashboard-year-content > p {
   margin-top: 0.55rem;
   color: var(--ink-muted);
