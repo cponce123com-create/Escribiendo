@@ -9,6 +9,13 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - "dependencias"
+    ignore:
+      # Prisma 7 elimina url/directUrl del schema y exige prisma.config.ts y un
+      # adaptador de conexión. Se mantiene 6.x hasta completar la migración.
+      - dependency-name: "prisma"
+        versions: ["7.x"]
+      - dependency-name: "@prisma/client"
+        versions: ["7.x"]
 
   - package-ecosystem: "npm"
     directory: "/scripts/pdfjs"
