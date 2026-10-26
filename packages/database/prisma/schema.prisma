@@ -292,6 +292,7 @@ model Book {
   contributors              BookContributor[]
   identifiers               BookIdentifier[]
   editorialMatters          EditorialMatter[]
+  glossaryTerms             BookGlossaryTerm[]
 
   @@index([workspaceId, deletedAt])
   @@index([workspaceId, status])
@@ -1338,4 +1339,20 @@ model LaboratoryReviewState {
   @@unique([bookId, userId])
   @@index([workspaceId, userId])
   @@map("laboratory_review_states")
+}
+
+/// Término del glosario de un libro, con su definición.
+model BookGlossaryTerm {
+  id         String   @id @default(uuid()) @db.Uuid
+  bookId     String   @db.Uuid
+  term       String   @db.VarChar(160)
+  definition String   @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([bookId, term])
+  @@index([bookId])
+  @@map("book_glossary_terms")
 }
