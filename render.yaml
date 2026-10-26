@@ -2,8 +2,9 @@
 # Render Blueprint — ESCRIBIENDO (Fase 1)
 #
 # Este servicio utiliza Render Free, una única instancia y sin disco
-# persistente. Las migraciones NO se ejecutan en el arranque: se aplican de
-# forma controlada con `pnpm db:migrate` (ver docs/DEPLOYMENT.md).
+# persistente. Las migraciones se aplican en el build con `pnpm db:migrate`
+# (`prisma migrate deploy`, idempotente). Para migraciones destructivas,
+# quita ese paso y ejecútalo de forma controlada (ver docs/DEPLOYMENT.md).
 #
 # Las variables con `sync: false` se introducen en el panel de Render y no se
 # guardan en el repositorio.
@@ -20,8 +21,8 @@ services:
     buildCommand: >-
       npm install --global pnpm@12.14.0 --no-fund --no-audit &&
       pnpm install --frozen-lockfile --prod=false &&
-      pnpm db:generate &&
-      pnpm --filter @escribiendo/web build
+      pnpm db:migrate &&
+      NODE_ENV=production pnpm build
     startCommand: pnpm --filter @escribiendo/web start
     healthCheckPath: /api/health
     envVars:

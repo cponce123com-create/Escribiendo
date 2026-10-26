@@ -117,6 +117,11 @@ No ejecutes migraciones automáticamente en el arranque de Render Free. Un fallo
 de base durante un reinicio no debe mezclarse con el ciclo de vida del servicio
 web.
 
+El build de Render sí ejecuta `pnpm db:migrate` antes de compilar (ver
+`render.yaml`). Un fallo de migración detiene el deploy sin tocar la instancia
+anterior. Para migraciones destructivas o irreversibles, quita ese paso del
+Build Command y sigue el flujo manual de la sección 5.
+
 ---
 
 ## 2. Cloudinary
