@@ -532,3 +532,67 @@ it("la dedicatoria conserva alineación derecha en EPUB y DOCX", () => {
     '<w:jc w:val="right"/>',
   );
 });
+
+describe("metadatos de accesibilidad", () => {
+  const opf = (document: ExportDocumentModel): string =>
+    entryText(buildEpub(document, FECHA), "EPUB/package.opf") ?? "";
+
+  it("declara texto, navegación y ausencia de riesgos", () => {
+    const xml = opf(DOCUMENTO);
+
+    expect(xml).toContain('<meta property="schema:accessMode">textual</meta>');
+    expect(xml).not.toContain('<meta property="schema:accessMode">visual</meta>');
+    expect(xml).toContain('<meta property="schema:accessModeSufficient">textual</meta>');
+    expect(xml).toContain(
+      '<meta property="schema:accessibilityFeature">structuralNavigation</meta>',
+    );
+    expect(xml).toContain('<meta property="schema:accessibilityFeature">tableOfContents</meta>');
+    expect(xml).toContain('<meta property="schema:accessibilityFeature">readingOrder</meta>');
+    expect(xml).toContain('<meta property="schema:accessibilityFeature">unlocked</meta>');
+    expect(xml).toContain('<meta property="schema:accessibilityHazard">none</meta>');
+    expect(xml).toContain("Texto con estructura de capítulos e índice navegable.");
+  });
+
+  it("marca modo visual y avisa cuando falta el texto alternativo", () => {
+    const xml = opf({
+      ...DOCUMENTO,
+      chapters: [
+        {
+          id: "c1",
+          title: "Con imagen",
+          blocks: [{ kind: "image", text: "", image: { src: "https://example.com/plaza.jpg" } }],
+        },
+      ],
+    });
+
+    expect(xml).toContain('<meta property="schema:accessMode">visual</meta>');
+    expect(xml).toContain('<meta property="schema:accessModeSufficient">textual,visual</meta>');
+    expect(xml).not.toContain(
+      '<meta property="schema:accessibilityFeature">alternativeText</meta>',
+    );
+    expect(xml).toContain("Algunas imágenes no tienen texto alternativo.");
+  });
+
+  it("declara texto alternativo cuando todas las imágenes lo tienen", () => {
+    const xml = opf({
+      ...DOCUMENTO,
+      chapters: [
+        {
+          id: "c1",
+          title: "Con imagen descrita",
+          blocks: [
+            {
+              kind: "image",
+              text: "",
+              image: { src: "https://example.com/plaza.jpg", alt: "Una plaza al atardecer" },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(xml).toContain('<meta property="schema:accessibilityFeature">alternativeText</meta>');
+    expect(xml).toContain('<meta property="schema:accessModeSufficient">textual</meta>');
+    expect(xml).toContain("Las imágenes incluyen texto alternativo.");
+  });
+});

@@ -94,6 +94,52 @@ function modifiedStamp(date: Date): string {
   );
 }
 
+/**
+ * Metadatos de accesibilidad del EPUB 3 (EPUB Accessibility).
+ *
+ * Se calculan del propio documento: si hay imágenes y si todas tienen texto
+ * alternativo. No se declara conformidad con un nivel WCAG porque eso exige una
+ * auditoría aparte.
+ */
+function accessibilityMetadata(document: ExportDocumentModel): string {
+  const images = document.chapters.flatMap((chapter) =>
+    chapter.blocks.filter((block) => block.kind === "image"),
+  );
+  const visual = images.length > 0;
+  const allImagesHaveAlt = images.every((block) => (block.image?.alt ?? "").trim().length > 0);
+  const hasToc = document.chapters.some((chapter) => chapter.showInToc !== false);
+  const features = ["structuralNavigation", "readingOrder", "unlocked"];
+
+  if (hasToc) {
+    features.push("tableOfContents");
+  }
+
+  if (visual && allImagesHaveAlt) {
+    features.push("alternativeText");
+  }
+
+  const summary = visual
+    ? allImagesHaveAlt
+      ? "Texto con estructura de capítulos e índice navegable. Las imágenes incluyen texto alternativo."
+      : "Texto con estructura de capítulos e índice navegable. Algunas imágenes no tienen texto alternativo."
+    : "Texto con estructura de capítulos e índice navegable.";
+
+  const lines = [
+    `    <meta property="schema:accessMode">textual</meta>`,
+    ...(visual ? [`    <meta property="schema:accessMode">visual</meta>`] : []),
+    `    <meta property="schema:accessModeSufficient">${
+      visual && !allImagesHaveAlt ? "textual,visual" : "textual"
+    }</meta>`,
+    ...features.map(
+      (feature) => `    <meta property="schema:accessibilityFeature">${feature}</meta>`,
+    ),
+    `    <meta property="schema:accessibilityHazard">none</meta>`,
+    `    <meta property="schema:accessibilitySummary">${escapeXml(summary)}</meta>`,
+  ];
+
+  return `${lines.join(String.fromCharCode(10))}${String.fromCharCode(10)}`;
+}
+
 const STYLES = `body { font-family: serif; line-height: 1.5; margin: 1em; }
 h1 { font-size: 1.6em; margin: 1.2em 0 0.8em; }
 .chapter-title { text-align: center; break-before: page; page-break-before: always; }
@@ -442,6 +488,7 @@ export function buildEpub(
         `    <dc:creator>${escapeXml(document.author)}</dc:creator>\n` +
         `    <dc:language>${escapeXml(document.language)}</dc:language>\n` +
         `    <meta property="dcterms:modified">${modifiedStamp(createdAt)}</meta>\n` +
+        accessibilityMetadata(document) +
         `  </metadata>\n` +
         `  <manifest>\n${manifest.join("\n")}\n  </manifest>\n` +
         `  <spine>\n${spine.join("\n")}\n  </spine>\n` +

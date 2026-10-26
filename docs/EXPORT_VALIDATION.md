@@ -166,6 +166,13 @@ prueba de extremo a extremo «el archivo descargado es un EPUB válido»:
 - `META-INF/container.xml` declara el punto de entrada del paquete.
 - `EPUB/package.opf` declara la versión 3.0, el identificador único, el título,
   la autoría, el idioma y la fecha de modificación.
+- El mismo OPF declara la accesibilidad calculada del documento:
+  `schema:accessMode` (`textual` y `visual` si hay imágenes),
+  `schema:accessModeSufficient`, `schema:accessibilityFeature`
+  (`structuralNavigation`, `readingOrder`, `unlocked`, `tableOfContents` y
+  `alternativeText` cuando todas las imágenes lo tienen),
+  `schema:accessibilityHazard` (`none`) y un resumen en español. No se declara
+  conformidad con un nivel WCAG: eso exige una auditoría aparte.
 - El manifiesto y el spine incluyen un capítulo por sección.
 - `EPUB/nav.xhtml` contiene la navegación con el índice.
 - El XML va escapado.
