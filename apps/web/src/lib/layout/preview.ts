@@ -51,6 +51,23 @@ import {
   type TemplateSummary,
 } from "./profiles";
 
+/** Plantilla con la decoración que haya elegido la edición. */
+function effectiveTemplateOf(
+  edition: { template: TemplateSummary | null; settings: unknown } | null,
+): TemplateSummary | null {
+  if (!edition?.template) {
+    return null;
+  }
+
+  return {
+    ...edition.template,
+    config: applyEditionDecoration(
+      edition.template.config,
+      decorationFromSettings(edition.settings),
+    ),
+  };
+}
+
 /**
  * Vista previa paginada.
  *
@@ -407,7 +424,13 @@ export async function buildLegalMatterPreview(
   const bookTitle = await previewBookTitle(session, bookId);
 
   return {
-    pages: toPreviewPages(result, profile, edition?.template ?? null, bookTitle, fuentes?.measure),
+    pages: toPreviewPages(
+      result,
+      profile,
+      effectiveTemplateOf(edition),
+      bookTitle,
+      fuentes?.measure,
+    ),
     profile,
     typography,
     diagnostics: result.diagnostics,
@@ -465,7 +488,13 @@ export async function buildChapterPreview(
   const bookTitle = await previewBookTitle(session, bookId);
 
   return {
-    pages: toPreviewPages(result, profile, edition?.template ?? null, bookTitle, fuentes?.measure),
+    pages: toPreviewPages(
+      result,
+      profile,
+      effectiveTemplateOf(edition),
+      bookTitle,
+      fuentes?.measure,
+    ),
     profile,
     typography,
     diagnostics: result.diagnostics,
