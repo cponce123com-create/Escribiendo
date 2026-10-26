@@ -6,16 +6,40 @@ indican.
 
 ## Formatos generados
 
-| Formato | Implementación                                  | Estándar         |
-| ------- | ----------------------------------------------- | ---------------- |
-| PDF     | `packages/export-engine/src/pdf.ts`             | PDF 1.4          |
-| EPUB    | `packages/export-engine/src/epub.ts` + `zip.ts` | EPUB 3           |
-| DOCX    | `packages/export-engine/src/docx.ts` + `zip.ts` | WordprocessingML |
+| Formato  | Implementación                                  | Estándar         |
+| -------- | ----------------------------------------------- | ---------------- |
+| PDF      | `packages/export-engine/src/pdf.ts`             | PDF 1.4          |
+| EPUB     | `packages/export-engine/src/epub.ts` + `zip.ts` | EPUB 3           |
+| DOCX     | `packages/export-engine/src/docx.ts` + `zip.ts` | WordprocessingML |
+| Markdown | `packages/export-engine/src/text-formats.ts`    | CommonMark       |
+| HTML     | `packages/export-engine/src/text-formats.ts`    | HTML5            |
+| TXT      | `packages/export-engine/src/text-formats.ts`    | Texto UTF-8      |
 
-Desde el lote de imágenes, los tres formatos incorporan imágenes cuando la
+Desde el lote de imágenes, PDF, EPUB y DOCX incorporan imágenes cuando la
 capa web ha resuelto sus bytes. El motor de exportación no descarga nada: recibe
 un mapa de imágenes ya normalizadas. Así el paquete es determinista y se puede
 probar sin red.
+
+## Markdown, HTML y texto plano
+
+Los tres formatos comparten el `ExportDocumentModel` de EPUB y DOCX, de modo
+que un capítulo no puede decir una cosa en un archivo y otra en el resto.
+Comprobado en `packages/export-engine/src/text-formats.test.ts` (13 casos):
+
+- **Markdown**: títulos y jerarquía (`#`, `##`, `###`), formato en línea
+  (`**`, `*`, `~~`, `<u>`, `<sup>`, `<sub>`), citas, separadores de escena
+  (`* * *`), imágenes por referencia con texto alternativo, notas al pie
+  `[^n]` con su definición, índice y escapado del marcado que venga del
+  manuscrito.
+- **HTML**: documento autónomo con `<!doctype html>`, `lang`, estilos
+  incrustados, jerarquía semántica, enlaces internos de nota y escapado de
+  `<`, `>` y `&`.
+- **TXT**: títulos subrayados, párrafos separados por línea en blanco, citas
+  sangradas, separadores de escena, `[Imagen: …]` y notas numeradas.
+
+Ninguno incrusta imágenes binarias: la capa web no descarga bytes para estos
+formatos y la exportación no se bloquea si falta la portada. En el registro de
+la exportación, las imágenes cuentan como omitidas, que es lo que son.
 
 ## PDF
 

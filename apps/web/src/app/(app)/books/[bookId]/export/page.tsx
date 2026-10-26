@@ -22,6 +22,9 @@ const FORMAT_LABELS: Record<string, string> = {
   PDF_PRINT: "PDF de imprenta",
   EPUB3: "EPUB 3",
   DOCX: "DOCX",
+  MARKDOWN: "Markdown",
+  HTML: "HTML",
+  TXT: "Texto plano",
 };
 
 const STATUS_LABELS: Record<string, string> = {

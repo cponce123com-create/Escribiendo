@@ -9,6 +9,7 @@ import { formValue, errorState, successState } from "@/lib/form-helpers";
 import type { ActionState } from "@/lib/action-state";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { characterAnalysisError } from "./character-analysis-errors";
+import { buildAppearanceTimeline, detectAppearanceAlerts } from "./appearance-timeline";
 const plain = (v: unknown): string => {
   if (!v || typeof v !== "object") return "";
   const n = v as { text?: unknown; content?: unknown[] };
@@ -176,6 +177,14 @@ export async function getCharacterIntelligence(bookId: string, characterId: stri
       evidence: `${death.excerpt} · ${returnAfter.excerpt}`,
       section: `${death.section} / ${returnAfter.section}`,
     });
+  const timeline = buildAppearanceTimeline(
+    sections.map((section, index) => ({ id: section.id, title: section.title, order: index + 1 })),
+    appearances.map((appearance) => ({
+      sectionId: appearance.sectionId,
+      count: appearance.count,
+    })),
+  );
+  const arcAlerts = detectAppearanceAlerts(character.name, timeline);
   const [relations, storedEvents, characters] = await Promise.all([
     prisma.storyCharacterRelation.findMany({
       where: {
@@ -218,6 +227,8 @@ export async function getCharacterIntelligence(bookId: string, characterId: stri
     character,
     appearances,
     alerts,
+    arcAlerts,
+    timeline,
     events,
     storedEvents,
     relations,

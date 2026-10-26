@@ -236,6 +236,101 @@ export function CharacterIntelligencePanel({
               </ul>
             </section>
             <section>
+              <h3 className="font-serif text-lg text-ink">Arco de apariciones</h3>
+              <p className="mt-1 text-xs text-ink-muted">
+                Cada marca es una sección del libro y cada punto, una sección donde aparece. Los
+                tramos dorados son ausencias de tres secciones o más: pueden ser deliberadas.
+              </p>
+              {data.timeline.sections.length ? (
+                <div className="mt-3 overflow-x-auto rounded-xl border border-line bg-surface-subtle p-3">
+                  <svg
+                    viewBox={`0 0 ${Math.max(360, data.timeline.sections.length * 22)} 92`}
+                    role="img"
+                    aria-label={`Arco de apariciones de ${character.name}: aparece en ${data.timeline.points.length} de ${data.timeline.sections.length} secciones`}
+                    className="h-24 w-full min-w-[22rem]"
+                  >
+                    {data.timeline.gaps.map((gap) => (
+                      <rect
+                        key={`gap-${gap.afterIndex}-${gap.beforeIndex}`}
+                        x={gap.afterIndex * 22 + 12}
+                        y={36}
+                        width={(gap.beforeIndex - gap.afterIndex) * 22}
+                        height={20}
+                        rx={4}
+                        fill="var(--gold)"
+                        opacity={0.18}
+                      />
+                    ))}
+                    <line
+                      x1={12}
+                      y1={46}
+                      x2={data.timeline.sections.length * 22 - 10}
+                      y2={46}
+                      stroke="var(--line-strong)"
+                      strokeWidth={2}
+                    />
+                    {data.timeline.sections.map((section) => (
+                      <g key={section.id}>
+                        <title>{section.title}</title>
+                        <line
+                          x1={section.index * 22 + 12}
+                          y1={42}
+                          x2={section.index * 22 + 12}
+                          y2={50}
+                          stroke="var(--line-strong)"
+                          strokeWidth={1}
+                        />
+                      </g>
+                    ))}
+                    {data.timeline.points.map((point) => (
+                      <circle
+                        key={point.sectionId}
+                        cx={point.index * 22 + 12}
+                        cy={46}
+                        r={5}
+                        fill="var(--accent)"
+                      >
+                        <title>{`${point.title}: ${point.count} mención(es)`}</title>
+                      </circle>
+                    ))}
+                    <text x={12} y={78} fontSize="10" fill="var(--ink-muted)">
+                      {data.timeline.sections[0]?.title}
+                    </text>
+                    <text
+                      x={data.timeline.sections.length * 22 - 10}
+                      y={78}
+                      fontSize="10"
+                      textAnchor="end"
+                      fill="var(--ink-muted)"
+                    >
+                      {data.timeline.sections.at(-1)?.title}
+                    </text>
+                  </svg>
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-ink-muted">
+                  El libro no tiene secciones analizables.
+                </p>
+              )}
+              <p className="mt-2 text-xs text-ink-muted">
+                Cobertura: {Math.round(data.timeline.coverage * 100)} % de las secciones.
+              </p>
+              {data.arcAlerts.length ? (
+                <ul className="mt-2 space-y-2">
+                  {data.arcAlerts.map((alert, index) => (
+                    <li
+                      key={`${alert.kind}-${index}`}
+                      className="rounded-lg border border-line bg-surface-subtle p-3"
+                    >
+                      <strong className="text-sm text-ink">{alert.message}</strong>
+                      <p className="mt-1 text-xs text-ink-muted">{alert.section}</p>
+                      <p className="mt-1 text-xs text-ink-soft">{alert.evidence}</p>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </section>
+            <section>
               <h3 className="font-serif text-lg text-ink">Posibles inconsistencias</h3>
               <p className="mt-1 text-xs text-ink-muted">
                 Alertas heurísticas, no errores definitivos. Revisa contexto, saltos temporales,

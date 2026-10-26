@@ -10,6 +10,7 @@ import { TextareaField } from "@/components/forms/textarea-field";
 import { UsersIcon } from "@/components/icons";
 import { CharacterAnalyzer } from "@/components/story/character-analyzer";
 import { CharacterIntelligencePanel } from "@/components/story/character-intelligence-panel";
+import { BookMentionsPanel } from "@/components/story/book-mentions-panel";
 import { initialActionState } from "@/lib/action-state";
 import {
   createCharacterAction,
@@ -69,6 +70,8 @@ export function CharacterDirectory({
       {canManage && defaultBookId ? (
         <CharacterAnalyzer bookId={defaultBookId} characters={characters} />
       ) : null}
+
+      {canManage && defaultBookId ? <BookMentionsPanel bookId={defaultBookId} /> : null}
 
       {canManage ? (
         <section className="panel p-5" aria-labelledby="new-character-title">

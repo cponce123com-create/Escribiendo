@@ -559,6 +559,9 @@ enum ExportFormat {
   PDF_PRINT
   EPUB3
   DOCX
+  MARKDOWN
+  HTML
+  TXT
 }
 
 enum ExportStatus {

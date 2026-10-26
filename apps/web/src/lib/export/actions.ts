@@ -22,7 +22,15 @@ import { downloadExpiry, signDownload } from "@/lib/export/signature";
  * caduca a los pocos minutos.
  */
 
-const formatSchema = z.enum(["PDF_DIGITAL", "PDF_PRINT", "EPUB3", "DOCX"]);
+const formatSchema = z.enum([
+  "PDF_DIGITAL",
+  "PDF_PRINT",
+  "EPUB3",
+  "DOCX",
+  "MARKDOWN",
+  "HTML",
+  "TXT",
+]);
 
 const uuidSchema = z.string().uuid("El identificador no es válido.");
 

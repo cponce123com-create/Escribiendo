@@ -47,6 +47,27 @@ const FORMATOS: Array<{
     guarantee:
       "Equivalencia de contenido, jerarquía y estilos. La paginación depende de Word y de las fuentes instaladas.",
   },
+  {
+    id: "MARKDOWN",
+    label: "Markdown",
+    description: "Para editar en cualquier herramienta de texto y versionar en Git.",
+    guarantee:
+      "Títulos, párrafos, citas, separadores, imágenes por referencia y notas al pie. Sin paginación.",
+  },
+  {
+    id: "HTML",
+    label: "HTML",
+    description: "Para publicar en web o revisar en el navegador.",
+    guarantee:
+      "Documento HTML5 autónomo, con estilos incrustados, jerarquía semántica y notas enlazadas.",
+  },
+  {
+    id: "TXT",
+    label: "Texto plano",
+    description: "Para corrección, lectores antiguos o procesado externo.",
+    guarantee:
+      "Solo el texto: títulos subrayados, párrafos separados, citas sangradas y notas numeradas.",
+  },
 ];
 
 /**
@@ -78,8 +99,9 @@ export function ExportPanel({ bookId, hasLayout }: ExportPanelProps) {
           la vista previa.
         </p>
         <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-          Contrato de formatos: los PDF reproducen la vista previa página por página; EPUB y DOCX
-          conservan contenido, jerarquía y estilos, pero el texto refluye y no fijan folios.
+          Contrato de formatos: los PDF reproducen la vista previa página por página; EPUB, DOCX,
+          Markdown, HTML y texto conservan contenido y jerarquía, pero el texto refluye y no fijan
+          folios.
         </p>
       </section>
 

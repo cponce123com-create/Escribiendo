@@ -4,7 +4,10 @@ import { createHash } from "node:crypto";
 import {
   buildDocx,
   buildEpub,
+  buildHtml,
+  buildMarkdown,
   buildPdf,
+  buildPlainText,
   type ExportChapter,
   type ExportBlock,
   type ExportImage,
@@ -52,7 +55,8 @@ import type { RunningHeadTemplate } from "@/lib/layout/running-heads";
  * El EPUB y el DOCX no dependen de la maqueta: son formatos reflowables.
  */
 
-export type ExportFormat = "PDF_DIGITAL" | "PDF_PRINT" | "EPUB3" | "DOCX";
+export type ExportFormat =
+  "PDF_DIGITAL" | "PDF_PRINT" | "EPUB3" | "DOCX" | "MARKDOWN" | "HTML" | "TXT";
 
 export interface ExportMetadata {
   /** Tamaño del archivo, en bytes. */
@@ -124,6 +128,9 @@ const FORMAT_INFO: Record<ExportFormat, { extension: string; mimeType: string }>
     extension: "docx",
     mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   },
+  MARKDOWN: { extension: "md", mimeType: "text/markdown; charset=utf-8" },
+  HTML: { extension: "html", mimeType: "text/html; charset=utf-8" },
+  TXT: { extension: "txt", mimeType: "text/plain; charset=utf-8" },
 };
 
 /** Nombre de archivo seguro a partir del título. */
@@ -179,10 +186,14 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
   if (legalLogoUrl) {
     sources.push(legalLogoUrl);
   }
+  const isTextFormat =
+    input.format === "MARKDOWN" || input.format === "HTML" || input.format === "TXT";
   const target: ImageTarget =
     input.format === "EPUB3" ? "epub" : input.format === "DOCX" ? "docx" : "pdf";
+  // Los formatos de texto conservan la referencia de la imagen, no sus bytes:
+  // no se descarga ninguna imagen para exportar Markdown, HTML o texto.
   const loadedImages = await loadExportImages({
-    sources,
+    sources: isTextFormat ? [] : sources,
     target,
     ...(input.images ? { provided: input.images } : {}),
   });
@@ -228,7 +239,7 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
   let imagenesOmitidas = Math.max(0, imageOccurrences - embeddedOccurrences);
   let estimatedPagination = false;
   let fuentesIncrustadas = 0;
-  if (input.cover?.src && !loadedImages.assets.has(input.cover.src)) {
+  if (!isTextFormat && input.cover?.src && !loadedImages.assets.has(input.cover.src)) {
     throw new Error(
       "No se pudo recuperar la portada de esta exportación. El archivo no se generará sin ella.",
     );
@@ -450,19 +461,26 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
       cover: input.cover,
     };
 
-    bytes =
-      input.format === "EPUB3"
-        ? buildEpub(model, input.createdAt, loadedImages.assets)
-        : buildDocx(model, input.createdAt, loadedImages.assets, {
-            pageWidthMm: input.profile?.pageWidthMm,
-            pageHeightMm: input.profile?.pageHeightMm,
-            marginTopMm: input.profile?.marginTopMm,
-            marginBottomMm: input.profile?.marginBottomMm,
-            marginInnerMm: input.profile?.marginInnerMm,
-            marginOuterMm: input.profile?.marginOuterMm,
-            gutterMm: input.profile?.gutterMm,
-            dropCapLines: input.dropCapLines ?? 3,
-          });
+    if (input.format === "EPUB3") {
+      bytes = buildEpub(model, input.createdAt, loadedImages.assets);
+    } else if (input.format === "DOCX") {
+      bytes = buildDocx(model, input.createdAt, loadedImages.assets, {
+        pageWidthMm: input.profile?.pageWidthMm,
+        pageHeightMm: input.profile?.pageHeightMm,
+        marginTopMm: input.profile?.marginTopMm,
+        marginBottomMm: input.profile?.marginBottomMm,
+        marginInnerMm: input.profile?.marginInnerMm,
+        marginOuterMm: input.profile?.marginOuterMm,
+        gutterMm: input.profile?.gutterMm,
+        dropCapLines: input.dropCapLines ?? 3,
+      });
+    } else if (input.format === "MARKDOWN") {
+      bytes = buildMarkdown(model);
+    } else if (input.format === "HTML") {
+      bytes = buildHtml(model);
+    } else {
+      bytes = buildPlainText(model);
+    }
   }
 
   return {

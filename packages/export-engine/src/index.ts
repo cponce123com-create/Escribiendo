@@ -28,4 +28,5 @@ export {
   type ExportDocumentModel,
 } from "./epub";
 export { buildDocx } from "./docx";
+export { buildHtml, buildMarkdown, buildPlainText } from "./text-formats";
 export { buildZip, crc32, type ZipEntry } from "./zip";
