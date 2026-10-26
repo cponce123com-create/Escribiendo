@@ -31,6 +31,7 @@ export interface ImportedSection {
   type?: ImportSectionType;
   simplified?: boolean;
   content?: TiptapDocument;
+  detection?: { score: number; signals: string[]; confidence: "alta" | "media" | "baja" };
 }
 
 export interface ParsedBookImport {
@@ -129,7 +130,7 @@ function splitBlocksIntoSections(blocks: TextBlock[], defaultTitle: string): Imp
   return detectImportSections(blocks, defaultTitle);
 }
 
-function splitOversizedSections(sections: ImportedSection[]): ImportedSection[] {
+export function splitOversizedSections(sections: ImportedSection[]): ImportedSection[] {
   const result: ImportedSection[] = [];
   const count = (node: TiptapNode): number =>
     1 + (node.content ?? []).reduce((sum, child) => sum + count(child), 0);
@@ -162,7 +163,11 @@ function splitOversizedSections(sections: ImportedSection[]): ImportedSection[] 
     }
     for (let index = 0; index < source.length; index++) {
       const original = source[index]!;
-      const text = section.paragraphs[index] ?? plain(original);
+      // Los párrafos vacíos pueden omitirse del resumen, pero siguen presentes
+      // en el documento. El índice del resumen nunca identifica al nodo fuente.
+      const text = section.content
+        ? plain(original)
+        : (section.paragraphs[index] ?? plain(original));
       let chunks = [{ node: original, text }];
       if (
         Buffer.byteLength(JSON.stringify(original), "utf8") > MAX_SECTION_TEXT_BYTES ||

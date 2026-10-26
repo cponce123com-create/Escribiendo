@@ -33,3 +33,22 @@ test("analiza un DOCX y permite revisar la estructura antes de crear el libro", 
     "La segunda aventura permanece completa.",
   );
 });
+
+test("advierte cuando un encabezado visual no acredita un capítulo", async ({ page }) => {
+  const xml =
+    '<w:document xmlns:w="urn:w"><w:body><w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>LA NOCHE ESTABA FRÍA</w:t></w:r></w:p><w:p><w:r><w:t>Aquí comienza el relato.</w:t></w:r></w:p><w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Capítulo 2</w:t></w:r></w:p><w:p><w:r><w:t>El viaje sigue.</w:t></w:r></w:p></w:body></w:document>';
+  const data = buildZip(
+    [{ name: "word/document.xml", data: new TextEncoder().encode(xml) }],
+    new Date("2026-01-01T00:00:00Z"),
+  );
+  await page.goto("/books/import");
+  await page.getByLabel("Archivo del libro", { exact: true }).setInputFiles({
+    name: "dudoso.docx",
+    mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    buffer: Buffer.from(data),
+  });
+  await page.getByRole("button", { name: "Analizar archivo", exact: true }).click();
+  await expect(page.getByText(/Algunas divisiones tienen evidencia débil/)).toBeVisible();
+  await expect(page.getByText(/Detección baja \(30\/100\)/)).toBeVisible();
+  await expect(page).toHaveURL(/\/books\/import$/u);
+});

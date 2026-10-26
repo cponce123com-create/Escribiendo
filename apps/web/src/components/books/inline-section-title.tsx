@@ -35,11 +35,12 @@ export function InlineSectionTitle({
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  // El título guardado se muestra al instante; la revalidación del servidor
-  // llega después y remonta el componente con el valor definitivo.
-  const [savedTitle, setSavedTitle] = useState<string | null>(null);
-
-  const currentTitle = savedTitle ?? title;
+  // El título guardado se muestra al instante; la revalidación actualiza la prop
+  // sin desmontar la edición que el usuario haya abierto después.
+  const [savedTitle, setSavedTitle] = useState<{ source: string; value: string } | null>(null);
+  // Una respuesta anterior optimista cede ante un título nuevo del servidor.
+  // La edición abierta conserva su campo sin depender de un efecto de montaje.
+  const currentTitle = savedTitle?.source === title ? savedTitle.value : title;
 
   if (!canEdit) {
     return <h1>{currentTitle}</h1>;
@@ -59,7 +60,7 @@ export function InlineSectionTitle({
         return;
       }
 
-      setSavedTitle(nextTitle);
+      setSavedTitle({ source: title, value: nextTitle });
       setEditing(false);
     } catch {
       setError("No se pudo guardar el título.");

@@ -252,6 +252,8 @@ model Book {
   title           String     @db.VarChar(300)
   subtitle        String?    @db.VarChar(300)
   authorName      String     @db.VarChar(200)
+  importRequestId String?    @db.Uuid
+  importPlanHash  String?    @db.VarChar(64)
   penName         String?    @db.VarChar(200)
   description     String?    @db.Text
   genre           String?    @db.VarChar(100)
@@ -295,6 +297,7 @@ model Book {
   glossaryTerms             BookGlossaryTerm[]
 
   @@index([workspaceId, deletedAt])
+  @@unique([workspaceId, importRequestId])
   @@index([workspaceId, status])
   @@index([workspaceId, updatedAt])
   @@index([archivedAt])

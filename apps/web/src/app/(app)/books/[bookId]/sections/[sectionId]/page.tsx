@@ -146,7 +146,7 @@ export default async function SectionPage({ params, searchParams }: SectionPageP
               <Link href={`/books/${bookId}`}>{sectionGroup(section.type)}</Link>
             </div>
             <InlineSectionTitle
-              key={section.title}
+              key={section.id}
               sectionId={section.id}
               title={section.title}
               showTitle={section.showTitle}

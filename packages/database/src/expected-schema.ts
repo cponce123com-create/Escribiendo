@@ -9,6 +9,8 @@
  */
 export const COLUMNAS_ESPERADAS: ReadonlyArray<{ tabla: string; columna: string }> = [
   { tabla: "books", columna: "narrativeStructure" },
+  { tabla: "books", columna: "importRequestId" },
+  { tabla: "books", columna: "importPlanHash" },
   { tabla: "books", columna: "narrativeVersion" },
   { tabla: "book_sections", columna: "narrativeStage" },
   { tabla: "story_character_events", columna: "startsOn" },

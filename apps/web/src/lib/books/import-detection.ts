@@ -13,6 +13,7 @@ export interface DetectedImportSection {
   paragraphs: string[];
   type: ImportSectionType;
   content: TiptapDocument;
+  detection: { score: number; signals: string[]; confidence: "alta" | "media" | "baja" };
 }
 const NUMBER =
   "(?:[0-9]+|[IVXLCDM]+|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|primero|segundo|tercero|primera|segunda|tercera)";
@@ -68,6 +69,11 @@ export function detectImportSections(
   let title = defaultTitle,
     type: ImportSectionType = blocks.some(boundary) ? "CUSTOM" : "CHAPTER",
     explicit = false;
+  let detection: DetectedImportSection["detection"] = {
+    score: 0,
+    signals: [],
+    confidence: "baja",
+  };
   let content: TiptapNode[] = [],
     paragraphs: string[] = [];
   function flush() {
@@ -77,6 +83,7 @@ export function detectImportSections(
         type,
         paragraphs,
         content: { type: "doc", content: content.length ? content : [{ type: "paragraph" }] },
+        detection,
       });
     content = [];
     paragraphs = [];
@@ -98,6 +105,33 @@ export function detectImportSections(
         continue;
       }
       flush();
+      const signals: string[] = [];
+      let score = 0;
+      if (block.sectionType) {
+        score += 35;
+        signals.push("Tipo indicado por el documento");
+      }
+      if (block.boundary) {
+        score += 35;
+        signals.push("Separación del índice o del documento");
+      }
+      if ((block.headingLevel ?? (block.heading ? 1 : 99)) === top) {
+        score += 25;
+        signals.push("Estilo de encabezado principal");
+      }
+      if (NUMBERED.test(text)) {
+        score += 30;
+        signals.push("Numeración de capítulo o parte");
+      } else if (SPECIAL.test(text)) {
+        score += 15;
+        signals.push("Rótulo editorial reconocible");
+      }
+      if (result.length === 0) score += 5;
+      detection = {
+        score: Math.min(score, 100),
+        signals,
+        confidence: score >= 60 ? "alta" : score >= 35 ? "media" : "baja",
+      };
       title = text;
       type = block.sectionType ?? inferImportSectionType(text);
       explicit = true;

@@ -23,6 +23,7 @@ export interface ImportSectionChoice {
   include: boolean;
 }
 export interface ImportPreview {
+  requestId: string;
   fingerprint: string;
   format: string;
   title: string;
@@ -34,6 +35,7 @@ export interface ImportPreview {
     type: ImportSectionType;
     words: number;
     excerpt: string;
+    detection?: { score: number; signals: string[]; confidence: "alta" | "media" | "baja" };
   }>;
 }
 export interface ImportAnalysisState {

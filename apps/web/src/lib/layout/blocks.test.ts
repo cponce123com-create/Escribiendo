@@ -106,6 +106,21 @@ describe("sectionToBlocks", () => {
     expect(titulos).toEqual(["Prólogo", "Capítulo 1 — El despertar", "2 — La vuelta"]);
   });
 
+  it("inserta una sola vez el título del capítulo en el cuerpo", () => {
+    const section = {
+      ...seccion(
+        documento({ type: "paragraph", content: [{ type: "text", text: "Cuerpo." }] }),
+        "Prólogo exportable",
+      ),
+      showSectionType: true,
+      showSectionNumber: true,
+    };
+    const blocks = bookToBlocks([section]);
+
+    expect(blocks.filter((block) => block.kind === "chapterTitle")).toHaveLength(1);
+    expect(blocks.filter((block) => block.kind === "body")).toHaveLength(1);
+  });
+
   it("no inserta el titulo cuando el autor lo oculta", () => {
     const bloques = bookToBlocks([
       {

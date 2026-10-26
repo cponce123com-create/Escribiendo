@@ -9,6 +9,8 @@ El importador usa reglas locales y metadatos del archivo, sin servicios de IA ni
 3. Corregir títulos/tipos y desmarcar únicamente las secciones que se quieran excluir. La autoría es obligatoria si no aparece en el archivo; no se inventa.
 4. Confirmar. El servidor vuelve a analizar y validar el archivo y comprueba su huella contra la revisión. Crea libro, secciones, materias manuales y revisiones `IMPORT` en una transacción.
 
+La revisión muestra una puntuación de **evidencia estructural**, no una probabilidad estadística: rótulo, numeración, estilo principal y separación explícita. Un título con evidencia débil se señala antes de confirmar. Una frase en mayúsculas sin esas señales se conserva como texto normal. La acción de confirmar vincula una clave única de revisión al archivo, metadatos y selección: un reenvío idéntico abre el libro creado; si se altera el plan bajo esa clave se exige analizar otra vez. La base impide que dos peticiones concurrentes creen dos libros para la misma revisión.
+
 Las acciones comprueban origen, sesión y `book:create`. La revisión no permite enviar contenido arbitrario del cliente: solo índices, títulos, tipos y selección sobre el archivo validado. Se mantienen los límites de ZIP, tamaño de texto, secciones y documento del editor.
 
 ## Detección y conservación
@@ -19,6 +21,7 @@ Las acciones comprueban origen, sesión y `book:create`. La revisión no permite
 - Reconoce partes, prólogos, epílogos, dedicatorias y otros tipos; un subtítulo no se convierte sistemáticamente en otro capítulo. Un rótulo numerado y su título consecutivo se reúnen. Las partes sin cuerpo conservan su título.
 - Las páginas legales e índices originales se guardan con una materia `MANUAL` explícita para evitar duplicarlos automáticamente; siguen editables y pueden sustituirse después mediante las galerías.
 - Los bloques muy grandes se dividen respetando UTF-8 y los límites del editor. El formato se conserva entre continuaciones; un bloque individual excepcional puede simplificarse a texto, con aviso.
+- Los párrafos vacíos en el documento no desplazan los textos de los bloques durante la división de secciones extensas; se usa el texto del nodo fuente y se comprueba que no se duplique.
 
 ## Límites
 

@@ -239,6 +239,116 @@ it("DOCX extenso se divide sin perder párrafos ni formato básico", async () =>
   expect(JSON.stringify(parsed.sections.at(-1)?.content)).toContain("italic");
 });
 
+it.each([
+  [10, 1000],
+  [50, 4000],
+])(
+  "DOCX de %i capítulos conserva %i palabras por capítulo",
+  async (chapters, words) => {
+    const paragraph = "palabra ".repeat(words).trim();
+    const content = Array.from(
+      { length: chapters },
+      (_, index) =>
+        `<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Capítulo ${index + 1}</w:t></w:r></w:p><w:p><w:r><w:t>${paragraph}</w:t></w:r></w:p>`,
+    ).join("");
+    const started = performance.now();
+    const parsed = await parseBookImport(
+      "novela-extensa.docx",
+      docxFromXml(`<w:document xmlns:w="urn:w"><w:body>${content}</w:body></w:document>`),
+    );
+    const actual = parsed.sections.flatMap((section) => section.paragraphs).join(" ");
+    expect(parsed.sections).toHaveLength(chapters);
+    expect(actual.split(/\s+/u)).toHaveLength(chapters * words);
+    expect(parsed.sections.every((section) => section.paragraphs.join(" ") === paragraph)).toBe(
+      true,
+    );
+    console.info(
+      `BENCH_IMPORT ${JSON.stringify({ chapters, words: chapters * words, ms: Math.round(performance.now() - started), rssMiB: Math.round(process.memoryUsage().rss / 1048576) })}`,
+    );
+  },
+  60_000,
+);
+
+it("EPUB de 50 capítulos conserva orden y una señal única por capítulo", async () => {
+  const chapters = Array.from({ length: 50 }, (_, index) => index + 1);
+  const opf = `<?xml version="1.0"?><package><metadata><dc:title>Novela extensa</dc:title><dc:creator>Ana</dc:creator></metadata><manifest>${chapters.map((n) => `<item id="c${n}" href="c${n}.xhtml" media-type="application/xhtml+xml"/>`).join("")}</manifest><spine>${chapters.map((n) => `<itemref idref="c${n}"/>`).join("")}</spine></package>`;
+  const data = buildZip(
+    [
+      { name: "mimetype", data: new TextEncoder().encode("application/epub+zip"), first: true },
+      {
+        name: "META-INF/container.xml",
+        data: new TextEncoder().encode(
+          '<container><rootfiles><rootfile full-path="OEBPS/book.opf"/></rootfiles></container>',
+        ),
+      },
+      { name: "OEBPS/book.opf", data: new TextEncoder().encode(opf) },
+      ...chapters.map((n) => ({
+        name: `OEBPS/c${n}.xhtml`,
+        data: new TextEncoder().encode(
+          `<html><body><h1>Capítulo ${n}</h1><p>Señal única ${n}.</p></body></html>`,
+        ),
+      })),
+    ],
+    new Date("2026-01-01T00:00:00Z"),
+  );
+  const parsed = await parseBookImport("novela.epub", data);
+  expect(parsed.sections).toHaveLength(50);
+  expect(parsed.sections.map((section) => section.paragraphs.join(" "))).toEqual(
+    chapters.map((n) => `Señal única ${n}.`),
+  );
+});
+
+it("PDF de diez páginas mantiene el texto seleccionable en orden de lectura", async () => {
+  const pages: PdfDocument["pages"] = Array.from({ length: 10 }, (_, index) => ({
+    widthMm: 148,
+    heightMm: 210,
+    runs: [
+      { text: `Capítulo ${index + 1}`, font: "bold" as const, sizePt: 14, xMm: 18, baselineMm: 40 },
+      {
+        text: `Pasaje único ${index + 1}.`,
+        font: "regular" as const,
+        sizePt: 11,
+        xMm: 18,
+        baselineMm: 60,
+      },
+    ],
+  }));
+  const result = buildPdf({
+    title: "PDF largo",
+    author: "Ana",
+    createdAt: new Date("2026-01-01T00:00:00Z"),
+    pages,
+  });
+  const parsed = await parseBookImport(
+    "novela.pdf",
+    result instanceof Uint8Array ? result : result.bytes,
+  );
+  const fullText = parsed.sections.flatMap((section) => section.paragraphs).join(" ");
+  for (let index = 1; index <= 10; index++) expect(fullText).toContain(`Pasaje único ${index}.`);
+  expect(fullText.indexOf("Pasaje único 1.")).toBeLessThan(fullText.indexOf("Pasaje único 10."));
+});
+
+it("no duplica un bloque grande cuando el documento conserva un párrafo vacío previo", async () => {
+  const { splitOversizedSections } = await import("./importer");
+  const large = "árbol ".repeat(35_000);
+  const split = splitOversizedSections([
+    {
+      title: "Capítulo",
+      type: "CHAPTER",
+      paragraphs: [large],
+      content: {
+        type: "doc",
+        content: [
+          { type: "paragraph" },
+          { type: "paragraph", content: [{ type: "text", text: large }] },
+        ],
+      },
+    },
+  ]);
+  expect(split.flatMap((section) => section.paragraphs).join("")).toBe(large);
+  expect(split.some((section) => section.simplified)).toBe(true);
+});
+
 it("DOCX conserva notas al pie, notas finales y enlaces seguros como contenido editable", async () => {
   const files: Record<string, string> = {
     "word/document.xml":
