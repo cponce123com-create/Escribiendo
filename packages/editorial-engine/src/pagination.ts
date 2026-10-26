@@ -6,6 +6,11 @@ import {
 } from "./image";
 import { dropCapMetrics, normalizeDropCapLines, type DropCapLines } from "./drop-cap";
 import { breakIntoLines, measureTextMm, type LineBreak, type MeasureText } from "./measure";
+import {
+  formatPageNumber,
+  type PageNumberingStyle,
+  type ResolvedMarginBox,
+} from "./page-decoration";
 import { breakRunsIntoLines, type InlineFootnote, type InlineRun } from "./rich-text";
 import {
   DEFAULT_TYPOGRAPHY_CONFIG,
@@ -125,6 +130,8 @@ export interface PageGeometry {
   chapterStartsRecto?: boolean;
   /** Número de la primera página. */
   firstPageNumber?: number;
+  /** Estilo de los folios impresos: arábigo o romano. */
+  pageNumbering?: { style?: PageNumberingStyle };
   /** Physical pages preceding the body (cover, preliminaries); independent of folios. */
   physicalPageOffset?: number;
 }
@@ -228,6 +235,10 @@ export interface LaidOutPage {
   index: number;
   /** Folio impreso. */
   folio: number;
+  /** Folio tal como se imprime, con el estilo de numeración aplicado. */
+  folioLabel?: string;
+  /** Cajas de margen ya compuestas (cabeceras, folios, autoría). */
+  marginBoxes?: ResolvedMarginBox[];
   /** `recto` es la página derecha (impar), `verso` la izquierda. */
   side: "recto" | "verso";
   blocks: LaidOutBlock[];
@@ -337,6 +348,7 @@ export function paginate(
   const pages: LaidOutPage[] = [];
   const chapterStartsRecto = geometry.chapterStartsRecto ?? true;
   const firstPageNumber = geometry.firstPageNumber ?? 1;
+  const numberingStyle = geometry.pageNumbering?.style ?? "arabic";
   const minAtBottom = typography.widowOrphan.minLinesAtBottom;
   const minAtTop = typography.widowOrphan.minLinesAtTop;
 
@@ -380,9 +392,12 @@ export function paginate(
 
     pageIndex += 1;
 
+    const folio = firstPageNumber + pageIndex - 1;
+
     pages.push({
       index: pageIndex,
-      folio: firstPageNumber + pageIndex - 1,
+      folio,
+      folioLabel: formatPageNumber(folio, numberingStyle),
       side: pageSide(pageIndex),
       blocks: currentBlocks,
       usedHeightMm,

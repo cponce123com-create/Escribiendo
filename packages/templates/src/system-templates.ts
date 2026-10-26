@@ -16,6 +16,27 @@ import { z } from "zod";
  * los espacios de trabajo; cada espacio puede tener las suyas.
  */
 
+const marginBoxesSchema = z
+  .object({
+    "top-left": z.string().max(200).optional(),
+    "top-center": z.string().max(200).optional(),
+    "top-right": z.string().max(200).optional(),
+    "bottom-left": z.string().max(200).optional(),
+    "bottom-center": z.string().max(200).optional(),
+    "bottom-right": z.string().max(200).optional(),
+  })
+  .strict();
+
+const pageDecorationLayersSchema = z
+  .object({
+    base: marginBoxesSchema.optional(),
+    verso: marginBoxesSchema.optional(),
+    recto: marginBoxesSchema.optional(),
+    first: marginBoxesSchema.optional(),
+    blank: marginBoxesSchema.optional(),
+  })
+  .strict();
+
 export const editorialTemplateConfigSchema = z
   .object({
     typography: typographyConfigSchema,
@@ -28,6 +49,13 @@ export const editorialTemplateConfigSchema = z
       .strict(),
     /** Posición del folio dentro de la página. */
     folioPosition: z.enum(["bottomCenter", "bottomOuter", "topOuter"]).default("bottomCenter"),
+    /** Estilo de numeración de los folios. */
+    pageNumbering: z.enum(["arabic", "roman-lower", "roman-upper"]).default("arabic"),
+    /**
+     * Cajas de margen por capas. Si se define, sustituye a la cabecera y al
+     * folio derivados de `runningHead`/`folioPosition`.
+     */
+    marginBoxes: pageDecorationLayersSchema.optional(),
     /** Los capítulos empiezan en página par. */
     chapterStartsRecto: z.boolean().default(true),
     /** Se imprimen los folios. */
@@ -124,6 +152,7 @@ const NOVELA: EditorialTemplateConfig = {
   },
   runningHead: { verso: "", recto: "" },
   folioPosition: "bottomCenter",
+  pageNumbering: "arabic",
   chapterStartsRecto: true,
   showPageNumbers: true,
   firstLineIndentMm: 5,
@@ -158,6 +187,7 @@ const ENSAYO: EditorialTemplateConfig = {
   },
   runningHead: { verso: "", recto: "" },
   folioPosition: "bottomCenter",
+  pageNumbering: "arabic",
   chapterStartsRecto: true,
   showPageNumbers: true,
   firstLineIndentMm: 0,
@@ -193,6 +223,7 @@ const POESIA: EditorialTemplateConfig = {
   },
   runningHead: { verso: "", recto: "" },
   folioPosition: "bottomCenter",
+  pageNumbering: "arabic",
   chapterStartsRecto: true,
   showPageNumbers: true,
   firstLineIndentMm: 0,
@@ -234,7 +265,8 @@ const MANUAL: EditorialTemplateConfig = {
   },
   runningHead: { verso: "", recto: "" },
   folioPosition: "bottomOuter",
-  chapterStartsRecto: false,
+  pageNumbering: "arabic",
+  chapterStartsRecto: true,
   showPageNumbers: true,
   firstLineIndentMm: 0,
   firstParagraphNoIndent: true,
@@ -389,6 +421,7 @@ export function withTemplateDefaults(value: unknown): EditorialTemplateConfig {
     })
     .strict()
     .safeParse(partial.runningHead);
+  const marginBoxes = pageDecorationLayersSchema.safeParse(partial.marginBoxes);
 
   return {
     typography: typography.success ? typography.data : DEFAULT_TYPOGRAPHY_CONFIG,
@@ -397,6 +430,11 @@ export function withTemplateDefaults(value: unknown): EditorialTemplateConfig {
       partial.folioPosition === "bottomOuter" || partial.folioPosition === "topOuter"
         ? partial.folioPosition
         : "bottomCenter",
+    pageNumbering:
+      partial.pageNumbering === "roman-lower" || partial.pageNumbering === "roman-upper"
+        ? partial.pageNumbering
+        : "arabic",
+    ...(marginBoxes.success ? { marginBoxes: marginBoxes.data } : {}),
     chapterStartsRecto:
       typeof partial.chapterStartsRecto === "boolean" ? partial.chapterStartsRecto : true,
     showPageNumbers: typeof partial.showPageNumbers === "boolean" ? partial.showPageNumbers : true,

@@ -14,7 +14,7 @@ import type {
   PdfRule,
   PdfRun,
 } from "@escribiendo/export-engine";
-import { resolveRunningHeads, type RunningHeadTemplate } from "../layout/running-heads";
+import { resolvePageDecorations, type RunningHeadTemplate } from "../layout/running-heads";
 
 export interface PdfLayoutProfile {
   pageWidthMm: number;
@@ -57,7 +57,11 @@ export function toPdfPages(
   let imagenesIncrustadas = 0;
   let imagenesOmitidas = 0;
 
-  const pagesWithHeads = resolveRunningHeads(pages, runningHeadTemplate, bookTitle);
+  const pagesWithHeads = resolvePageDecorations(pages, runningHeadTemplate, {
+    bookTitle,
+    pageCount: pages.length,
+    showPageNumbers: profile.showPageNumbers,
+  });
   const pdfPages: PdfPage[] = pagesWithHeads.map((page) => {
     const interior = profile.mirrorMargins ? page.side === "recto" : true;
     const leftMm = interior ? profile.marginInnerMm + profile.gutterMm : profile.marginOuterMm;
@@ -345,40 +349,31 @@ export function toPdfPages(
       }
     }
 
-    if (page.runningHead) {
-      const sizePt = 8;
-      const width = medir(page.runningHead, {
+    for (const box of page.marginBoxes ?? []) {
+      const isTop = box.position.startsWith("top");
+      const sizePt = isTop ? 8 : 9;
+      const width = medir(box.text, {
         fontFamily: typography.body.fontFamily,
         fontSizePt: sizePt,
       });
+      const xMm =
+        box.align === "left"
+          ? leftMm
+          : box.align === "right"
+            ? leftMm + Math.max(0, textWidthMm - width)
+            : leftMm + Math.max(0, (textWidthMm - width) / 2);
 
       runs.push({
-        text: page.runningHead,
+        text: box.text,
         font: "regular",
         family: typography.body.fontFamily,
         sizePt,
-        xMm: leftMm + Math.max(0, (textWidthMm - width) / 2),
-        baselineMm: profile.headerDistanceMm + 2.5,
-      });
-    }
-
-    // El folio va al pie de la página. Se deja un mínimo de 4 mm para que un
-    // perfil antiguo con distancia cero no lo deje pegado al borde de la hoja.
-    if (profile.showPageNumbers) {
-      const footerDistance = Math.max(profile.footerDistanceMm, 4);
-      const folio = String(page.folio);
-      const anchoFolio = medir(folio, {
-        fontFamily: typography.body.fontFamily,
-        fontSizePt: 9,
-      });
-
-      runs.push({
-        text: folio,
-        font: "regular",
-        family: typography.body.fontFamily,
-        sizePt: 9,
-        xMm: leftMm + (textWidthMm - anchoFolio) / 2,
-        baselineMm: profile.pageHeightMm - footerDistance,
+        xMm,
+        // El folio va al pie con un mínimo de 4 mm: un perfil antiguo con
+        // distancia cero no debe dejarlo pegado al borde de la hoja.
+        baselineMm: isTop
+          ? profile.headerDistanceMm + 2.5
+          : profile.pageHeightMm - Math.max(profile.footerDistanceMm, 4),
       });
     }
 

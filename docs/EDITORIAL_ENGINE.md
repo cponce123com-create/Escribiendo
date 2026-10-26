@@ -43,9 +43,40 @@ reflowables: no pasan por la maqueta, pero conservan el mismo formato en línea.
   perfil del estudio con esos valores y lo vincula a la edición. El flujo
   principal solo pide la plantilla; los perfiles quedan en «Ajustes
   avanzados» y, al volver a aplicar la plantilla, recuperan el preset.
-- La plantilla sigue primando para la tipografía y el perfil para la
-  geometría. El perfil automático se llama `Plantilla: <nombre>` y no se
-  elige a mano.
+- La plantilla sigue primando para la tipografía y el perfil para la geometría.
+  El perfil automático se llama `Plantilla: <nombre>` y no se elige a mano.
+
+### Cajas de margen y folios
+
+La decoración de página sigue el subconjunto de CSS Paged Media que necesita
+una novela. `page-decoration.ts` define seis cajas —`top-left`, `top-center`,
+`top-right`, `bottom-left`, `bottom-center`, `bottom-right`— y las resuelve con
+tokens:
+
+| Token        | Valor                                |
+| ------------ | ------------------------------------ |
+| `{libro}`    | Título del libro                     |
+| `{autor}`    | Autoría de la edición                |
+| `{capitulo}` | Título de la sección de la página    |
+| `{seccion}`  | Igual que `{capitulo}` en este motor |
+| `{folio}`    | Folio ya formateado                  |
+| `{paginas}`  | Total de páginas del cuerpo          |
+
+La configuración se aplica por capas: `base` → `verso`/`recto` → `first` →
+`blank`. Una capa posterior sustituye caja a caja; una cadena vacía desactiva
+la caja.
+
+Si la plantilla no define `marginBoxes`, se derivan las cajas históricas:
+cabecera centrada (texto de `runningHead` o título de la sección) y folio en
+`folioPosition` (`bottomCenter`, `bottomOuter` o `topOuter`). La numeración se
+elige con `pageNumbering` (`arabic`, `roman-lower`, `roman-upper`). Las
+aperturas de capítulo y las páginas blancas no llevan cabecera; el folio se
+mantiene.
+
+La vista previa y el PDF consumen las mismas cajas resueltas (`marginBoxes` en
+`LaidOutPage`), de modo que no hay dos reglas que puedan divergir. `folioLabel`
+guarda el folio impreso y `runningHead` se conserva para los consumidores que
+solo leen un encabezado.
 
 ## 3. Medición del texto
 

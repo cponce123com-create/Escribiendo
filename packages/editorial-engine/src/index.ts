@@ -80,6 +80,19 @@ export {
   type ImageLayoutInput,
 } from "./image";
 export {
+  PAGE_MARGIN_BOX_POSITIONS,
+  formatPageNumber,
+  resolveMarginBoxes,
+  type DecorationPageState,
+  type MarginBoxAlign,
+  type MarginBoxes,
+  type PageDecorationConfig,
+  type PageDecorationContext,
+  type PageMarginBoxPosition,
+  type PageNumberingStyle,
+  type ResolvedMarginBox,
+} from "./page-decoration";
+export {
   CHAPTER_TITLE_SINK_PT,
   fitsTextBlock,
   isHeadingKind,

@@ -37,7 +37,7 @@ import {
   tocDiagnostics,
   type TocStability,
 } from "@/lib/editorial/toc-stabilization";
-import { resolveRunningHeads } from "./running-heads";
+import { resolvePageDecorations } from "./running-heads";
 import { previewLineDrawings, type PreviewLineDrawing } from "./preview-drawing";
 import { loadPdfFonts } from "@/lib/export/fonts";
 import { outlineFromPages } from "@/lib/export/pdf-pages";
@@ -334,7 +334,11 @@ function toPreviewPages(
   bookTitle: string,
   measure?: MeasureText,
 ): PreviewPage[] {
-  return resolveRunningHeads(result.pages, template?.config ?? null, bookTitle).map((page) => {
+  return resolvePageDecorations(result.pages, template?.config ?? null, {
+    bookTitle,
+    pageCount: result.pages.length,
+    showPageNumbers: profile.showPageNumbers,
+  }).map((page) => {
     const interior = profile.mirrorMargins ? page.side === "recto" : true;
     const leftMm = interior ? profile.marginInnerMm + profile.gutterMm : profile.marginOuterMm;
 

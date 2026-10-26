@@ -150,3 +150,72 @@ describe("geometría compartida de vista previa y PDF", () => {
     expect(rule?.dash).toEqual([0.5, 1.1]);
   });
 });
+
+describe("cajas de margen en el PDF", () => {
+  it("coloca el folio en el borde exterior y respeta la numeración romana", () => {
+    const profile = { ...PROFILE, showPageNumbers: true };
+    const verso = toPdfPages(
+      [{ ...PAGE, side: "verso", folio: 8 }],
+      profile,
+      TYPOGRAPHY,
+      new Map(),
+      undefined,
+      {
+        runningHead: { recto: "", verso: "" },
+        folioPosition: "bottomOuter",
+        pageNumbering: "roman-lower",
+      },
+      "La obra",
+    ).pdfPages[0];
+    const recto = toPdfPages(
+      [{ ...PAGE, side: "recto", folio: 9 }],
+      profile,
+      TYPOGRAPHY,
+      new Map(),
+      undefined,
+      { runningHead: { recto: "", verso: "" }, folioPosition: "bottomOuter" },
+      "La obra",
+    ).pdfPages[0];
+
+    const versoFolio = verso?.runs.find((run) => run.text === "viii");
+    const rectoFolio = recto?.runs.find((run) => run.text === "9");
+
+    expect(versoFolio).toBeDefined();
+    expect(rectoFolio).toBeDefined();
+    expect(versoFolio?.xMm).toBeCloseTo(profile.marginOuterMm, 5);
+    expect(rectoFolio?.xMm).toBeGreaterThan(profile.pageWidthMm / 2);
+    expect(versoFolio?.baselineMm).toBeCloseTo(profile.pageHeightMm - profile.footerDistanceMm, 5);
+  });
+
+  it("dibuja la cabecera centrada solo cuando la caja existe", () => {
+    const profile = { ...PROFILE, showPageNumbers: false };
+    const page: LaidOutPage = {
+      ...PAGE,
+      blocks: [{ ...PAGE.blocks[1]!, sectionTitle: "Capítulo I" }],
+    };
+
+    const pdf = toPdfPages(
+      [page],
+      profile,
+      TYPOGRAPHY,
+      new Map(),
+      undefined,
+      { runningHead: { recto: "{libro}", verso: "{libro}" } },
+      "La obra",
+    ).pdfPages[0];
+
+    expect(pdf?.runs.find((run) => run.text === "La obra")).toBeDefined();
+
+    const opening = toPdfPages(
+      [{ ...page, blocks: [{ ...page.blocks[0]!, startsChapter: true }] }],
+      profile,
+      TYPOGRAPHY,
+      new Map(),
+      undefined,
+      { runningHead: { recto: "{libro}", verso: "{libro}" } },
+      "La obra",
+    ).pdfPages[0];
+
+    expect(opening?.runs.find((run) => run.text === "La obra")).toBeUndefined();
+  });
+});

@@ -173,33 +173,51 @@ function PageSheet({
       }}
       aria-label={`Página ${displayIndex}`}
     >
-      {page.runningHead ? (
-        <div
-          data-page-running-head
-          className="absolute text-center"
-          style={{
-            top: `${(profile.headerDistanceMm + 2.5 - ((8 * 25.4) / 72) * 0.8) * PX_PER_MM}px`,
-            left: `${leftMarginMm * PX_PER_MM}px`,
-            width: `${textWidthMm * PX_PER_MM}px`,
-            fontSize: "8pt",
-            lineHeight: "8pt",
-            fontFamily: FAMILIAS[typography.body.fontFamily],
-            color: "#000000",
-            fontKerning: "none",
-            fontVariantLigatures: "none",
-            fontSynthesis: "none",
-          }}
-        >
-          <span
+      {(page.marginBoxes ?? []).map((box) => {
+        const isTop = box.position.startsWith("top");
+        const fontSizePt = isTop ? 8 : 9;
+        const lineMm = (fontSizePt * 25.4) / 72;
+
+        return (
+          <div
+            key={box.position}
+            data-page-margin-box={box.position}
+            data-page-running-head={box.position === "top-center" ? "" : undefined}
+            className="absolute tabular-nums"
             style={{
-              position: "relative",
-              top: `${baselineCorrectionPt(typography.body.fontFamily, 8, 8)}pt`,
+              top: `${
+                (isTop
+                  ? profile.headerDistanceMm + 2.5 - lineMm * 0.8
+                  : profile.pageHeightMm - Math.max(profile.footerDistanceMm, 4) - lineMm * 0.8) *
+                PX_PER_MM
+              }px`,
+              left: `${leftMarginMm * PX_PER_MM}px`,
+              width: `${textWidthMm * PX_PER_MM}px`,
+              textAlign: box.align,
+              fontSize: `${fontSizePt}pt`,
+              lineHeight: `${fontSizePt}pt`,
+              fontFamily: FAMILIAS[typography.body.fontFamily],
+              color: "#000000",
+              fontKerning: "none",
+              fontVariantLigatures: "none",
+              fontSynthesis: "none",
             }}
           >
-            {page.runningHead}
-          </span>
-        </div>
-      ) : null}
+            <span
+              style={{
+                position: "relative",
+                top: `${baselineCorrectionPt(
+                  typography.body.fontFamily,
+                  fontSizePt,
+                  fontSizePt,
+                )}pt`,
+              }}
+            >
+              {box.text}
+            </span>
+          </div>
+        );
+      })}
 
       {page.blank ? null : (
         <div
@@ -229,33 +247,6 @@ function PageSheet({
           leftMm={leftMarginMm}
           widthMm={textWidthMm}
         />
-      ) : null}
-
-      {profile.showPageNumbers ? (
-        <div
-          className="absolute text-center tabular-nums"
-          style={{
-            top: `${(profile.pageHeightMm - Math.max(profile.footerDistanceMm, 4) - ((9 * 25.4) / 72) * 0.8) * PX_PER_MM}px`,
-            left: `${leftMarginMm * PX_PER_MM}px`,
-            width: `${textWidthMm * PX_PER_MM}px`,
-            fontSize: "9pt",
-            lineHeight: "9pt",
-            fontFamily: FAMILIAS[typography.body.fontFamily],
-            color: "#000000",
-            fontKerning: "none",
-            fontVariantLigatures: "none",
-            fontSynthesis: "none",
-          }}
-        >
-          <span
-            style={{
-              position: "relative",
-              top: `${baselineCorrectionPt(typography.body.fontFamily, 9, 9)}pt`,
-            }}
-          >
-            {page.folio}
-          </span>
-        </div>
       ) : null}
     </div>
   );

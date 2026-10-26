@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveRunningHeads } from "./running-heads";
+import { resolvePageDecorations, resolveRunningHeads } from "./running-heads";
 import type { LaidOutPage } from "@escribiendo/editorial-engine";
 
 const page = (overrides: Partial<LaidOutPage> = {}): LaidOutPage => ({
@@ -91,5 +91,110 @@ describe("resolveRunningHeads", () => {
     );
 
     expect(result[0]?.runningHead).toBeNull();
+  });
+});
+
+describe("resolvePageDecorations", () => {
+  const bodyPage = (overrides: Partial<LaidOutPage> = {}): LaidOutPage => {
+    const base = page(overrides);
+    return {
+      ...base,
+      blocks: base.blocks.map((block) => ({
+        ...block,
+        kind: "body" as const,
+        startsChapter: false,
+        firstOfSection: false,
+      })),
+    };
+  };
+
+  it("deriva cabecera centrada y folio inferior", () => {
+    const [resolved] = resolvePageDecorations([bodyPage()], null, { bookTitle: "La obra" });
+
+    expect(resolved?.marginBoxes).toEqual([
+      { position: "top-center", text: "Capítulo I", align: "center" },
+      { position: "bottom-center", text: "1", align: "center" },
+    ]);
+    expect(resolved?.folioLabel).toBe("1");
+    expect(resolved?.runningHead).toBe("Capítulo I");
+  });
+
+  it("respeta la plantilla de cabecera con tokens", () => {
+    const [resolved] = resolvePageDecorations(
+      [bodyPage()],
+      { runningHead: { recto: "{libro} · {capitulo}", verso: "{libro}" } },
+      { bookTitle: "La obra" },
+    );
+
+    expect(resolved?.runningHead).toBe("La obra · Capítulo I");
+  });
+
+  it("coloca el folio en el borde exterior según el lado", () => {
+    const verso = resolvePageDecorations(
+      [bodyPage({ side: "verso", folio: 8 })],
+      { runningHead: { recto: "", verso: "" }, folioPosition: "bottomOuter" },
+      { bookTitle: "La obra" },
+    )[0];
+    const recto = resolvePageDecorations(
+      [bodyPage({ side: "recto", folio: 9 })],
+      { runningHead: { recto: "", verso: "" }, folioPosition: "bottomOuter" },
+      { bookTitle: "La obra" },
+    )[0];
+
+    expect(verso?.marginBoxes?.find((box) => box.position === "bottom-left")?.text).toBe("8");
+    expect(recto?.marginBoxes?.find((box) => box.position === "bottom-right")?.text).toBe("9");
+  });
+
+  it("aplica numeración romana al folio y a las cajas", () => {
+    const [resolved] = resolvePageDecorations(
+      [bodyPage({ folio: 12 })],
+      { runningHead: { recto: "", verso: "" }, pageNumbering: "roman-lower" },
+      { bookTitle: "La obra" },
+    );
+
+    expect(resolved?.folioLabel).toBe("xii");
+    expect(resolved?.marginBoxes?.find((box) => box.position === "bottom-center")?.text).toBe(
+      "xii",
+    );
+  });
+
+  it("usa marginBoxes explícitas con autoría, total de páginas y capa first", () => {
+    const [firstPage, secondPage] = resolvePageDecorations(
+      [bodyPage({ folio: 3 }), bodyPage({ folio: 4 })],
+      {
+        runningHead: { recto: "", verso: "" },
+        marginBoxes: {
+          base: { "top-left": "{autor}", "top-right": "{folio} / {paginas}" },
+          first: { "top-left": "" },
+        },
+      },
+      { bookTitle: "La obra", author: "Ana Torres", pageCount: 240 },
+    );
+
+    expect(firstPage?.marginBoxes).toEqual([
+      { position: "top-right", text: "3 / 240", align: "right" },
+    ]);
+    expect(secondPage?.marginBoxes).toEqual([
+      { position: "top-left", text: "Ana Torres", align: "left" },
+      { position: "top-right", text: "4 / 240", align: "right" },
+    ]);
+  });
+
+  it("no imprime folio si el perfil lo desactiva y conserva la cabecera", () => {
+    const [resolved] = resolvePageDecorations([bodyPage()], null, {
+      bookTitle: "La obra",
+      showPageNumbers: false,
+    });
+
+    expect(resolved?.marginBoxes).toEqual([
+      { position: "top-center", text: "Capítulo I", align: "center" },
+    ]);
+  });
+
+  it("deja la apertura de capítulo sin cabecera pero con folio", () => {
+    const [resolved] = resolvePageDecorations([page()], null, { bookTitle: "La obra" });
+
+    expect(resolved?.marginBoxes?.some((box) => box.position === "top-center")).toBe(false);
+    expect(resolved?.marginBoxes?.some((box) => box.position === "bottom-center")).toBe(true);
   });
 });
