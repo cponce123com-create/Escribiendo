@@ -49,9 +49,10 @@ reflowables: no pasan por la maqueta, pero conservan el mismo formato en línea.
 ### Cajas de margen y folios
 
 La decoración de página sigue el subconjunto de CSS Paged Media que necesita
-una novela. `page-decoration.ts` define seis cajas —`top-left`, `top-center`,
-`top-right`, `bottom-left`, `bottom-center`, `bottom-right`— y las resuelve con
-tokens:
+una novela. `page-decoration.ts` define diez cajas —`top-left-corner`,
+`top-left`, `top-center`, `top-right`, `top-right-corner`, `bottom-left-corner`,
+`bottom-left`, `bottom-center`, `bottom-right` y `bottom-right-corner`— y las
+resuelve con tokens:
 
 | Token        | Valor                                |
 | ------------ | ------------------------------------ |
@@ -65,6 +66,10 @@ tokens:
 La configuración se aplica por capas: `base` → `verso`/`recto` → `first` →
 `blank`. Una capa posterior sustituye caja a caja; una cadena vacía desactiva
 la caja.
+
+Las cajas laterales (`left-top`, `left-middle`, `left-bottom`, `right-top`,
+`right-middle`, `right-bottom`) no se dibujan: exigirían rotar el texto en el
+margen y el subconjunto actual no las necesita.
 
 Si la plantilla no define `marginBoxes`, se derivan las cajas históricas:
 cabecera centrada (texto de `runningHead` o título de la sección) y folio en

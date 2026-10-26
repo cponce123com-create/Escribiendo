@@ -11,12 +11,16 @@ import type { EditorialTemplateConfig } from "@escribiendo/templates";
 
 export const decorationMarginBoxesSchema = z
   .object({
+    "top-left-corner": z.string().max(200).optional(),
     "top-left": z.string().max(200).optional(),
     "top-center": z.string().max(200).optional(),
     "top-right": z.string().max(200).optional(),
+    "top-right-corner": z.string().max(200).optional(),
+    "bottom-left-corner": z.string().max(200).optional(),
     "bottom-left": z.string().max(200).optional(),
     "bottom-center": z.string().max(200).optional(),
     "bottom-right": z.string().max(200).optional(),
+    "bottom-right-corner": z.string().max(200).optional(),
   })
   .strict();
 

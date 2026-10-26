@@ -1,9 +1,9 @@
 /**
  * Decoración de página: cajas de margen y numeración de folios.
  *
- * Es el subconjunto de CSS Paged Media que necesita una novela: seis cajas de
- * margen (esquinas superiores e inferiores, izquierda, centro y derecha),
- * contenido por tokens y precedencia por página (base, lado, primera, blanca).
+ * Es el subconjunto de CSS Paged Media que necesita una novela: diez cajas de
+ * margen (las cuatro esquinas y las de cabeza y pie), contenido por tokens y
+ * precedencia por página (base, lado, primera, blanca).
  *
  * La resolución es pura: recibe la configuración y el contexto de la página y
  * devuelve las cajas ya compuestas. Así la vista previa y el PDF dibujan
@@ -11,12 +11,16 @@
  */
 
 export const PAGE_MARGIN_BOX_POSITIONS = [
+  "top-left-corner",
   "top-left",
   "top-center",
   "top-right",
+  "top-right-corner",
+  "bottom-left-corner",
   "bottom-left",
   "bottom-center",
   "bottom-right",
+  "bottom-right-corner",
 ] as const;
 
 export type PageMarginBoxPosition = (typeof PAGE_MARGIN_BOX_POSITIONS)[number];
@@ -59,12 +63,16 @@ export interface ResolvedMarginBox {
 }
 
 const ALIGN: Record<PageMarginBoxPosition, MarginBoxAlign> = {
+  "top-left-corner": "center",
   "top-left": "left",
   "top-center": "center",
   "top-right": "right",
+  "top-right-corner": "center",
+  "bottom-left-corner": "center",
   "bottom-left": "left",
   "bottom-center": "center",
   "bottom-right": "right",
+  "bottom-right-corner": "center",
 };
 
 const ROMAN: ReadonlyArray<readonly [number, string]> = [

@@ -183,6 +183,15 @@ function PageSheet({
     >
       {(page.marginBoxes ?? []).map((box) => {
         const isTop = box.position.startsWith("top");
+        const isCorner = box.position.endsWith("-corner");
+        const isLeftCorner =
+          box.position.startsWith("top-left") || box.position.startsWith("bottom-left");
+        const boxLeftMm = isCorner
+          ? isLeftCorner
+            ? 0
+            : pageWidthMm - rightMarginMm
+          : leftMarginMm;
+        const boxWidthMm = isCorner ? (isLeftCorner ? leftMarginMm : rightMarginMm) : textWidthMm;
         const fontSizePt = isTop ? 8 : 9;
         const lineMm = (fontSizePt * 25.4) / 72;
 
@@ -198,8 +207,8 @@ function PageSheet({
                   ? headerDistanceMm + 2.5 - lineMm * 0.8
                   : pageHeightMm - Math.max(footerDistanceMm, 4) - lineMm * 0.8) * PX_PER_MM
               }px`,
-              left: `${leftMarginMm * PX_PER_MM}px`,
-              width: `${textWidthMm * PX_PER_MM}px`,
+              left: `${boxLeftMm * PX_PER_MM}px`,
+              width: `${boxWidthMm * PX_PER_MM}px`,
               textAlign: box.align,
               fontSize: `${fontSizePt}pt`,
               lineHeight: `${fontSizePt}pt`,

@@ -12,12 +12,24 @@ interface PageDecorationFormProps {
 }
 
 const CAJAS = [
+  { position: "top-left-corner", field: "boxTopLeftCorner", label: "Esquina superior izquierda" },
   { position: "top-left", field: "boxTopLeft", label: "Superior izquierda" },
   { position: "top-center", field: "boxTopCenter", label: "Superior centro" },
   { position: "top-right", field: "boxTopRight", label: "Superior derecha" },
+  { position: "top-right-corner", field: "boxTopRightCorner", label: "Esquina superior derecha" },
+  {
+    position: "bottom-left-corner",
+    field: "boxBottomLeftCorner",
+    label: "Esquina inferior izquierda",
+  },
   { position: "bottom-left", field: "boxBottomLeft", label: "Inferior izquierda" },
   { position: "bottom-center", field: "boxBottomCenter", label: "Inferior centro" },
   { position: "bottom-right", field: "boxBottomRight", label: "Inferior derecha" },
+  {
+    position: "bottom-right-corner",
+    field: "boxBottomRightCorner",
+    label: "Esquina inferior derecha",
+  },
 ] as const;
 
 const CAMPOS_MASTER = [

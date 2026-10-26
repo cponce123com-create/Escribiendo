@@ -362,6 +362,12 @@ export function toPdfPages(
 
     for (const box of page.marginBoxes ?? []) {
       const isTop = box.position.startsWith("top");
+      const isCorner = box.position.endsWith("-corner");
+      const isLeftCorner =
+        box.position.startsWith("top-left") || box.position.startsWith("bottom-left");
+      const rightMm = pageWidthMm - leftMm - textWidthMm;
+      const boxLeftMm = isCorner ? (isLeftCorner ? 0 : pageWidthMm - rightMm) : leftMm;
+      const boxWidthMm = isCorner ? (isLeftCorner ? leftMm : rightMm) : textWidthMm;
       const sizePt = isTop ? 8 : 9;
       const width = medir(box.text, {
         fontFamily: typography.body.fontFamily,
@@ -369,10 +375,10 @@ export function toPdfPages(
       });
       const xMm =
         box.align === "left"
-          ? leftMm
+          ? boxLeftMm
           : box.align === "right"
-            ? leftMm + Math.max(0, textWidthMm - width)
-            : leftMm + Math.max(0, (textWidthMm - width) / 2);
+            ? boxLeftMm + Math.max(0, boxWidthMm - width)
+            : boxLeftMm + Math.max(0, (boxWidthMm - width) / 2);
 
       runs.push({
         text: box.text,

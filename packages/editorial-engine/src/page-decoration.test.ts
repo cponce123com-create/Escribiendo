@@ -98,4 +98,22 @@ describe("resolveMarginBoxes", () => {
       resolveMarginBoxes(null, CONTEXT, { side: "recto", first: false, blank: false }),
     ).toEqual([]);
   });
+
+  it("resuelve las esquinas y las alinea al centro", () => {
+    const boxes = resolveMarginBoxes(
+      {
+        base: {
+          "top-left-corner": "{autor}",
+          "bottom-right-corner": "{folio}",
+        },
+      },
+      CONTEXT,
+      { side: "recto", first: false, blank: false },
+    );
+
+    expect(boxes).toEqual([
+      { position: "top-left-corner", text: "Ana Torres", align: "center" },
+      { position: "bottom-right-corner", text: "12", align: "center" },
+    ]);
+  });
 });

@@ -672,12 +672,16 @@ export async function updateEditionDecorationAction(
   const boxes: Record<string, string> = {};
 
   for (const [position, field] of [
+    ["top-left-corner", "boxTopLeftCorner"],
     ["top-left", "boxTopLeft"],
     ["top-center", "boxTopCenter"],
     ["top-right", "boxTopRight"],
+    ["top-right-corner", "boxTopRightCorner"],
+    ["bottom-left-corner", "boxBottomLeftCorner"],
     ["bottom-left", "boxBottomLeft"],
     ["bottom-center", "boxBottomCenter"],
     ["bottom-right", "boxBottomRight"],
+    ["bottom-right-corner", "boxBottomRightCorner"],
   ] as const) {
     const value = formValue(formData, field).trim();
 
