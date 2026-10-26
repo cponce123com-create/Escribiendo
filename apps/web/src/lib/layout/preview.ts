@@ -38,6 +38,7 @@ import {
   type TocStability,
 } from "@/lib/editorial/toc-stabilization";
 import { resolvePageDecorations } from "./running-heads";
+import { applyEditionDecoration, decorationFromSettings } from "./decoration";
 import { previewLineDrawings, type PreviewLineDrawing } from "./preview-drawing";
 import { loadPdfFonts } from "@/lib/export/fonts";
 import { outlineFromPages } from "@/lib/export/pdf-pages";
@@ -225,6 +226,15 @@ export async function buildPreview(
   const typography = edition?.template
     ? withTypographyDefaults(edition.template.config.typography)
     : withTypographyDefaults(profile.typography);
+  const effectiveTemplate = edition?.template
+    ? {
+        ...edition.template,
+        config: applyEditionDecoration(
+          edition.template.config,
+          decorationFromSettings(edition.settings),
+        ),
+      }
+    : null;
 
   // La misma métrica que usa el PDF: si las fuentes están disponibles, la
   // vista previa y el archivo salen con los mismos cortes de línea.
@@ -240,8 +250,8 @@ export async function buildPreview(
       backMatter: back,
       ...(matter?.dedication ? { dedication: matter.dedication } : {}),
       contentHeightMm: textBlockSize(geometry).heightMm,
-      ...(edition?.template?.config?.sectionMasters
-        ? { sectionMasters: edition.template.config.sectionMasters }
+      ...(effectiveTemplate?.config.sectionMasters
+        ? { sectionMasters: effectiveTemplate.config.sectionMasters }
         : {}),
     });
 
@@ -252,8 +262,8 @@ export async function buildPreview(
     geometry,
     typography,
     ...(fuentes?.measure ? { measure: fuentes.measure } : {}),
-    ...(edition?.template?.config?.pageMasters
-      ? { masters: edition.template.config.pageMasters }
+    ...(effectiveTemplate?.config.pageMasters
+      ? { masters: effectiveTemplate.config.pageMasters }
       : {}),
     compose,
   });
@@ -263,13 +273,7 @@ export async function buildPreview(
   // El encabezado de página lo define la plantilla. Si la plantilla no dice
   // nada, se usa el título de la sección, que es lo que hace el motor.
   const tituloLibro = await previewBookTitle(session, bookId);
-  const pages = toPreviewPages(
-    result,
-    profile,
-    edition?.template ?? null,
-    tituloLibro,
-    fuentes?.measure,
-  );
+  const pages = toPreviewPages(result, profile, effectiveTemplate, tituloLibro, fuentes?.measure);
 
   // La portada ocupa la primera página del archivo: el índice se desplaza
   // para que sus números apunten a la página física, igual que en el PDF.
@@ -310,7 +314,7 @@ export async function buildPreview(
     ],
     toc: stability,
     profile,
-    template: edition?.template ?? null,
+    template: effectiveTemplate,
     typography,
     outline,
     cover: cover

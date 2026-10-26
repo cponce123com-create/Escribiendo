@@ -63,6 +63,7 @@ export interface EditionSummary {
   format: BookFormat;
   isDefault: boolean;
   pageCount: number | null;
+  settings: unknown;
   profile: LayoutProfileSummary | null;
   template: TemplateSummary | null;
 }
@@ -271,6 +272,7 @@ export async function getBookEdition(
       format: true,
       isDefault: true,
       pageCount: true,
+      settings: true,
       tocDepth: true,
       tocIncludeFrontMatter: true,
       tocIncludeBackMatter: true,
@@ -290,6 +292,7 @@ export async function getBookEdition(
     format: edition.format,
     isDefault: edition.isDefault,
     pageCount: edition.pageCount,
+    settings: edition.settings,
     tocDepth: edition.tocDepth,
     tocIncludeFrontMatter: edition.tocIncludeFrontMatter,
     tocIncludeBackMatter: edition.tocIncludeBackMatter,

@@ -124,6 +124,17 @@ La barra del editor ofrece «Nota al margen» en el menú «Más»: pide el text
 inserta el bloque después del párrafo actual, de modo que el ancla sea la línea
 que el autor está leyendo.
 
+### Decoración por edición
+
+Una edición puede sobrescribir la decoración de su plantilla sin duplicarla:
+`BookEdition.settings.decoration` guarda `folioPosition`, `pageNumbering` y las
+cajas base. Lo que no se define se hereda de la plantilla, y las capas
+`verso`/`recto`/`first`/`blank` de la plantilla se conservan.
+
+El formulario «Decoración de página» de la pantalla de maquetación edita esos
+valores (folio, numeración y seis cajas). La vista previa y la exportación
+aplican la decoración sobre la configuración heredada antes de paginar.
+
 ## 3. Medición del texto
 
 `measure.ts` admite dos formas de medir:

@@ -46,6 +46,7 @@ import { outlineFromPages } from "./pdf-pages";
 import { chaptersForReflowableFormats } from "./chapter-titles";
 import { coverPlacement } from "./cover-placement";
 import type { RunningHeadTemplate } from "@/lib/layout/running-heads";
+import { applyEditionDecoration, decorationFromSettings } from "@/lib/layout/decoration";
 
 /**
  * Generación de los archivos de exportación.
@@ -527,10 +528,12 @@ export async function exportContext(
   ]);
 
   const profile = edition?.profile ?? defaultProfile;
-  const typography = edition?.template
-    ? edition.template.config.typography
+  const runningHeadTemplate = edition?.template
+    ? applyEditionDecoration(edition.template.config, decorationFromSettings(edition.settings))
+    : null;
+  const typography = runningHeadTemplate
+    ? runningHeadTemplate.typography
     : (profile?.typography ?? {});
-  const runningHeadTemplate = edition?.template?.config ?? null;
 
   return {
     title: edition?.name ?? "Manuscrito",

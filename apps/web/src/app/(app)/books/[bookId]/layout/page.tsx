@@ -4,6 +4,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EditionSelector } from "@/components/layout/edition-selector";
 import { ProfileList } from "@/components/layout/profile-list";
+import { PageDecorationForm } from "@/components/layout/page-decoration-form";
+import { decorationFromSettings } from "@/lib/layout/decoration";
 import { requireSession } from "@/lib/auth/session";
 import { canPerform } from "@/lib/books/permissions";
 import { getBook } from "@/lib/books/queries";
@@ -123,6 +125,13 @@ export default async function BookLayoutPage({ params, searchParams }: BookLayou
           </Link>
         </div>
       </section>
+
+      {canManage && edition ? (
+        <PageDecorationForm
+          bookId={book.id}
+          decoration={decorationFromSettings(edition.settings)}
+        />
+      ) : null}
 
       <details className="panel p-6">
         <summary className="cursor-pointer">

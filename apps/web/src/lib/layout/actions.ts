@@ -14,6 +14,7 @@ import type { ActionState } from "@/lib/action-state";
 import { assertCanPerform } from "@/lib/books/permissions";
 import { ensureTemplateProfile, getTemplate } from "@/lib/layout/profiles";
 import { validateLayoutGeometry } from "@escribiendo/editorial-engine";
+import { editionDecorationSchema } from "./decoration";
 
 /**
  * Perfiles de página, plantillas y ediciones.
@@ -626,4 +627,100 @@ export async function updateEditionTocAction(
   for (const path of ["", "/layout", "/preview", "/export"])
     revalidatePath(`/books/${bookId.data}${path}`);
   return successState("Configuración del índice guardada.");
+}
+
+/**
+ * Guarda la decoración de página de la edición.
+ *
+ * No duplica la plantilla: escribe `settings.decoration` y la vista previa y el
+ * PDF la aplican sobre la configuración heredada.
+ */
+export async function updateEditionDecorationAction(
+  _previousState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    await assertServerActionOrigin();
+  } catch {
+    return errorState("No se ha podido validar la solicitud.");
+  }
+
+  const session = await getSession();
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  try {
+    assertCanPerform(session.workspace.role, "layout:manage");
+  } catch {
+    return errorState("No tienes permisos para gestionar la maquetación.");
+  }
+
+  const bookId = uuidSchema.safeParse(formValue(formData, "bookId"));
+
+  if (!bookId.success) {
+    return errorState("El libro no es válido.");
+  }
+
+  const folioPosition = z
+    .enum(["bottomCenter", "bottomOuter", "topOuter"])
+    .safeParse(formValue(formData, "folioPosition"));
+  const pageNumbering = z
+    .enum(["arabic", "roman-lower", "roman-upper"])
+    .safeParse(formValue(formData, "pageNumbering"));
+  const boxes: Record<string, string> = {};
+
+  for (const [position, field] of [
+    ["top-left", "boxTopLeft"],
+    ["top-center", "boxTopCenter"],
+    ["top-right", "boxTopRight"],
+    ["bottom-left", "boxBottomLeft"],
+    ["bottom-center", "boxBottomCenter"],
+    ["bottom-right", "boxBottomRight"],
+  ] as const) {
+    const value = formValue(formData, field).trim();
+
+    if (value) {
+      boxes[position] = value;
+    }
+  }
+
+  const parsed = editionDecorationSchema.safeParse({
+    ...(folioPosition.success ? { folioPosition: folioPosition.data } : {}),
+    ...(pageNumbering.success ? { pageNumbering: pageNumbering.data } : {}),
+    ...(Object.keys(boxes).length > 0 ? { marginBoxes: boxes } : {}),
+  });
+
+  if (!parsed.success) {
+    return errorState("La decoración de página no es válida.");
+  }
+
+  const edition = await prisma.bookEdition.findFirst({
+    where: {
+      bookId: bookId.data,
+      book: { workspaceId: session.workspace.id, deletedAt: null },
+    },
+    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+    select: { id: true, settings: true },
+  });
+
+  if (!edition) {
+    return errorState("La edición no existe en este espacio de trabajo.");
+  }
+
+  const settings =
+    edition.settings && typeof edition.settings === "object"
+      ? (edition.settings as Record<string, unknown>)
+      : {};
+
+  await prisma.bookEdition.update({
+    where: { id: edition.id },
+    data: { settings: { ...settings, decoration: parsed.data } },
+  });
+
+  for (const path of ["/layout", "/preview", "/export"])
+    revalidatePath(`/books/${bookId.data}${path}`);
+
+  return successState("Decoración de página guardada.");
 }
