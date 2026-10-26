@@ -38,17 +38,17 @@ ESCRIBIENDO reúne **escritura, edición, maquetación y preparación de archivo
 
 ## 🎯 Resumen Ejecutivo
 
-| Métrica | Valor |
-|---------|-------|
-| **Líneas de código** | ~45,000+ (TypeScript estricto) |
-| **Pruebas unitarias** | 374 pasando |
-| **Pruebas E2E** | 72 en Chromium |
-| **Fases completadas** | 6/7 + Herramientas de historia |
-| **Tablas en BD** | 22 (con 18 `CHECK` constraints) |
-| **Rutas de la app** | 30 (Next.js App Router) |
-| **Paquetes internos** | 6 (domain-driven) |
-| **Tiempo de exportación (200k palabras)** | < 600 ms (PDF/EPUB/DOCX) |
-| **Memoria pico (con 80 imágenes)** | 367 MB / 512 MB (Render Free) |
+| Métrica                                   | Valor                           |
+| ----------------------------------------- | ------------------------------- |
+| **Líneas de código**                      | ~45,000+ (TypeScript estricto)  |
+| **Pruebas unitarias**                     | 374 pasando                     |
+| **Pruebas E2E**                           | 72 en Chromium                  |
+| **Fases completadas**                     | 6/7 + Herramientas de historia  |
+| **Tablas en BD**                          | 22 (con 18 `CHECK` constraints) |
+| **Rutas de la app**                       | 30 (Next.js App Router)         |
+| **Paquetes internos**                     | 6 (domain-driven)               |
+| **Tiempo de exportación (200k palabras)** | < 600 ms (PDF/EPUB/DOCX)        |
+| **Memoria pico (con 80 imágenes)**        | 367 MB / 512 MB (Render Free)   |
 
 ---
 
@@ -59,51 +59,51 @@ gantt
     title Fases de ESCRIBIENDO
     dateFormat  YYYY-MM-DD
     axisFormat  %b %Y
-    
+
     section Fase 1: Fundaciones
     Monorepo, TS estricto, ESLint, Prettier    :done, f1a, 2026-10-01, 7d
     Esquema PostgreSQL + migraciones            :done, f1b, after f1a, 5d
     Auth: Argon2id, sesiones opacas, setup      :done, f1c, after f1b, 7d
     Cloudinary firma, CSP nonce, health checks  :done, f1d, after f1c, 5d
     Docs: arquitectura, seguridad, despliegue   :done, f1e, after f1d, 3d
-    
+
     section Fase 2: Biblioteca y Manuscritos
     CRUD libros, metadatos, búsqueda            :done, f2a, after f1e, 7d
     Estructura jerárquica secciones             :done, f2b, after f2a, 5d
     Editor Tiptap + guardado + concurrencia     :done, f2c, after f2b, 7d
     Revisiones inmutables + progreso            :done, f2d, after f2c, 5d
     27 pruebas E2E                              :done, f2e, after f2d, 3d
-    
+
     section Fase 3: Escritura Asistida
     Notas privadas + objetivos + estadísticas   :done, f3a, after f2e, 7d
     Comentarios editoriales + flujo revisión    :done, f3b, after f3a, 7d
     Comparador diff LCS + preferencias          :done, f3c, after f3b, 5d
     37 pruebas E2E                              :done, f3d, after f3c, 3d
-    
+
     section Fase 4: Maquetación
     Perfiles página + geometría validada        :done, f4a, after f3d, 5d
     Plantillas sistema + propias                :done, f4b, after f4a, 5d
     Motor paginación por altura                 :done, f4c, after f4b, 7d
     Vista previa escala real + diagnóstico      :done, f4d, after f4c, 5d
     46 pruebas E2E                              :done, f4e, after f4d, 3d
-    
+
     section Fase 5: Exportación
     PDF digital/imprenta (fuentes incrustadas)  :done, f5a, after f4e, 7d
     EPUB 3 + DOCX                               :done, f5b, after f5a, 5d
     Cola idempotente sin worker + descarga      :done, f5c, after f5b, 5d
     56 pruebas E2E                              :done, f5d, after f5c, 3d
-    
+
     section Fase 6: Equipo y Gobernanza
     Invitaciones + roles + asignaciones         :done, f6a, after f5d, 7d
     Auditoría exportable + retención            :done, f6b, after f6a, 5d
     6 pruebas E2E                               :done, f6c, after f6b, 2d
-    
+
     section Herramientas Historia
     Planificación (tablero Kanban)              :done, h1, after f6c, 5d
     Personajes (fichas completas)               :done, h2, after h1, 3d
     Mundos (lugares, culturas, sistemas)        :done, h3, after h2, 3d
     Migración pendiente en Neon                 :active, h4, after h3, 2d
-    
+
     section Fase 7: Operación Editorial
     Cubiertas + lomo + control versiones        :active, f7a, after h4, 14d
     Pruebas imprenta + catálogo interno         :active, f7b, after f7a, 10d
@@ -119,23 +119,23 @@ graph TB
     subgraph "Cliente"
         Browser[Navegador<br/>HTTPS]
     end
-    
+
     subgraph "Render Free - Next.js 16"
         App[Aplicación Next.js<br/>Server-first, CSP nonce]
         API[API Routes<br/>Health, Cloudinary, Exports]
         Proxy[proxy.ts<br/>requestId + CSP nonce]
     end
-    
+
     subgraph "Servicios Externos"
         Cloudinary[Cloudinary<br/>Subida directa firmada]
         Neon[Neon PostgreSQL<br/>Pooled + Direct]
     end
-    
+
     Browser -->|HTTPS| App
     App -->|Pool| Neon
     App -->|Firma| Cloudinary
     Browser -.->|Subida directa| Cloudinary
-    
+
     style App fill:#000,color:#fff
     style Neon fill:#4169E1,color:#fff
     style Cloudinary fill:#3448C5,color:#fff
@@ -183,20 +183,20 @@ graph TB
 ```mermaid
 graph TD
     Root[escribiendo/]
-    
+
     Root --> Apps[apps/]
     Root --> Packages[packages/]
     Root --> Workers[workers/]
     Root --> Scripts[scripts/]
     Root --> Tests[tests/]
     Root --> Docs[docs/]
-    
+
     Apps --> Web[web/ - Next.js App]
     Web --> AppDir[src/app/ - Rutas, layouts, API]
     Web --> Components[src/components/ - UI por dominio]
     Web --> Lib[src/lib/ - Lógica de negocio]
     Web --> Proxy[src/proxy.ts - CSP + requestId]
-    
+
     Components --> CompApp[app/ - Shell privado]
     Components --> CompAuth[auth/ - Formularios acceso]
     Components --> CompAccount[account/ - Cuenta]
@@ -209,7 +209,7 @@ graph TD
     Components --> CompForms[forms/ - Campos reutilizables]
     Components --> CompBrand[brand/ - Marca]
     Components --> CompTheme[theme/ - Claro/oscuro]
-    
+
     Lib --> LibAuth[auth/ - Sesiones, passwords, acciones]
     Lib --> LibBooks[books/ - Biblioteca, secciones, revisiones]
     Lib --> LibWriting[writing/ - Notas, objetivos, stats]
@@ -219,24 +219,24 @@ graph TD
     Lib --> LibCloudinary[cloudinary/ - Firma subidas]
     Lib --> LibSecurity[security/ - Origen, CSRF, rate limit]
     Lib --> LibUI[ui/ - Formato fechas, roles, agentes]
-    
+
     Packages --> DB[database/ - Prisma Client + esquema]
     Packages --> Shared[shared/ - Validaciones comunes]
     Packages --> BookSchema[book-schema/ - Tiptap + diff]
     Packages --> EditorialEngine[editorial-engine/ - Geometría + paginación]
     Packages --> Templates[templates/ - Plantillas editoriales]
     Packages --> ExportEngine[export-engine/ - PDF, EPUB, DOCX]
-    
+
     Workers --> ExportWorker[export-worker/ - Reservado fase futura]
-    
+
     Scripts --> Admin[admin-password-reset.ts]
     Scripts --> Retention[retention-clean.ts]
     Scripts --> Bench[benchmark-export.ts]
     Scripts --> Stress[stress-export.ts]
     Scripts --> Prisma[prisma.ts - Wrapper CLI]
-    
+
     Tests --> E2E[e2e/ - Playwright 72 tests]
-    
+
     Docs --> Arch[ARCHITECTURE.md]
     Docs --> Sec[SECURITY.md]
     Docs --> DBDoc[DATABASE.md]
@@ -262,7 +262,7 @@ graph TD
         Session[Token 32 bytes aleatorio<br/>SHA-256 en BD<br/>Cookie __Host-HttpOnly-Secure]
         Reset[Recuperación CLI<br/>Token un solo uso<br/>SHA-256 en BD]
     end
-    
+
     subgraph "Autorización por Rol"
         Owner[OWNER<br/>Gestión total + propietario intransferible]
         Admin[ADMIN<br/>Gestión equipo + editorial]
@@ -270,7 +270,7 @@ graph TD
         Author[AUTHOR<br/>Escritura + secciones]
         Reviewer[REVIEWER<br/>Solo lectura + comentarios]
     end
-    
+
     Setup --> Login
     Login --> Argon2
     Argon2 --> Session
@@ -280,7 +280,7 @@ graph TD
     Session --> Editor
     Session --> Author
     Session --> Reviewer
-    
+
     style Setup fill:#ff6b6b,color:#fff
     style Argon2 fill:#4ecdc4,color:#fff
     style Session fill:#45b7d1,color:#fff
@@ -288,19 +288,19 @@ graph TD
 
 ### Matriz de Permisos (Fuente de Verdad: `permissions.ts`)
 
-| Acción | OWNER | ADMIN | EDITOR | AUTHOR | REVIEWER |
-|--------|-------|-------|--------|--------|----------|
-| `book:create/update/changeStatus` | ✅ | ✅ | ✅ | ✅ | ❌ |
-| `book:delete` | ✅ | ✅ | ❌ | ❌ | ❌ |
-| `book:approve` | ✅ | ✅ | ✅ | ❌ | ❌ |
-| `section:create/update/move` | ✅ | ✅ | ✅ | ✅ | ❌ |
-| `section:delete` | ✅ | ✅ | ❌ | ❌ | ❌ |
-| `revision:restore` | ✅ | ✅ | ✅ | ❌ | ❌ |
-| `comment:create` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `comment:resolve` | ✅ | ✅ | ✅ | ✅ | ❌ |
-| `layout:manage` / `export:create` | ✅ | ✅ | ✅ | ❌ | ❌ |
-| `team:manage` / `audit:export` | ✅ | ✅ | ❌ | ❌ | ❌ |
-| `story:manage` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Acción                            | OWNER | ADMIN | EDITOR | AUTHOR | REVIEWER |
+| --------------------------------- | ----- | ----- | ------ | ------ | -------- |
+| `book:create/update/changeStatus` | ✅    | ✅    | ✅     | ✅     | ❌       |
+| `book:delete`                     | ✅    | ✅    | ❌     | ❌     | ❌       |
+| `book:approve`                    | ✅    | ✅    | ✅     | ❌     | ❌       |
+| `section:create/update/move`      | ✅    | ✅    | ✅     | ✅     | ❌       |
+| `section:delete`                  | ✅    | ✅    | ❌     | ❌     | ❌       |
+| `revision:restore`                | ✅    | ✅    | ✅     | ❌     | ❌       |
+| `comment:create`                  | ✅    | ✅    | ✅     | ✅     | ✅       |
+| `comment:resolve`                 | ✅    | ✅    | ✅     | ✅     | ❌       |
+| `layout:manage` / `export:create` | ✅    | ✅    | ✅     | ❌     | ❌       |
+| `team:manage` / `audit:export`    | ✅    | ✅    | ❌     | ❌     | ❌       |
+| `story:manage`                    | ✅    | ✅    | ✅     | ✅     | ❌       |
 
 ---
 
@@ -316,9 +316,9 @@ graph LR
         P100[100k palabras<br/>273 págs<br/>Paginación: 46ms<br/>PDF: 175ms<br/>EPUB: 12ms<br/>DOCX: 10ms]
         P200[200k palabras<br/>546 págs<br/>Paginación: 102ms<br/>PDF: 310ms<br/>EPUB: 21ms<br/>DOCX: 18ms]
     end
-    
+
     P10 --> P50 --> P100 --> P200
-    
+
     style P200 fill:#ff6b6b,color:#fff
 ```
 
@@ -326,11 +326,11 @@ graph LR
 
 ### Prueba de Esfuerzo: 200k palabras + 80 imágenes + 500 notas
 
-| Formato | Tiempo | Tamaño | Contenido |
-|---------|--------|--------|-----------|
-| **PDF** | **588 ms** | **40,159 KB** | 547 págs, 80 imágenes, TrimBox/BleedBox/CropBox, marcas de corte |
-| **EPUB** | **1,413 ms** | **39,517 KB** | 80 imágenes incrustadas, nav.xhtml, OPF válido |
-| **DOCX** | **1,355 ms** | **39,505 KB** | Estilos, saltos de página, relaciones |
+| Formato  | Tiempo       | Tamaño        | Contenido                                                        |
+| -------- | ------------ | ------------- | ---------------------------------------------------------------- |
+| **PDF**  | **588 ms**   | **40,159 KB** | 547 págs, 80 imágenes, TrimBox/BleedBox/CropBox, marcas de corte |
+| **EPUB** | **1,413 ms** | **39,517 KB** | 80 imágenes incrustadas, nav.xhtml, OPF válido                   |
+| **DOCX** | **1,355 ms** | **39,505 KB** | Estilos, saltos de página, relaciones                            |
 
 - **Paginación 547 páginas:** 143 ms (98 diagnósticos: viudas, huérfanas, notas overflow)
 - **Memoria pico:** **367 MB** (margen 145 MB sobre límite 512 MB Render Free)
@@ -338,10 +338,10 @@ graph LR
 
 ### Suite de Pruebas
 
-| Suite | Duración | Resultado |
-|-------|----------|-----------|
-| `pnpm test` (unitarias) | ~9.5 s | **337 pasando** |
-| `pnpm build` (producción) | ~20 s | **30 rutas** |
+| Suite                        | Duración | Resultado                           |
+| ---------------------------- | -------- | ----------------------------------- |
+| `pnpm test` (unitarias)      | ~9.5 s   | **337 pasando**                     |
+| `pnpm build` (producción)    | ~20 s    | **30 rutas**                        |
 | `pnpm test:e2e` (Playwright) | ~3.6 min | **72 en verde** (1 worker Chromium) |
 
 ---
@@ -374,7 +374,7 @@ erDiagram
     WORKSPACES ||--o{ ASSETS : "sube"
     WORKSPACES ||--o{ AUDIT_LOGS : "audita"
     WORKSPACES ||--o{ INVITATIONS : "invita"
-    
+
     BOOKS ||--o{ BOOK_SECTIONS : "estructura"
     BOOKS ||--o{ BOOK_EDITIONS : "edita"
     BOOKS ||--o{ BOOK_ASSETS : "usa"
@@ -383,34 +383,35 @@ erDiagram
     BOOKS ||--o{ STORY_PLAN_ITEMS : "vincula"
     BOOKS ||--o{ STORY_CHARACTERS : "vincula"
     BOOKS ||--o{ STORY_WORLDS : "vincula"
-    
+
     BOOK_SECTIONS ||--o{ SECTION_REVISIONS : "versiona"
     BOOK_SECTIONS ||--o{ WRITING_NOTES : "anota"
     BOOK_SECTIONS ||--o{ BOOK_ASSETS : "adjunta"
-    
+
     LAYOUT_PROFILES ||--o{ BOOK_EDITIONS : "usa"
     EDITORIAL_TEMPLATES ||--o{ BOOK_EDITIONS : "usa"
 ```
 
 ### Dominios Principales
 
-| Dominio | Tablas | Características Clave |
-|---------|--------|----------------------|
-| **Identidad** | `users`, `sessions`, `password_reset_tokens` | Emails normalizados, borrado lógico, bloqueo persistente |
-| **Espacios** | `workspaces`, `workspace_members` | Propiedad, roles por espacio, OWNER intransferible |
-| **Biblioteca** | `books`, `book_sections`, `section_revisions` | Jerárquico (partes/capítulos/escenas), revisiones inmutables (trigger PG) |
-| **Ediciones** | `book_editions`, `layout_profiles`, `editorial_templates` | Geometría validada, plantillas sistema + propias |
-| **Recursos** | `assets`, `book_assets` | Cloudinary único proveedor, folder por workspace |
-| **Exportación** | `export_jobs` | Cola idempotente (formato + hash manuscrito), descarga HMAC 10 min |
-| **Escritura** | `writing_notes` | Privadas por usuario, anclables a sección, borrado lógico cascada |
-| **Historia** | `story_plan_items`, `story_chacters`, `story_worlds` | Biblia del estudio, bookId opcional, búsqueda/filtros |
-| **Auditoría** | `audit_logs` | Sin contenido manuscritos/secretos, exportable CSV/JSON |
+| Dominio         | Tablas                                                    | Características Clave                                                     |
+| --------------- | --------------------------------------------------------- | ------------------------------------------------------------------------- |
+| **Identidad**   | `users`, `sessions`, `password_reset_tokens`              | Emails normalizados, borrado lógico, bloqueo persistente                  |
+| **Espacios**    | `workspaces`, `workspace_members`                         | Propiedad, roles por espacio, OWNER intransferible                        |
+| **Biblioteca**  | `books`, `book_sections`, `section_revisions`             | Jerárquico (partes/capítulos/escenas), revisiones inmutables (trigger PG) |
+| **Ediciones**   | `book_editions`, `layout_profiles`, `editorial_templates` | Geometría validada, plantillas sistema + propias                          |
+| **Recursos**    | `assets`, `book_assets`                                   | Cloudinary único proveedor, folder por workspace                          |
+| **Exportación** | `export_jobs`                                             | Cola idempotente (formato + hash manuscrito), descarga HMAC 10 min        |
+| **Escritura**   | `writing_notes`                                           | Privadas por usuario, anclables a sección, borrado lógico cascada         |
+| **Historia**    | `story_plan_items`, `story_chacters`, `story_worlds`      | Biblia del estudio, bookId opcional, búsqueda/filtros                     |
+| **Auditoría**   | `audit_logs`                                              | Sin contenido manuscritos/secretos, exportable CSV/JSON                   |
 
 ---
 
 ## 🚀 Puesta en Marcha Rápida
 
 ### Requisitos
+
 - Node.js 24.20.0 (`.nvmrc` / `.node-version`)
 - pnpm 12.14.0 (`corepack enable`)
 - PostgreSQL 16+ (local) o Neon (producción)
@@ -441,54 +442,54 @@ pnpm dev
 
 ### Comandos Principales
 
-| Comando | Descripción |
-|---------|-------------|
-| `pnpm dev` | Genera Prisma Client + arranca Next.js dev |
-| `pnpm build` | Genera Prisma Client + compila producción |
-| `pnpm start` | Sirve build producción |
-| `pnpm lint` / `pnpm typecheck` / `pnpm format:check` | Calidad de código |
-| `pnpm test` | Unitarias (Vitest) |
-| `pnpm test:e2e` | E2E Playwright (requiere BD dedicada) |
-| `pnpm db:studio` | Prisma Studio |
-| `pnpm admin:password-reset -- email@ejemplo.com` | Link recuperación un solo uso |
-| `pnpm retention:clean [--dry-run]` | Limpia datos expirados (no toca manuscritos) |
-| `pnpm bench:export` | Benchmark exportación |
-| `pnpm stress:export` | Prueba esfuerzo 200k+80img+500notas |
+| Comando                                              | Descripción                                  |
+| ---------------------------------------------------- | -------------------------------------------- |
+| `pnpm dev`                                           | Genera Prisma Client + arranca Next.js dev   |
+| `pnpm build`                                         | Genera Prisma Client + compila producción    |
+| `pnpm start`                                         | Sirve build producción                       |
+| `pnpm lint` / `pnpm typecheck` / `pnpm format:check` | Calidad de código                            |
+| `pnpm test`                                          | Unitarias (Vitest)                           |
+| `pnpm test:e2e`                                      | E2E Playwright (requiere BD dedicada)        |
+| `pnpm db:studio`                                     | Prisma Studio                                |
+| `pnpm admin:password-reset -- email@ejemplo.com`     | Link recuperación un solo uso                |
+| `pnpm retention:clean [--dry-run]`                   | Limpia datos expirados (no toca manuscritos) |
+| `pnpm bench:export`                                  | Benchmark exportación                        |
+| `pnpm stress:export`                                 | Prueba esfuerzo 200k+80img+500notas          |
 
 ---
 
 ## 📚 Documentación Completa
 
-| Documento | Descripción |
-|-----------|-------------|
-| [Arquitectura](docs/ARCHITECTURE.md) | Topología, flujo petición, auth, modelo datos, paquetes, decisiones |
-| [Seguridad](docs/SECURITY.md) | Detalles auth, CSP, rate limit, auditoría, limitaciones conocidas |
-| [Base de Datos](docs/DATABASE.md) | Esquema, migraciones, constraints, índices, consultas comportamiento |
-| [Despliegue](docs/DEPLOYMENT.md) | Render, Neon, Cloudinary, variables, health checks, blueprint |
-| [Pruebas](docs/TESTING.md) | Unitarias, E2E, base datos desechable, comandos, CI |
-| [Hoja de Ruta](docs/ROADMAP.md) | Fases 1-7, criterios cierre, verificaciones, reglas permanentes |
-| [Rendimiento](docs/PERFORMANCE_REPORT.md) | Benchmarks exportación, memoria, suite pruebas, límites reales |
-| [Validación Export](docs/EXPORT_VALIDATION.md) | PDF/EPUB/DOCX validados, fuentes, compresión, tamaños |
-| [Motor Editorial](docs/EDITORIAL_ENGINE.md) | Geometría, tipografía, paginación, aperturas capítulo, folios |
-| [Auditoría Final v5.1](docs/AUDIT_V5_1_INFORME_FINAL.md) | Informe completo de auditoría de seguridad y calidad |
+| Documento                                                | Descripción                                                          |
+| -------------------------------------------------------- | -------------------------------------------------------------------- |
+| [Arquitectura](docs/ARCHITECTURE.md)                     | Topología, flujo petición, auth, modelo datos, paquetes, decisiones  |
+| [Seguridad](docs/SECURITY.md)                            | Detalles auth, CSP, rate limit, auditoría, limitaciones conocidas    |
+| [Base de Datos](docs/DATABASE.md)                        | Esquema, migraciones, constraints, índices, consultas comportamiento |
+| [Despliegue](docs/DEPLOYMENT.md)                         | Render, Neon, Cloudinary, variables, health checks, blueprint        |
+| [Pruebas](docs/TESTING.md)                               | Unitarias, E2E, base datos desechable, comandos, CI                  |
+| [Hoja de Ruta](docs/ROADMAP.md)                          | Fases 1-7, criterios cierre, verificaciones, reglas permanentes      |
+| [Rendimiento](docs/PERFORMANCE_REPORT.md)                | Benchmarks exportación, memoria, suite pruebas, límites reales       |
+| [Validación Export](docs/EXPORT_VALIDATION.md)           | PDF/EPUB/DOCX validados, fuentes, compresión, tamaños                |
+| [Motor Editorial](docs/EDITORIAL_ENGINE.md)              | Geometría, tipografía, paginación, aperturas capítulo, folios        |
+| [Auditoría Final v5.1](docs/AUDIT_V5_1_INFORME_FINAL.md) | Informe completo de auditoría de seguridad y calidad                 |
 
 ---
 
 ## ⚡ Decisiones Técnicas Clave
 
-| Decisión | Justificación |
-|----------|---------------|
-| **Prisma 6.19** (no 7) | `directUrl` + migraciones Neon estables; Prisma 7 evaluación planificada |
-| **Sesiones en BD** (no JWT) | Revocación inmediata, auditoría, sin secretos firma extra |
-| **`proxy.ts` Next 16** | Sustituye middleware; permite CSP nonce por petición |
-| **Rate limit memoria + bloqueo PG** | Sin Redis/coste extra; bloqueo sobrevive reinicios |
-| **Sin correo Fase 1-6** | Evita prometer entregas inexistentes; CLI explícito |
-| **Subida directa Cloudinary** | No consume memoria/ancho banda Render Free |
-| **Migraciones manuales (`deploy`)** | Render Free no debe reiniciar esperando migración |
-| **Exportación bajo demanda** | Sin worker permanente; archivo generado al pedir/descargar |
-| **Escritores PDF/EPUB/DOCX propios** | Sin deps pesadas; verificable byte a byte en tests |
-| **Descarga firmada HMAC 10 min** | URL compartible temporal; archivo nunca en sitio accesible |
-| **Fuentes Liberation (SIL OFL)** | Incrustadas completas Type0/CIDFontType2 + ToUnicode + anchos reales |
+| Decisión                             | Justificación                                                            |
+| ------------------------------------ | ------------------------------------------------------------------------ |
+| **Prisma 6.19** (no 7)               | `directUrl` + migraciones Neon estables; Prisma 7 evaluación planificada |
+| **Sesiones en BD** (no JWT)          | Revocación inmediata, auditoría, sin secretos firma extra                |
+| **`proxy.ts` Next 16**               | Sustituye middleware; permite CSP nonce por petición                     |
+| **Rate limit memoria + bloqueo PG**  | Sin Redis/coste extra; bloqueo sobrevive reinicios                       |
+| **Sin correo Fase 1-6**              | Evita prometer entregas inexistentes; CLI explícito                      |
+| **Subida directa Cloudinary**        | No consume memoria/ancho banda Render Free                               |
+| **Migraciones manuales (`deploy`)**  | Render Free no debe reiniciar esperando migración                        |
+| **Exportación bajo demanda**         | Sin worker permanente; archivo generado al pedir/descargar               |
+| **Escritores PDF/EPUB/DOCX propios** | Sin deps pesadas; verificable byte a byte en tests                       |
+| **Descarga firmada HMAC 10 min**     | URL compartible temporal; archivo nunca en sitio accesible               |
+| **Fuentes Liberation (SIL OFL)**     | Incrustadas completas Type0/CIDFontType2 + ToUnicode + anchos reales     |
 
 ---
 
@@ -520,6 +521,6 @@ La reconciliación de contadores se puede simular con `node --import tsx scripts
 
 **Hecho con ❤️ para EDITORIAL NO PARA TODOS**
 
-*Una plataforma donde cada palabra cuenta, cada página respira y cada libro nace listo para la imprenta.*
+_Una plataforma donde cada palabra cuenta, cada página respira y cada libro nace listo para la imprenta._
 
 </div>
