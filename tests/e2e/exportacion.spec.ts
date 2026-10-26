@@ -224,7 +224,7 @@ test.describe("Exportación", () => {
 
     const generar = page
       .getByRole("listitem")
-      .filter({ hasText: "PDF digital" })
+      .filter({ has: page.getByRole("heading", { name: "PDF digital", exact: true }) })
       .getByRole("button", { name: "Generar" });
 
     await expect(generar).toBeDisabled();
@@ -256,7 +256,7 @@ test.describe("Exportación", () => {
 
     await page
       .getByRole("listitem")
-      .filter({ hasText: "PDF digital" })
+      .filter({ has: page.getByRole("heading", { name: "PDF digital", exact: true }) })
       .getByRole("button", { name: "Generar" })
       .click();
 
@@ -336,7 +336,7 @@ test.describe("Exportación", () => {
 
     await page
       .getByRole("listitem")
-      .filter({ hasText: "PDF digital" })
+      .filter({ has: page.getByRole("heading", { name: "PDF digital", exact: true }) })
       .getByRole("button", { name: "Generar" })
       .click();
 
@@ -357,9 +357,9 @@ test.describe("Exportación", () => {
 
     expect(extraido).toContain("Capítulo 1");
     expect(extraido).toContain(SECTION_TITLE);
-    // El título se inserta una sola vez: el manuscrito no empieza con un
-    // encabezado equivalente.
-    expect(extraido.match(new RegExp(SECTION_TITLE, "gu"))?.length ?? 0).toBe(1);
+    // Figura en el índice automático y en el cuerpo. La deduplicación del
+    // título del cuerpo se comprueba por separado en blocks.test.ts.
+    expect(extraido.match(new RegExp(SECTION_TITLE, "gu"))?.length ?? 0).toBe(2);
 
     // El PDF y la vista previa cuentan las mismas páginas y el archivo lleva
     // los marcadores de navegación de las secciones visibles.
@@ -575,7 +575,7 @@ test.describe("Exportación", () => {
 
     await page
       .getByRole("listitem")
-      .filter({ hasText: "PDF digital" })
+      .filter({ has: page.getByRole("heading", { name: "PDF digital", exact: true }) })
       .getByRole("button", { name: "Generar" })
       .click();
 

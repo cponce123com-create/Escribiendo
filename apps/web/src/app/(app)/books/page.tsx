@@ -160,7 +160,10 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
         <ul className="space-y-3">
           {books.map((book) => (
             <li key={book.id} className="panel p-5">
-              <Link href={`/books/${book.id}`} className="block transition-colors hover:opacity-80">
+              <Link
+                href={`/books/${book.id}`}
+                className="block rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+              >
                 <div className="grid gap-4 sm:grid-cols-[5.5rem_minmax(0,1fr)]">
                   <div className="book-cover-thumb">
                     {book.cover ? (
