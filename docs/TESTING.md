@@ -410,6 +410,11 @@ descargado es un EPUB válido» valida además el EPUB que descarga la
 aplicación cuando `EPUBCHECK_JAR` está definido, y deja el PDF y el DOCX en
 `test-results/` para abrirlos con las mismas herramientas.
 
+El EPUB no depende de que alguien recuerde configurar la herramienta:
+`.github/workflows/epub.yml` instala Java 17, descarga EPUBCheck 5.4.0 y
+ejecuta `pnpm validate:epub` en cada cambio que toque el motor de
+exportación. Cualquier error de EPUBCheck hace fallar la comprobación.
+
 ---
 
 ## 7. Limitaciones de la cobertura

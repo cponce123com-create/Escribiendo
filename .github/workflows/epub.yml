@@ -1,0 +1,65 @@
+name: EPUB con EPUBCheck
+
+on:
+  push:
+    branches: [main, improvement/**]
+    paths:
+      - "packages/export-engine/**"
+      - "packages/shared/**"
+      - "scripts/validate-epub.ts"
+      - "scripts/lib/export-fixtures.ts"
+      - ".github/workflows/epub.yml"
+  pull_request:
+    paths:
+      - "packages/export-engine/**"
+      - "packages/shared/**"
+      - "scripts/validate-epub.ts"
+      - "scripts/lib/export-fixtures.ts"
+      - ".github/workflows/epub.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: epub-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  epubcheck:
+    name: EPUBCheck valida el EPUB
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Repositorio
+        uses: actions/checkout@v5
+
+      - name: pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.14.0
+
+      - name: Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+
+      - name: Dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Cliente de Prisma
+        run: pnpm db:generate
+
+      - name: Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: EPUBCheck 5.4.0
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/epubcheck.zip" https://github.com/w3c/epubcheck/releases/download/v5.4.0/epubcheck-5.4.0.zip
+          unzip -q "$RUNNER_TEMP/epubcheck.zip" -d "$RUNNER_TEMP"
+          echo "EPUBCHECK_JAR=$RUNNER_TEMP/epubcheck-5.4.0/epubcheck.jar" >> "$GITHUB_ENV"
+
+      - name: Validar el EPUB
+        run: pnpm validate:epub
