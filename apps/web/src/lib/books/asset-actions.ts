@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { urlCorrespondeAPublicId } from "@/lib/cloudinary/asset-url";
 import { getCloudinaryConfig } from "@/lib/env";
 import { getSession } from "@/lib/auth/session";
 import { writeAuditLog } from "@/lib/auth/audit";
@@ -42,20 +43,6 @@ export type RegisterBookAssetInput = z.infer<typeof inputSchema>;
 
 export type RegisterBookAssetResult =
   { ok: true; asset: BookAssetSummary } | { ok: false; message: string };
-
-function cloudinaryUrlIsValid(secureUrl: string, cloudName: string): boolean {
-  try {
-    const url = new URL(secureUrl);
-
-    return (
-      url.protocol === "https:" &&
-      url.hostname === "res.cloudinary.com" &&
-      url.pathname.startsWith(`/${cloudName}/image/upload/`)
-    );
-  } catch {
-    return false;
-  }
-}
 
 export async function registerBookAssetAction(
   input: RegisterBookAssetInput,
@@ -102,8 +89,11 @@ export async function registerBookAssetAction(
     return { ok: false, message: "Cloudinary no está configurado en este entorno." };
   }
 
-  if (!cloudinaryUrlIsValid(parsed.data.secureUrl, config.cloudName)) {
-    return { ok: false, message: "La imagen no pertenece a la cuenta de Cloudinary configurada." };
+  if (!urlCorrespondeAPublicId(parsed.data.secureUrl, parsed.data.publicId, config.cloudName)) {
+    return {
+      ok: false,
+      message: "La URL de la imagen no coincide con el archivo de Cloudinary declarado.",
+    };
   }
 
   const prefix = `${config.uploadFolder}/workspaces/${session.workspace.id}/books/${parsed.data.bookId}/interior/`;

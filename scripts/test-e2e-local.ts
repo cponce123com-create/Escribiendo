@@ -33,6 +33,7 @@ async function main(): Promise<void> {
     DIRECT_URL: databaseUrl,
     E2E_SETUP_TOKEN: setupToken,
     SETUP_TOKEN: setupToken,
+    EXPORT_SIGNING_SECRET: randomBytes(32).toString("base64url"),
     NEXT_TELEMETRY_DISABLED: "1",
   };
 

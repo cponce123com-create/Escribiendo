@@ -18,7 +18,6 @@ type Busy = "search" | "replace" | null;
 export function SearchReplacePanel({ bookId }: SearchReplacePanelProps) {
   const [query, setQuery] = useState("");
   const [replacement, setReplacement] = useState("");
-  const [regex, setRegex] = useState(false);
   const [caseSensitive, setCaseSensitive] = useState(false);
   const [wholeWord, setWholeWord] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
@@ -27,7 +26,7 @@ export function SearchReplacePanel({ bookId }: SearchReplacePanelProps) {
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState<Busy>(null);
 
-  const options = { query, regex, caseSensitive, wholeWord };
+  const options = { query, caseSensitive, wholeWord };
 
   const invalidate = (): void => {
     setResult(null);
@@ -137,17 +136,6 @@ export function SearchReplacePanel({ bookId }: SearchReplacePanelProps) {
           <label className="flex items-center gap-2 text-sm text-ink-soft">
             <input
               type="checkbox"
-              checked={regex}
-              onChange={(event) => {
-                setRegex(event.target.checked);
-                invalidate();
-              }}
-            />
-            Expresión regular
-          </label>
-          <label className="flex items-center gap-2 text-sm text-ink-soft">
-            <input
-              type="checkbox"
               checked={caseSensitive}
               onChange={(event) => {
                 setCaseSensitive(event.target.checked);
@@ -168,12 +156,6 @@ export function SearchReplacePanel({ bookId }: SearchReplacePanelProps) {
             Palabra completa
           </label>
         </fieldset>
-
-        {regex ? (
-          <p className="field-hint">
-            En el reemplazo puedes usar referencias a grupos, por ejemplo <code>$1</code>.
-          </p>
-        ) : null}
 
         <div className="flex flex-wrap items-center gap-3">
           <button

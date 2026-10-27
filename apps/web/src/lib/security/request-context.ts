@@ -1,5 +1,6 @@
 import "server-only";
 import { createHash, randomUUID } from "node:crypto";
+import { isIP } from "node:net";
 import { headers } from "next/headers";
 import { getServerEnv } from "@/lib/env";
 import { AppError } from "@/lib/errors";
@@ -13,9 +14,15 @@ export interface RequestContext {
   userAgent: string | null;
 }
 
-function firstHeaderValue(value: string | null): string | null {
-  const first = value?.split(",")[0]?.trim();
-  return first || null;
+/** Hops=1 elige el último valor añadido por el proxy; 0 no confía en cabeceras. */
+export function resolveProxyIp(value: string | null, hops: number): string | null {
+  if (!value || !Number.isInteger(hops) || hops <= 0) return null;
+  const chain = value.split(",");
+  // No filtrar primero: desplazaría la posición de confianza hacia datos del cliente.
+  const candidate = chain[Math.max(0, chain.length - hops)]?.trim() ?? "";
+  const family = isIP(candidate);
+  if (!family) return null;
+  return family === 6 ? new URL(`http://[${candidate}]/`).hostname.slice(1, -1) : candidate;
 }
 
 function hashIp(ip: string): string {
@@ -24,9 +31,7 @@ function hashIp(ip: string): string {
 
 export async function getRequestContext(): Promise<RequestContext> {
   const headerStore = await headers();
-  const ip =
-    firstHeaderValue(headerStore.get("x-forwarded-for")) ??
-    firstHeaderValue(headerStore.get("x-real-ip"));
+  const ip = resolveProxyIp(headerStore.get("x-forwarded-for"), getServerEnv().TRUSTED_PROXY_HOPS);
   const userAgent = headerStore.get("user-agent")?.slice(0, 512) ?? null;
 
   return {

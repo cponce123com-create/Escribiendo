@@ -28,9 +28,8 @@ export function proxy(request: NextRequest): NextResponse {
     "frame-ancestors 'none'",
     "worker-src 'self' blob:",
     "manifest-src 'self'",
-    ...(request.nextUrl.pathname.startsWith("/characters")
-      ? ["style-src-attr 'unsafe-inline'"]
-      : []),
+    // /characters usa clases y atributos geométricos SVG (cx, cy, x, y).
+    // No necesita una excepción style-src-attr; se aplica la CSP con nonce común.
     ...(isDevelopment ? [] : ["upgrade-insecure-requests"]),
   ].join("; ");
 

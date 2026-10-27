@@ -320,3 +320,36 @@ worker y ningún disco: el único recurso es el servicio web.
 
 Los logs estructurados incluyen `requestId`. Úsalo para correlacionar una
 petición con los errores de Render.
+
+### Cabeceras del proxy
+
+Configura `TRUSTED_PROXY_HOPS=1` en Render. Antes de añadir CDN u otro proxy,
+verifica la posición de la IP real y la resistencia a prefijos falsificados según
+`docs/SECURITY.md`. `0` ignora cabeceras y agrupa los intentos bajo IP desconocida.
+
+### Retención programada (AUD-06)
+
+Se usa `.github/workflows/retention.yml`, los domingos a las 03:23 de Perú,
+para conservar el despliegue Render Free sin crear un servicio adicional.
+Los [cron jobs de Render](https://render.com/docs/cronjobs) tienen cobro mínimo
+mensual y no son parte del servicio web gratuito (verificado 2026-10-27).
+Configura los secretos de Actions `DATABASE_URL` y, si la conexión lo requiere,
+`DIRECT_URL`, sin pegarlos en YAML. Las variables de Render no se transfieren
+solas a GitHub. Haz primero una ejecución manual con `dry_run=true`.
+El cron no estará operativo hasta añadir estos secretos; Actions puede retrasar
+horarios programados. No se ejecutó contra producción para validar este cambio.
+El script borra sesiones caducadas **o revocadas** hace más de 30 días y conserva
+manuscritos, revisiones y auditoría. Un error registra solo su tipo, sin credenciales.
+
+`WEB_CONCURRENCY>1` emite un aviso al arrancar Node: el límite por IP sigue siendo
+en memoria y requiere almacén compartido antes de usar varios procesos/instancias.
+
+### Clave obligatoria de exportación (AUD-08.3)
+
+Antes de desplegar esta corrección, añade `EXPORT_SIGNING_SECRET` en Render:
+al menos 32 caracteres aleatorios, independiente de la contraseña de Neon.
+`render.yaml` ya la declara con `sync: false`. El servidor de producción falla
+al arrancar si está ausente o es corta. La clave de ejemplo del workflow E2E
+solo sirve para datos desechables y no debe copiarse a producción. Rotar la
+clave invalida los enlaces de descarga anteriores; las exportaciones se pueden
+volver a descargar con una firma nueva. No hace falta migración.

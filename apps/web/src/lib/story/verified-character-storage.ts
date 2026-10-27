@@ -17,6 +17,7 @@ export async function persistVerifiedCharacters(
   sources: CharacterSourceSnapshot[],
   candidates: CharacterCandidate[],
   taskId?: string,
+  taskAttempt?: number,
 ) {
   const current = candidates.slice(0, 100);
   const previous = await prisma.storyCharacterSuggestion.findMany({
@@ -49,11 +50,19 @@ export async function persistVerifiedCharacters(
       )
         throw new Error("CHARACTER_SOURCE_CHANGED");
       if (taskId) {
-        const active = await tx.characterAnalysisTask.findFirst({
-          where: { id: taskId, bookId, workspaceId: session.workspace.id, status: "PROCESSING" },
-          select: { id: true },
+        // La escritura condicional bloquea la tarea durante esta transacción:
+        // un procesador que perdió su intento no puede publicar resultados.
+        const active = await tx.characterAnalysisTask.updateMany({
+          where: {
+            id: taskId,
+            bookId,
+            workspaceId: session.workspace.id,
+            status: "PROCESSING",
+            ...(taskAttempt === undefined ? {} : { attempts: taskAttempt }),
+          },
+          data: { updatedAt: new Date() },
         });
-        if (!active) throw new Error("CHARACTER_TASK_SUPERSEDED");
+        if (!active.count) throw new Error("CHARACTER_TASK_SUPERSEDED");
       } else {
         await tx.characterAnalysisTask.updateMany({
           where: {

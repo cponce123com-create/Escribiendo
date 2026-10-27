@@ -37,6 +37,7 @@ beforeEach(() => {
   mocks.previous.mockResolvedValue([]);
   mocks.versions.mockResolvedValue([{ id: "section", version: 2 }]);
   mocks.active.mockResolvedValue({ id: "task" });
+  mocks.tasks.mockResolvedValue({ count: 1 });
 });
 it("mantiene separadas identidades con tildes y ñ en la clave persistida", async () => {
   expect(await persistVerifiedCharacters(session, "book", sources, candidates())).toBe(2);
@@ -76,9 +77,22 @@ it("no publica propuestas de una versión que cambió durante el análisis", asy
   expect(mocks.upsert).not.toHaveBeenCalled();
 });
 it("una tarea incremental sustituida no pisa la revisión completa", async () => {
-  mocks.active.mockResolvedValue(null);
+  mocks.tasks.mockResolvedValue({ count: 0 });
   await expect(
     persistVerifiedCharacters(session, "book", sources, candidates(), "old-task"),
   ).rejects.toThrow("CHARACTER_TASK_SUPERSEDED");
+  expect(mocks.upsert).not.toHaveBeenCalled();
+});
+
+it("una reclamación nueva invalida al procesador del intento anterior", async () => {
+  mocks.tasks.mockResolvedValue({ count: 0 });
+  await expect(
+    persistVerifiedCharacters(session, "book", sources, candidates(), "task", 2),
+  ).rejects.toThrow("CHARACTER_TASK_SUPERSEDED");
+  expect(mocks.tasks).toHaveBeenCalledWith(
+    expect.objectContaining({
+      where: expect.objectContaining({ attempts: 2, status: "PROCESSING" }),
+    }),
+  );
   expect(mocks.upsert).not.toHaveBeenCalled();
 });

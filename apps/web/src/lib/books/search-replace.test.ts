@@ -31,11 +31,19 @@ describe("buildSearchPattern", () => {
     expect(buildSearchPattern({ query: "a".repeat(201) }).ok).toBe(false);
   });
 
-  it("informa de una expresión regular inválida", () => {
+  it("rechaza expresiones regulares para evitar bloqueo del servidor", () => {
     expect(buildSearchPattern({ query: "(", regex: true })).toEqual({
       ok: false,
-      error: "La expresión regular no es válida.",
+      error: "Las expresiones regulares no están disponibles. Usa una búsqueda literal.",
     });
+  });
+
+  it("rechaza patrones de retroceso catastrófico sin evaluarlos", () => {
+    const start = performance.now();
+    expect(buildSearchPattern({ query: "(a+)+b", regex: true }).ok).toBe(false);
+    const literal = pattern({ query: "(a+)+b" });
+    expect(searchDocument(doc("a".repeat(40) + "c"), literal).count).toBe(0);
+    expect(performance.now() - start).toBeLessThan(200);
   });
 
   it("escapa los caracteres especiales en modo literal", () => {
@@ -143,17 +151,6 @@ describe("replaceDocument", () => {
     });
 
     expect(result.document.content[0]?.content?.[0]?.text).toBe("$1");
-  });
-
-  it("en modo regex admite referencias a grupos", () => {
-    const result = replaceDocument(
-      doc("Marta Ruiz"),
-      pattern({ query: "(Marta) (Ruiz)", regex: true }),
-      "$2, $1",
-      { literal: false },
-    );
-
-    expect(result.document.content[0]?.content?.[0]?.text).toBe("Ruiz, Marta");
   });
 
   it("permite borrar el texto encontrado", () => {

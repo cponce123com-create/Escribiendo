@@ -38,6 +38,8 @@ jobs:
       # La aplicación lee SETUP_TOKEN; las pruebas, E2E_SETUP_TOKEN.
       SETUP_TOKEN: e2e-token-de-pruebas-con-mas-de-treinta-y-dos-caracteres
       NEXT_TELEMETRY_DISABLED: "1"
+      # Clave desechable y pública solo para la base E2E, nunca para producción.
+      EXPORT_SIGNING_SECRET: clave-exclusiva-e2e-no-usar-en-produccion
 
     steps:
       - name: Repositorio

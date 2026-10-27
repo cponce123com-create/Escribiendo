@@ -9,8 +9,11 @@ cambiar una expresión en todo el manuscrito con revisión previa.
 - Recorre **todas las secciones** del libro y busca solo en los nodos de texto de
   Tiptap. La estructura, las marcas (negrita, cursiva, enlaces) y los atributos
   (notas al pie, imágenes, notas al margen) quedan intactos.
-- La búsqueda es **literal** por defecto. Con «Expresión regular» se interpreta
-  como regex; en ese modo el reemplazo admite referencias `$1`.
+- La búsqueda es **siempre literal**. Se retiró el modo regex (AUD-01) porque
+  una expresión con retroceso catastrófico podía bloquear la única instancia.
+  No se añade un motor nativo/worker ni dependencias; las solicitudes antiguas
+  con `regex: true` se rechazan en búsqueda y reemplazo antes de leer el manuscrito.
+  El reemplazo inserta `$1` literalmente.
 - Opciones: distinguir mayúsculas y palabra completa (con límites Unicode, así
   que «Ana» no coincide dentro de «Anabel»).
 - Límite de **5 000 coincidencias** por operación. Si se alcanza, la vista

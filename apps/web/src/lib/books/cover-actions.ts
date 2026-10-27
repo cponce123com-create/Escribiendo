@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { urlCorrespondeAPublicId } from "@/lib/cloudinary/asset-url";
 import { getCloudinaryConfig } from "@/lib/env";
 import { getSession } from "@/lib/auth/session";
 import { writeAuditLog } from "@/lib/auth/audit";
@@ -41,19 +42,6 @@ function errorState(message: string): LibraryActionState {
 function formValue(formData: FormData, key: string): string {
   const value = formData.get(key);
   return typeof value === "string" ? value : "";
-}
-
-function cloudinaryUrlIsValid(secureUrl: string, cloudName: string): boolean {
-  try {
-    const url = new URL(secureUrl);
-    return (
-      url.protocol === "https:" &&
-      url.hostname === "res.cloudinary.com" &&
-      url.pathname.startsWith(`/${cloudName}/image/upload/`)
-    );
-  } catch {
-    return false;
-  }
 }
 
 async function authorizedBook(bookId: string) {
@@ -117,8 +105,8 @@ export async function registerBookCoverAction(
   if (!config) {
     return errorState("Cloudinary no está configurado en este entorno.");
   }
-  if (!cloudinaryUrlIsValid(parsed.data.secureUrl, config.cloudName)) {
-    return errorState("La imagen no pertenece a la cuenta de Cloudinary configurada.");
+  if (!urlCorrespondeAPublicId(parsed.data.secureUrl, parsed.data.publicId, config.cloudName)) {
+    return errorState("La URL de la imagen no coincide con el archivo de Cloudinary declarado.");
   }
 
   const prefix = `${config.uploadFolder}/workspaces/${session.workspace.id}/books/${parsed.data.bookId}/cover/`;

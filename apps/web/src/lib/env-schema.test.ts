@@ -6,6 +6,23 @@ const baseEnv = {
 };
 
 describe("envSchema", () => {
+  it("exige secreto de firma en producción", () => {
+    expect(envSchema.safeParse({ ...baseEnv, NODE_ENV: "production" }).success).toBe(false);
+    expect(
+      envSchema.safeParse({
+        ...baseEnv,
+        NODE_ENV: "production",
+        EXPORT_SIGNING_SECRET: "x".repeat(32),
+      }).success,
+    ).toBe(true);
+  });
+  it("valida el número de proxies de confianza", () => {
+    expect(envSchema.parse(baseEnv).TRUSTED_PROXY_HOPS).toBe(1);
+    expect(envSchema.parse({ ...baseEnv, TRUSTED_PROXY_HOPS: "0" }).TRUSTED_PROXY_HOPS).toBe(0);
+    for (const value of ["-1", "1.5", "basura"]) {
+      expect(envSchema.safeParse({ ...baseEnv, TRUSTED_PROXY_HOPS: value }).success).toBe(false);
+    }
+  });
   it("acepta los valores vacíos que entrega .env.example", () => {
     const parsed = envSchema.safeParse({
       ...baseEnv,

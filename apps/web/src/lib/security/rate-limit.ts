@@ -1,5 +1,6 @@
 import "server-only";
 import { createHash } from "node:crypto";
+import { logger } from "@/lib/logger";
 
 interface Bucket {
   count: number;
@@ -115,4 +116,12 @@ export function consumeRateLimit(input: {
 
 export function resetRateLimitsForTests(): void {
   store.buckets.clear();
+}
+
+/** Se ejecuta desde instrumentation.register al iniciar el runtime Node. */
+export function warnIfMultipleProcesses(value: string | undefined): void {
+  const processes = Number(value);
+  if (Number.isInteger(processes) && processes > 1) {
+    logger.warn("security.rate_limit_multiple_processes", { processes });
+  }
 }
