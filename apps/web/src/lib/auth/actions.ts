@@ -18,6 +18,7 @@ import { logger } from "@/lib/logger";
 import { consumeRateLimit, loginRateLimitPolicy } from "@/lib/security/rate-limit";
 import { assertServerActionOrigin, type RequestContext } from "@/lib/security/request-context";
 import { writeAuditLog } from "./audit";
+import { registerFailedLogin, successfulLoginData } from "./login-lockout";
 import type { AuthActionState } from "./action-state";
 import { hashPassword, passwordNeedsRehash, verifyPassword, verifyWithDummyHash } from "./password";
 import { hashToken, secureCompareTokens } from "./tokens";
@@ -94,19 +95,6 @@ function logActionError(event: string, context: RequestContext | undefined, erro
   });
 }
 
-async function registerFailedLogin(userId: string, previousAttempts: number): Promise<void> {
-  const attempts = previousAttempts + 1;
-  const lockedUntil = attempts >= 5 ? new Date(Date.now() + 15 * 60 * 1_000) : undefined;
-
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      failedLoginAttempts: { increment: 1 },
-      ...(lockedUntil ? { lockedUntil } : {}),
-    },
-  });
-}
-
 export async function loginAction(
   _previousState: AuthActionState,
   formData: FormData,
@@ -164,11 +152,9 @@ export async function loginAction(
     const isLocked = Boolean(user.lockedUntil && user.lockedUntil > now);
 
     if (!passwordIsValid || isLocked) {
-      if (!isLocked) {
-        await registerFailedLogin(user.id, user.failedLoginAttempts);
-      }
+      const newlyLocked = !isLocked && (await registerFailedLogin(user.id, now));
 
-      if (user.failedLoginAttempts + 1 >= 5 && !isLocked) {
+      if (newlyLocked) {
         await writeAuditLog(
           {
             action: "AUTH_ACCOUNT_LOCKED",
@@ -195,9 +181,7 @@ export async function loginAction(
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        failedLoginAttempts: 0,
-        lockedUntil: null,
-        lastLoginAt: now,
+        ...successfulLoginData(now),
         ...(nextPasswordHash ? { passwordHash: nextPasswordHash } : {}),
       },
     });
