@@ -1,0 +1,185 @@
+/* ---------------------------------------------------------------------------
+   Editor de manuscrito
+   ---------------------------------------------------------------------------
+   Ritmo de lectura del contenido editable (ProseMirror).
+   --------------------------------------------------------------------------- */
+
+/* ---------------------------------------------------------------------------
+   Editor de manuscrito
+   ---------------------------------------------------------------------------
+   Estilos del contenido editable (ProseMirror). El editor es el único punto
+   de la aplicación donde el usuario escribe texto largo, así que necesita
+   un ritmo de lectura propio: interlínea amplia, medida limitada y jerarquía
+   de títulos claramente diferenciada.
+   --------------------------------------------------------------------------- */
+
+.manuscript-editor {
+  min-height: min(70svh, 56rem);
+  padding: clamp(1.35rem, 3.4vw, 3rem) clamp(1.1rem, 4vw, 3.25rem);
+  background: var(--surface-raised);
+  box-shadow: 0 18px 50px color-mix(in srgb, var(--ink) 6%, transparent);
+}
+
+.manuscript-editor:focus-within {
+  border-color: var(--line-strong);
+}
+
+.manuscript-editor--readonly {
+  background: transparent;
+  border-style: dashed;
+}
+
+.manuscript-editor .ProseMirror {
+  outline: none;
+  max-width: 42rem;
+  margin: 0 auto;
+  color: var(--ink);
+  font-family: var(--font-serif);
+  font-size: 1.0625rem;
+  line-height: 1.85;
+}
+
+.manuscript-editor .ProseMirror p {
+  margin: 0 0 1.1em;
+}
+
+.manuscript-editor .ProseMirror h1,
+.manuscript-editor .ProseMirror h2,
+.manuscript-editor .ProseMirror h3 {
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--ink);
+  margin: 1.6em 0 0.6em;
+}
+
+.manuscript-editor .ProseMirror h1 {
+  font-size: 1.6rem;
+}
+
+.manuscript-editor .ProseMirror h2 {
+  font-size: 1.35rem;
+}
+
+.manuscript-editor .ProseMirror h3 {
+  font-size: 1.15rem;
+}
+
+.manuscript-editor .ProseMirror ul,
+.manuscript-editor .ProseMirror ol {
+  margin: 0 0 1.1em;
+  padding-left: 1.4em;
+}
+
+.manuscript-editor .ProseMirror li {
+  margin-bottom: 0.35em;
+}
+
+.manuscript-editor .ProseMirror blockquote {
+  margin: 1.4em 0;
+  padding-left: 1.1em;
+  border-left: 2px solid var(--gold);
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
+.manuscript-editor .ProseMirror code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  padding: 0.1em 0.32em;
+  border-radius: 0.2rem;
+}
+
+.manuscript-editor .ProseMirror pre {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  padding: 0.9rem 1rem;
+  overflow-x: auto;
+}
+
+.manuscript-editor .ProseMirror pre code {
+  background: none;
+  padding: 0;
+}
+
+.manuscript-editor .ProseMirror figure[data-editorial-image] {
+  margin: 1.6em auto;
+  max-width: 100%;
+}
+
+.manuscript-editor .ProseMirror figure[data-editorial-image].align-left {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.manuscript-editor .ProseMirror figure[data-editorial-image].align-right {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+.manuscript-editor .ProseMirror figure[data-editorial-image] img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 0.2rem;
+}
+
+.manuscript-editor .ProseMirror figure[data-editorial-image] figcaption {
+  margin-top: 0.5em;
+  color: var(--ink-muted);
+  font-size: 0.82rem;
+  font-style: italic;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.manuscript-editor .ProseMirror figure[data-editorial-image].align-left figcaption {
+  text-align: left;
+}
+
+.manuscript-editor .ProseMirror figure[data-editorial-image].align-right figcaption {
+  text-align: right;
+}
+
+.manuscript-editor .ProseMirror figure[data-editorial-image].ProseMirror-selectednode img {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.manuscript-editor .ProseMirror .footnote-ref {
+  color: var(--accent);
+  font-size: 0.72em;
+  font-weight: 600;
+  line-height: 0;
+  vertical-align: super;
+  cursor: pointer;
+  padding: 0 0.08em;
+}
+
+.manuscript-editor .ProseMirror .footnote-ref::after {
+  content: attr(data-number);
+}
+
+.manuscript-editor .ProseMirror .footnote-ref.ProseMirror-selectednode {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 0.15rem;
+}
+
+.manuscript-editor .ProseMirror hr {
+  border: none;
+  border-top: 1px solid var(--line-strong);
+  margin: 2em auto;
+  width: 45%;
+}
+
+.manuscript-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--ink-muted);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

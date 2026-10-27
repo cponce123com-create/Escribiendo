@@ -1,0 +1,34 @@
+/* ---------------------------------------------------------------------------
+   Preferencias de escritura
+   ---------------------------------------------------------------------------
+   Variables de lectura y modo concentración.
+   --------------------------------------------------------------------------- */
+
+/* ---------------------------------------------------------------------------
+   Preferencias de escritura
+   ---------------------------------------------------------------------------
+   Las preferencias viven en el navegador y se aplican como variables de CSS
+   sobre el documento, de modo que el editor las respeta sin JavaScript
+   adicional en el momento de pintar.
+   --------------------------------------------------------------------------- */
+
+:root {
+  --writing-font-size: 17px;
+  --writing-line-height: 1.85;
+}
+
+.manuscript-editor .ProseMirror {
+  font-size: var(--writing-font-size);
+  line-height: var(--writing-line-height);
+}
+
+/* Modo concentración: se retira el panel lateral para ampliar la
+   superficie de escritura. Es una preferencia personal, no un ajuste de
+   estilo del producto. */
+html[data-focus-mode="true"] .app-sidebar {
+  display: none;
+}
+
+html[data-focus-mode="true"] .app-topbar {
+  padding-left: 0;
+}

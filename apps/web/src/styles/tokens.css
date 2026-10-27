@@ -1,0 +1,84 @@
+/* ---------------------------------------------------------------------------
+   Tokens y tema
+   ---------------------------------------------------------------------------
+   Variante oscura, tema de Tailwind y variables de color.
+   --------------------------------------------------------------------------- */
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme inline {
+  --font-sans: var(--font-ui);
+  --font-serif: var(--font-display);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-muted: var(--ink-muted);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-focus: var(--focus);
+  --color-gold: var(--gold);
+  --radius-card: 14px;
+}
+
+:root {
+  --control-height: 2.75rem;
+  --control-height-compact: 2.25rem;
+  --control-radius: 0.6rem;
+  color-scheme: light;
+  --font-ui: "Inter Variable", "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-display:
+    "Newsreader Variable", "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --canvas: #f6f3ed;
+  --surface: #fcfaf6;
+  --surface-raised: #fffefb;
+  --ink: #1c1915;
+  --ink-soft: #5b544b;
+  --ink-muted: #756c62;
+  --line: rgba(28, 25, 21, 0.12);
+  --line-strong: rgba(28, 25, 21, 0.23);
+  --accent: #a43d29;
+  --accent-strong: #7a2118;
+  --accent-contrast: #fff8f0;
+  --success: #2f6a50;
+  --danger: #a62d21;
+  --focus: #a43d2d;
+  --focus-ring: rgba(148, 47, 37, 0.18);
+  --gold: #98713b;
+  --glow: rgba(152, 113, 59, 0.14);
+  --panel-dark: #191612;
+  --panel-dark-soft: #221e18;
+  --shadow-soft: 0 18px 45px rgba(45, 35, 25, 0.08);
+  --shadow-card: 0 2px 4px rgba(92, 58, 31, 0.025), 0 8px 24px rgba(92, 58, 31, 0.045);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #11100e;
+  --surface: #181612;
+  --surface-raised: #1e1b16;
+  --ink: #f0e9dc;
+  --ink-soft: #c3b8a8;
+  --ink-muted: #918577;
+  --line: rgba(240, 233, 220, 0.11);
+  --line-strong: rgba(240, 233, 220, 0.23);
+  --accent: #d8745f;
+  --accent-strong: #ee9a83;
+  --accent-contrast: #1b0f0b;
+  --success: #74b894;
+  --danger: #ef8f81;
+  --focus: #ee9a83;
+  --focus-ring: rgba(216, 116, 95, 0.2);
+  --gold: #c6a166;
+  --glow: rgba(198, 161, 102, 0.09);
+  --panel-dark: #0b0a08;
+  --panel-dark-soft: #14120f;
+  --shadow-soft: 0 18px 50px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03), 0 14px 38px rgba(0, 0, 0, 0.22);
+}
