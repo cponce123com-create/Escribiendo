@@ -5,6 +5,12 @@ import { getSession } from "@/lib/auth/session";
 import { assertRequestOrigin } from "@/lib/security/request-context";
 import { analyzeNarrative } from "@/lib/story/character-analysis";
 import { filterCharacterCandidates } from "@/lib/story/character-analysis-quality";
+import {
+  analysisTaskClaimWhere,
+  MAX_ANALYSIS_ATTEMPTS,
+  ANALYSIS_LEASE_MS,
+} from "@/lib/story/analysis-task-policy";
+import { logger } from "@/lib/logger";
 import { z } from "zod";
 import { persistVerifiedCharacters } from "@/lib/story/verified-character-storage";
 import { extractPlainText } from "@/lib/story/engine/text";
@@ -48,41 +54,76 @@ export async function POST(request: Request) {
       workspaceId: session.workspace.id,
       book: { workspaceId: session.workspace.id, deletedAt: null },
     },
-    select: { id: true, bookId: true, sectionId: true, contentHash: true, status: true },
+    select: {
+      id: true,
+      bookId: true,
+      sectionId: true,
+      contentHash: true,
+      status: true,
+      attempts: true,
+    },
   });
   if (!task) return NextResponse.json({ error: "Tarea no encontrada." }, { status: 404 });
   if (task.status === "COMPLETED" || task.status === "SUPERSEDED")
     return NextResponse.json({ status: task.status, suggestions: 0 });
+  const now = new Date();
+  if (task.attempts >= MAX_ANALYSIS_ATTEMPTS) {
+    // Un último intento en curso conserva su ventana para terminar.
+    const exhausted = await prisma.characterAnalysisTask.updateMany({
+      where: {
+        id: task.id,
+        workspaceId: session.workspace.id,
+        attempts: { gte: MAX_ANALYSIS_ATTEMPTS },
+        OR: [
+          { status: { in: ["PENDING", "FAILED"] } },
+          { status: "PROCESSING", updatedAt: { lt: new Date(now.getTime() - ANALYSIS_LEASE_MS) } },
+        ],
+      },
+      data: { status: "FAILED" },
+    });
+    return NextResponse.json({
+      status: exhausted.count > 0 || task.status !== "PROCESSING" ? "FAILED" : "PROCESSING",
+      suggestions: 0,
+      retryable: false,
+    });
+  }
   const claimed = await prisma.characterAnalysisTask.updateMany({
-    where: { id: task.id, status: { in: ["PENDING", "FAILED"] } },
-    data: { status: "PROCESSING", attempts: { increment: 1 } },
+    where: {
+      AND: analysisTaskClaimWhere(task.id, session.workspace.id, now),
+      attempts: task.attempts,
+    },
+    data: { status: "PROCESSING", attempts: { increment: 1 }, updatedAt: now },
   });
   if (!claimed.count) return NextResponse.json({ status: "PROCESSING", suggestions: 0 });
+  const attempt = task.attempts + 1;
+  const finishTask = async (status: "COMPLETED" | "SUPERSEDED") => {
+    const result = await prisma.characterAnalysisTask.updateMany({
+      where: {
+        id: task.id,
+        workspaceId: session.workspace.id,
+        status: "PROCESSING",
+        attempts: attempt,
+      },
+      data: { status, completedAt: new Date() },
+    });
+    if (!result.count) throw new Error("CHARACTER_TASK_SUPERSEDED");
+  };
   try {
     const section = await prisma.bookSection.findFirst({
       where: { id: task.sectionId, bookId: task.bookId, deletedAt: null },
       select: { id: true, title: true, type: true, content: true, version: true },
     });
     if (!section) {
-      await prisma.characterAnalysisTask.update({
-        where: { id: task.id },
-        data: { status: "SUPERSEDED", completedAt: new Date() },
-      });
+      await finishTask("SUPERSEDED");
       return NextResponse.json({ status: "SUPERSEDED", suggestions: 0 });
     }
     const currentHash = hashContent(section.content);
     if (currentHash !== task.contentHash) {
-      await prisma.characterAnalysisTask.update({
-        where: { id: task.id },
-        data: { status: "SUPERSEDED", completedAt: new Date() },
-      });
+      await finishTask("SUPERSEDED");
       return NextResponse.json({ status: "SUPERSEDED", suggestions: 0 });
     }
     if (NON_NARRATIVE.has(section.type)) {
-      await prisma.characterAnalysisTask.update({
-        where: { id: task.id },
-        data: { status: "COMPLETED", completedAt: new Date() },
-      });
+      await finishTask("COMPLETED");
       return NextResponse.json({ status: "COMPLETED", suggestions: 0 });
     }
     const [book, existing] = await Promise.all([
@@ -95,7 +136,10 @@ export async function POST(request: Request) {
         select: { name: true },
       }),
     ]);
-    if (!book) return NextResponse.json({ error: "Libro no disponible." }, { status: 404 });
+    if (!book) {
+      await finishTask("SUPERSEDED");
+      return NextResponse.json({ error: "Libro no disponible." }, { status: 404 });
+    }
     const text = extractPlainText(JSON.stringify(section.content));
     const candidates = analyzeNarrative([{ id: section.id, title: section.title, text }]);
     const filtered = filterCharacterCandidates(candidates, {
@@ -109,27 +153,35 @@ export async function POST(request: Request) {
       [{ id: section.id, contentHash: currentHash, version: section.version }],
       filtered,
       task.id,
+      attempt,
     );
-    await prisma.characterAnalysisTask.update({
-      where: { id: task.id },
-      data: { status: "COMPLETED", completedAt: new Date() },
-    });
+    await finishTask("COMPLETED");
     return NextResponse.json({ status: "COMPLETED", suggestions: created });
   } catch (error) {
     if (error instanceof Error && error.message === "CHARACTER_TASK_SUPERSEDED")
       return NextResponse.json({ status: "SUPERSEDED", suggestions: 0 });
     await prisma.characterAnalysisTask
       .updateMany({
-        where: { id: task.id, status: "PROCESSING", workspaceId: session.workspace.id },
+        where: {
+          id: task.id,
+          status: "PROCESSING",
+          workspaceId: session.workspace.id,
+          attempts: attempt,
+        },
         data: { status: "FAILED" },
       })
       .catch(() => undefined);
-    console.error(
-      "character-analysis.process-failed",
-      error instanceof Error ? error.name : "UnknownError",
-    );
+    logger.error("character-analysis.process-failed", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
     return NextResponse.json(
-      { error: "No se pudo analizar el contenido; la tarea queda pendiente de reintento." },
+      {
+        error:
+          attempt >= MAX_ANALYSIS_ATTEMPTS
+            ? "El análisis agotó sus intentos. Revisa el contenido antes de volver a analizar."
+            : "No se pudo analizar el contenido; la tarea queda pendiente de reintento.",
+        retryable: attempt < MAX_ANALYSIS_ATTEMPTS,
+      },
       { status: 500 },
     );
   }

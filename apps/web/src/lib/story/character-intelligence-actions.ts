@@ -1,4 +1,5 @@
 "use server";
+import { MAX_ANALYSIS_ATTEMPTS } from "./analysis-task-policy";
 import { personalIdentity, readNameVerification } from "./personal-name";
 import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
@@ -379,13 +380,28 @@ export async function getCharacterSuggestions(bookId: string) {
         workspaceId: session.workspace.id,
         bookId,
         status: "PROCESSING",
+        attempts: { gte: MAX_ANALYSIS_ATTEMPTS },
+        updatedAt: { lt: new Date(Date.now() - 10 * 60_000) },
+      },
+      data: { status: "FAILED" },
+    });
+    await prisma.characterAnalysisTask.updateMany({
+      where: {
+        workspaceId: session.workspace.id,
+        bookId,
+        status: "PROCESSING",
+        attempts: { lt: MAX_ANALYSIS_ATTEMPTS },
         updatedAt: { lt: new Date(Date.now() - 10 * 60 * 1000) },
       },
       data: { status: "PENDING" },
     });
     const [suggestions, tasks, pendingTasks] = await Promise.all([
       prisma.storyCharacterSuggestion.findMany({
-        where: { workspaceId: session.workspace.id, bookId, status: "PENDING" },
+        where: {
+          workspaceId: session.workspace.id,
+          bookId,
+          status: "PENDING",
+        },
         include: { section: { select: { title: true } } },
         orderBy: [{ stale: "asc" }, { confidence: "desc" }, { createdAt: "desc" }],
         take: 100,
@@ -396,7 +412,12 @@ export async function getCharacterSuggestions(bookId: string) {
         _count: { _all: true },
       }),
       prisma.characterAnalysisTask.findMany({
-        where: { workspaceId: session.workspace.id, bookId, status: "PENDING" },
+        where: {
+          workspaceId: session.workspace.id,
+          bookId,
+          status: "PENDING",
+          attempts: { lt: MAX_ANALYSIS_ATTEMPTS },
+        },
         orderBy: { createdAt: "asc" },
         take: 200,
         select: { id: true },
