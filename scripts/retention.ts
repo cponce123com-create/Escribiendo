@@ -7,7 +7,7 @@
  *
  * Esta rutina borra únicamente lo que ya no puede usarse:
  *
- * - Sesiones caducadas (hace más de 30 días).
+ * - Sesiones caducadas o revocadas (hace más de 30 días).
  * - Tokens de recuperación de contraseña caducados o usados.
  * - Invitaciones caducadas, revocadas o aceptadas (hace más de 30 días).
  *
@@ -22,27 +22,29 @@
  * Requiere DATABASE_URL o DIRECT_URL en el entorno o en el .env de la raíz.
  */
 import path from "node:path";
+import { sessionRetentionWhere, SESSION_RETENTION_DAYS } from "./lib/retention-policy";
 import { config as loadEnv } from "dotenv";
 import { prisma } from "../packages/database/src/client";
 
 loadEnv({ path: path.resolve(process.cwd(), ".env"), quiet: true });
 
-/** Días que se conserva una sesión caducada antes de borrarla. */
-const SESSION_RETENTION_DAYS = 30;
-
 /** Días que se conserva una invitación resuelta antes de borrarla. */
 const INVITATION_RETENTION_DAYS = 30;
+
+function informar(message: string): void {
+  process.stdout.write(`${message}\n`);
+}
 
 async function main(): Promise<void> {
   const dryRun = process.argv.includes("--dry-run");
   const ahora = new Date();
-  const limiteSesiones = new Date(ahora.getTime() - SESSION_RETENTION_DAYS * 24 * 60 * 60 * 1_000);
+  const filtroSesiones = sessionRetentionWhere(ahora);
   const limiteInvitaciones = new Date(
     ahora.getTime() - INVITATION_RETENTION_DAYS * 24 * 60 * 60 * 1_000,
   );
 
   const sesiones = await prisma.session.count({
-    where: { expiresAt: { lt: limiteSesiones } },
+    where: filtroSesiones,
   });
   const tokens = await prisma.passwordResetToken.count({
     where: { OR: [{ expiresAt: { lt: ahora } }, { usedAt: { not: null } }] },
@@ -57,25 +59,27 @@ async function main(): Promise<void> {
     },
   });
 
-  console.log("Retención de datos");
-  console.log(`  sesiones caducadas hace más de ${SESSION_RETENTION_DAYS} días: ${sesiones}`);
-  console.log(`  tokens de recuperación caducados o usados: ${tokens}`);
-  console.log(
+  informar("Retención de datos");
+  informar(
+    `  sesiones caducadas o revocadas hace más de ${SESSION_RETENTION_DAYS} días: ${sesiones}`,
+  );
+  informar(`  tokens de recuperación caducados o usados: ${tokens}`);
+  informar(
     `  invitaciones caducadas, revocadas o aceptadas (más de ${INVITATION_RETENTION_DAYS} días): ${invitaciones}`,
   );
 
   if (dryRun) {
-    console.log("\nDry run: no se borra nada.");
+    informar("\nDry run: no se borra nada.");
     return;
   }
 
   if (sesiones + tokens + invitaciones === 0) {
-    console.log("\nNo hay nada que borrar.");
+    informar("\nNo hay nada que borrar.");
     return;
   }
 
   const [sesionesBorradas, tokensBorrados, invitacionesBorradas] = await prisma.$transaction([
-    prisma.session.deleteMany({ where: { expiresAt: { lt: limiteSesiones } } }),
+    prisma.session.deleteMany({ where: filtroSesiones }),
     prisma.passwordResetToken.deleteMany({
       where: { OR: [{ expiresAt: { lt: ahora } }, { usedAt: { not: null } }] },
     }),
@@ -90,17 +94,19 @@ async function main(): Promise<void> {
     }),
   ]);
 
-  console.log(
+  informar(
     `\nBorrados: ${sesionesBorradas.count} sesiones, ${tokensBorrados.count} tokens, ${invitacionesBorradas.count} invitaciones.`,
   );
-  console.log(
+  informar(
     "No se ha tocado ningún manuscrito, revisión, nota, comentario ni registro de auditoría.",
   );
 }
 
 main()
   .catch((error: unknown) => {
-    console.error("No se ha podido aplicar la retención:", error);
+    process.stderr.write(
+      `No se ha podido aplicar la retención (${error instanceof Error ? error.name : "error desconocido"}).\n`,
+    );
     process.exitCode = 1;
   })
   .finally(() => {

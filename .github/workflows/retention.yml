@@ -1,0 +1,49 @@
+name: Retención semanal
+
+on:
+  schedule:
+    # Domingo 08:23 UTC (03:23 de Perú); evitar el inicio de la hora.
+    - cron: "23 8 * * 0"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Solo informar, sin borrar
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: retention
+  cancel-in-progress: false
+
+jobs:
+  retention:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.14.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+      - name: Comprobar configuración
+        run: test -n "$DATABASE_URL"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - name: Aplicar política de retención
+        env:
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            pnpm retention:clean --dry-run
+          else
+            pnpm retention:clean
+          fi
