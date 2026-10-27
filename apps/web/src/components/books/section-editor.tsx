@@ -2,7 +2,6 @@
 import { AUTOSAVE_MIN_INTERVAL_MS } from "@/lib/editor/autosave";
 import { FOOTNOTE_EDIT_EVENT, parseFootnoteEdit } from "@/lib/editor/footnote-edit";
 
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -80,6 +79,16 @@ const LOCAL_SAVE_DEBOUNCE_MS = 700;
  */
 const SERVER_SYNC_DEBOUNCE_MS = 3_000;
 
+/**
+ * Última versión que esta pestaña guardó de cada sección.
+ *
+ * La página remonta el editor cuando cambia la versión de la sección, para que
+ * una revisión restaurada se vea al volver del historial. Sin esta marca, el
+ * remontaje borraría la confirmación «Guardado en el servidor.» y parecería
+ * que el guardado no ha terminado. Se descarta en cuanto se vuelve a escribir.
+ */
+const savedVersions = new Map<string, number>();
+
 export function SectionEditor({
   sectionId,
   sectionTitle,
@@ -93,8 +102,13 @@ export function SectionEditor({
   sections = [],
   findingRange = null,
 }: SectionEditorProps) {
-  const router = useRouter();
-  const [machine, setMachine] = useState<SyncMachine>(() => initialSyncMachine(version));
+  const [machine, setMachine] = useState<SyncMachine>(() => {
+    const guardada = savedVersions.get(sectionId);
+
+    return guardada === version
+      ? { ...initialSyncMachine(version), state: "synced" }
+      : initialSyncMachine(version);
+  });
   const [conflict, setConflict] = useState<SectionConflict | null>(null);
   /**
    * Diálogo abierto: el enlace o la nota al pie que se está escribiendo.
@@ -206,6 +220,7 @@ export function SectionEditor({
       }
 
       localVersionRef.current += 1;
+      savedVersions.delete(sectionId);
       dispatch({ type: "edit" });
     },
   });
@@ -502,9 +517,14 @@ export function SectionEditor({
         if (localVersionRef.current !== versionLocalAlEnviar) {
           dispatch({ type: "edit" });
         } else {
+          savedVersions.set(sectionId, versionGuardada);
           dispatch({ type: "sync-ok", version: versionGuardada });
           await deleteDraft(userId, bookId, sectionId);
-          router.refresh();
+          // No se refresca la ruta aquí. La página monta este editor con una
+          // clave que incluye la versión de la sección: un refresco tras
+          // guardar lo desmontaría y se perderían la confirmación visible, el
+          // cursor y el historial de deshacer. La acción ya revalida la ruta,
+          // así que el refresco llega al navegar o al restaurar una revisión.
         }
       } catch {
         if (peticion !== requestRef.current) {
@@ -519,7 +539,7 @@ export function SectionEditor({
         }
       }
     },
-    [bookId, canEdit, dispatch, editor, router, sectionId, userId],
+    [bookId, canEdit, dispatch, editor, sectionId, userId],
   );
 
   // --- Programación de las tareas ------------------------------------------
