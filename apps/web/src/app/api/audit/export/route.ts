@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { assertCanPerform } from "@/lib/books/permissions";
-import { scrubSecrets } from "@escribiendo/shared";
+import { buildAuditCsv } from "@/lib/auth/audit-csv";
 
 /**
  * Exportación del registro de auditoría.
@@ -16,20 +16,6 @@ export const dynamic = "force-dynamic";
 
 /** Número máximo de registros que se exportan de una vez. */
 const MAX_ROWS = 5_000;
-
-/** Escapa un valor para el CSV. */
-function campo(valor: unknown): string {
-  const texto =
-    valor === null || valor === undefined
-      ? ""
-      : typeof valor === "object"
-        ? JSON.stringify(valor)
-        : String(valor);
-
-  const limpio = scrubSecrets(texto);
-
-  return `"${limpio.replace(/"/gu, '""')}"`;
-}
 
 export async function GET(request: Request): Promise<NextResponse> {
   const session = await getSession();
@@ -87,21 +73,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     );
   }
 
-  const cabecera = "fecha,accion,tipo,entidad,id,persona,correo,solicitud,detalle";
-  const filas = registros.map((registro) =>
-    [
-      registro.createdAt.toISOString(),
-      campo(registro.action),
-      campo(registro.entityType),
-      campo(registro.entityId),
-      campo(registro.requestId),
-      campo(registro.actor?.name),
-      campo(registro.actor?.email),
-      campo(registro.metadata),
-    ].join(","),
-  );
-
-  const csv = `﻿${[cabecera, ...filas].join("\n")}`;
+  const csv = buildAuditCsv(registros);
 
   return new NextResponse(csv, {
     status: 200,
