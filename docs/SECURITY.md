@@ -291,3 +291,20 @@ el problema está en un componente externo y reiniciar el proceso no lo arregla.
 5. Exportar una copia de la base antes de cualquier limpieza.
 6. Si se filtró un enlace de recuperación, emitir uno nuevo invalida los
    anteriores.
+
+## IP del cliente detrás de proxies (AUD-03)
+
+`TRUSTED_PROXY_HOPS=1` toma el último valor de `X-Forwarded-For`; `2` toma
+el penúltimo. Una lista corta usa su primer valor. `0` desactiva la confianza
+en cabeceras (IP desconocida y límite compartido). Las posiciones vacías o
+inválidas no se saltan: hacerlo permitiría volver a datos elegidos por el cliente.
+Solo se aceptan IPv4/IPv6, normalizando las representaciones IPv6 equivalentes.
+
+En Render, antes de variar el valor, comprueba la cadena en un entorno de prueba:
+contrasta la IP pública de tu conexión con la cabecera recibida por el servidor,
+primero sin cabecera propia y después enviando `X-Forwarded-For: 1.2.3.4`.
+El valor resuelto debe ser el mismo en ambas solicitudes. Repite si añades CDN
+u otro proxy y cuenta desde la derecha los saltos que tú controlas. No publiques
+un endpoint de diagnóstico ni registres IPs completas en producción. El valor
+1 presupone que Render añade/sobrescribe la última entrada; no autentica por sí
+solo una cabecera si el servidor admite conexiones directas que eludan el proxy.

@@ -6,6 +6,13 @@ const baseEnv = {
 };
 
 describe("envSchema", () => {
+  it("valida el número de proxies de confianza", () => {
+    expect(envSchema.parse(baseEnv).TRUSTED_PROXY_HOPS).toBe(1);
+    expect(envSchema.parse({ ...baseEnv, TRUSTED_PROXY_HOPS: "0" }).TRUSTED_PROXY_HOPS).toBe(0);
+    for (const value of ["-1", "1.5", "basura"]) {
+      expect(envSchema.safeParse({ ...baseEnv, TRUSTED_PROXY_HOPS: value }).success).toBe(false);
+    }
+  });
   it("acepta los valores vacíos que entrega .env.example", () => {
     const parsed = envSchema.safeParse({
       ...baseEnv,

@@ -320,3 +320,9 @@ worker y ningún disco: el único recurso es el servicio web.
 
 Los logs estructurados incluyen `requestId`. Úsalo para correlacionar una
 petición con los errores de Render.
+
+### Cabeceras del proxy
+
+Configura `TRUSTED_PROXY_HOPS=1` en Render. Antes de añadir CDN u otro proxy,
+verifica la posición de la IP real y la resistencia a prefijos falsificados según
+`docs/SECURITY.md`. `0` ignora cabeceras y agrupa los intentos bajo IP desconocida.
