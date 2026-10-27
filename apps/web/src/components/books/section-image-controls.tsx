@@ -5,6 +5,7 @@ import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
 import type { BookAssetSummary } from "@/lib/books/assets";
 import { registerBookAssetAction } from "@/lib/books/asset-actions";
+import { bookAssetThumbnailUrl } from "@/lib/books/asset-thumbnail";
 import type { EditorialImageAlignment } from "@/components/editor/editorial-image";
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
@@ -278,14 +279,16 @@ export function SectionImageControls({
                     className="block w-full rounded border border-ink/15 p-2 text-left hover:border-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                     onClick={() => insertFromLibrary(asset)}
                   >
-                    {/* Cloudinary ya entrega la miniatura optimizada; next/image
-                        añadiría otra capa de transformación innecesaria. */}
+                    {/* Cloudinary entrega la miniatura recortada al vuelo; la
+                        URL original del documento no se toca para que la
+                        exportación incruste la imagen completa. */}
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={asset.url}
+                      src={bookAssetThumbnailUrl(asset.url)}
                       alt={asset.caption ?? asset.originalFilename ?? "Imagen del libro"}
                       className="h-20 w-full rounded object-cover"
                       loading="lazy"
+                      decoding="async"
                     />
                     <span className="mt-1 block truncate text-xs text-ink/70">
                       {asset.caption ?? asset.originalFilename ?? asset.format}

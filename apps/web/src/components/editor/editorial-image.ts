@@ -164,6 +164,9 @@ export const EditorialImage = Node.create({
           ...(HTMLAttributes.widthPx ? { width: String(HTMLAttributes.widthPx) } : {}),
           ...(HTMLAttributes.heightPx ? { height: String(HTMLAttributes.heightPx) } : {}),
           loading: "lazy",
+          // La imagen no bloquea el hilo principal mientras el editor se
+          // hidrata: el texto aparece antes y la figura se decodifica aparte.
+          decoding: "async",
         },
       ],
       ...(caption ? [["figcaption", {}, caption] as const] : []),
