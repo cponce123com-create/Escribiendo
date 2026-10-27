@@ -4,6 +4,8 @@
 
 [Correcciones AUD-01 a AUD-08, 2026-10-27](seguridad-2026-10-27.md). Estado de pruebas y límites en el propio informe. No equivale a una nueva calificación global.
 
+[Validación y salida completa de pruebas](validacion-seguridad-2026-10-27.md).
+
 ## Archivo histórico
 
 Los siguientes informes conservan su contenido completo y sus resultados originales; no prueban el estado actual del despliegue. Los caminos anteriores mantienen enlaces de compatibilidad.

@@ -41,7 +41,13 @@ puntuación nueva. No se consultó ni escribió la base de producción.
 ## Verificación
 
 Cada cambio de lógica tiene una regresión Vitest, ejecutada primero en rojo y
-luego en verde. Verificación global y E2E: pendientes de la ejecución final.
+luego en verde. `pnpm format:check`, `pnpm lint`, `pnpm typecheck` y `pnpm test`
+pasan (1126 pruebas, 148 archivos); `pnpm db:generate` y `pnpm build` también.
+E2E local no arranca por ausencia de Docker. GitHub ejecutó Chromium: 94
+aprobadas, dos fallidas y seis sin ejecutar. Se comprobó que los mismos dos
+fallos ya existían en la ejecución de la base `a8f53e4`: guardado concurrente y
+encabezado de apertura. La suite completa sigue roja. La salida íntegra, enlaces
+y límites están en [la validación](validacion-seguridad-2026-10-27.md).
 No se hizo mantenimiento ni carga contra producción.
 
 ## Propuesta de división, sin refactorizar (AUD-08.6)
