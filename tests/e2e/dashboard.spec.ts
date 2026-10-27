@@ -39,6 +39,14 @@ test("el dashboard móvil navega desde tarjetas y filas completas", async ({ pag
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
+  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
+  await expect(page.locator(".dashboard-stat-link").first()).toHaveCSS(
+    "background-color",
+    "rgb(30, 27, 22)",
+  );
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
   await card.getByText("Actualizado:", { exact: false }).click();
   await expect(page.getByRole("heading", { name: title })).toBeVisible();
 });
