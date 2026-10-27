@@ -365,6 +365,18 @@ describe("bookToBlocks", () => {
     expect(blocks[1]?.firstOfSection).toBe(true);
   });
 
+  it("abre capítulo aunque sea el primero y no pida página impar", () => {
+    const section = seccion(
+      documento({ type: "paragraph", content: [{ type: "text", text: "Texto." }] }),
+    );
+    const blocks = bookToBlocks([section]);
+
+    // Sin esto, la página de apertura recibiría además el encabezado con el
+    // título que ya se compone en el cuerpo.
+    expect(blocks[0]?.kind).toBe("chapterTitle");
+    expect(blocks[0]?.startsChapter).toBe(true);
+  });
+
   it("marca solo la inicial del primer párrafo de un capítulo cuando se activa", () => {
     const section: PreviewSection = {
       ...seccion(

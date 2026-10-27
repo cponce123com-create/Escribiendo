@@ -364,7 +364,6 @@ export function bookToBlocks(
   const footnotes: FootnoteCounter = { next: 1 };
   const titles = sectionDisplayTitles(sections);
   const frontMatter = options.frontMatter ?? [];
-  let chapterSeen = false;
 
   for (const matter of frontMatter) {
     appendMatter(blocks, matter);
@@ -379,7 +378,9 @@ export function bookToBlocks(
     const sectionBlocks = composeSectionBlocks(section, footnotes, options).map((block) =>
       master ? { ...block, pageMaster: master } : block,
     );
-    const opensChapter = section.isChapter && (chapterSeen || section.startOnOddPage);
+    // Todo capítulo abre capítulo, también el primero: su página de apertura
+    // ya muestra el título en el cuerpo y no debe repetirlo como encabezado.
+    const opensChapter = section.isChapter;
     const visibleTitle = titles.get(section.id) ?? null;
     // Convención editorial (por tipo) y elección del autor: el título compuesto
     // solo aparece cuando las dos lo permiten.
@@ -400,10 +401,6 @@ export function bookToBlocks(
           firstOfSection: true,
         }
       : null;
-
-    if (section.isChapter) {
-      chapterSeen = true;
-    }
 
     if (titleBlock) {
       blocks.push({
