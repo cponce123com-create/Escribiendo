@@ -65,5 +65,31 @@ describe("panel editorial", () => {
     expect(html).toContain('href="/books/new"');
     expect(html).toContain("Historia real");
     expect(html).toContain("200 palabras");
+    expect(html.match(/href="\/books\/libro-real"/gu)).toHaveLength(2);
+    expect(html).toContain('aria-label="Abrir Historia real"');
+  });
+  it("hace navegables las cuatro tarjetas de resumen con destinos existentes", () => {
+    const html = renderToStaticMarkup(createElement(Dashboard, empty));
+    expect(html).toContain('aria-label="Ver libros: 0"');
+    expect(html).toContain('aria-label="Ver palabras: 0"');
+    expect(html).toContain('aria-label="Ver capítulos: 0"');
+    expect(html).toContain('aria-label="Ver equipo: 1"');
+    const statLinks = [...html.matchAll(/<a\s+[^>]*class="stat-card dashboard-stat-link"[^>]*>/gu)];
+    for (const [href, count] of [
+      ["/books", 2],
+      ["/stats", 1],
+      ["/team", 1],
+    ] as const) {
+      expect(statLinks.filter(([tag]) => tag.includes(`href="${href}"`))).toHaveLength(count);
+    }
+  });
+  it("ofrece accesos móviles reales y despliega las opciones avanzadas", () => {
+    const html = renderToStaticMarkup(createElement(Dashboard, empty));
+    expect(html).toContain('class="panel dashboard-mobile-actions p-5"');
+    expect(html).toContain("¿Qué quieres hacer?");
+    expect(html).toContain("Más herramientas");
+    expect(html).toContain('href="/planning"');
+    expect(html).toContain('href="/characters"');
+    expect(html).toContain('href="/worlds"');
   });
 });

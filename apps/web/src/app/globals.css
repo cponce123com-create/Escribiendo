@@ -3311,6 +3311,43 @@ html[data-focus-mode="true"] .app-topbar {
   padding: 1rem;
   align-items: center;
 }
+.dashboard-mobile-actions {
+  display: none;
+}
+.dashboard-stat-link,
+.dashboard-book {
+  color: inherit;
+  text-decoration: none;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+.dashboard-stat-link:hover,
+.dashboard-book:hover {
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface-raised));
+  border-color: var(--accent);
+}
+.dashboard-stat-link:focus-visible,
+.dashboard-book:focus-visible,
+.dashboard-actions a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.dashboard-stat-detail {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.2rem;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+.dashboard-stat-detail svg {
+  width: 0.8rem;
+  height: 0.8rem;
+  flex: 0 0 auto;
+}
 .dashboard-icon {
   width: 2.3rem;
   height: 2.3rem;
@@ -3333,9 +3370,6 @@ html[data-focus-mode="true"] .app-topbar {
 }
 .dashboard-stats .meta-label {
   font-size: 0.6rem;
-}
-.dashboard-stats .text-xs {
-  font-size: 0.62rem;
 }
 .dashboard-panel-heading {
   display: flex;
@@ -3375,6 +3409,7 @@ html[data-focus-mode="true"] .app-topbar {
   margin-inline: 1.4rem;
   padding: 1.3rem 0;
   border-bottom: 1px solid var(--line);
+  border-radius: 0.5rem;
 }
 .dashboard-book-cover {
   width: 5.2rem;
@@ -3544,8 +3579,9 @@ html[data-focus-mode="true"] .app-topbar {
   gap: 0.6rem;
   border: 1px solid var(--line);
   border-radius: 0.6rem;
-  padding: 0.8rem 0.65rem;
-  font-size: 0.72rem;
+  min-height: 3rem;
+  padding: 0.8rem;
+  font-size: 0.8rem;
 }
 .dashboard-actions a:hover {
   background: var(--surface);
@@ -3556,6 +3592,20 @@ html[data-focus-mode="true"] .app-topbar {
   height: 1.1rem;
   color: var(--accent);
   flex-shrink: 0;
+}
+.dashboard-more {
+  margin-top: 0.8rem;
+}
+.dashboard-more summary {
+  width: fit-content;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.dashboard-more summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 .dashboard-progress {
   padding: 1.4rem;
@@ -3626,10 +3676,23 @@ html[data-focus-mode="true"] .app-topbar {
     padding: 1rem;
   }
   .dashboard-hero {
-    padding: 1.5rem;
+    min-height: 0;
+    padding: 1.25rem;
+  }
+  .dashboard-hero h1 {
+    font-size: clamp(1.75rem, 7vw, 2.3rem);
+  }
+  .dashboard-hero .btn {
+    min-height: 2.75rem;
   }
   .dashboard-hero::after {
     background: color-mix(in srgb, var(--surface) 88%, transparent);
+  }
+  .dashboard-mobile-actions {
+    display: block;
+  }
+  .dashboard-desktop-actions {
+    display: none;
   }
   .dashboard-secondary {
     grid-template-columns: minmax(0, 1fr);
@@ -3639,7 +3702,7 @@ html[data-focus-mode="true"] .app-topbar {
     gap: 0.8rem;
     margin-inline: 1rem;
   }
-  .dashboard-book > .btn {
+  .dashboard-book-cta {
     margin-left: auto;
   }
   .dashboard-panel-heading {
@@ -3650,8 +3713,19 @@ html[data-focus-mode="true"] .app-topbar {
     display: none;
   }
   .dashboard-stats .stat-card {
-    padding: 0.75rem;
-    gap: 0.5rem;
+    min-height: 7rem;
+    padding: 0.85rem;
+    gap: 0.65rem;
+  }
+  .dashboard-value {
+    font-size: 1.65rem;
+    overflow-wrap: anywhere;
+  }
+  .dashboard-tip {
+    align-items: flex-start;
+  }
+  .dashboard-tip > a {
+    margin-left: 0;
   }
 }
 @media (max-width: 47.99rem) {
@@ -3664,13 +3738,32 @@ html[data-focus-mode="true"] .app-topbar {
     width: 4.5rem;
     height: 6.3rem;
   }
-  .dashboard-book > .btn {
+  .dashboard-book-cta {
     grid-column: 2;
     justify-self: start;
     margin-left: 0;
   }
   .dashboard-book-title {
     font-size: 1.2rem;
+  }
+}
+@media (max-width: 22rem) {
+  .dashboard-stats,
+  .dashboard-actions,
+  .dashboard-writing-content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dashboard-writing-content > p {
+    grid-column: auto;
+  }
+  .dashboard-book {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dashboard-book-cover {
+    display: none;
+  }
+  .dashboard-book-cta {
+    grid-column: 1;
   }
 }
 /* El estado plegado prevalece sobre la utilidad responsive lg:flex. */

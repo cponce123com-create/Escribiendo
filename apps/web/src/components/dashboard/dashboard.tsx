@@ -47,15 +47,34 @@ export function Dashboard({
     yearProgress.percent,
   );
   const stats = [
-    { label: "Libros", value: totals.books, detail: "En tu biblioteca", icon: BookIcon },
-    { label: "Palabras", value: totals.words, detail: "En tus manuscritos", icon: PenIcon },
+    {
+      label: "Libros",
+      value: totals.books,
+      detail: "Ver biblioteca",
+      icon: BookIcon,
+      href: "/books",
+    },
+    {
+      label: "Palabras",
+      value: totals.words,
+      detail: "Ver estadísticas",
+      icon: PenIcon,
+      href: "/stats",
+    },
     {
       label: "Capítulos",
       value: totals.chapters,
-      detail: "Historias en construcción",
+      detail: "Ver manuscritos",
       icon: LayoutIcon,
+      href: "/books",
     },
-    { label: "Equipo", value: totals.members, detail: "Personas en el estudio", icon: UsersIcon },
+    {
+      label: "Equipo",
+      value: totals.members,
+      detail: "Ver equipo",
+      icon: UsersIcon,
+      href: "/team",
+    },
   ];
   return (
     <div className="dashboard-grid">
@@ -83,6 +102,108 @@ export function Dashboard({
               </Link>
             </div>
           </div>
+        </section>
+        <section className="panel dashboard-mobile-actions p-5" aria-label="Accesos rápidos">
+          <h2 className="dashboard-small-title">¿Qué quieres hacer?</h2>
+          <div className="dashboard-actions">
+            <Link href="/planning">
+              <LayoutIcon /> Planificación
+            </Link>
+            <Link href="/characters">
+              <UsersIcon /> Personajes
+            </Link>
+            <Link href="/notes">
+              <NoteIcon /> Mis notas
+            </Link>
+            <Link href="/stats">
+              <ChartIcon /> Estadísticas
+            </Link>
+          </div>
+          <details className="dashboard-more">
+            <summary>Más herramientas</summary>
+            <div className="dashboard-actions">
+              <Link href="/worlds">
+                <BookIcon /> Mundos
+              </Link>
+              <Link href="/team">
+                <UsersIcon /> Equipo
+              </Link>
+            </div>
+          </details>
+        </section>
+        <section className="dashboard-stats" aria-label="Resumen del estudio">
+          {stats.map(({ label, value, detail, icon: Icon, href }) => (
+            <Link
+              className="stat-card dashboard-stat-link"
+              href={href}
+              key={label}
+              aria-label={`Ver ${label.toLowerCase()}: ${formatNumber(value)}`}
+            >
+              <span className="dashboard-icon">
+                <Icon />
+              </span>
+              <div>
+                <p className="meta-label">{label}</p>
+                <p className="dashboard-value">{formatNumber(value)}</p>
+                <p className="dashboard-stat-detail">
+                  {detail} <ArrowRightIcon aria-hidden="true" />
+                </p>
+              </div>
+            </Link>
+          ))}
+        </section>
+        <section className="panel dashboard-books" aria-labelledby="recent-books">
+          <div className="dashboard-panel-heading">
+            <h2 id="recent-books">
+              <BookIcon /> Manuscritos recientes
+            </h2>
+            <Link href="/books">
+              Ver biblioteca <ArrowRightIcon />
+            </Link>
+          </div>
+          {books.length === 0 ? (
+            <div className="dashboard-empty">
+              <BookIcon className="mx-auto size-9 text-accent" />
+              <h3>Tu próxima historia empieza aquí.</h3>
+              <p>Crea tu primer libro para reunir capítulos, notas e ideas.</p>
+            </div>
+          ) : (
+            books.map((book, index) => (
+              <Link
+                key={book.id}
+                href={`/books/${book.id}`}
+                className="dashboard-book"
+                aria-label={`Abrir ${book.title}`}
+              >
+                <span className={`dashboard-book-cover dashboard-book-cover-${index}`}>
+                  <BookIcon />
+                  <span>{book.title}</span>
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="dashboard-book-title">{book.title}</h3>
+                    <span className="dashboard-badge">{book.status}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-ink-muted">{book.subtitle ?? "Manuscrito"}</p>
+                  {book.description && (
+                    <p className="mt-2 line-clamp-2 text-sm text-ink-soft">{book.description}</p>
+                  )}
+                  <p className="mt-3 text-xs text-ink-muted">
+                    {formatNumber(book.wordCount)} palabras · {book.chapterCount} capítulos
+                  </p>
+                  <p className="mt-1 text-xs text-ink-muted">Actualizado: {book.updated}</p>
+                </div>
+                <span className="btn btn-secondary btn-sm dashboard-book-cta" aria-hidden="true">
+                  Continuar <ArrowRightIcon className="size-3.5" />
+                </span>
+              </Link>
+            ))
+          )}
+          {canCreate && (
+            <Link href="/books/new" className="dashboard-create">
+              <StudioIcon name="plus" className="size-4" /> Crear un nuevo libro
+            </Link>
+          )}
         </section>
         <details className="panel dashboard-year" open>
           <summary className="dashboard-year-summary">
@@ -145,74 +266,6 @@ export function Dashboard({
             </p>
           </div>
         </details>
-        <section className="dashboard-stats" aria-label="Resumen del estudio">
-          {stats.map(({ label, value, detail, icon: Icon }) => (
-            <div className="stat-card" key={label}>
-              <span className="dashboard-icon">
-                <Icon />
-              </span>
-              <div>
-                <p className="meta-label">{label}</p>
-                <p className="dashboard-value">{formatNumber(value)}</p>
-                <p className="text-xs text-ink-muted">{detail}</p>
-              </div>
-            </div>
-          ))}
-        </section>
-        <section className="panel dashboard-books" aria-labelledby="recent-books">
-          <div className="dashboard-panel-heading">
-            <h2 id="recent-books">
-              <BookIcon /> Manuscritos recientes
-            </h2>
-            <Link href="/books">
-              Ver biblioteca <ArrowRightIcon />
-            </Link>
-          </div>
-          {books.length === 0 ? (
-            <div className="dashboard-empty">
-              <BookIcon className="mx-auto size-9 text-accent" />
-              <h3>Tu próxima historia empieza aquí.</h3>
-              <p>Crea tu primer libro para reunir capítulos, notas e ideas.</p>
-            </div>
-          ) : (
-            books.map((book, index) => (
-              <article key={book.id} className="dashboard-book">
-                <Link
-                  href={`/books/${book.id}`}
-                  className={`dashboard-book-cover dashboard-book-cover-${index}`}
-                  aria-label={`Abrir ${book.title}`}
-                >
-                  <BookIcon />
-                  <span>{book.title}</span>
-                </Link>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Link href={`/books/${book.id}`} className="dashboard-book-title">
-                      {book.title}
-                    </Link>
-                    <span className="dashboard-badge">{book.status}</span>
-                  </div>
-                  <p className="mt-1 text-xs text-ink-muted">{book.subtitle ?? "Manuscrito"}</p>
-                  {book.description && (
-                    <p className="mt-2 line-clamp-2 text-sm text-ink-soft">{book.description}</p>
-                  )}
-                  <p className="mt-3 text-xs text-ink-muted">
-                    {formatNumber(book.wordCount)} palabras · {book.chapterCount} capítulos
-                  </p>
-                  <p className="mt-1 text-xs text-ink-muted">Actualizado: {book.updated}</p>
-                </div>
-                <Link href={`/books/${book.id}`} className="btn btn-secondary btn-sm">
-                  Continuar <ArrowRightIcon className="size-3.5" />
-                </Link>
-              </article>
-            ))
-          )}
-          {canCreate && (
-            <Link href="/books/new" className="dashboard-create">
-              <StudioIcon name="plus" className="size-4" /> Crear un nuevo libro
-            </Link>
-          )}
-        </section>
         <aside className="panel dashboard-tip">
           <div className="dashboard-tip-image" aria-hidden="true" />
           <div>
@@ -251,7 +304,7 @@ export function Dashboard({
           </ul>
           <p className="mt-3 text-xs text-ink-muted">Últimos 7 días · hora de Perú</p>
         </section>
-        <section className="panel p-5">
+        <section className="panel p-5 dashboard-desktop-actions">
           <h2 className="dashboard-small-title">Acciones rápidas</h2>
           <div className="dashboard-actions">
             <Link href="/planning">
