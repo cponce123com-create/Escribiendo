@@ -32,8 +32,22 @@ test("tema compartido, búsqueda real, menú retráctil y guía", async ({ page 
   expect(resume((await auditar(page)).graves, "panel oscuro")).toEqual([]);
   await page.screenshot({ path: info.outputPath("panel-oscuro.png"), fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
-    true,
+  const mobileOverflow = await page.evaluate(() => ({
+    viewport: window.innerWidth,
+    document: document.documentElement.scrollWidth,
+    elements: Array.from(document.body.querySelectorAll<HTMLElement>("*"))
+      .filter((element) => element.scrollWidth > element.clientWidth + 1)
+      .map((element) => ({
+        tag: element.tagName,
+        className: typeof element.className === "string" ? element.className.slice(0, 100) : "",
+        width: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+      }))
+      .sort((a, b) => b.scrollWidth - b.width - (a.scrollWidth - a.width))
+      .slice(0, 12),
+  }));
+  expect(mobileOverflow.document, JSON.stringify(mobileOverflow)).toBeLessThanOrEqual(
+    mobileOverflow.viewport,
   );
   await expect(
     page.getByRole("heading", { name: "Tu estudio está listo para crear." }),

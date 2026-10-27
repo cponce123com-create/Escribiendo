@@ -3328,6 +3328,14 @@ html[data-focus-mode="true"] .app-topbar {
   background: var(--surface-raised);
   color: var(--ink);
 }
+[data-theme="dark"] .dashboard-stats .dashboard-stat-link {
+  background: #1e1b16;
+  color: #f0e9dc;
+}
+[data-theme="dark"] .dashboard-stats .dashboard-stat-link .meta-label,
+[data-theme="dark"] .dashboard-stats .dashboard-stat-detail {
+  color: #c3b8a8;
+}
 .dashboard-stat-link > div {
   min-width: 0;
 }
