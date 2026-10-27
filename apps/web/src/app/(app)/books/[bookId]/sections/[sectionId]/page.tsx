@@ -23,7 +23,7 @@ import {
 } from "@escribiendo/book-schema";
 import { SECTION_TYPE_LABELS, formatNumber, formatDateTime } from "@/lib/ui/format";
 import { AssignSelect } from "@/components/team/assign-select";
-import { listMembers } from "@/lib/team/members";
+import { listAssignableMembers } from "@/lib/team/members";
 import { ManuscriptWorkspace } from "@/components/books/manuscript-workspace";
 
 import { StudioInspector } from "@/components/books/studio-inspector";
@@ -98,10 +98,12 @@ export default async function SectionPage({ params, searchParams }: SectionPageP
   const [book, revisions, miembros, imagenes, sectionTree, notes] = await Promise.all([
     getBook(session, bookId),
     listRevisions(session, bookId, sectionId),
-    listMembers(session),
+    listAssignableMembers(session),
     listBookAssets(session, bookId),
     getSectionTree(session, bookId),
-    listBookNotes(session, bookId),
+    // Solo las notas de esta sección y las generales del libro: el cuaderno
+    // completo se carga en su propia página.
+    listBookNotes(session, bookId, section.id),
   ]);
 
   const canEdit = canPerform(session.workspace.role, "section:update");
@@ -217,7 +219,7 @@ export default async function SectionPage({ params, searchParams }: SectionPageP
         <StudioInspector
           bookId={bookId}
           sectionId={sectionId}
-          notes={notes.filter((note) => !note.sectionId || note.sectionId === sectionId)}
+          notes={notes}
           canEdit={canEdit}
           history={
             <RevisionList

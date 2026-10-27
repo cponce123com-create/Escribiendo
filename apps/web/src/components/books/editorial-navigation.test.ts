@@ -48,7 +48,7 @@ vi.mock("@/lib/books/queries", () => ({
   getSectionTree: async () => [],
 }));
 vi.mock("@/lib/books/assets", () => ({ listBookAssets: async () => [] }));
-vi.mock("@/lib/team/members", () => ({ listMembers: async () => [] }));
+vi.mock("@/lib/team/members", () => ({ listAssignableMembers: async () => [] }));
 vi.mock("@/lib/writing/notes", () => ({ listBookNotes: async () => [] }));
 vi.mock("@/components/books/new-section-form", () => ({ NewSectionForm: () => null }));
 vi.mock("@/components/books/section-editor", () => ({

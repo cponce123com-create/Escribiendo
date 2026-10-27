@@ -25,6 +25,7 @@ export interface NoteSummary {
 export async function listBookNotes(
   session: SessionContext,
   bookId: string,
+  sectionId?: string,
 ): Promise<NoteSummary[]> {
   const notes = await prisma.writingNote.findMany({
     where: {
@@ -32,6 +33,9 @@ export async function listBookNotes(
       userId: session.user.id,
       deletedAt: null,
       book: { workspaceId: session.workspace.id, deletedAt: null },
+      // El inspector de una sección muestra sus notas y las del libro; filtrar
+      // aquí evita traer el cuaderno entero en cada cambio de capítulo.
+      ...(sectionId ? { OR: [{ sectionId }, { sectionId: null }] } : {}),
     },
     orderBy: [{ isPinned: "desc" }, { updatedAt: "desc" }],
     select: {

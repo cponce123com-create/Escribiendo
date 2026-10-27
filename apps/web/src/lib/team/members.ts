@@ -89,6 +89,28 @@ export async function listMembers(session: SessionContext): Promise<MemberSummar
   }));
 }
 
+export interface AssignableMember {
+  userId: string;
+  name: string;
+}
+
+/**
+ * Miembros que pueden recibir una sección o un comentario.
+ *
+ * El selector solo necesita nombre e identificador. La ficha completa —con los
+ * recuentos de libros, secciones y comentarios— se reserva para la página de
+ * equipo; esta consulta se ejecuta en cada cambio de capítulo.
+ */
+export async function listAssignableMembers(session: SessionContext): Promise<AssignableMember[]> {
+  const members = await prisma.workspaceMember.findMany({
+    where: { workspaceId: session.workspace.id },
+    orderBy: [{ role: "asc" }, { user: { name: "asc" } }],
+    select: { user: { select: { id: true, name: true } } },
+  });
+
+  return members.map((member) => ({ userId: member.user.id, name: member.user.name }));
+}
+
 /** Invitaciones del espacio de trabajo. */
 export async function listInvitations(session: SessionContext): Promise<InvitationSummary[]> {
   const invitations = await prisma.workspaceInvitation.findMany({
