@@ -3314,6 +3314,9 @@ html[data-focus-mode="true"] .app-topbar {
 .dashboard-mobile-actions {
   display: none;
 }
+.dashboard-secondary .activity-row p {
+  overflow-wrap: anywhere;
+}
 .dashboard-stat-link,
 .dashboard-book {
   color: inherit;
