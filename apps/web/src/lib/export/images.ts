@@ -45,14 +45,15 @@ export function isAllowedImageSource(src: string): boolean {
   }
 }
 
-async function fetchImageBytes(src: string): Promise<Uint8Array | null> {
+export async function fetchImageBytes(src: string): Promise<Uint8Array | null> {
   if (!isAllowedImageSource(src)) {
     return null;
   }
 
+  const controller = new AbortController();
   try {
     const response = await fetch(src, {
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(FETCH_TIMEOUT_MS)]),
       redirect: "follow",
       headers: { "User-Agent": "ESCRIBIENDO/1.0" },
     });
@@ -70,13 +71,40 @@ async function fetchImageBytes(src: string): Promise<Uint8Array | null> {
     const declaredSize = Number(response.headers.get("content-length") ?? "0");
 
     if (Number.isFinite(declaredSize) && declaredSize > MAX_IMAGE_BYTES) {
+      controller.abort();
+      await response.body?.cancel().catch(() => undefined);
       return null;
     }
 
-    const buffer = new Uint8Array(await response.arrayBuffer());
-
-    return buffer.length > 0 && buffer.length <= MAX_IMAGE_BYTES ? buffer : null;
+    if (!response.body) return null;
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        total += value.byteLength;
+        if (total > MAX_IMAGE_BYTES) {
+          controller.abort();
+          await reader.cancel().catch(() => undefined);
+          return null;
+        }
+        chunks.push(value);
+      }
+    } finally {
+      reader.releaseLock();
+    }
+    if (!total) return null;
+    const bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return bytes;
   } catch (error) {
+    controller.abort();
     logger.warn("export.image_fetch_failed", {
       errorName: error instanceof Error ? error.name : "UnknownError",
     });

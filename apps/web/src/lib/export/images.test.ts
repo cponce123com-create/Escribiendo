@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
@@ -11,7 +11,9 @@ vi.mock("@/lib/env", () => ({
   }),
 }));
 
-import { isAllowedImageSource, loadExportImages } from "./images";
+vi.mock("@/lib/logger", () => ({ logger: { warn: vi.fn() } }));
+
+import { fetchImageBytes, isAllowedImageSource, loadExportImages } from "./images";
 
 const ALLOWED = "https://res.cloudinary.com/demo/image/upload/v1/libro/plaza.jpg";
 
@@ -65,4 +67,36 @@ describe("loadExportImages", () => {
     expect(result.assets.size).toBe(0);
     expect(result.omitted).toEqual(["https://ejemplo.test/plaza.jpg"]);
   });
+});
+
+const src = "https://res.cloudinary.com/demo/image/upload/v1/foto.jpg";
+afterEach(() => vi.unstubAllGlobals());
+it.each([undefined, "1"])(
+  "aborta al superar el máximo aunque content-length sea %s",
+  async (length) => {
+    const cancel = vi.fn();
+    const stream = new ReadableStream({
+      pull(controller) {
+        controller.enqueue(new Uint8Array(8 * 1024 * 1024));
+      },
+      cancel,
+    });
+    const response = new Response(stream, { headers: length ? { "content-length": length } : {} });
+    Object.defineProperty(response, "url", { value: src });
+    const fetcher = vi.fn(async () => response);
+    vi.stubGlobal("fetch", fetcher);
+    expect(await fetchImageBytes(src)).toBeNull();
+    expect(cancel).toHaveBeenCalledOnce();
+    const init = fetcher.mock.calls[0] as unknown as [string, RequestInit];
+    expect(init[1].signal?.aborted).toBe(true);
+  },
+);
+it("conserva los bytes de una imagen pequeña y omite cuerpos vacíos", async () => {
+  const response = new Response(new Uint8Array([1, 2, 3]));
+  Object.defineProperty(response, "url", { value: src });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => response),
+  );
+  expect(await fetchImageBytes(src)).toEqual(new Uint8Array([1, 2, 3]));
 });
