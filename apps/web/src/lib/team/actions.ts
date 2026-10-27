@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import type { Prisma } from "@escribiendo/database";
+import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { getSession } from "@/lib/auth/session";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { createSession, switchWorkspace } from "@/lib/auth/session";
@@ -412,6 +414,29 @@ export async function removeMemberAction(
  * Si quien acepta ya tiene cuenta, se le añade al estudio. Si no, se le crea
  * una con la política de contraseñas de la aplicación y se inicia sesión.
  */
+class InvitationUnavailableError extends Error {}
+
+async function claimInvitation(transaction: Prisma.TransactionClient, id: string): Promise<void> {
+  const now = new Date();
+  const result = await transaction.workspaceInvitation.updateMany({
+    where: { id, acceptedAt: null, revokedAt: null, expiresAt: { gt: now } },
+    data: { acceptedAt: now },
+  });
+  if (result.count !== 1) throw new InvitationUnavailableError();
+}
+
+function invitationFailure(error: unknown, context: RequestContext): ActionState {
+  if (error instanceof InvitationUnavailableError)
+    return errorState("La invitación ya no está disponible. Pide una nueva.");
+  if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") {
+    return errorState(
+      "No se puede crear una cuenta con ese correo. Inicia sesión o contacta con quien administra el estudio.",
+    );
+  }
+  logActionError("team.invitation_accept_error", context, error);
+  return errorState("No se ha podido aceptar la invitación. Inténtalo de nuevo.");
+}
+
 export async function acceptInvitationAction(
   _previousState: ActionState,
   formData: FormData,
@@ -423,6 +448,15 @@ export async function acceptInvitationAction(
   } catch {
     return errorState("No se ha podido validar la solicitud.");
   }
+
+  const limit = consumeRateLimit({
+    scope: "accept-invitation",
+    identifier: context.ip ?? "unknown",
+    limit: 10,
+    windowMs: 15 * 60_000,
+  });
+  if (!limit.allowed)
+    return errorState("Demasiados intentos desde esta conexión. Espera unos minutos.");
 
   const token = formValue(formData, "token");
   const tokenHash = hashToken(token);
@@ -470,28 +504,29 @@ export async function acceptInvitationAction(
       );
     }
 
-    await prisma.$transaction([
-      prisma.workspaceMember.upsert({
-        where: {
-          workspaceId_userId: {
+    try {
+      await prisma.$transaction(async (transaction) => {
+        await claimInvitation(transaction, invitation.id);
+        await transaction.workspaceMember.upsert({
+          where: {
+            workspaceId_userId: {
+              workspaceId: invitation.workspaceId,
+              userId: session.user.id,
+            },
+          },
+          create: {
             workspaceId: invitation.workspaceId,
             userId: session.user.id,
+            role: invitation.role,
           },
-        },
-        create: {
-          workspaceId: invitation.workspaceId,
-          userId: session.user.id,
-          role: invitation.role,
-        },
-        // Si la persona ya era miembro, se respeta su rol: una invitación no
-        // puede rebajar a nadie.
-        update: {},
-      }),
-      prisma.workspaceInvitation.update({
-        where: { id: invitation.id },
-        data: { acceptedAt: new Date() },
-      }),
-    ]);
+          // Si la persona ya era miembro, se respeta su rol: una invitación no
+          // puede rebajar a nadie.
+          update: {},
+        });
+      });
+    } catch (error) {
+      return invitationFailure(error, context);
+    }
 
     // La sesión pasa al estudio al que se acaba de entrar.
     await switchWorkspace(session, invitation.workspaceId);
@@ -538,32 +573,33 @@ export async function acceptInvitationAction(
 
   const passwordHash = await hashPassword(parsedPassword.data);
 
-  const userId = await prisma.$transaction(async (transaction) => {
-    const creado = await transaction.user.create({
-      data: {
-        email: invitation.email.toLowerCase(),
-        name: parsedName.data,
-        passwordHash,
-        role: "AUTHOR",
-      },
-      select: { id: true },
-    });
+  let userId: string;
+  try {
+    userId = await prisma.$transaction(async (transaction) => {
+      await claimInvitation(transaction, invitation.id);
+      const creado = await transaction.user.create({
+        data: {
+          email: invitation.email.toLowerCase(),
+          name: parsedName.data,
+          passwordHash,
+          role: "AUTHOR",
+        },
+        select: { id: true },
+      });
 
-    await transaction.workspaceMember.create({
-      data: {
-        workspaceId: invitation.workspaceId,
-        userId: creado.id,
-        role: invitation.role,
-      },
-    });
+      await transaction.workspaceMember.create({
+        data: {
+          workspaceId: invitation.workspaceId,
+          userId: creado.id,
+          role: invitation.role,
+        },
+      });
 
-    await transaction.workspaceInvitation.update({
-      where: { id: invitation.id },
-      data: { acceptedAt: new Date() },
+      return creado.id;
     });
-
-    return creado.id;
-  });
+  } catch (error) {
+    return invitationFailure(error, context);
+  }
 
   // La sesión nace en el estudio al que se ha invitado: si no, la persona
   // landing en el estudio más antiguo y no vería el nuevo.
