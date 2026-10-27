@@ -236,7 +236,7 @@ export async function replaceInBook(
 
         for (const { section, document } of planned) {
           const replaced = replaceDocument(document, built.pattern, replacement, {
-            literal: !parsed.data.regex,
+            literal: true,
           });
           const wordCount = countWordsInDocument(replaced.document);
           const nextVersion = section.version + 1;
@@ -292,7 +292,7 @@ export async function replaceInBook(
       metadata: {
         query: parsed.data.query,
         replacement,
-        regex: parsed.data.regex === true,
+        regex: false,
         caseSensitive: parsed.data.caseSensitive === true,
         wholeWord: parsed.data.wholeWord === true,
         sections: planned.length,

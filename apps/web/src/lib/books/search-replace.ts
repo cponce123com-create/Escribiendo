@@ -5,7 +5,7 @@ import type { TiptapDocument, TiptapNode } from "@escribiendo/book-schema";
  *
  * Solo se tocan los nodos de texto: la estructura, las marcas y los atributos
  * (notas al pie, imágenes, notas al margen) quedan intactos. La búsqueda es
- * literal por defecto; con `regex` se interpreta como expresión regular.
+ * siempre es literal: nunca se ejecutan expresiones aportadas por el usuario.
  */
 
 export const MAX_QUERY_LENGTH = 200;
@@ -77,7 +77,14 @@ export function buildSearchPattern(options: SearchReplaceOptions): PatternResult
     return { ok: false, error: `La búsqueda no puede superar los ${MAX_QUERY_LENGTH} caracteres.` };
   }
 
-  let source = options.regex ? query : escapeRegExp(query);
+  if (options.regex) {
+    return {
+      ok: false,
+      error: "Las expresiones regulares no están disponibles. Usa una búsqueda literal.",
+    };
+  }
+
+  let source = escapeRegExp(query);
 
   if (options.wholeWord) {
     source = `(?<![${WORD_CHAR}])${source}(?![${WORD_CHAR}])`;
@@ -157,14 +164,13 @@ export function searchDocument(
 /**
  * Reemplaza en los nodos de texto y devuelve un documento nuevo.
  *
- * En modo literal el reemplazo se inserta tal cual; en modo regex se admiten
- * referencias `$1` de JavaScript.
+ * El reemplazo se inserta siempre tal cual, sin interpretar referencias `$1`.
  */
 export function replaceDocument(
   document: TiptapDocument,
   pattern: RegExp,
   replacement: string,
-  options: { literal: boolean },
+  _options: { literal: boolean },
 ): DocumentReplaceResult {
   let replacements = 0;
 
@@ -177,9 +183,7 @@ export function replaceDocument(
 
     replacements += matches;
 
-    return options.literal
-      ? text.replace(clone(pattern), () => replacement)
-      : text.replace(clone(pattern), replacement);
+    return text.replace(clone(pattern), () => replacement);
   };
 
   const transform = (node: TiptapNode): TiptapNode => {
