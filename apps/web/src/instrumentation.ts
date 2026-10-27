@@ -55,6 +55,8 @@ export const onRequestError: Instrumentation.onRequestError = async (error, requ
 
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  const { getServerEnv } = await import("@/lib/env");
+  getServerEnv(); // Valida las claves obligatorias antes de aceptar solicitudes.
   const { warnIfMultipleProcesses } = await import("@/lib/security/rate-limit");
   warnIfMultipleProcesses(process.env.WEB_CONCURRENCY);
 }

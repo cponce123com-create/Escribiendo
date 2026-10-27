@@ -343,3 +343,13 @@ manuscritos, revisiones y auditoría. Un error registra solo su tipo, sin creden
 
 `WEB_CONCURRENCY>1` emite un aviso al arrancar Node: el límite por IP sigue siendo
 en memoria y requiere almacén compartido antes de usar varios procesos/instancias.
+
+### Clave obligatoria de exportación (AUD-08.3)
+
+Antes de desplegar esta corrección, añade `EXPORT_SIGNING_SECRET` en Render:
+al menos 32 caracteres aleatorios, independiente de la contraseña de Neon.
+`render.yaml` ya la declara con `sync: false`. El servidor de producción falla
+al arrancar si está ausente o es corta. La clave de ejemplo del workflow E2E
+solo sirve para datos desechables y no debe copiarse a producción. Rotar la
+clave invalida los enlaces de descarga anteriores; las exportaciones se pueden
+volver a descargar con una firma nueva. No hace falta migración.

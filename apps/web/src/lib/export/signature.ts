@@ -10,10 +10,8 @@ import { getServerEnv } from "@/lib/env";
  * guardó el trabajo. La descarga se protege con una firma de corta duración,
  * de modo que la dirección se pueda compartir un rato y luego deje de servir.
  *
- * La clave es `EXPORT_SIGNING_SECRET`. Si no está definida, se deriva de las
- * credenciales de la base de datos, que ya son un secreto y siempre están
- * presentes: así la función no depende de una variable que hay que recordar
- * configurar.
+ * La clave explícita EXPORT_SIGNING_SECRET es obligatoria en producción.
+ * El derivado de credenciales solo se conserva para desarrollo y pruebas.
  */
 
 /** Minutos de validez de una descarga firmada. */
@@ -45,6 +43,9 @@ function signingKey(): Buffer {
     cachedKey = createHash("sha256").update(`escribiendo-export:${configured}`).digest();
     return cachedKey;
   }
+
+  if (env.NODE_ENV === "production")
+    throw new Error("Configura EXPORT_SIGNING_SECRET antes de iniciar el servidor.");
 
   const secret = passwordFromDatabaseUrl(env.DATABASE_URL);
 

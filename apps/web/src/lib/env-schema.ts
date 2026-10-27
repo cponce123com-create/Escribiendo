@@ -34,29 +34,39 @@ const databaseUrlSchema = z
     "DATABASE_URL debe ser una URL de PostgreSQL.",
   );
 
-export const envSchema = z.object({
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  APP_URL: optionalEnv(z.string().url("APP_URL debe ser una URL absoluta.").optional()),
-  DATABASE_URL: databaseUrlSchema,
-  DIRECT_URL: optionalNonEmpty,
-  SETUP_TOKEN: optionalEnv(z.string().min(32).max(256).optional()),
-  SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(14),
-  TRUSTED_PROXY_HOPS: optionalEnv(z.coerce.number().int().min(0).default(1)),
-  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).optional(),
-  RATE_LIMIT_LOGIN_ATTEMPTS: z.coerce.number().int().min(1).max(1000).optional(),
-  RATE_LIMIT_LOGIN_WINDOW_MINUTES: z.coerce.number().int().min(1).max(1440).optional(),
-  CLOUDINARY_CLOUD_NAME: optionalNonEmpty,
-  CLOUDINARY_API_KEY: optionalNonEmpty,
-  CLOUDINARY_API_SECRET: optionalNonEmpty,
-  CLOUDINARY_UPLOAD_FOLDER: optionalEnv(
-    z
-      .string()
-      .trim()
-      .regex(/^[a-z0-9][a-z0-9/_-]{2,120}$/u, "La carpeta de Cloudinary no es válida.")
-      .default("escribiendo"),
-  ),
-  EXPORT_SIGNING_SECRET: optionalEnv(z.string().min(32).max(256).optional()),
-});
+export const envSchema = z
+  .object({
+    NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+    APP_URL: optionalEnv(z.string().url("APP_URL debe ser una URL absoluta.").optional()),
+    DATABASE_URL: databaseUrlSchema,
+    DIRECT_URL: optionalNonEmpty,
+    SETUP_TOKEN: optionalEnv(z.string().min(32).max(256).optional()),
+    SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(14),
+    TRUSTED_PROXY_HOPS: optionalEnv(z.coerce.number().int().min(0).default(1)),
+    LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).optional(),
+    RATE_LIMIT_LOGIN_ATTEMPTS: z.coerce.number().int().min(1).max(1000).optional(),
+    RATE_LIMIT_LOGIN_WINDOW_MINUTES: z.coerce.number().int().min(1).max(1440).optional(),
+    CLOUDINARY_CLOUD_NAME: optionalNonEmpty,
+    CLOUDINARY_API_KEY: optionalNonEmpty,
+    CLOUDINARY_API_SECRET: optionalNonEmpty,
+    CLOUDINARY_UPLOAD_FOLDER: optionalEnv(
+      z
+        .string()
+        .trim()
+        .regex(/^[a-z0-9][a-z0-9/_-]{2,120}$/u, "La carpeta de Cloudinary no es válida.")
+        .default("escribiendo"),
+    ),
+    EXPORT_SIGNING_SECRET: optionalEnv(z.string().min(32).max(256).optional()),
+  })
+  .superRefine((env, context) => {
+    if (env.NODE_ENV === "production" && !env.EXPORT_SIGNING_SECRET) {
+      context.addIssue({
+        code: "custom",
+        path: ["EXPORT_SIGNING_SECRET"],
+        message: "EXPORT_SIGNING_SECRET es obligatoria en producción (mínimo 32 caracteres).",
+      });
+    }
+  });
 
 export type ServerEnv = z.infer<typeof envSchema>;
 
