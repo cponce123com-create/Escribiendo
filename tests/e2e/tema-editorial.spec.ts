@@ -28,7 +28,14 @@ test("tema compartido, búsqueda real, menú retráctil y guía", async ({ page 
   }
   await page.goto("/dashboard");
   await page.screenshot({ path: info.outputPath("panel-escritorio.png"), fullPage: true });
-  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
+  await page.evaluate(async () => {
+    document.documentElement.setAttribute("data-theme", "dark");
+    // El cambio de tema dispara transiciones de color: auditar antes de que
+    // terminen mide colores intermedios y produce falsos positivos.
+    await Promise.all(
+      document.getAnimations().map((animation) => animation.finished.catch(() => undefined)),
+    );
+  });
   expect(resume((await auditar(page)).graves, "panel oscuro")).toEqual([]);
   await page.screenshot({ path: info.outputPath("panel-oscuro.png"), fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });

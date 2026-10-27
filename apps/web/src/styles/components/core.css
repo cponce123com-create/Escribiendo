@@ -873,6 +873,11 @@
     border-top: 0;
   }
 
+  /* Un nombre o un correo sin espacios no debe ensanchar la fila en móvil. */
+  .activity-row p {
+    overflow-wrap: anywhere;
+  }
+
   .timeline-row {
     display: grid;
     grid-template-columns: 1.5rem 1fr auto;
