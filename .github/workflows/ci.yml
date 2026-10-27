@@ -49,7 +49,10 @@ jobs:
       - name: Pruebas unitarias
         run: pnpm test
 
-      - name: Correspondencia estructural de vista previa y PDF
+      - name: Lector externo de PDF
+        run: pnpm --dir scripts/pdfjs install --frozen-lockfile
+
+      - name: Correspondencia de vista previa y PDF
         run: pnpm verify:preview-pdf
 
       - name: Compilación de producción

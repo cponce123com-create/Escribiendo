@@ -386,6 +386,7 @@ pnpm build          # Compilación de producción
 pnpm bench:export   # Banco de composición y exportación
 pnpm stress:export  # Banco de esfuerzo: 200 000 palabras, 80 imágenes y 500 notas
 pnpm check:size      # Presupuesto de JavaScript del cliente y estáticos públicos
+pnpm verify:preview-pdf # Vista previa y PDF: mismas páginas y mismo texto (necesita scripts/pdfjs)
 pnpm validate:epub  # EPUB con EPUBCheck (necesita EPUBCHECK_JAR)
 pnpm validate:docx  # DOCX con un lector externo (necesita DOCX_VALIDATOR)
 pnpm validate:pdf   # PDF con un lector externo (necesita PDF_VALIDATOR)

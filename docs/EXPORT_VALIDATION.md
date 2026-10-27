@@ -76,6 +76,14 @@ En `packages/export-engine/src/pdf.test.ts` (18 casos),
 | Los flujos van comprimidos con `/Filter /FlateDecode`                            | Cumplido                |
 | La tabla de anchos y el mapa `ToUnicode` se pueden desplegar y leer              | Cumplido                |
 
+Además, `pnpm verify:preview-pdf` compone un libro sintético, genera el PDF con
+el mismo motor y lo lee con pdf.js: exige el mismo número de páginas y que el
+texto de cada página coincida con lo compuesto. La comparación ignora los
+espacios —el lector reparte las mismas letras en otros tramos— pero detecta
+cualquier carácter perdido, duplicado o fuera de orden, y es la única
+comprobación que no depende del motor de escritura. La ejecuta la integración
+continua en `.github/workflows/ci.yml`.
+
 ### Imágenes
 
 - `prepareImageAsset` convierte a JPEG RGB con `sharp`, corrige la orientación
