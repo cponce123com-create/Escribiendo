@@ -45,8 +45,38 @@ export function ManuscriptSidebar({
   const [deletingNode, setDeletingNode] = useState<SectionNode | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const openMenuRef = useRef<HTMLDivElement | null>(null);
+  const treeRef = useRef<HTMLDivElement | null>(null);
   const flat = flattenSectionTree(nodes);
   const chapters = flat.filter((node) => node.type === "CHAPTER");
+  /**
+   * El índice tiene su propio scroll. Al abrir un capítulo hay que llevarlo a
+   * la vista: en un libro largo el árbol se quedaba siempre al principio y
+   * había que buscar a mano la sección que se estaba editando.
+   */
+  useEffect(() => {
+    if (collapsed) return;
+
+    const tree = treeRef.current;
+    const activeRow = tree?.querySelector<HTMLElement>(".studio-section-row.is-current");
+
+    if (!activeRow) return;
+
+    // Un grupo cerrado por el usuario escondería la fila; se abre antes de
+    // medir para que el desplazamiento apunte a la posición definitiva.
+    let group = activeRow.closest("details");
+
+    while (group) {
+      group.open = true;
+      group = group.parentElement?.closest("details") ?? null;
+    }
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const frame = window.requestAnimationFrame(() => {
+      activeRow.scrollIntoView({ block: "center", behavior: reduceMotion ? "auto" : "smooth" });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeSectionId, collapsed]);
   useEffect(() => {
     if (!openMenuId) return;
     const closeOnOutsideTap = (event: PointerEvent): void => {
@@ -309,7 +339,7 @@ export function ManuscriptSidebar({
           >
             Laboratorio Editorial →
           </Link>
-          <div id="studio-chapter-tree" className="studio-chapter-tree">
+          <div id="studio-chapter-tree" ref={treeRef} className="studio-chapter-tree">
             {groupSections(nodes).map((group) => (
               <details className="studio-section-group" key={group.label} open>
                 <summary>
