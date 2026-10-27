@@ -11,7 +11,7 @@
   },
   "scripts": {
     "dev": "pnpm db:generate && pnpm --filter @escribiendo/web dev",
-    "build": "pnpm db:generate && pnpm --filter @escribiendo/web build",
+    "build": "pnpm db:generate && NODE_ENV=production pnpm --filter @escribiendo/web build",
     "start": "pnpm --filter @escribiendo/web start",
     "lint": "eslint .",
     "typecheck": "pnpm --recursive --if-present typecheck && tsc --noEmit -p tsconfig.json",

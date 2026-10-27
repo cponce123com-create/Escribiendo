@@ -36,9 +36,14 @@ falla al prerenderizar `/_global-error` con `Cannot read properties of null
 espera el de producción. La pista es el aviso «non-standard NODE_ENV value» al
 inicio del build.
 
+`pnpm build` fija `NODE_ENV=production` explícitamente, así que es seguro aunque
+el shell lo exporte. La precaución solo aplica si se invoca `next build` a mano
+o si el `.env` define `NODE_ENV` (el archivo de ejemplo ya no lo hace):
+
 ```bash
-echo $NODE_ENV          # debe estar vacío o valer production
-env -u NODE_ENV pnpm build
+echo $NODE_ENV          # puede estar vacío o valer development
+pnpm build              # correcto: el script fija production
+env -u NODE_ENV pnpm --filter @escribiendo/web build
 ```
 
 En CI no ocurre porque la variable no está definida en el runner.
