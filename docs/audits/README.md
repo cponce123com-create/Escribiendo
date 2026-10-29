@@ -1,5 +1,9 @@
 # Índice de auditorías
 
+## Vigente para evaluación por módulos
+
+[Auditoría por módulos, 2026-10-29](modulos-2026-10-29.md). Puntajes provisionales con evidencia, fallos abiertos y límites de validación.
+
 ## Vigente para seguridad y fiabilidad
 
 [Correcciones AUD-01 a AUD-08, 2026-10-27](seguridad-2026-10-27.md). Estado de pruebas y límites en el propio informe. No equivale a una nueva calificación global.
