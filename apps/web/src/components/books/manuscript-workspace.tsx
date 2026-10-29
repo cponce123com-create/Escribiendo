@@ -1,6 +1,13 @@
 "use client";
 
 import { createContext, useSyncExternalStore, type ReactNode } from "react";
+import { StudioIcon } from "./studio-icon";
+import {
+  COMPACT_EDITOR_QUERY,
+  editorPanelCollapsed,
+  editorPanelKey,
+  type EditorPanel,
+} from "@/lib/ui/editor-panels";
 import { ManuscriptSidebar } from "@/components/books/manuscript-sidebar";
 import type { SectionNode } from "@/lib/books/section-tree";
 
@@ -9,49 +16,49 @@ export const InspectorPanelContext = createContext<{
   toggle: () => void;
 }>({ collapsed: false, toggle: () => undefined });
 
-const INSPECTOR_PREFERENCE_KEY = "escribiendo-inspector-collapsed";
-const INSPECTOR_PREFERENCE_EVENT = "escribiendo-inspector-change";
-let fallbackInspectorCollapsed = false;
+const PANEL_EVENT = "escribiendo-editor-panels-change";
+const fallback = new Map<string, boolean>();
 
-function readInspectorPreference(): boolean {
+function compactViewport(): boolean {
+  return window.matchMedia(COMPACT_EDITOR_QUERY).matches;
+}
+
+function readPanel(panel: EditorPanel): boolean {
+  const compact = compactViewport();
+  const key = editorPanelKey(panel, compact);
   try {
-    return window.localStorage.getItem(INSPECTOR_PREFERENCE_KEY) === "true";
+    return editorPanelCollapsed(window.localStorage.getItem(key), compact);
   } catch {
-    return fallbackInspectorCollapsed;
+    return fallback.get(key) ?? compact;
   }
 }
 
-function subscribeToInspectorPreference(onChange: () => void): () => void {
+function subscribeToPanels(onChange: () => void): () => void {
+  const media = window.matchMedia(COMPACT_EDITOR_QUERY);
   window.addEventListener("storage", onChange);
-  window.addEventListener(INSPECTOR_PREFERENCE_EVENT, onChange);
-
+  window.addEventListener(PANEL_EVENT, onChange);
+  media.addEventListener("change", onChange);
   return () => {
     window.removeEventListener("storage", onChange);
-    window.removeEventListener(INSPECTOR_PREFERENCE_EVENT, onChange);
+    window.removeEventListener(PANEL_EVENT, onChange);
+    media.removeEventListener("change", onChange);
   };
 }
 
-const SIDEBAR_PREFERENCE_KEY = "escribiendo-manuscript-sidebar-collapsed";
-const SIDEBAR_PREFERENCE_EVENT = "escribiendo-manuscript-sidebar-change";
-let fallbackCollapsed = false;
-
-function readSidebarPreference(): boolean {
+function togglePanel(panel: EditorPanel, current: boolean): void {
+  const key = editorPanelKey(panel, compactViewport());
+  fallback.set(key, !current);
   try {
-    return window.localStorage.getItem(SIDEBAR_PREFERENCE_KEY) === "true";
+    window.localStorage.setItem(key, String(!current));
   } catch {
-    return fallbackCollapsed;
+    // La sesión conserva el estado aunque el navegador bloquee localStorage.
   }
+  window.dispatchEvent(new Event(PANEL_EVENT));
 }
 
-function subscribeToSidebarPreference(onChange: () => void): () => void {
-  window.addEventListener("storage", onChange);
-  window.addEventListener(SIDEBAR_PREFERENCE_EVENT, onChange);
-
-  return () => {
-    window.removeEventListener("storage", onChange);
-    window.removeEventListener(SIDEBAR_PREFERENCE_EVENT, onChange);
-  };
-}
+const readChapters = () => readPanel("chapters");
+const readInspector = () => readPanel("inspector");
+const serverSnapshot = () => false;
 
 interface ManuscriptWorkspaceProps {
   bookId: string;
@@ -75,41 +82,10 @@ export function ManuscriptWorkspace({
   editor,
   details,
 }: ManuscriptWorkspaceProps) {
-  const collapsed = useSyncExternalStore(
-    subscribeToSidebarPreference,
-    readSidebarPreference,
-    () => false,
-  );
-
-  const inspectorCollapsed = useSyncExternalStore(
-    subscribeToInspectorPreference,
-    readInspectorPreference,
-    () => false,
-  );
-
-  const toggleSidebar = (): void => {
-    fallbackCollapsed = !collapsed;
-
-    try {
-      window.localStorage.setItem(SIDEBAR_PREFERENCE_KEY, String(fallbackCollapsed));
-    } catch {
-      // La preferencia no puede actualizarse si el navegador bloquea el almacenamiento local.
-    }
-
-    window.dispatchEvent(new Event(SIDEBAR_PREFERENCE_EVENT));
-  };
-
-  const toggleInspector = (): void => {
-    fallbackInspectorCollapsed = !inspectorCollapsed;
-
-    try {
-      window.localStorage.setItem(INSPECTOR_PREFERENCE_KEY, String(fallbackInspectorCollapsed));
-    } catch {
-      // La preferencia no puede actualizarse si el navegador bloquea el almacenamiento local.
-    }
-
-    window.dispatchEvent(new Event(INSPECTOR_PREFERENCE_EVENT));
-  };
+  const collapsed = useSyncExternalStore(subscribeToPanels, readChapters, serverSnapshot);
+  const inspectorCollapsed = useSyncExternalStore(subscribeToPanels, readInspector, serverSnapshot);
+  const toggleSidebar = () => togglePanel("chapters", collapsed);
+  const toggleInspector = () => togglePanel("inspector", inspectorCollapsed);
 
   return (
     <div
@@ -117,6 +93,25 @@ export function ManuscriptWorkspace({
         inspectorCollapsed ? "studio-workspace--inspector-collapsed" : ""
       }`}
     >
+      <nav className="studio-mobile-panels" aria-label="Paneles del editor">
+        <button
+          type="button"
+          onClick={toggleSidebar}
+          aria-expanded={!collapsed}
+          aria-controls="studio-manuscript-navigation"
+        >
+          <StudioIcon name="book" /> Capítulos
+        </button>
+        <span>Espacio de escritura</span>
+        <button
+          type="button"
+          onClick={toggleInspector}
+          aria-expanded={!inspectorCollapsed}
+          aria-controls="studio-editorial-panel"
+        >
+          <StudioIcon name="settings" /> Herramientas
+        </button>
+      </nav>
       <ManuscriptSidebar
         bookId={bookId}
         nodes={nodes}
@@ -127,14 +122,14 @@ export function ManuscriptWorkspace({
         collapsed={collapsed}
         onToggle={toggleSidebar}
       />
-      <section className="studio-writing-column min-w-0" aria-label="Manuscrito">
-        {editor}
-      </section>
       <InspectorPanelContext.Provider
         value={{ collapsed: inspectorCollapsed, toggle: toggleInspector }}
       >
         {details}
       </InspectorPanelContext.Provider>
+      <section className="studio-writing-column min-w-0" aria-label="Manuscrito">
+        {editor}
+      </section>
     </div>
   );
 }

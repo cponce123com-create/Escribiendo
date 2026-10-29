@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { Dialog } from "@/components/forms/dialog";
 import {
   searchBookManuscriptAction,
   replaceBookManuscriptAction,
@@ -13,6 +14,7 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
   const [replacement, setReplacement] = useState("");
   const [matches, setMatches] = useState<ManuscriptMatch[]>([]);
   const [message, setMessage] = useState("");
+  const [confirming, setConfirming] = useState(false);
   const searchRequest = useRef(0);
   const [pending, startTransition] = useTransition();
   const total = useMemo(() => matches.reduce((sum, item) => sum + item.count, 0), [matches]);
@@ -52,22 +54,25 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
   const replaceAll = (): void => {
     const activeEditor = document.querySelector('.manuscript-editor[data-dirty="true"]');
     if (activeEditor) {
+      setConfirming(false);
       setMessage("Guarda primero los cambios pendientes del capítulo abierto.");
       return;
     }
-    if (
-      !total ||
-      pending ||
-      !window.confirm(
-        `Se reemplazarán ${total} coincidencias en todo el libro. Guarda primero los cambios pendientes del capítulo abierto. ¿Continuar?`,
-      )
-    )
-      return;
+    if (!total || pending) return;
+    setConfirming(false);
     startTransition(async () => {
-      const result = await replaceBookManuscriptAction(bookId, query, replacement);
-      setMessage(result.error ?? `Se reemplazaron ${result.count} coincidencias en todo el libro.`);
-      setReplacement("");
-      if (result.count > 0 && !result.error) window.location.reload();
+      try {
+        const result = await replaceBookManuscriptAction(bookId, query, replacement);
+        setMessage(
+          result.error ?? `Se reemplazaron ${result.count} coincidencias en todo el libro.`,
+        );
+        if (!result.error) setReplacement("");
+        if (result.count > 0 && !result.error) window.location.reload();
+      } catch {
+        setMessage(
+          "No se pudo confirmar el reemplazo. Vuelve a buscar antes de intentarlo otra vez.",
+        );
+      }
     });
   };
 
@@ -106,7 +111,7 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
             type="button"
             className="btn btn-secondary btn-sm"
             disabled={!total || pending}
-            onClick={replaceAll}
+            onClick={() => setConfirming(true)}
           >
             Reemplazar todo
           </button>
@@ -131,6 +136,40 @@ export function ManuscriptSearchPanel({ bookId, canEdit }: { bookId: string; can
             </li>
           ))}
         </ul>
+      ) : null}
+      {confirming ? (
+        <Dialog
+          abierto
+          titulo="Reemplazar en todo el libro"
+          descripcion={`Se reemplazarán ${total} coincidencias. Se guardará una revisión de cada sección modificada.`}
+          onCerrar={() => setConfirming(false)}
+        >
+          <p className="text-sm text-ink-soft">
+            Busca: <strong className="break-words">{query}</strong>
+          </p>
+          <p className="text-sm text-ink-soft">
+            Reemplaza por:{" "}
+            <strong className="break-words">{replacement || "(eliminar el texto)"}</strong>
+          </p>
+          <p className="text-sm text-ink-soft">Guarda primero los cambios del capítulo abierto.</p>
+          <div className="flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setConfirming(false)}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={pending}
+              onClick={replaceAll}
+            >
+              Confirmar reemplazo
+            </button>
+          </div>
+        </Dialog>
       ) : null}
     </section>
   );

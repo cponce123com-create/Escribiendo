@@ -298,47 +298,47 @@ export function ManuscriptSidebar({
   );
   return (
     <aside
+      id="studio-manuscript-navigation"
       className="manuscript-navigation studio-manuscript-nav"
       aria-label="Navegación del manuscrito"
       data-collapsed={collapsed}
     >
-      <button
-        type="button"
-        className="studio-collapse"
-        aria-label={
-          collapsed ? "Mostrar navegación del manuscrito" : "Ocultar navegación del manuscrito"
-        }
-        title={collapsed ? "Mostrar capítulos" : "Ocultar capítulos"}
-        aria-expanded={!collapsed}
-        aria-controls="studio-chapter-tree"
-        onClick={onToggle}
-      >
-        <StudioIcon name="chevrons" />
-      </button>
+      <header>
+        {!collapsed ? <h2>Manuscrito</h2> : null}
+        {!collapsed && canCreate ? (
+          <button
+            type="button"
+            className="studio-add-section"
+            title="Añadir sección"
+            onClick={() => setAdding(true)}
+          >
+            <StudioIcon name="plus" /> <span className="sr-only">Añadir</span>
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="studio-collapse"
+          aria-label={
+            collapsed ? "Mostrar navegación del manuscrito" : "Ocultar navegación del manuscrito"
+          }
+          title={collapsed ? "Mostrar capítulos" : "Ocultar capítulos"}
+          aria-expanded={!collapsed}
+          aria-controls="studio-chapter-tree"
+          onClick={onToggle}
+        >
+          <StudioIcon name="chevrons" />
+        </button>
+      </header>
       {!collapsed ? (
         <>
-          <header>
-            <h2>Manuscrito</h2>
-            {canCreate ? (
-              <button type="button" className="studio-add-section" onClick={() => setAdding(true)}>
-                <StudioIcon name="plus" />
-                Añadir
-              </button>
-            ) : null}
-          </header>
-          <Link
-            className="mb-3 inline-flex text-xs font-semibold text-accent underline-offset-2 hover:underline"
-            href={`/characters?book=${bookId}`}
-          >
-            Personajes del libro →
-          </Link>
-          <Link
-            className="mt-2 block text-xs text-ink-soft underline underline-offset-4"
-            href={`/books/${bookId}/laboratorio`}
-            prefetch={false}
-          >
-            Laboratorio Editorial →
-          </Link>
+          <nav className="studio-sidebar-shortcuts" aria-label="Herramientas del libro">
+            <Link href={`/characters?book=${bookId}`}>
+              <StudioIcon name="note" /> Personajes del libro
+            </Link>
+            <Link href={`/books/${bookId}/laboratorio`} prefetch={false}>
+              <StudioIcon name="search" /> Laboratorio editorial
+            </Link>
+          </nav>
           <div id="studio-chapter-tree" ref={treeRef} className="studio-chapter-tree">
             {groupSections(nodes).map((group) => (
               <details className="studio-section-group" key={group.label} open>
@@ -352,16 +352,16 @@ export function ManuscriptSidebar({
                   </span>
                 </summary>
                 {group.label === "Preliminares" ? (
-                  <div className="space-y-2 py-2">
+                  <div className="studio-matter-shortcuts">
                     <Link
-                      className="studio-group-empty block underline"
+                      className="studio-matter-link"
                       prefetch={false}
                       href={editorialGalleryHref(bookId, "legal")}
                     >
                       Página legal · Plantillas
                     </Link>
                     <Link
-                      className="studio-group-empty block underline"
+                      className="studio-matter-link"
                       prefetch={false}
                       href={editorialGalleryHref(bookId, "toc")}
                     >

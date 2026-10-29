@@ -11,7 +11,7 @@ test("estudio de referencia: búsqueda, paneles, notas, concentración y diseño
   await page.getByLabel("Autoría").fill("Autora de pruebas");
   await page.getByRole("button", { name: "Crear libro" }).click();
   await expect(page.getByRole("heading", { name: title })).toBeVisible();
-  await page.getByLabel("Título de la sección").fill("Al borde del abismo");
+  await page.getByLabel("Título de la sección").fill("PRÓLOGO — La última vez que escuché su voz");
   await page.getByLabel("Tipo").selectOption("CHAPTER");
   await page.getByRole("button", { name: "Añadir sección" }).click();
   await expect(page.locator(".ProseMirror")).toBeVisible();
@@ -37,11 +37,28 @@ test("estudio de referencia: búsqueda, paneles, notas, concentración y diseño
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Desarrollar la atmósfera" })).toBeVisible();
   await page.reload();
+  await page.getByRole("tab", { name: "Notas", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Desarrollar la atmósfera" })).toBeVisible();
   await page.getByRole("tab", { name: "Detalles" }).click();
   await expect(page.getByRole("heading", { name: "Detalles del capítulo" })).toBeVisible();
   await page.getByRole("tab", { name: "Historial", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Aplicar sugerencia" })).toBeDisabled();
+  await expect(page.getByRole("heading", { name: "Revisiones", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Buscar en el libro" })).toHaveCount(0);
+  await page.getByRole("tab", { name: "Buscar", exact: true }).click();
+  await page.getByRole("searchbox", { name: "Palabra o frase", exact: true }).fill("tormenta");
+  await expect(page.getByRole("button", { name: "Reemplazar todo", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Reemplazar todo", exact: true }).click();
+  const confirmation = page.getByRole("dialog", { name: "Reemplazar en todo el libro" });
+  await expect(confirmation).toBeVisible();
+  await confirmation.getByRole("button", { name: "Cancelar", exact: true }).click();
+  await expect(manuscript).toHaveText(original);
+  await page.getByRole("searchbox", { name: "Palabra o frase", exact: true }).fill("");
+  const sidebarTitle = page.locator(".studio-manuscript-nav h2");
+  expect(await sidebarTitle.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
+    true,
+  );
+  expect((await page.locator(".studio-chapter-hero").boundingBox())!.height).toBeLessThan(240);
+  expect((await page.locator(".studio-writing-column").boundingBox())!.width).toBeGreaterThan(700);
   await page.getByRole("button", { name: "Ampliar editor" }).click();
   await expect(page.getByRole("button", { name: "Salir del modo concentración" })).toHaveAttribute(
     "aria-pressed",
@@ -55,12 +72,29 @@ test("estudio de referencia: búsqueda, paneles, notas, concentración y diseño
   await page.screenshot({ path: info.outputPath("estudio-escritorio.png"), fullPage: true });
   const violations = await auditar(page);
   expect(violations.graves, resume(violations.graves, page.url()).join("\n")).toEqual([]);
-  for (const width of [1280, 768, 390]) {
+  for (const width of [1280, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     await expect(manuscript).toBeVisible();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
   }
+  const mobilePanels = page.getByRole("navigation", { name: "Paneles del editor", exact: true });
+  await expect(
+    mobilePanels.getByRole("button", { name: "Capítulos", exact: true }),
+  ).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator("#studio-manuscript-navigation")).toBeHidden();
+  await expect(page.locator("#studio-editorial-panel")).toBeHidden();
+  expect((await manuscript.boundingBox())!.y).toBeLessThan(820);
+  await mobilePanels.getByRole("button", { name: "Capítulos", exact: true }).click();
+  await expect(page.locator("#studio-manuscript-navigation")).toBeVisible();
+  await mobilePanels.getByRole("button", { name: "Capítulos", exact: true }).click();
+  await mobilePanels.getByRole("button", { name: "Herramientas", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Buscar en el libro", exact: true }),
+  ).toBeVisible();
+  await mobilePanels.getByRole("button", { name: "Herramientas", exact: true }).click();
+  await expect(page.locator("#studio-editorial-panel")).toBeHidden();
+  await page.setViewportSize({ width: 390, height: 900 });
   await page.screenshot({ path: info.outputPath("estudio-movil.png"), fullPage: true });
 });

@@ -14,7 +14,7 @@ import { StudioIcon } from "./studio-icon";
 import { ManuscriptSearchPanel } from "@/components/books/manuscript-search-panel";
 import { InspectorPanelContext } from "@/components/books/manuscript-workspace";
 
-const TABS = ["Historial", "Notas", "Detalles"] as const;
+const TABS = ["Buscar", "Historial", "Notas", "Detalles"] as const;
 
 export function StudioInspector({
   history,
@@ -31,7 +31,7 @@ export function StudioInspector({
   notes: NoteSummary[];
   canEdit: boolean;
 }) {
-  const [tab, setTab] = useState<(typeof TABS)[number]>("Historial");
+  const [tab, setTab] = useState<(typeof TABS)[number]>("Buscar");
   const { collapsed: panelCollapsed, toggle: togglePanel } = useContext(InspectorPanelContext);
   const [adding, setAdding] = useState(false);
   const router = useRouter();
@@ -49,6 +49,7 @@ export function StudioInspector({
   const historyHref = `/books/${bookId}/sections/${sectionId}/history`;
   return (
     <aside
+      id="studio-editorial-panel"
       className={`studio-inspector ${panelCollapsed ? "studio-inspector--collapsed" : ""}`}
       aria-label="Panel editorial"
       data-collapsed={panelCollapsed}
@@ -75,7 +76,6 @@ export function StudioInspector({
           <StudioIcon name="chevrons" />
         </button>
       </header>
-      <ManuscriptSearchPanel bookId={bookId} canEdit={canEdit} />
       <div className="studio-tabs" role="tablist" aria-label="Información editorial">
         {TABS.map((label, index) => (
           <button
@@ -110,6 +110,7 @@ export function StudioInspector({
         aria-labelledby={`studio-tab-${TABS.indexOf(tab)}`}
         tabIndex={0}
       >
+        {tab === "Buscar" ? <ManuscriptSearchPanel bookId={bookId} canEdit={canEdit} /> : null}
         {tab === "Historial" ? (
           <section className="studio-card studio-revisions">
             <header>
@@ -133,26 +134,7 @@ export function StudioInspector({
             {details}
           </section>
         ) : null}
-        {tab === "Historial" ? (
-          <section className="studio-card studio-assistant" aria-label="Asistente de escritura IA">
-            <header>
-              <h2>Asistente de escritura IA</h2>
-              <span className="studio-beta">BETA</span>
-            </header>
-            <div className="studio-suggestion">
-              <StudioIcon name="bulb" />
-              <div>
-                <h3>Sugerencia de estilo</h3>
-                <p>Conecta un servicio de IA para recibir sugerencias sobre tu escritura.</p>
-                <button type="button" disabled title="Pendiente de conectar un proveedor de IA">
-                  Aplicar sugerencia
-                </button>
-                <small>Pendiente de configurar</small>
-              </div>
-            </div>
-          </section>
-        ) : null}
-        {tab !== "Detalles" ? (
+        {tab === "Notas" ? (
           <section className="studio-card studio-notes">
             <header>
               <h2>Notas rápidas</h2>
