@@ -359,7 +359,11 @@ test.describe("Maquetación", () => {
   }) => {
     await page.goto("/books");
     await page.getByRole("link", { name: BOOK_TITLE }).click();
-    await page.getByRole("link", { name: "Continuar escribiendo" }).click();
+    await expect(page.getByRole("heading", { name: BOOK_TITLE, exact: true })).toBeVisible();
+    await page
+      .getByRole("navigation", { name: "Acciones del libro" })
+      .getByRole("link", { name: "Continuar escribiendo", exact: true })
+      .click();
     await expect(page.locator(".ProseMirror")).toBeVisible();
     await page.getByRole("link", { name: "Página legal · Plantillas", exact: true }).click();
     await expect(page).toHaveURL(/\/edicion#legal-title$/u);
