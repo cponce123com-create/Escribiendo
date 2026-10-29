@@ -130,6 +130,9 @@
   padding: 16px;
   min-width: 0;
 }
+.editorial-studio .studio-writing-column:has(.is-focused) {
+  padding: 20px max(20px, calc((100vw - 980px) / 2));
+}
 .editorial-studio .studio-chapter-hero {
   min-height: 0;
   padding: 20px 24px 16px;
@@ -375,6 +378,12 @@
     gap: 8px;
     font-size: 9px;
     letter-spacing: 0.12em;
+  }
+  .editorial-studio .studio-chapter-eyebrow {
+    color: var(--ink-soft);
+  }
+  .editorial-studio .studio-chapter-eyebrow > span:first-child {
+    color: var(--accent-strong);
   }
   .editorial-studio .studio-chapter-hero,
   .editorial-studio .studio-chapter-hero .studio-chapter-title,

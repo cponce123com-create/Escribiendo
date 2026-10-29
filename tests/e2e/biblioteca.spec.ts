@@ -131,7 +131,8 @@ test.describe("Biblioteca", () => {
     await expect(page.getByText("Guardado en el servidor.")).toBeVisible();
     await expect(page.getByText(/5 palabras/).first()).toBeVisible();
 
-    // La revisión aparece en el historial.
+    // La revisión aparece en su pestaña; la búsqueda es la herramienta inicial.
+    await page.getByRole("tab", { name: "Historial", exact: true }).click();
     await expect(page.getByText("Guardado manual").first()).toBeVisible();
   });
 
@@ -160,6 +161,7 @@ test.describe("Biblioteca", () => {
     await page.getByRole("button", { name: "Guardar manuscrito" }).click();
     await expect(page.getByText("Guardado en el servidor.")).toBeVisible();
 
+    await page.getByRole("tab", { name: "Historial", exact: true }).click();
     await expect(page.getByText("Guardado manual").first()).toBeVisible();
     // Dos revisiones guardadas: la segunda junto a la primera.
     await expect(page.getByText("Guardado manual")).toHaveCount(2);
@@ -172,6 +174,7 @@ test.describe("Biblioteca", () => {
     await page.getByRole("link", { name: BOOK_TITLE }).click();
     await page.getByRole("link", { name: SECTION_TITLE }).click();
 
+    await page.getByRole("tab", { name: "Historial", exact: true }).click();
     const revisions = page.locator("ol li");
     await expect(revisions).toHaveCount(2);
 
