@@ -4,6 +4,7 @@ import { compareEditorialSections } from "./reading-order";
 import { withSerializableRetry } from "./serializable";
 import { recomputeBookTotals } from "./statistics";
 import { createHash } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -686,6 +687,30 @@ export async function saveSectionAction(
     return errorState("La sección no existe en este espacio de trabajo.");
   }
 
+  let document: TiptapDocument;
+
+  try {
+    document = parseTiptapDocument(JSON.parse(formValue(formData, "content")));
+  } catch (error) {
+    return errorState(
+      error instanceof Error ? error.message : "El contenido del manuscrito no es válido.",
+    );
+  }
+
+  // Un reintento tras el envío de salida o un remontaje puede llegar con
+  // una versión anterior pero exactamente el contenido ya persistido. Se
+  // confirma esa versión sin crear otra revisión ni fabricar un conflicto.
+  if (expectedVersion.data < section.version && isDeepStrictEqual(document, section.content)) {
+    return {
+      status: "success",
+      message: "El contenido ya está guardado en el servidor.",
+      savedVersion: section.version,
+      analysisTaskId: null,
+      throttled: false,
+      conflict: null,
+    };
+  }
+
   // Control de concurrencia: si la sección cambió desde que el editor cargó
   // el contenido, guardar la pisaría. En lugar de eso se devuelven las dos
   // versiones para que la persona elija cuál conservar. La única forma de
@@ -729,16 +754,6 @@ export async function saveSectionAction(
         savedVersion: null,
       };
     }
-  }
-
-  let document: TiptapDocument;
-
-  try {
-    document = parseTiptapDocument(JSON.parse(formValue(formData, "content")));
-  } catch (error) {
-    return errorState(
-      error instanceof Error ? error.message : "El contenido del manuscrito no es válido.",
-    );
   }
 
   let guardada: { version: number; wordCount: number };

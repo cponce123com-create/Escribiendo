@@ -169,17 +169,18 @@ export function SectionEditor({
   const localVersionRef = useRef(0);
   /** Número de la petición en curso: descarta respuestas fuera de orden. */
   const requestRef = useRef(0);
+  const requestInFlightRef = useRef(false);
   const localTimer = useRef<number | null>(null);
   const syncTimer = useRef<number | null>(null);
   const autosaveNotBeforeRef = useRef(0);
   const retryTimer = useRef<number | null>(null);
 
   const dispatch = useCallback((event: Parameters<typeof reduceSync>[1]) => {
-    setMachine((current) => {
-      const next = reduceSync(current, event);
-      machineRef.current = next;
-      return next;
-    });
+    // Los callbacks de red y de salida deben ver el estado nuevo incluso
+    // antes de que React procese el siguiente render.
+    const next = reduceSync(machineRef.current, event);
+    machineRef.current = next;
+    setMachine(next);
   }, []);
 
   const editor = useEditor({
@@ -440,7 +441,10 @@ export function SectionEditor({
         return;
       }
 
-      if (estado.state === "syncing") {
+      // Escribir cambia el estado visual a «local» durante un envío. La
+      // exclusión depende de la petición real, no de ese estado visual.
+      if (requestInFlightRef.current) {
+        if (intent === "manual") flushAfterRequestRef.current = true;
         return;
       }
 
@@ -453,6 +457,7 @@ export function SectionEditor({
         return;
       }
 
+      requestInFlightRef.current = true;
       const peticion = requestRef.current + 1;
       requestRef.current = peticion;
 
@@ -533,6 +538,7 @@ export function SectionEditor({
 
         dispatch({ type: "sync-offline" });
       } finally {
+        requestInFlightRef.current = false;
         if (flushAfterRequestRef.current && peticion === requestRef.current) {
           flushAfterRequestRef.current = false;
           flushPendingRef.current();
@@ -653,7 +659,7 @@ export function SectionEditor({
         updatedAt: new Date().toISOString(),
         syncState: "local",
       });
-      if (machineRef.current.state === "syncing") {
+      if (requestInFlightRef.current) {
         flushAfterRequestRef.current = true;
       } else if (machineRef.current.state !== "conflict") {
         void sincronizar("manual");

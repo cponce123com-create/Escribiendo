@@ -91,6 +91,7 @@ import {
   createSectionAction,
   deleteSectionAction,
   moveSectionAction,
+  saveSectionAction,
   updateBookAction,
   updateSectionOptionsAction,
 } from "./actions";
@@ -126,6 +127,72 @@ describe("books actions", () => {
     otherParent: "66666666-6666-4666-8666-666666666666",
     child: "77777777-7777-4777-8777-777777777777",
   } as const;
+
+  describe("saveSectionAction: reintentos", () => {
+    const document = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "Texto persistido." }] }],
+    };
+
+    it("confirma un reintento idéntico sin otra revisión aunque JSONB cambie el orden de claves", async () => {
+      mockPrisma.bookSection.findFirst.mockResolvedValue({
+        id: ids.section,
+        bookId: ids.book,
+        title: "Capítulo",
+        version: 5,
+        content: {
+          content: [{ content: [{ text: "Texto persistido.", type: "text" }], type: "paragraph" }],
+          type: "doc",
+        },
+      });
+      const result = await saveSectionAction(
+        { status: "idle" },
+        makeFormData({
+          sectionId: ids.section,
+          version: "4",
+          content: JSON.stringify(document),
+          intent: "manual",
+        }),
+      );
+      expect(result).toMatchObject({
+        status: "success",
+        savedVersion: 5,
+        conflict: null,
+        throttled: false,
+      });
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(mockPrisma.sectionRevision.findFirst).not.toHaveBeenCalled();
+      expect(mockPrisma.characterAnalysisTask.upsert).not.toHaveBeenCalled();
+      expect(mockPrisma.bookSection.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            book: { workspaceId: mockSession.workspace.id, deletedAt: null },
+          }),
+        }),
+      );
+    });
+
+    it("mantiene el conflicto para textos diferentes y no sobrescribe el servidor", async () => {
+      mockPrisma.bookSection.findFirst.mockResolvedValue({
+        id: ids.section,
+        bookId: ids.book,
+        title: "Capítulo",
+        version: 5,
+        content: document,
+      });
+      mockPrisma.sectionRevision.findFirst.mockResolvedValue(null);
+      const result = await saveSectionAction(
+        { status: "idle" },
+        makeFormData({
+          sectionId: ids.section,
+          version: "4",
+          content: JSON.stringify({ type: "doc", content: [] }),
+        }),
+      );
+      expect(result.conflict?.serverVersion).toBe(5);
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+  });
 
   describe("updateSectionOptionsAction", () => {
     it("guarda opciones solo en el libro y espacio de trabajo autorizados", async () => {
