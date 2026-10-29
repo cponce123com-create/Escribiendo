@@ -64,7 +64,7 @@ jobs:
         run: pnpm validate:docx:libreoffice
 
       - name: Guardar el DOCX y el PDF
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: docx-libreoffice
           path: artifacts/docx-libreoffice
