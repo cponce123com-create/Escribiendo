@@ -3,7 +3,7 @@ name: Interfaz responsive
 on:
   pull_request:
   push:
-    branches: [main, "fix/**"]
+    branches: [main]
   workflow_dispatch:
 
 permissions:

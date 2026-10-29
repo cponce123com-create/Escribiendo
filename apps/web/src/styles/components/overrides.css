@@ -124,3 +124,9 @@
   background: #36251f;
   transition: none;
 }
+
+/* Evita texto intermedio de bajo contraste al cambiar al tema oscuro. */
+[data-theme="dark"] .nav-item,
+[data-theme="dark"] .editorial-studio .editor-toolbar__button {
+  transition: none;
+}
