@@ -99,7 +99,8 @@ export async function GET(request: Request, context: RouteContext): Promise<Next
 
   // La descarga vuelve a generar el archivo: también necesita el hueco, para
   // que dos descargas de libros grandes no se queden sin memoria a la vez.
-  if (!reservarHuecoDeExportacion()) {
+  const reserva = reservarHuecoDeExportacion();
+  if (reserva === null) {
     return NextResponse.json(
       { error: "Ya hay una exportación en marcha. Espera a que termine." },
       { status: 429 },
@@ -136,6 +137,6 @@ export async function GET(request: Request, context: RouteContext): Promise<Next
       { status: 500 },
     );
   } finally {
-    liberarHuecoDeExportacion();
+    liberarHuecoDeExportacion(reserva);
   }
 }
