@@ -33,7 +33,7 @@ jobs:
         run: node --import tsx scripts/verify-interface.ts
         env:
           INTERFACE_OUTPUT: interface-results
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: interface-results
