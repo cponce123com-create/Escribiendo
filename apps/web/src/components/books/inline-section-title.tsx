@@ -81,7 +81,7 @@ export function InlineSectionTitle({
             setEditing(true);
           }}
         >
-          {currentTitle}
+          <span className="studio-chapter-title__text">{currentTitle}</span>
           <StudioIcon name="pen" className="studio-chapter-title__icon" />
         </button>
       </h1>
