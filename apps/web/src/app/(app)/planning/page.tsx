@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { WritingPlanning } from "@/components/story/writing-planning";
+import { loadWritingPlanning } from "@/lib/story/writing/queries";
+import { WritingGuideError } from "@/lib/story/writing/brief";
 import Link from "next/link";
 import { PlanningBoard } from "@/components/story/planning-board";
 import { requireSession } from "@/lib/auth/session";
@@ -28,6 +31,16 @@ export default async function PlanningPage({ searchParams }: PlanningPageProps) 
       search,
     }),
   );
+  let writingData = null;
+  let writingError = "";
+  if (selectedBook) {
+    try {
+      writingData = await guardStorySchema(() => loadWritingPlanning(session, selectedBook.id));
+    } catch (error) {
+      if (error instanceof WritingGuideError) writingError = error.message;
+      else throw error;
+    }
+  }
   const canManage = canPerform(session.workspace.role, "story:manage");
   const isFiltered = Boolean(selectedBook || search);
 
@@ -100,6 +113,20 @@ export default async function PlanningPage({ searchParams }: PlanningPageProps) 
           </div>
         </form>
       </section>
+
+      {writingError ? (
+        <p className="alert alert-error" role="status">
+          {writingError}
+        </p>
+      ) : null}
+      {writingData ? (
+        <WritingPlanning key={writingData.book.id} data={writingData} canManage={canManage} />
+      ) : !selectedBook ? (
+        <p className="alert" role="status">
+          Selecciona un libro y pulsa Filtrar para abrir su ficha maestra y preparar las guías de
+          capítulos.
+        </p>
+      ) : null}
 
       <PlanningBoard
         books={books}
