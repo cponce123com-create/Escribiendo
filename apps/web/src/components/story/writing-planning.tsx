@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, useState, useTransition, useRef } from "react";
+import { useActionState, useState, useTransition, useRef, useCallback } from "react";
 import Link from "next/link";
 import { FormMessage } from "@/components/forms/form-message";
 import { SubmitButton } from "@/components/forms/submit-button";
@@ -177,7 +177,7 @@ export function WritingPlanning({
   const [mode, setMode] = useState<"brief" | "complete">("brief");
   const [preparedGuide, setPreparedGuide] = useState({ key: "", content: "" });
   const guide = preparedGuide.key === currentKey ? preparedGuide.content : "";
-  const closeGuide = () => setPreparedGuide({ key: "", content: "" });
+  const closeGuide = useCallback(() => setPreparedGuide({ key: "", content: "" }), []);
   const [message, setMessage] = useState<ActionState>({ status: "idle" });
   const [pending, startTransition] = useTransition();
   const guideRef = useRef<HTMLTextAreaElement>(null);

@@ -92,6 +92,27 @@ test("la guía conserva títulos, usa solo contexto anterior aprobado y detecta 
   await expect(dialog.getByText(/Instrucciones copiadas/)).toBeVisible();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(text);
   await dialog.getByRole("button", { name: "Cerrar diálogo" }).click();
+  await page.getByRole("button", { name: "Preparar instrucciones para IA", exact: true }).click();
+  await page.evaluate(() => {
+    navigator.clipboard.writeText = async () => {
+      throw new Error("Portapapeles no disponible");
+    };
+  });
+  await dialog.getByRole("button", { name: "Copiar instrucciones", exact: true }).click();
+  await expect(
+    dialog.getByText(/El texto está seleccionado para copiarlo manualmente/),
+  ).toBeVisible();
+  expect(
+    await dialog
+      .getByRole("textbox")
+      .evaluate(
+        (node: HTMLTextAreaElement) =>
+          document.activeElement === node &&
+          node.selectionStart === 0 &&
+          node.selectionEnd === node.value.length,
+      ),
+  ).toBe(true);
+  await dialog.getByRole("button", { name: "Cerrar diálogo" }).click();
   const manuscript = await prisma.bookSection.findUniqueOrThrow({ where: { id: secondId } });
   expect(manuscript.version).toBe(1);
   expect(manuscript.content).toEqual({});
