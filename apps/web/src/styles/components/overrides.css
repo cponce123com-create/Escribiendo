@@ -117,3 +117,10 @@
 .studio-section-menu > div {
   width: min(12rem, calc(100vw - 2rem));
 }
+
+/* La navegación móvil comparte el contraste del enlace activo de escritorio. */
+[data-theme="dark"] .nav-item[aria-current="page"] {
+  color: #ee9a83;
+  background: #36251f;
+  transition: none;
+}

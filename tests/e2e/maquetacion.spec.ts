@@ -254,7 +254,15 @@ test.describe("Maquetación", () => {
       const cajaEncabezado = encabezado?.getBoundingClientRect();
       const hojaEncabezado = encabezado?.closest<HTMLElement>('[aria-label^="Página "]');
       const cajaHojaEncabezado = hojaEncabezado?.getBoundingClientRect();
-      const encabezadoEnApertura = hoja.querySelector("[data-page-running-head]");
+      // Los preliminares automáticos preceden al capítulo: Página 1 es
+      // la página legal. Localizamos la apertura por su título compuesto.
+      const tituloCapitulo = Array.from(
+        document.querySelectorAll<HTMLElement>(
+          '[data-block-kind="title"], [data-block-kind="chapterTitle"]',
+        ),
+      ).find((elemento) => elemento.textContent?.trim() === "Capítulo de prueba");
+      const apertura = tituloCapitulo?.closest<HTMLElement>('[aria-label^="Página "]');
+      const encabezadoEnApertura = apertura?.querySelector("[data-page-running-head]");
 
       return {
         ancho: cajaHoja.width,
@@ -272,6 +280,7 @@ test.describe("Maquetación", () => {
                   cajaEncabezado.top - cajaHojaEncabezado.top - (hojaEncabezado?.clientTop ?? 0),
               }
             : null,
+        aperturaEncontrada: Boolean(apertura),
         encabezadoEnApertura: Boolean(encabezadoEnApertura),
       };
     });
@@ -299,6 +308,7 @@ test.describe("Maquetación", () => {
     expect(Math.abs((medida?.encabezado?.arriba ?? 0) - 10 * pxPorMm)).toBeLessThanOrEqual(
       tolerancia,
     );
+    expect(medida?.aperturaEncontrada).toBe(true);
     expect(medida?.encabezadoEnApertura).toBe(false);
   });
 
