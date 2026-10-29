@@ -1,0 +1,37 @@
+name: Rendimiento de exportación (manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: export-performance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: Exportación aislada con imágenes y notas
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Medir formatos en procesos independientes
+        env:
+          BENCHMARK_RSS_BUDGET_MB: "384"
+          BENCHMARK_ENFORCE_BUDGET: "1"
+        run: pnpm stress:export
+      - name: Conservar mediciones incluso al fallar
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: export-performance
+          path: artifacts/export-benchmark
+          if-no-files-found: error

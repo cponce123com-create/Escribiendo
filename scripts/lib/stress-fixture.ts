@@ -181,7 +181,7 @@ export async function stressImages(count: number): Promise<ExportImageMap> {
       .jpeg({ quality: 70 })
       .toBuffer();
     map.set(`https://example.invalid/esfuerzo-${index}.jpg`, {
-      data: new Uint8Array(data),
+      data: new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
       mimeType: "image/jpeg",
       extension: "jpg",
       width: 1200,

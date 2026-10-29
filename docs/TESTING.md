@@ -478,3 +478,9 @@ Lo que **no** está verificado automáticamente en las Fases 1 a 3:
 `EPUBCHECK_JAR=/ruta/epubcheck.jar pnpm validate:epub` comprueba EPUB con EPUBCheck 5.4.0. `EPUB_VALIDATION_DIR` conserva el archivo y su informe JSON; `DOCX_VALIDATION_DIR` conserva DOCX y PDF. Los workflows verifican también cambios de plantillas y motor editorial, fijan el hash de la descarga de EPUBCheck y conservan artefactos incluso al fallar.
 
 El fixture incluye página legal creada por la plantilla mínima, índice semántico de tres niveles, estilos, enlace, dedicatoria, imagen y nota al pie. La lectura verifica contenido y estructura; no certifica igualdad visual entre EPUB, Word y PDF ni todos los libros reales. Las llamadas a nota se verifican separadas de sus frases para que el número intercalado por el lector no se confunda con texto perdido.
+
+## Rendimiento y comparación PDF (29 de octubre de 2026)
+
+El banco nuevo usa procesos separados por formato, cantidades exactas y semilla fija. `pnpm stress:export` comprueba una matriz de 10, 50 y 100 capítulos con hasta 200 000 palabras, 80 imágenes y 500 notas; `pnpm bench:export` ejecuta el perfil de texto. RSS pico, heap y memoria externa son métricas distintas. Con BENCHMARK_ENFORCE_BUDGET=1 se exige el presupuesto de 384 MB; el workflow export-performance es manual.
+
+El procedimiento, límites y JSON antes/después están en [Validación externa y rendimiento](EXPORT_VALIDACION_RENDIMIENTO_2026-10-29.md). `scripts/generate-export-visual-fixture.ts` y `scripts/compare-pdf-renders.py` permiten reproducir la comparación de texto por página y rasterización con tolerancias fijas. Estas herramientas usan fixtures locales, no la base de producción.

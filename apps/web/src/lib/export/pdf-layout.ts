@@ -1,3 +1,4 @@
+import { appendPdfRun } from "./pdf-runs";
 import {
   extractDropCapGrapheme,
   isHeadingKind,
@@ -278,7 +279,7 @@ export function toPdfPages(
               ? -block.style.fontSizePt * 0.18
               : undefined;
 
-          runs.push({
+          appendPdfRun(runs, {
             text: texto,
             font,
             family,
