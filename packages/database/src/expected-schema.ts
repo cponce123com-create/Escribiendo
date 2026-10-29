@@ -8,6 +8,8 @@
  * Las claves usan los nombres reales de tabla y columna en PostgreSQL.
  */
 export const COLUMNAS_ESPERADAS: ReadonlyArray<{ tabla: string; columna: string }> = [
+  { tabla: "book_writing_briefs", columna: "content" },
+  { tabla: "chapter_writing_briefs", columna: "content" },
   { tabla: "books", columna: "narrativeStructure" },
   { tabla: "books", columna: "importRequestId" },
   { tabla: "books", columna: "importPlanHash" },

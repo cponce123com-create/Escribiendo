@@ -289,6 +289,7 @@ model Book {
   narrativeDecisions        NarrativeFindingDecision[]
   narrativeStructure        String @default("FREE") @db.VarChar(24)
   narrativeVersion          Int @default(0)
+  writingBriefs             BookWritingBrief[]
   laboratoryReviews         LaboratoryReviewState[]
   editorialMetadata         BookEditorialMetadata?
   contributors              BookContributor[]
@@ -343,6 +344,7 @@ model BookSection {
   comments               EditorialComment[]
   assignee               User?                      @relation("SectionAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   editorialMatters       EditorialMatter[]
+  writingBriefs          ChapterWritingBrief[]
 
   @@index([bookId, parentId, sortOrder])
   @@index([bookId, type])
@@ -1360,4 +1362,33 @@ model BookGlossaryTerm {
   @@unique([bookId, term])
   @@index([bookId])
   @@map("book_glossary_terms")
+}
+
+
+/// Revisiones inmutables de la ficha maestra de escritura. No modifica el manuscrito.
+model BookWritingBrief {
+  id        String   @id @default(uuid()) @db.Uuid
+  bookId    String   @db.Uuid
+  version   Int
+  status    String   @db.VarChar(16)
+  content   Json
+  createdAt DateTime @default(now())
+  book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([bookId, version])
+  @@map("book_writing_briefs")
+}
+
+/// Guía aprobada o borrador de una sección real; cada guardado conserva la revisión previa.
+model ChapterWritingBrief {
+  id        String      @id @default(uuid()) @db.Uuid
+  sectionId String      @db.Uuid
+  version   Int
+  status    String      @db.VarChar(16)
+  content   Json
+  createdAt DateTime    @default(now())
+  section   BookSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@unique([sectionId, version])
+  @@map("chapter_writing_briefs")
 }
