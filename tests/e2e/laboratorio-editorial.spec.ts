@@ -163,9 +163,11 @@ test("regresión editorial: recuperación de red, restauración y exportación r
   await page.context().setOffline(true);
   const offline = `${initial} Esta frase se escribió sin conexión.`;
   await editor.fill(offline);
-  await expect(
-    page.getByText("Guardado en este equipo. Falta enviarlo al servidor.", { exact: true }),
-  ).toBeVisible();
+  await expect(page.locator(".manuscript-editor")).toHaveAttribute("data-dirty", "true");
+  // El estado puede pasar de local a offline mientras llega el evento de red.
+  // Ambos confirman el respaldo local; tras reconectar se exige persistencia
+  // real en el servidor y el mismo contenido al recargar.
+  await expect(page.getByText(/guardado en este equipo/i)).toBeVisible();
   await page.context().setOffline(false);
   await expect(page.locator(".manuscript-editor")).toHaveAttribute("data-dirty", "false", {
     timeout: 60_000,
