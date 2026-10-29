@@ -23,6 +23,14 @@ loadEnv({ path: path.join(repoRoot, ".env"), quiet: true });
 
 const args = process.argv.slice(2);
 
+// `validate` y `format` no abren conexión, pero el esquema declara
+// `directUrl = env("DIRECT_URL")` y Prisma exige que la variable exista.
+// Se usa una URL ficticia solo para validar; nunca se conecta.
+if (args[0] === "validate" || args[0] === "format") {
+  process.env.DATABASE_URL ??= "postgresql://user:password@localhost:5432/escribiendo";
+  process.env.DIRECT_URL ??= process.env.DATABASE_URL;
+}
+
 if (args.length === 0) {
   process.stderr.write("Uso: tsx scripts/prisma.ts <comando de prisma> [argumentos]\n");
   process.exit(1);

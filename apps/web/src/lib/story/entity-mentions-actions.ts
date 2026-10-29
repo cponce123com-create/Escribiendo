@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
+import { assertServerActionOrigin } from "@/lib/security/request-context";
 import { storyBookExists } from "./action-helpers";
 import {
   detectEntityMentions,
@@ -47,6 +48,12 @@ export interface BookMentionsResult {
 export type BookMentionsResponse = BookMentionsResult | { ok: false; error: string };
 
 export async function getBookEntityMentions(bookId: string): Promise<BookMentionsResponse> {
+  try {
+    await assertServerActionOrigin();
+  } catch {
+    return { ok: false, error: "No se ha podido validar la solicitud." };
+  }
+
   const session = await getSession();
 
   if (!session) {

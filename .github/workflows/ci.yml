@@ -37,6 +37,9 @@ jobs:
       - name: Generar el cliente de Prisma
         run: pnpm db:generate
 
+      - name: Guarda de migraciones destructivas
+        run: pnpm db:guard
+
       - name: Formato
         run: pnpm format:check
 
@@ -46,8 +49,16 @@ jobs:
       - name: Tipos
         run: pnpm typecheck
 
-      - name: Pruebas unitarias
-        run: pnpm test
+      - name: Pruebas unitarias con cobertura
+        run: pnpm test:coverage
+
+      - name: Conservar informe de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 7
 
       - name: Lector externo de PDF
         run: pnpm --dir scripts/pdfjs install --frozen-lockfile

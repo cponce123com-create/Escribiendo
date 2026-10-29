@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
+import { assertServerActionOrigin } from "@/lib/security/request-context";
 import { storyBookExists } from "./action-helpers";
 import { buildStoryBibleMarkdown } from "./bible-markdown";
 import { detectEntityMentions, type MentionEntity } from "./entity-mentions";
@@ -36,6 +37,12 @@ function fileSlug(title: string): string {
 }
 
 export async function exportStoryBibleMarkdown(bookId: string): Promise<BibleExportResponse> {
+  try {
+    await assertServerActionOrigin();
+  } catch {
+    return { ok: false, error: "No se ha podido validar la solicitud." };
+  }
+
   const session = await getSession();
 
   if (!session) {

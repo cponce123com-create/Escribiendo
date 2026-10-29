@@ -152,7 +152,7 @@ describe("books queries", () => {
 
       expect(mockPrisma.book.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          orderBy: [{ updatedAt: "desc" }],
+          orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
         }),
       );
     });
@@ -164,7 +164,7 @@ describe("books queries", () => {
 
       expect(mockPrisma.book.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          orderBy: [{ title: "asc" }],
+          orderBy: [{ title: "asc" }, { id: "asc" }],
         }),
       );
     });
@@ -176,8 +176,17 @@ describe("books queries", () => {
 
       expect(mockPrisma.book.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          orderBy: [{ wordCount: "desc" }, { title: "asc" }],
+          orderBy: [{ wordCount: "desc" }, { title: "asc" }, { id: "asc" }],
         }),
+      );
+    });
+    it("aplica take y skip según la página", async () => {
+      mockPrisma.book.findMany.mockResolvedValue([]);
+
+      await listBooks(mockSession, {}, { page: 3, pageSize: 10 });
+
+      expect(mockPrisma.book.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 10, skip: 20 }),
       );
     });
   });

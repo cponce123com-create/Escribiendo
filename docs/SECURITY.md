@@ -53,10 +53,12 @@ hardware, cumplimiento normativo formal y cifrado de extremo a extremo.
 - Límite en memoria por IP: 10 intentos de login cada 15 minutos, 5 intentos de
   instalación por hora, 10 cambios de contraseña por hora y 30 firmas de
   Cloudinary por hora.
-- Los límites en memoria son por instancia y se pierden al reiniciar. Con una
-  única instancia Free son suficientes; al escalar horizontalmente deben
-  sustituirse por un almacén compartido (por ejemplo, PostgreSQL o un servicio
-  externo).
+- Límite por persona además de la exclusión de exportación: 20 importaciones
+  confirmadas, 40 análisis de archivo, 30 exportaciones y 60 descargas por hora.
+- Los límites en memoria son por proceso y se pierden al reiniciar. Con una
+  única instancia Free son suficientes. En producción, el arranque se rechaza
+  si `WEB_CONCURRENCY > 1`; para varias instancias hay que sustituir el almacén
+  por uno compartido (PostgreSQL o un servicio externo) antes de escalar.
 
 La IP se toma de `x-forwarded-for`/`x-real-ip`, cabeceras que Render gestiona.
 Si la aplicación se expone sin un proxy de confianza que las sanee, un cliente
@@ -264,23 +266,31 @@ el problema está en un componente externo y reiniciar el proceso no lo arregla.
 3. **Rate limit por instancia.** Ver arriba.
 4. **Sin cifrado de extremo a extremo.** Neon y Cloudinary ven los datos en
    claro en el servidor. La privacidad depende de sus controles y de la cuenta.
-5. **Sin política de retención.** Los logs de auditoría y las revisiones se
-   conservan indefinidamente hasta que se defina una política.
-6. **Autorización por workspace incompleta fuera de Fase 1.** Las consultas
-   actuales usan el workspace de la sesión, pero las futuras rutas de libros
-   deberán comprobar pertenencia y rol en cada consulta, no solo en la UI.
+5. **Retención parcial.** `pnpm retention:clean` borra sesiones, tokens de
+   recuperación e invitaciones antiguas. Los manuscritos, revisiones y
+   registros de auditoría se conservan mientras exista el estudio.
+6. **Autorización por workspace implementada.** Las consultas filtran por el
+   espacio de la sesión y las acciones comprueban el rol con
+   `assertCanPerform`; cualquier ruta nueva debe mantener ese patrón.
 7. **Render Free se suspende por inactividad.** No debe usarse como única copia
    de seguridad; hay que exportar copias de Neon.
 8. **El binario nativo de Argon2 puede no cargar en algunos Windows.** El
    paquete incluye respaldo WASI; en producción Linux se usa el binario nativo.
    El respaldo WASI emite una advertencia experimental de Node, no un error.
-9. **El contenido de los manuscritos aún no existe en la interfaz.** Cuando se
-   implemente, deberá revisarse el tamaño máximo, el saneamiento de HTML/JSON y
-   las reglas de autorización antes de exponerlo.
+9. **El editor de manuscritos ya existe.** La importación limita tamaño,
+   entidades XML y bytes descomprimidos; conviene revisar esos límites al
+   añadir nuevos formatos o fuentes de contenido.
 10. **Las rutas privadas responden `200` antes de redirigir.** Se explica en
     «Protección de las rutas privadas». No hay fuga de contenido, pero un
     monitor que espere un `307` verá un `200` seguido de una redirección en el
     cliente.
+11. **Bloqueo de cuenta como vector de denegación de servicio dirigida.** Cinco
+    fallos bloquean la cuenta 15 minutos. Se acepta el compromiso con el límite
+    por IP y el coste de un ataque distribuido; revisar si se añade CAPTCHA o
+    retardo progresivo.
+12. **Auditoría best-effort.** Si la escritura del registro falla, la operación
+    principal continúa. Revisar si los eventos críticos deben fallar de forma
+    cerrada o usar un patrón outbox con reintentos.
 
 ## Respuesta ante incidentes
 

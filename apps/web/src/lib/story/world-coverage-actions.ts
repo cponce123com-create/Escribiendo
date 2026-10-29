@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
+import { assertServerActionOrigin } from "@/lib/security/request-context";
 import { storyBookExists } from "./action-helpers";
 import { tipTapToPlainText } from "./tiptap-text";
 import { buildWorldCoverage, type WorldCoverageReport } from "./world-coverage";
@@ -17,6 +18,12 @@ export type WorldCoverageResponse =
   ({ ok: true } & WorldCoverageReport) | { ok: false; error: string };
 
 export async function getBookWorldCoverage(bookId: string): Promise<WorldCoverageResponse> {
+  try {
+    await assertServerActionOrigin();
+  } catch {
+    return { ok: false, error: "No se ha podido validar la solicitud." };
+  }
+
   const session = await getSession();
 
   if (!session) {

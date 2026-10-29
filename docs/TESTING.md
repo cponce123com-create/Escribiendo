@@ -53,13 +53,14 @@ En CI no ocurre porque la variable no está definida en el runner.
 ## 2. Pruebas unitarias
 
 ```bash
-pnpm test
+pnpm test           # Vitest
+pnpm test:coverage  # Vitest con cobertura v8 y umbrales (60% líneas/sentencias/funciones, 50% ramas)
 ```
 
 Vitest recorre `apps/**/*.test.ts`, `packages/**/*.test.ts` y
 `scripts/**/*.test.ts`. No necesita base de datos ni navegador.
 
-Resultado vigente: **354 pruebas en 37 archivos** (22 de octubre de 2026).
+Resultado vigente: **1.140 pruebas en 151 archivos** (29 de octubre de 2026).
 Cobertura actual (Fases 1 a 3):
 
 | Archivo                                                   | Qué verifica                                                                                                                                                                                                                  |
@@ -381,6 +382,7 @@ pnpm format:check   # Prettier
 pnpm lint           # ESLint
 pnpm typecheck      # TypeScript en todos los paquetes, scripts y pruebas
 pnpm test           # Vitest
+pnpm test:coverage  # Vitest + cobertura v8 (umbrales en vitest.config.ts)
 pnpm test:e2e       # Playwright (requiere base de datos desechable)
 pnpm build          # Compilación de producción
 pnpm bench:export   # Banco de composición y exportación
@@ -443,8 +445,9 @@ Lo que **no** está verificado automáticamente en las Fases 1 a 3:
 6. **Accesibilidad.** No hay auditoría automática de accesibilidad. La
    interfaz se ha construido con etiquetas, roles y foco visible, pero no hay
    una prueba automatizada que lo acredite.
-7. **Cobertura de líneas.** No se mide el porcentaje de código ejecutado. Las
-   pruebas cubren los flujos críticos, no cada rama.
+7. **Cobertura de líneas.** Se mide con `pnpm test:coverage` (v8) y umbrales
+   del 60% en líneas, sentencias y funciones, y 50% en ramas. Las pruebas
+   cubren los flujos críticos, no cada rama.
 8. **Preferencias de escritura.** Se guardan en el `localStorage` del
    navegador, así que la prueba automatizada solo las exercise en Chromium. No
    se ha comprobado el comportamiento en modo privado, con el almacenamiento

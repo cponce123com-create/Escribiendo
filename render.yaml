@@ -21,8 +21,9 @@ services:
     buildCommand: >-
       npm install --global pnpm@12.14.0 --no-fund --no-audit &&
       pnpm install --frozen-lockfile --prod=false &&
+      pnpm db:guard &&
       pnpm db:migrate &&
-      NODE_ENV=production pnpm build
+      pnpm build
     startCommand: pnpm --filter @escribiendo/web start
     healthCheckPath: /api/health
     envVars:

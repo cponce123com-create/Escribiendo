@@ -21,6 +21,15 @@ export interface BookListFilters {
   sort?: BookSort;
 }
 
+export interface BookListPage {
+  page?: number;
+  pageSize?: number;
+}
+
+/** Tamaño de página por defecto y máximo de la biblioteca. */
+export const BOOKS_PAGE_SIZE = 20;
+const MAX_PAGE_SIZE = 100;
+
 export interface BookListItem {
   id: string;
   title: string;
@@ -43,22 +52,26 @@ export interface BookListItem {
 function orderBy(sort: BookSort): Prisma.BookOrderByWithRelationInput[] {
   switch (sort) {
     case "title":
-      return [{ title: "asc" }];
+      return [{ title: "asc" }, { id: "asc" }];
     case "words":
-      return [{ wordCount: "desc" }, { title: "asc" }];
+      return [{ wordCount: "desc" }, { title: "asc" }, { id: "asc" }];
     case "recent":
     default:
-      return [{ updatedAt: "desc" }];
+      return [{ updatedAt: "desc" }, { id: "asc" }];
   }
 }
 
-/** Lista los libros del espacio de trabajo con búsqueda y filtros. */
-export async function listBooks(
+/**
+ * Condición común de la biblioteca. Se comparte entre el listado y el conteo
+ * para que la paginación use el mismo filtro que la consulta.
+ */
+function bookWhere(
   session: SessionContext,
-  filters: BookListFilters = {},
-): Promise<BookListItem[]> {
+  filters: Pick<BookListFilters, "search" | "status">,
+): Prisma.BookWhereInput {
   const search = filters.search?.trim();
-  const where: Prisma.BookWhereInput = {
+
+  return {
     workspaceId: session.workspace.id,
     deletedAt: null,
     ...(filters.status ? { status: filters.status } : {}),
@@ -74,10 +87,25 @@ export async function listBooks(
         }
       : {}),
   };
+}
+
+/** Lista los libros del espacio de trabajo con búsqueda, filtros y página. */
+export async function listBooks(
+  session: SessionContext,
+  filters: BookListFilters = {},
+  page: BookListPage = {},
+): Promise<BookListItem[]> {
+  const currentPage = Math.max(1, Math.trunc(page.page ?? 1));
+  const pageSize = Math.min(
+    MAX_PAGE_SIZE,
+    Math.max(1, Math.trunc(page.pageSize ?? BOOKS_PAGE_SIZE)),
+  );
 
   const books = await prisma.book.findMany({
-    where,
+    where: bookWhere(session, filters),
     orderBy: orderBy(filters.sort ?? "recent"),
+    take: pageSize,
+    skip: (currentPage - 1) * pageSize,
     select: {
       id: true,
       title: true,
@@ -122,11 +150,12 @@ export async function listBooks(
   }));
 }
 
-/** Número total de libros del espacio de trabajo, sin filtros. */
-export async function countBooks(session: SessionContext): Promise<number> {
-  return prisma.book.count({
-    where: { workspaceId: session.workspace.id, deletedAt: null },
-  });
+/** Número total de libros del espacio de trabajo que coinciden con el filtro. */
+export async function countBooks(
+  session: SessionContext,
+  filters: Pick<BookListFilters, "search" | "status"> = {},
+): Promise<number> {
+  return prisma.book.count({ where: bookWhere(session, filters) });
 }
 
 export interface BookDetail {

@@ -13,24 +13,24 @@ test.describe("Capa de seguridad", () => {
     const health = await request.get("/api/health");
     expect(health.status()).toBe(200);
 
-    const healthBody = (await health.json()) as { status: string; version: string };
+    const healthBody = (await health.json()) as { status: string };
     expect(healthBody.status).toBe("ok");
-    expect(healthBody.version).toMatch(/^\d+\.\d+\.\d+$/u);
+    // Los health checks no deben revelar versión, commit ni uptime.
+    expect(healthBody).not.toHaveProperty("version");
+    expect(healthBody).not.toHaveProperty("uptimeSeconds");
 
     const ready = await request.get("/api/health/ready");
     expect(ready.status()).toBe(200);
 
     const readyBody = (await ready.json()) as {
       checks: { database: string; schema: string };
-      commit: string | null;
     };
     expect(readyBody.checks.database).toBe("ok");
     // El esquema al día: si no lo estuviera, la aplicación se caería al
     // pedir la sesión y el aviso de migración no se vería nunca.
     expect(readyBody.checks.schema).toBe("ok");
-    // En Render, el commit desplegado permite distinguir un despliegue viejo
-    // de uno nuevo. Si no hay variable de entorno, se informa null.
-    expect(readyBody).toHaveProperty("commit");
+    expect(readyBody).not.toHaveProperty("commit");
+    expect(readyBody).not.toHaveProperty("version");
   });
 
   test("la pantalla de migración pendiente explica qué hacer sin sesión", async ({ request }) => {

@@ -6,6 +6,7 @@ import { generateFile } from "@/lib/export/generate";
 import { resolveExportJobInput } from "@/lib/export/reproduce";
 import { verifyDownload } from "@/lib/export/signature";
 import { liberarHuecoDeExportacion, reservarHuecoDeExportacion } from "@/lib/export/slot";
+import { consumeRateLimit } from "@/lib/security/rate-limit";
 
 /**
  * Descarga de un archivo de exportación.
@@ -53,6 +54,25 @@ export async function GET(request: Request, context: RouteContext): Promise<Next
 
   if (!session) {
     return NextResponse.json({ error: "No hay sesión." }, { status: 401 });
+  }
+
+  // Cada descarga vuelve a generar el archivo; se acota la frecuencia para que
+  // no se convierta en una vía de agotamiento de CPU/memoria.
+  const rateLimit = consumeRateLimit({
+    scope: "export-download",
+    identifier: session.user.id,
+    limit: 60,
+    windowMs: 60 * 60 * 1_000,
+  });
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Demasiadas descargas. Espera antes de volver a intentarlo." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+      },
+    );
   }
 
   const { jobId } = await context.params;

@@ -74,10 +74,8 @@ vez de dejar un «error de interfaz»:
 - `/api/health/ready` responde `503` con `"schema": "outdated"` y
   `pnpm db:status` lo indica.
 
-`/api/health/ready` incluye además el campo `commit` cuando la aplicación corre
-en Render (los siete primeros caracteres de `RENDER_GIT_COMMIT`). Sirve para
-comprobar desde fuera que el despliegue que responde es el que se acaba de
-subir; si el campo no existe, el despliegue es anterior a este cambio.
+`/api/health/ready` no expone la versión, el commit desplegado ni el uptime.
+Devuelve únicamente el estado de la aplicación, la base y el esquema.
 
 Lo que hay que hacer es:
 

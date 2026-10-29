@@ -16,6 +16,7 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { assertServerActionOrigin, type RequestContext } from "@/lib/security/request-context";
+import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/logger";
 import { assertCanPerform } from "./permissions";
 import { recomputeBookTotals } from "./statistics";
@@ -62,6 +63,21 @@ export async function importBookAction(
     assertCanPerform(session.workspace.role, "book:create");
   } catch {
     return errorState("No tienes permisos para crear libros en este espacio de trabajo.");
+  }
+
+  // Importar parsea hasta 15 MB en el proceso principal: se acota la
+  // frecuencia para que un miembro no pueda agotar la instancia.
+  const rateLimit = consumeRateLimit({
+    scope: "book-import-confirm",
+    identifier: session.user.id,
+    limit: 20,
+    windowMs: 60 * 60 * 1_000,
+  });
+
+  if (!rateLimit.allowed) {
+    return errorState(
+      "Demasiadas importaciones en la última hora. Espera antes de volver a intentarlo.",
+    );
   }
 
   const upload = formData.get("file");
@@ -339,6 +355,20 @@ export async function analyzeBookImportAction(formData: FormData): Promise<Impor
     assertCanPerform(session.workspace.role, "book:create");
   } catch {
     return { status: "error", message: "No tienes permisos para importar libros." };
+  }
+
+  const rateLimit = consumeRateLimit({
+    scope: "book-import-analyze",
+    identifier: session.user.id,
+    limit: 40,
+    windowMs: 60 * 60 * 1_000,
+  });
+
+  if (!rateLimit.allowed) {
+    return {
+      status: "error",
+      message: "Demasiados análisis en la última hora. Espera antes de volver a intentarlo.",
+    };
   }
   const upload = formData.get("file");
   if (!upload || typeof upload === "string" || typeof upload.arrayBuffer !== "function")

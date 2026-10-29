@@ -23,7 +23,7 @@
 
 [![License](https://img.shields.io/badge/License-Private-red)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)](docs/ROADMAP.md)
-[![Tests](https://img.shields.io/badge/Tests-374%20passing-brightgreen)](docs/TESTING.md)
+[![Tests](https://img.shields.io/badge/Tests-1140%20passing-brightgreen)](docs/TESTING.md)
 [![Security](https://img.shields.io/badge/Security-Audited-blue)](docs/SECURITY_AUDIT.md)
 
 </div>
@@ -40,11 +40,11 @@ ESCRIBIENDO reúne **escritura, edición, maquetación y preparación de archivo
 
 | Métrica                                   | Valor                           |
 | ----------------------------------------- | ------------------------------- |
-| **Líneas de código**                      | ~45,000+ (TypeScript estricto)  |
-| **Pruebas unitarias**                     | 374 pasando                     |
-| **Pruebas E2E**                           | 72 en Chromium                  |
+| **Líneas de código**                      | ~60,000+ (TypeScript estricto)  |
+| **Pruebas unitarias**                     | 1.140 pasando                   |
+| **Pruebas E2E**                           | 101 en Chromium                 |
 | **Fases completadas**                     | 6/7 + Herramientas de historia  |
-| **Tablas en BD**                          | 22 (con 18 `CHECK` constraints) |
+| **Tablas en BD**                          | 37 (con 16 `CHECK` constraints) |
 | **Rutas de la app**                       | 30 (Next.js App Router)         |
 | **Paquetes internos**                     | 6 (domain-driven)               |
 | **Tiempo de exportación (200k palabras)** | < 600 ms (PDF/EPUB/DOCX)        |
@@ -338,11 +338,11 @@ graph LR
 
 ### Suite de Pruebas
 
-| Suite                        | Duración | Resultado                           |
-| ---------------------------- | -------- | ----------------------------------- |
-| `pnpm test` (unitarias)      | ~9.5 s   | **337 pasando**                     |
-| `pnpm build` (producción)    | ~20 s    | **30 rutas**                        |
-| `pnpm test:e2e` (Playwright) | ~3.6 min | **72 en verde** (1 worker Chromium) |
+| Suite                        | Duración | Resultado                            |
+| ---------------------------- | -------- | ------------------------------------ |
+| `pnpm test:coverage`         | ~58 s    | **1.140 pasando**; 69% líneas        |
+| `pnpm build` (producción)    | ~20 s    | **30 rutas**                         |
+| `pnpm test:e2e` (Playwright) | ~3.6 min | **101 en verde** (1 worker Chromium) |
 
 ---
 

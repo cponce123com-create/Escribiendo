@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
-import { APP_VERSION } from "@/lib/version";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * Sonda de vida. No expone versión, commit ni uptime: son datos internos de
+ * despliegue y no hacen falta para que Render compruebe que el proceso vive.
+ */
 export function GET(request: Request): NextResponse {
   return NextResponse.json(
     {
       status: "ok",
-      version: APP_VERSION,
       timestamp: new Date().toISOString(),
-      uptimeSeconds: Math.floor(process.uptime()),
       checks: {
         application: "ok",
       },

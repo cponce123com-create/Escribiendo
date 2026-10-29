@@ -125,3 +125,24 @@ export function warnIfMultipleProcesses(value: string | undefined): void {
     logger.warn("security.rate_limit_multiple_processes", { processes });
   }
 }
+
+/**
+ * Impide arrancar en producción con varios procesos si los límites siguen en
+ * memoria.
+ *
+ * El límite por IP y el hueco de exportación viven en `globalThis`, así que
+ * cada proceso lleva su propia cuenta. Con una sola instancia el diseño es
+ * correcto; con `WEB_CONCURRENCY > 1` el control dejaría de ser efectivo y la
+ * aplicación debe fallar de forma explícita en lugar de fingir que protege.
+ */
+export function assertSingleProcessInProduction(value: string | undefined): void {
+  const processes = Number(value);
+
+  if (process.env.NODE_ENV === "production" && Number.isInteger(processes) && processes > 1) {
+    throw new Error(
+      "WEB_CONCURRENCY > 1 no es compatible con los límites en memoria. " +
+        "Ejecuta una sola instancia/proceso o sustituye el almacén de límites " +
+        "por uno compartido antes de escalar.",
+    );
+  }
+}

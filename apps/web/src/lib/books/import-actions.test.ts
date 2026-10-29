@@ -46,6 +46,9 @@ vi.mock("@/lib/auth/session", () => ({ getSession: vi.fn().mockResolvedValue(moc
 vi.mock("@/lib/security/request-context", () => ({
   assertServerActionOrigin: vi.fn().mockResolvedValue({ requestId: "req-1", ipHash: "hash" }),
 }));
+vi.mock("@/lib/security/rate-limit", () => ({
+  consumeRateLimit: () => ({ allowed: true, remaining: 1, retryAfterSeconds: 0 }),
+}));
 vi.mock("@/lib/auth/audit", () => ({ writeAuditLog: mockWriteAuditLog }));
 vi.mock("@/lib/logger", () => ({ logger: { error: vi.fn(), warn: vi.fn() } }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));

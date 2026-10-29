@@ -11,6 +11,7 @@ import { errorState, formValue } from "@/lib/form-helpers";
 import { toSafeErrorMessage } from "@/lib/errors";
 import type { ActionState } from "@/lib/action-state";
 import { assertCanPerform } from "@/lib/books/permissions";
+import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { requestExport } from "@/lib/export/jobs";
 import { downloadExpiry, signDownload } from "@/lib/export/signature";
 
@@ -83,6 +84,21 @@ export async function requestExportAction(
     assertCanPerform(session.workspace.role, "export:create");
   } catch {
     return errorState("No tienes permisos para exportar en este espacio de trabajo.");
+  }
+
+  // Generar un PDF/EPUB/DOCX consume CPU y memoria de la instancia. Se limita
+  // la frecuencia por persona además de la exclusión de una exportación a la vez.
+  const rateLimit = consumeRateLimit({
+    scope: "export-create",
+    identifier: session.user.id,
+    limit: 30,
+    windowMs: 60 * 60 * 1_000,
+  });
+
+  if (!rateLimit.allowed) {
+    return errorState(
+      "Demasiadas exportaciones en la última hora. Espera antes de volver a intentarlo.",
+    );
   }
 
   const bookId = uuidSchema.safeParse(formValue(formData, "bookId"));

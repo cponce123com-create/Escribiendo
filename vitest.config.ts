@@ -15,5 +15,18 @@ export default defineConfig({
     testTimeout: 15_000,
     hookTimeout: 15_000,
     restoreMocks: true,
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json-summary", "html"],
+      reportsDirectory: "coverage",
+      include: ["apps/web/src/lib/**/*.ts", "packages/*/src/**/*.ts"],
+      exclude: ["**/*.test.ts", "**/*.d.ts", "**/__snapshots__/**"],
+      thresholds: {
+        lines: 60,
+        functions: 60,
+        branches: 50,
+        statements: 60,
+      },
+    },
   },
 });
