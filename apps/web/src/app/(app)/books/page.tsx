@@ -86,7 +86,7 @@ export default async function BooksPage({ searchParams }: BooksPageProps) {
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-soft">
             {total === 0
               ? isFiltered
-                ? "Ningún libro coincide con el filtro."
+                ? "0 libros coinciden con el filtro."
                 : "Todavía no hay ningún libro en este espacio de trabajo."
               : isFiltered
                 ? `${formatNumber(total)} ${total === 1 ? "libro coincide" : "libros coinciden"} con el filtro.`
