@@ -3,6 +3,7 @@ import {
   buildWritingGuide,
   masterChanged,
   masterFieldsSchema,
+  chapterSnapshotSchema,
   chapterFieldsSchema,
   type MasterSnapshot,
   type ChapterSnapshot,
@@ -139,4 +140,24 @@ it("rechaza una guía demasiado grande sin cortar el contexto en silencio", () =
   data.sectionId = id(80);
   data.chapter.content.title = "Capítulo 80";
   expect(() => buildWritingGuide(data)).toThrow("no se ha recortado");
+});
+
+it("normaliza CRLF y CR al leer o guardar una ficha para copiar exactamente la vista previa", () => {
+  const data = input();
+  data.chapter.content = chapterSnapshotSchema.parse({
+    ...data.chapter.content,
+    scenes: "1. Reflexiona.\r\n2. Decide.\r3. Finaliza.",
+  });
+  expect(data.chapter.content.scenes).toBe("1. Reflexiona.\n2. Decide.\n3. Finaliza.");
+  expect(buildWritingGuide(data)).not.toContain("\r");
+  const fields = {
+    premise: "a\r\n".repeat(2000),
+    literaryMovement: "",
+    narrator: "",
+    tense: "",
+    tone: "",
+    audience: "",
+    rules: "",
+  };
+  expect(masterFieldsSchema.parse(fields).premise.length).toBe(3999);
 });
