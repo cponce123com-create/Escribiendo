@@ -1,9 +1,13 @@
+import type { ChangeEvent } from "react";
+
 interface TextareaFieldProps {
   name: string;
   label: string;
   error?: string;
   hint?: string;
   defaultValue?: string | null;
+  value?: string;
+  onChange?: (event: ChangeEvent<HTMLTextAreaElement>) => void;
   placeholder?: string;
   rows?: number;
   required?: boolean;
@@ -17,6 +21,8 @@ export function TextareaField({
   error,
   hint,
   defaultValue,
+  value,
+  onChange,
   placeholder,
   rows = 4,
   required = false,
@@ -36,7 +42,9 @@ export function TextareaField({
         id={inputId}
         name={name}
         className="field-input"
-        defaultValue={defaultValue ?? undefined}
+        defaultValue={value === undefined ? (defaultValue ?? undefined) : undefined}
+        value={value}
+        onChange={onChange}
         placeholder={placeholder}
         rows={rows}
         required={required}
