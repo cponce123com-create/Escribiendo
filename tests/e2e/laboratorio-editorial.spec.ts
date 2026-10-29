@@ -21,7 +21,7 @@ test("laboratorio: navegación y análisis de un capítulo sin alterar el manusc
   await page.getByRole("button", { name: "Guardar manuscrito" }).click();
   await expect(page.locator(".manuscript-editor")).toHaveAttribute("data-dirty", "false");
   const sectionUrl = page.url();
-  await page.getByRole("link", { name: "Laboratorio Editorial →" }).click();
+  await page.getByRole("link", { name: "Laboratorio editorial", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Laboratorio Editorial", exact: true }),
   ).toBeVisible();

@@ -97,4 +97,12 @@ test("estudio de referencia: búsqueda, paneles, notas, concentración y diseño
   await expect(page.locator("#studio-editorial-panel")).toBeHidden();
   await page.setViewportSize({ width: 390, height: 900 });
   await page.screenshot({ path: info.outputPath("estudio-movil.png"), fullPage: true });
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = "dark";
+  });
+  const mobileViolations = await auditar(page);
+  expect(mobileViolations.graves, resume(mobileViolations.graves, page.url()).join("\n")).toEqual(
+    [],
+  );
+  await page.screenshot({ path: info.outputPath("estudio-movil-oscuro.png"), fullPage: true });
 });

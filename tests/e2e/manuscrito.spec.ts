@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { auditar, resume } from "./support/axe";
+import { AUTOSAVE_MIN_INTERVAL_MS } from "../../apps/web/src/lib/editor/autosave";
 
 /**
  * Resiliencia del manuscrito.
@@ -324,6 +325,7 @@ test.describe("Resiliencia del manuscrito", () => {
   });
 
   test("escribir mientras se guarda no marca el texto como guardado", async ({ page }) => {
+    test.setTimeout(AUTOSAVE_MIN_INTERVAL_MS + 45_000);
     await abrirSeccion(page, SECTION_TITLE);
 
     let releaseRequest!: () => void;
@@ -357,7 +359,11 @@ test.describe("Resiliencia del manuscrito", () => {
     } finally {
       releaseRequest();
     }
-    await expect(page.locator(".manuscript-editor")).toHaveAttribute("data-dirty", "false");
+    // El envío pendiente respeta los 45 s entre revisiones; no se exige
+    // confirmación en los 5 s por defecto ni se fuerza un guardado manual.
+    await expect(page.locator(".manuscript-editor")).toHaveAttribute("data-dirty", "false", {
+      timeout: AUTOSAVE_MIN_INTERVAL_MS + 15_000,
+    });
     await page.reload();
     await expect(editor).toContainText("Frase enviada.");
     await expect(editor).toContainText("Y una frase escrita durante el envío.");
