@@ -1,5 +1,6 @@
 "use client";
 import { AUTOSAVE_MIN_INTERVAL_MS } from "@/lib/editor/autosave";
+import { draftRecoveryDecision } from "@/lib/editor/draft-recovery";
 import { FOOTNOTE_EDIT_EVENT, parseFootnoteEdit } from "@/lib/editor/footnote-edit";
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -159,6 +160,7 @@ export function SectionEditor({
 
   const machineRef = useRef(machine);
   const versionRef = useRef(version);
+  const initialContentRef = useRef(content);
   const sectionTitleRef = useRef(sectionTitle);
   useEffect(() => {
     sectionTitleRef.current = sectionTitle;
@@ -351,12 +353,32 @@ export function SectionEditor({
         return;
       }
 
+      const decision = draftRecoveryDecision(
+        borrador,
+        initialContentRef.current,
+        versionRef.current,
+      );
+      if (decision === "synced") {
+        // El remontaje posterior a un envío puede encontrar el respaldo de
+        // ese mismo envío con la versión anterior. No es un conflicto.
+        // Tampoco se confirma una edición nueva hecha durante loadDraft.
+        if (localVersionRef.current === 0) {
+          dispatch({ type: "sync-ok", version: versionRef.current });
+          await deleteDraft(userId, bookId, sectionId);
+        }
+        return;
+      }
+      if (decision === "invalid") {
+        dispatch({ type: "sync-error", message: "El borrador de este equipo está dañado." });
+        return;
+      }
+
       // El borrador solo se recupera si es más reciente que lo que hay en el
       // servidor. Si el servidor ya está en otra versión, no se descarta
       // ninguna de las dos: se abre el comparador para que la persona
       // decida. Antes el borrador se perdía en silencio y el siguiente
       // autoguardado lo sobrescribía.
-      if (borrador.baseVersion !== versionRef.current) {
+      if (decision === "conflict") {
         setBorradorLocal(borrador.content);
         setConflict({
           serverVersion: versionRef.current,
