@@ -17,7 +17,7 @@
     --plan-text: #14503e;
   }
   .plan-tone-amber {
-    --plan-strong: #ae6800;
+    --plan-strong: #9c5b00;
     --plan-tint: #fff4db;
     --plan-text: #714516;
   }
@@ -769,6 +769,84 @@
     }
     .reference-planner.is-map .plan-map-open {
       max-height: 34px;
+    }
+  }
+}
+@layer components {
+  .plan-node-menu {
+    display: inline-grid;
+    place-items: center;
+    align-self: start;
+    flex: 0 0 22px;
+    min-height: 28px;
+    color: var(--plan-text, var(--ink));
+    font-size: 1.05rem;
+    border-radius: 0.35rem;
+  }
+  .plan-node-menu:hover,
+  .plan-node-menu:focus-visible {
+    background: var(--plan-tint, var(--canvas));
+  }
+  .plan-card > .plan-node-menu {
+    margin-left: auto;
+    margin-top: 0.25rem;
+  }
+  .plan-management-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+  }
+  .plan-management-actions .btn {
+    text-align: left;
+    justify-content: flex-start;
+  }
+  .plan-trash {
+    max-height: 65dvh;
+    overflow-y: auto;
+    padding: 0.2rem;
+  }
+  .plan-trash > p {
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+    margin-bottom: 0.8rem;
+  }
+  .plan-trash > ul {
+    display: grid;
+    gap: 0.5rem;
+  }
+  .plan-trash li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    border: 1px solid var(--line);
+    border-radius: 0.5rem;
+    padding: 0.6rem;
+    font-size: 0.8rem;
+  }
+  .plan-trash li span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .plan-trash li button {
+    flex-shrink: 0;
+  }
+  .plan-trash nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: 0.8rem;
+    font-size: 0.75rem;
+  }
+  @media (max-width: 640px) {
+    .reference-planner .plan-node-menu {
+      flex-basis: 28px;
+      min-width: 28px;
+      min-height: 36px;
+    }
+    .plan-management-actions {
+      grid-template-columns: 1fr;
     }
   }
 }

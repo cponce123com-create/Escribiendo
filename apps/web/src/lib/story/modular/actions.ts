@@ -14,6 +14,7 @@ import { beginStoryAction } from "../action-helpers";
 import { PLAN_KIND_VALUES, PLAN_STATUS_VALUES } from "../labels";
 import { MAX_PLAN_ITEMS, planOrder, movePlan, validParent, PlanError } from "./structure";
 import { parsePlanLabels, planVisualSchema } from "./presentation";
+import { archiveMetadata, planSubtree } from "./archive";
 import { manuscriptKey } from "./queries";
 const field = (max: number) =>
   z
@@ -29,7 +30,19 @@ const optionalId = z.union([z.uuid(), z.literal("")]).default("");
 const schema = z.object({
   template: z.enum(["THREE_ACTS", "FIVE_PARTS"]).default("THREE_ACTS"),
   chapterCount: z.coerce.number().int().min(0).max(100).default(0),
-  operation: z.enum(["save", "move", "status", "delete", "import", "apply", "template"]),
+  operation: z.enum([
+    "save",
+    "move",
+    "status",
+    "delete",
+    "clear",
+    "restore",
+    "import",
+    "apply",
+    "template",
+  ]),
+  deleteChildren: z.enum(["yes", "no"]).default("no"),
+  confirmation: field(300).default(""),
   bookId: z.uuid(),
   version: z.coerce.number().int().min(0).max(2147483646),
   sourceKey: z.string().regex(/^[a-f0-9]{64}$/u),
@@ -163,16 +176,85 @@ export async function modularPlanAction(_: ActionState, form: FormData): Promise
           });
           return "Estado del trabajo actualizado.";
         }
-        if (v.operation === "delete") {
-          if (nodes.some((n) => n.parentId === v.id))
-            throw new PlanError(
-              "Mueve primero sus capítulos o escenas. No se eliminará su contenido en cascada.",
-            );
-          await tx.storyPlanItem.updateMany({
-            where: { ...scope, id: v.id },
-            data: { deletedAt: new Date(), sectionId: null, version: { increment: 1 } },
+        if (v.operation === "delete" || v.operation === "clear") {
+          if (v.operation === "clear" && v.confirmation !== "ELIMINAR")
+            throw new PlanError("Escribe ELIMINAR para vaciar el plan.");
+          const selected = v.operation === "clear" ? nodes : planSubtree(nodes, v.id);
+          if (!selected.length) throw new PlanError("El plan ya está vacío.");
+          if (v.operation === "delete" && selected.length > 1 && v.deleteChildren !== "yes")
+            throw new PlanError("Confirma también la eliminación de sus capítulos o escenas.");
+          const ids = selected.map((n) => n.id);
+          const batchId = randomUUID();
+          await tx.$executeRaw(
+            Prisma.sql`UPDATE "story_plan_items" SET "deletedAt"=${new Date()}, "version"="version"+1, "updatedAt"=CURRENT_TIMESTAMP, "visual"=(CASE WHEN jsonb_typeof("visual")='object' THEN "visual" ELSE '{}'::jsonb END)||jsonb_build_object('archive',jsonb_build_object('batchId',${batchId}::text,'sectionId',"sectionId")), "sectionId"=NULL WHERE "workspaceId"=${session.workspace.id}::uuid AND "bookId"=${v.bookId}::uuid AND "deletedAt" IS NULL AND id IN (${Prisma.join(ids.map((id) => Prisma.sql`${id}::uuid`))})`,
+          );
+          return `${selected.length} ${selected.length === 1 ? "tarjeta enviada" : "tarjetas enviadas"} a la papelera del plan. El manuscrito conserva su texto y estructura.`;
+        }
+        if (v.operation === "restore") {
+          const archived = await tx.storyPlanItem.findFirst({
+            where: { ...scope, deletedAt: { not: null }, id: v.id },
           });
-          return "Tarjeta archivada. La sección del manuscrito se conserva.";
+          if (!archived) throw new PlanError("La tarjeta no está en la papelera de este libro.");
+          const meta = archiveMetadata(archived.visual);
+          const batch = meta
+            ? await tx.storyPlanItem.findMany({
+                where: {
+                  ...scope,
+                  deletedAt: { not: null },
+                  visual: { path: ["archive", "batchId"], equals: meta.batchId },
+                },
+                take: MAX_PLAN_ITEMS + 1,
+              })
+            : [archived];
+          const restoring = planSubtree(batch, archived.id);
+          if (nodes.length + restoring.length > MAX_PLAN_ITEMS)
+            throw new PlanError("No hay espacio para restaurar toda la rama en el plan.");
+          const available = new Map([...nodes, ...restoring].map((n) => [n.id, n]));
+          const previousIds = restoring.flatMap((n) =>
+            archiveMetadata(n.visual)?.sectionId ? [archiveMetadata(n.visual)!.sectionId!] : [],
+          );
+          const sections = previousIds.length
+            ? await tx.bookSection.findMany({
+                where: { bookId: v.bookId, deletedAt: null, id: { in: previousIds } },
+                select: { id: true, type: true },
+              })
+            : [];
+          const used = new Set(nodes.flatMap((n) => (n.sectionId ? [n.sectionId] : [])));
+          const placements = restoring.map((n) => {
+            const previousId = archiveMetadata(n.visual)?.sectionId;
+            const section = sections.find((s) => s.id === previousId);
+            let sectionId: string | null = null;
+            if (section && !used.has(section.id)) {
+              try {
+                assertLink(n.kind, section.type);
+                sectionId = section.id;
+                used.add(section.id);
+              } catch {
+                /* El vínculo requiere revisión manual si el tipo cambió. */
+              }
+            }
+            return {
+              ...n,
+              sectionId,
+              parentId:
+                n.parentId &&
+                available.has(n.parentId) &&
+                validParent(n.kind, available.get(n.parentId)!.kind)
+                  ? n.parentId
+                  : null,
+              createdAt: n.createdAt.toISOString(),
+            };
+          });
+          planOrder([...nodes, ...placements]);
+          const values = Prisma.join(
+            placements.map(
+              (n) => Prisma.sql`(${n.id}::uuid,${n.parentId}::uuid,${n.sectionId}::uuid)`,
+            ),
+          );
+          await tx.$executeRaw(
+            Prisma.sql`UPDATE "story_plan_items" AS p SET "deletedAt"=NULL, "parentId"=m.parent, "sectionId"=m.section_ref, "visual"=p."visual"-'archive', "version"=p."version"+1, "updatedAt"=CURRENT_TIMESTAMP FROM (VALUES ${values}) AS m(id,parent,section_ref) WHERE p.id=m.id AND p."workspaceId"=${session.workspace.id}::uuid AND p."bookId"=${v.bookId}::uuid AND p."deletedAt" IS NOT NULL`,
+          );
+          return `${placements.length} ${placements.length === 1 ? "tarjeta restaurada" : "tarjetas restauradas"}. Se recuperaron los vínculos disponibles; el manuscrito no cambió.`;
         }
         const sections = await tx.bookSection.findMany({
           where: { bookId: v.bookId, deletedAt: null },

@@ -3,6 +3,7 @@ const m = vi.hoisted(() => ({
   start: vi.fn(),
   claim: vi.fn(),
   rows: vi.fn(),
+  archived: vi.fn(),
   sections: vi.fn(),
   create: vi.fn(),
   bulk: vi.fn(),
@@ -26,6 +27,7 @@ vi.mock("@/lib/db", () => ({
         book: { updateMany: m.claim },
         storyPlanItem: {
           findMany: m.rows,
+          findFirst: m.archived,
           create: m.create,
           createMany: m.bulk,
           updateMany: m.update,
@@ -167,11 +169,9 @@ it("archivar una hoja suelta el vínculo y conserva la sección", async () => {
   expect(
     (await modularPlanAction({ status: "idle" }, form("delete", { id: chapterId }))).status,
   ).toBe("success");
-  expect(m.update).toHaveBeenCalledWith(
-    expect.objectContaining({
-      data: expect.objectContaining({ sectionId: null, deletedAt: expect.any(Date) }),
-    }),
-  );
+  expect(m.raw).toHaveBeenCalledOnce();
+  expect(m.raw.mock.calls[0]?.[0].sql).toContain('"sectionId"=NULL');
+  expect(m.raw.mock.calls[0]?.[0].sql).toContain("jsonb_build_object('archive'");
   expect(m.updateSection).not.toHaveBeenCalled();
 });
 it("la reubicación utiliza parámetros SQL y no cambia el manuscrito", async () => {
@@ -324,3 +324,95 @@ it("guarda etiquetas y una imagen comprobada sin inferir datos", async () => {
     tone: "blue",
   });
 });
+
+it("eliminar una rama exige confirmación y parametriza todos sus UUID", async () => {
+  m.rows.mockResolvedValue([card(), card(chapterId, "CHAPTER", partId)]);
+  const result = await modularPlanAction(
+    { status: "idle" },
+    form("delete", { id: partId, deleteChildren: "yes" }),
+  );
+  expect(result.status).toBe("success");
+  expect(m.raw.mock.calls[0]?.[0].values).toEqual(
+    expect.arrayContaining([partId, chapterId, bookId, "w"]),
+  );
+  expect(m.raw.mock.calls[0]?.[0].sql).toContain("::uuid");
+  expect(m.updateSection).not.toHaveBeenCalled();
+});
+it("vaciar todo el plan exige la frase exacta y no toca el manuscrito", async () => {
+  m.rows.mockResolvedValue([card()]);
+  expect((await modularPlanAction({ status: "idle" }, form("clear"))).status).toBe("error");
+  expect(m.raw).not.toHaveBeenCalled();
+  expect(
+    (await modularPlanAction({ status: "idle" }, form("clear", { confirmation: "ELIMINAR" })))
+      .status,
+  ).toBe("success");
+  expect(m.updateSection).not.toHaveBeenCalled();
+});
+it("no restaura tarjetas ajenas y no escribe SQL sin encontrarlas", async () => {
+  m.rows.mockResolvedValue([]);
+  m.archived.mockResolvedValue(null);
+  expect(
+    (await modularPlanAction({ status: "idle" }, form("restore", { id: partId }))).status,
+  ).toBe("error");
+  expect(m.archived.mock.calls[0]?.[0].where).toMatchObject({
+    bookId,
+    workspaceId: "w",
+    id: partId,
+    deletedAt: { not: null },
+  });
+  expect(m.raw).not.toHaveBeenCalled();
+});
+it("restaura solo la rama del lote y recupera vínculos disponibles", async () => {
+  const batchId = "55555555-5555-4555-8555-555555555555";
+  const part = {
+    ...card(),
+    deletedAt: new Date(),
+    visual: { archive: { batchId, sectionId: null } },
+  };
+  const chapter = {
+    ...card(chapterId, "CHAPTER", partId),
+    deletedAt: new Date(),
+    visual: { archive: { batchId, sectionId } },
+  };
+  m.rows.mockResolvedValueOnce([]).mockResolvedValueOnce([part, chapter]);
+  m.archived.mockResolvedValue(part);
+  m.sections.mockResolvedValue([{ id: sectionId, type: "CHAPTER" }]);
+  expect(
+    (await modularPlanAction({ status: "idle" }, form("restore", { id: partId }))).status,
+  ).toBe("success");
+  const sql = m.raw.mock.calls[0]?.[0];
+  expect(sql.values).toEqual(expect.arrayContaining([partId, chapterId, sectionId]));
+  expect(sql.sql).toContain('"deletedAt"=NULL');
+  expect(m.updateSection).not.toHaveBeenCalled();
+});
+it("si otro módulo usa el vínculo, restaura sin fusionar ni quitarlo al nuevo", async () => {
+  const active = { ...card(chapterId, "CHAPTER"), sectionId };
+  const archived = {
+    ...card(partId, "CHAPTER"),
+    deletedAt: new Date(),
+    visual: { archive: { batchId: bookId, sectionId } },
+  };
+  m.rows.mockResolvedValueOnce([active]).mockResolvedValueOnce([archived]);
+  m.archived.mockResolvedValue(archived);
+  m.sections.mockResolvedValue([{ id: sectionId, type: "CHAPTER" }]);
+  expect(
+    (await modularPlanAction({ status: "idle" }, form("restore", { id: partId }))).status,
+  ).toBe("success");
+  expect(m.raw.mock.calls[0]?.[0].values).not.toContain(sectionId);
+});
+
+it.each(["delete", "clear", "restore"])(
+  "%s rechaza una revisión obsoleta antes de modificar tarjetas",
+  async (operation) => {
+    m.claim.mockResolvedValue({ count: 0 });
+    expect(
+      (
+        await modularPlanAction(
+          { status: "idle" },
+          form(operation, { id: partId, confirmation: "ELIMINAR", deleteChildren: "yes" }),
+        )
+      ).status,
+    ).toBe("error");
+    expect(m.raw).not.toHaveBeenCalled();
+  },
+);

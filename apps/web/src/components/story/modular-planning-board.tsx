@@ -24,17 +24,32 @@ import {
   PLAN_STATUS_VALUES,
   type PlanKind,
 } from "@/lib/story/labels";
+import { planSubtree } from "@/lib/story/modular/archive";
 import { validParent, planDiagnostics } from "@/lib/story/modular/structure";
 import { modularPlanAction } from "@/lib/story/modular/actions";
 import type { ModularPlanData, ModularItem } from "@/lib/story/modular/queries";
 
 type Modal = {
-  mode: "edit" | "move" | "delete" | "apply" | "import" | "outline" | "template" | "inspect";
+  mode:
+    | "edit"
+    | "move"
+    | "delete"
+    | "apply"
+    | "import"
+    | "outline"
+    | "template"
+    | "inspect"
+    | "manage"
+    | "plan"
+    | "trash"
+    | "clear"
+    | "status";
   id?: string;
   kind?: PlanKind;
   parentId?: string;
   version: number;
   sourceKey: string;
+  structural?: boolean;
 };
 const kindLabel = (kind: PlanKind) => (kind === "ACT" ? "Parte" : PLAN_KIND_LABELS[kind]);
 function EditCard({
@@ -131,6 +146,27 @@ function EditCard({
             </select>
           </label>
         </div>
+        {(() => {
+          const section = data.sections.find((section) => section.id === values.sectionId);
+          return section && section.title !== values.title ? (
+            <div className="alert" role="status">
+              <p>
+                El título difiere del manuscrito. Para aplicar el plan, revisa el título de la
+                sección vinculada.
+              </p>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  set("title", section.title);
+                  onDirty?.();
+                }}
+              >
+                Usar título del manuscrito
+              </button>
+            </div>
+          ) : null;
+        })()}
         <label className="field-label">
           Resumen previsto
           <textarea
@@ -397,7 +433,13 @@ function MoveCard({
         </>
       )}
       <button className="btn btn-primary" type="submit" disabled={busy}>
-        {busy ? "Moviendo…" : "Mover tarjeta"}
+        {busy
+          ? workflow
+            ? "Guardando…"
+            : "Moviendo…"
+          : workflow
+            ? "Guardar estado"
+            : "Mover tarjeta"}
       </button>
     </form>
   );
@@ -456,20 +498,64 @@ function TemplateForm({
     </form>
   );
 }
+function ClearPlanForm({
+  count,
+  busy,
+  submit,
+}: {
+  count: number;
+  busy: boolean;
+  submit: (fields: Record<string, string>) => void;
+}) {
+  const [confirmation, setConfirmation] = useState("");
+  return (
+    <form
+      className="space-y-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        submit({ operation: "clear", confirmation });
+      }}
+    >
+      <p>
+        Se enviarán {count} tarjetas a la papelera del plan. Se conservarán los textos y la
+        estructura del manuscrito.
+      </p>
+      <label className="field-label">
+        Escribe ELIMINAR para confirmar
+        <input
+          className="field-input"
+          value={confirmation}
+          autoComplete="off"
+          onChange={(event) => setConfirmation(event.target.value)}
+        />
+      </label>
+      <button
+        type="submit"
+        className="btn btn-primary"
+        disabled={busy || confirmation !== "ELIMINAR"}
+      >
+        {busy ? "Eliminando…" : "Sí, vaciar el plan"}
+      </button>
+    </form>
+  );
+}
 export function ModularPlanningBoard({
   data,
   canManage,
   initialSearch = "",
+  initialTrashOpen = false,
 }: {
   data: ModularPlanData;
   canManage: boolean;
   initialSearch?: string;
+  initialTrashOpen?: boolean;
 }) {
   const [view, setView] = useState<"structure" | "flow" | "timeline">("structure");
   const [density, setDensity] = useState<"map" | "cards">("map");
   const compact = view === "structure" && density === "map";
   const [expanded, setExpanded] = useState(false);
   const boardRef = useRef<HTMLElement>(null);
+  const focusManagerAfterMutationRef = useRef(false);
   const expandButtonRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!expanded) return;
@@ -490,9 +576,18 @@ export function ModularPlanningBoard({
   }, [expanded]);
   const [query, setQuery] = useState(initialSearch);
   const [kind, setKind] = useState("ALL");
-  const [modal, setModal] = useState<Modal | null>(null);
+  const [modal, setModal] = useState<Modal | null>(
+    initialTrashOpen
+      ? { mode: "trash", version: data.book.narrativeVersion, sourceKey: data.manuscriptKey }
+      : null,
+  );
   const [message, setMessage] = useState<ActionState>({ status: "idle" });
   const [busy, startTransition] = useTransition();
+  useEffect(() => {
+    if (busy || modal || !focusManagerAfterMutationRef.current) return;
+    focusManagerAfterMutationRef.current = false;
+    boardRef.current?.querySelector<HTMLButtonElement>("[data-plan-manager]")?.focus();
+  }, [busy, modal]);
   const [dragId, setDragId] = useState<string | null>(null);
   const outlineRef = useRef<HTMLTextAreaElement>(null);
   const dirtyRef = useRef(false);
@@ -506,6 +601,7 @@ export function ModularPlanningBoard({
     else setModal(null);
   }, []);
   function open(mode: Modal["mode"], item?: ModularItem, newKind?: PlanKind, parentId?: string) {
+    if (busy) return;
     setMessage({ status: "idle" });
     dirtyRef.current = false;
     editingRef.current = mode === "edit";
@@ -537,6 +633,8 @@ export function ModularPlanningBoard({
           dirtyRef.current = false;
           editingRef.current = false;
           setModal(null);
+          if (["delete", "clear", "restore"].includes(fields.operation ?? ""))
+            focusManagerAfterMutationRef.current = true;
         }
       } catch {
         setMessage({
@@ -646,6 +744,20 @@ export function ModularPlanningBoard({
     }
     open(canManage ? mode : "inspect", item, newKind, parentId);
   }
+  function manageButton(item: ModularItem, part = false) {
+    return canManage ? (
+      <button
+        type="button"
+        className="plan-node-menu"
+        aria-label={`${part ? "Gestionar parte" : "Gestionar"} «${item.title}»`}
+        title="Editar, mover o eliminar del plan"
+        disabled={busy}
+        onClick={() => open("manage", item)}
+      >
+        ⋮
+      </button>
+    ) : null;
+  }
   function compactCard(item: ModularItem) {
     const visual = planVisual(item.visual);
     const count = children(item.id).length;
@@ -694,16 +806,7 @@ export function ModularPlanningBoard({
             </span>
           ) : null}
         </button>
-        {canManage ? (
-          <button
-            type="button"
-            className="plan-map-move"
-            aria-label={`Mover «${item.title}»`}
-            onClick={() => open("move", item)}
-          >
-            ↗
-          </button>
-        ) : null}
+        {manageButton(item)}
       </article>
     );
   }
@@ -784,6 +887,7 @@ export function ModularPlanningBoard({
             </button>
           ) : null}
         </div>
+        {manageButton(item)}
         {section ? (
           <div className="plan-card-links">
             <Link href={`/books/${data.book.id}/sections/${section.id}`}>Abrir editor</Link>
@@ -832,6 +936,9 @@ export function ModularPlanningBoard({
     [data.items],
   );
   const modalItem = data.items.find((n) => n.id === modal?.id);
+  const deleting =
+    modal?.mode === "delete" && modalItem ? planSubtree(data.items, modalItem.id) : [];
+  const trash = data.trash ?? { items: [], total: 0, page: 1, pages: 1 };
   return (
     <section
       ref={boardRef}
@@ -916,6 +1023,17 @@ export function ModularPlanningBoard({
           >
             Flujo de trabajo
           </button>
+          {canManage ? (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              disabled={busy}
+              data-plan-manager
+              onClick={() => open("plan")}
+            >
+              Gestionar plan
+            </button>
+          ) : null}
           <button
             ref={expandButtonRef}
             type="button"
@@ -1007,7 +1125,7 @@ export function ModularPlanningBoard({
           El tablero y el manuscrito se sincronizan solo cuando aplicas la estructura.
         </p>
       </details>
-      <FormMessage state={message} />
+      {modal === null ? <FormMessage state={message} /> : null}
       <div
         className="plan-board-scroll"
         role="region"
@@ -1187,15 +1305,7 @@ export function ModularPlanningBoard({
                         >
                           <StudioIcon name="plus" width={14} height={14} />
                         </button>
-                        <button
-                          type="button"
-                          aria-label={`Mover parte «${part.title}»`}
-                          title="Mover parte"
-                          onClick={() => open("move", part)}
-                          className="plan-part-move"
-                        >
-                          ⋮
-                        </button>
+                        {manageButton(part, true)}
                       </>
                     ) : null}
                   </div>
@@ -1341,26 +1451,170 @@ export function ModularPlanningBoard({
         </section>
       </div>
       <Dialog
+        key={`${modal?.mode ?? "closed"}-${modal?.id ?? "plan"}`}
         abierto={modal !== null}
         titulo={
-          modal?.mode === "edit"
-            ? modal.id
-              ? "Editar tarjeta"
-              : "Nueva tarjeta"
-            : modal?.mode === "move"
-              ? "Mover tarjeta"
-              : modal?.mode === "apply"
-                ? "Aplicar estructura al manuscrito"
-                : modal?.mode === "import"
-                  ? "Traer estructura existente"
-                  : modal?.mode === "template"
-                    ? "Esquema inicial del libro"
-                    : modal?.mode === "delete"
-                      ? "Archivar tarjeta"
-                      : "Estructura literaria"
+          modal?.mode === "manage"
+            ? `Gestionar «${modalItem?.title ?? "tarjeta"}»`
+            : modal?.mode === "plan"
+              ? "Gestionar el plan"
+              : modal?.mode === "trash"
+                ? "Papelera del plan"
+                : modal?.mode === "clear"
+                  ? "Eliminar todo el plan"
+                  : modal?.mode === "status"
+                    ? "Cambiar estado"
+                    : modal?.mode === "edit"
+                      ? modal.id
+                        ? "Editar tarjeta"
+                        : "Nueva tarjeta"
+                      : modal?.mode === "move"
+                        ? "Mover tarjeta"
+                        : modal?.mode === "apply"
+                          ? "Aplicar estructura al manuscrito"
+                          : modal?.mode === "import"
+                            ? "Traer estructura existente"
+                            : modal?.mode === "template"
+                              ? "Esquema inicial del libro"
+                              : modal?.mode === "delete"
+                                ? "Eliminar del plan"
+                                : "Estructura literaria"
         }
         onCerrar={close}
       >
+        {modal?.mode === "plan" ? (
+          <div className="plan-management-actions">
+            <button type="button" className="btn btn-secondary" onClick={() => open("trash")}>
+              Papelera ({trash.total})
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={() => open("import")}>
+              Traer del manuscrito
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={!chapters.length}
+              onClick={() => open("apply")}
+            >
+              Aplicar estructura al manuscrito
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={() => open("outline")}>
+              Copiar estructura
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost text-danger"
+              disabled={!data.items.length}
+              onClick={() => open("clear")}
+            >
+              Eliminar todo el plan
+            </button>
+          </div>
+        ) : null}
+        {modal?.mode === "manage" && modalItem ? (
+          <div className="plan-management-actions">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => open("edit", modalItem)}
+            >
+              Editar tarjeta
+            </button>
+            {modalItem.kind === "ACT" ? (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => open("edit", undefined, "CHAPTER", modalItem.id)}
+              >
+                Añadir capítulo
+              </button>
+            ) : null}
+            {modalItem.kind === "CHAPTER" ? (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => open("edit", undefined, "SCENE", modalItem.id)}
+              >
+                Añadir escena
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setModal({ ...modal, mode: "move", structural: true })}
+            >
+              Mover
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => open("status", modalItem)}
+            >
+              Cambiar estado
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost text-danger"
+              onClick={() => open("delete", modalItem)}
+            >
+              Eliminar del plan
+            </button>
+          </div>
+        ) : null}
+        {modal?.mode === "trash" ? (
+          <div className="plan-trash">
+            <p>
+              Restaurar una parte o capítulo recupera los módulos eliminados en el mismo lote. El
+              manuscrito no se modifica.
+            </p>
+            {trash.items.length ? (
+              <ul>
+                {trash.items.map((item) => (
+                  <li key={item.id}>
+                    <span>
+                      {kindLabel(item.kind)} · {item.title}
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      aria-label={`Restaurar «${item.title}»`}
+                      disabled={busy}
+                      onClick={() => run({ operation: "restore", id: item.id })}
+                    >
+                      Restaurar
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>La papelera está vacía.</p>
+            )}
+            <nav aria-label="Páginas de la papelera">
+              {trash.page > 1 ? (
+                <Link
+                  className="btn btn-ghost btn-sm"
+                  href={`/planning?book=${data.book.id}&panel=trash&trashPage=${trash.page - 1}`}
+                >
+                  Anterior
+                </Link>
+              ) : null}
+              <span>
+                Página {trash.page} de {trash.pages}
+              </span>
+              {trash.page < trash.pages ? (
+                <Link
+                  className="btn btn-ghost btn-sm"
+                  href={`/planning?book=${data.book.id}&panel=trash&trashPage=${trash.page + 1}`}
+                >
+                  Siguiente
+                </Link>
+              ) : null}
+            </nav>
+          </div>
+        ) : null}
+        {modal?.mode === "clear" ? (
+          <ClearPlanForm count={data.items.length} busy={busy} submit={(fields) => run(fields)} />
+        ) : null}
         {modal?.mode === "edit" ? (
           <div ref={editorRef} className="plan-editor-detail" hidden={discardPending}>
             <EditCard
@@ -1441,11 +1695,18 @@ export function ModularPlanningBoard({
                 type="button"
                 className="btn btn-ghost btn-sm text-danger"
                 onClick={() => {
+                  if (dirtyRef.current) {
+                    setMessage({
+                      status: "error",
+                      message: "Guarda o descarta tus cambios antes de eliminar la tarjeta.",
+                    });
+                    return;
+                  }
                   editingRef.current = false;
                   setModal({ ...modal, mode: "delete" });
                 }}
               >
-                Archivar esta tarjeta
+                Eliminar del plan
               </button>
             ) : null}
           </div>
@@ -1512,9 +1773,9 @@ export function ModularPlanningBoard({
         {modal?.mode === "template" ? (
           <TemplateForm busy={busy} submit={(fields) => run(fields)} />
         ) : null}
-        {modal?.mode === "move" ? (
+        {modal?.mode === "move" || modal?.mode === "status" ? (
           <MoveCard
-            workflow={view === "flow"}
+            workflow={(view === "flow" && !modal.structural) || modal.mode === "status"}
             key={modal.id}
             data={data}
             modal={modal}
@@ -1523,20 +1784,28 @@ export function ModularPlanningBoard({
           />
         ) : null}
         {modal?.mode === "delete" ? (
-          <>
-            <p className="text-sm text-ink-soft">
-              La tarjeta se archivará; la sección del manuscrito conservará su texto. Si contiene
-              capítulos o escenas, debes moverlos primero.
+          <div className="space-y-4">
+            <p>
+              Se enviarán a la papelera {deleting.length}{" "}
+              {deleting.length === 1 ? "tarjeta" : "tarjetas"}
+              {deleting.length > 1
+                ? `: esta tarjeta y ${deleting.length - 1} módulos descendientes`
+                : ""}
+              .
+            </p>
+            <p>
+              Los textos y la estructura del manuscrito se conservarán. Puedes recuperar las
+              tarjetas desde Gestionar plan → Papelera.
             </p>
             <button
               type="button"
               className="btn btn-primary"
-              disabled={busy}
-              onClick={() => run({ operation: "delete", id: modal.id! })}
+              disabled={busy || !deleting.length}
+              onClick={() => run({ operation: "delete", id: modal.id!, deleteChildren: "yes" })}
             >
-              Sí, archivar tarjeta
+              {busy ? "Eliminando…" : "Sí, eliminar del plan"}
             </button>
-          </>
+          </div>
         ) : null}
         {modal?.mode === "apply" ? (
           <>
