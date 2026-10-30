@@ -12,12 +12,33 @@ import type * as ReactDOMServer from "react-dom/server";
 import { chromium } from "@playwright/test";
 import * as modularStructure from "../apps/web/src/lib/story/modular/structure";
 import * as planPresentation from "../apps/web/src/lib/story/modular/presentation";
-import * as studioIcons from "../apps/web/src/components/books/studio-icon";
 import * as storyLabels from "../apps/web/src/lib/story/labels";
 
 const webRequire = createRequire(path.resolve("apps/web/package.json"));
 const React = webRequire("react") as typeof ReactModule;
 const { renderToStaticMarkup } = webRequire("react-dom/server") as typeof ReactDOMServer;
+
+// `studio-icon.tsx` se transpila con el runtime JSX automático: `tsx` usa el
+// clásico (`jsx: preserve` en tsconfig) y `StudioIcon` no importa `React`.
+const studioSource = ts.transpileModule(
+  await readFile(path.resolve("apps/web/src/components/books/studio-icon.tsx"), "utf8"),
+  {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      jsx: ts.JsxEmit.ReactJSX,
+      target: ts.ScriptTarget.ES2022,
+    },
+  },
+).outputText;
+const studioExports: Record<string, ReactModule.ComponentType<Record<string, unknown>>> = {};
+vm.runInNewContext(studioSource, {
+  exports: studioExports,
+  require: (id: string) => {
+    if (id === "react/jsx-runtime") return webRequire(id);
+    throw new Error(`Dependencia sin fixture en studio-icon: ${id}`);
+  },
+});
+
 const postcss = createRequire(webRequire.resolve("@tailwindcss/postcss"))("postcss");
 const tailwind = webRequire("@tailwindcss/postcss");
 const cssPath = path.resolve("apps/web/src/app/globals.css");
@@ -85,7 +106,7 @@ vm.runInNewContext(modularSource, {
         default: ({ src, alt, width, height }: Record<string, unknown>) =>
           React.createElement("img", { src, alt, width, height }),
       };
-    if (id === "@/components/books/studio-icon") return studioIcons;
+    if (id === "@/components/books/studio-icon") return studioExports;
     if (id === "@/lib/story/modular/presentation") return planPresentation;
     if (id === "@/lib/story/labels") return storyLabels;
     if (id === "@/lib/story/modular/structure") return modularStructure;

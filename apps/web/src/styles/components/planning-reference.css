@@ -543,7 +543,7 @@
     padding: 1rem;
     box-shadow: 0 0 0 2rem var(--canvas);
   }
-  @media (min-width: 1101px) and (max-height: 850px) {
+  @media (min-width: 1101px) {
     .reference-planner.is-map .plan-overview {
       gap: 0.4rem;
       padding-bottom: 0.35rem;
