@@ -64,6 +64,19 @@ test("esqueleto modular: partes, escenas, movimiento, aplicación sin pérdida y
   ).toBeVisible();
   await first.getByRole("button", { name: "+ Añadir capítulo", exact: true }).click();
   await saveCard(page, "La respuesta");
+  await page.getByRole("button", { name: "Gestionar «La decisión»", exact: true }).click();
+  dialog = page.getByRole("dialog", { name: "Gestionar «La decisión»" });
+  await dialog.getByRole("button", { name: "Preparar guía para IA", exact: true }).click();
+  dialog = page.getByRole("dialog", { name: "Guía del capítulo para IA" });
+  await expect(dialog.getByLabel("Instrucciones listas para copiar")).toHaveValue(
+    /Título obligatorio: La decisión/u,
+  );
+  await expect(dialog.getByLabel("Instrucciones listas para copiar")).toHaveValue(
+    /Presentar la decisión principal\./u,
+  );
+  await expect(dialog.getByText(/La ficha maestra no está vigente y aprobada/)).toBeVisible();
+  expect(await prisma.bookSection.count({ where: { bookId } })).toBe(0);
+  await dialog.getByRole("button", { name: "Cerrar diálogo" }).click();
   const stale = await page.context().newPage();
   await stale.goto(`/planning?book=${bookId}`);
   await stale.getByRole("button", { name: "Editar «La decisión»", exact: true }).click();
