@@ -263,7 +263,7 @@ try {
         await page.setViewportSize({ width, height: width === 1366 ? 768 : 1000 });
         for (const theme of ["light", "dark"]) {
           await page.setContent(
-            `<html lang="es" data-theme="${theme}"><head><style>${css}</style></head><body><div class="app-shell frontend-studio"><aside></aside><main id="contenido">${markup}</main></div></body></html>`,
+            `<html lang="es" data-theme="${theme}"><head><meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style></head><body><div class="app-shell frontend-studio"><a class="skip-link" href="#contenido">Saltar al contenido</a><aside></aside><div class="flex min-h-svh min-w-0 flex-col"><header class="app-topbar"></header><main id="contenido" class="flex-1 px-4 py-8 sm:px-6 lg:px-10 lg:py-10">${markup}</main><footer></footer></div></div></body></html>`,
           );
           // Verificar también los filtros que normalmente se revelan al cambiar libro.
           await page
@@ -299,7 +299,36 @@ try {
             }
             return failures;
           });
-          assert.deepEqual(issues, [], `${route}, scenario ${scenario}, ${width}px, ${theme}`);
+          if (issues.includes("page overflow")) {
+            const overflow = await page.evaluate(() =>
+              [...document.body.querySelectorAll<HTMLElement>("*")]
+                .map((element) => {
+                  const rect = element.getBoundingClientRect();
+                  return {
+                    tag: element.tagName,
+                    className: typeof element.className === "string" ? element.className : "",
+                    text: element.innerText?.slice(0, 80) ?? "",
+                    left: Math.round(rect.left),
+                    right: Math.round(rect.right),
+                    scrollWidth: element.scrollWidth,
+                    clientWidth: element.clientWidth,
+                  };
+                })
+                .filter((element) => element.left < -1 || element.right > innerWidth + 1)
+                .slice(0, 12),
+            );
+            await page.screenshot({
+              path: path.join(output, `${route}-${scenario}-${width}-${theme}-overflow.png`),
+              fullPage: true,
+            });
+            assert.deepEqual(
+              issues,
+              [],
+              `${route}, scenario ${scenario}, ${width}px, ${theme}; viewport=${JSON.stringify(await page.evaluate(() => ({ innerWidth, clientWidth: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth })))}: ${JSON.stringify(overflow)}`,
+            );
+          } else {
+            assert.deepEqual(issues, [], `${route}, scenario ${scenario}, ${width}px, ${theme}`);
+          }
           await page
             .locator(".plan-book-picker")
             .evaluateAll((nodes) => nodes.forEach((n) => ((n as HTMLDetailsElement).open = false)));
