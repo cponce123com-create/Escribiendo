@@ -18,14 +18,17 @@
  * temporal y se indica su ruta en la salida.
  */
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { buildEpub } from "../packages/export-engine/src/index";
 import { documentoDePrueba, FECHA, imagenesDePrueba } from "./lib/export-fixtures";
 
 function main(): void {
-  const destino = mkdtempSync(path.join(tmpdir(), "escribiendo-epub-"));
+  const destino = process.env.EPUB_VALIDATION_DIR
+    ? path.resolve(process.env.EPUB_VALIDATION_DIR)
+    : mkdtempSync(path.join(tmpdir(), "escribiendo-epub-"));
+  mkdirSync(destino, { recursive: true });
   const archivo = path.join(destino, "libro.epub");
   const epub = buildEpub(documentoDePrueba(), FECHA, imagenesDePrueba());
 
@@ -43,7 +46,15 @@ function main(): void {
   }
 
   const java = process.env.JAVA ?? "java";
-  const resultado = spawnSync(java, ["-jar", jar, archivo], { encoding: "utf8" });
+  const resultado = spawnSync(
+    java,
+    ["-jar", jar, archivo, "--json", path.join(destino, "epubcheck.json")],
+    {
+      encoding: "utf8",
+      timeout: 180_000,
+      maxBuffer: 4 * 1024 * 1024,
+    },
+  );
   const salida = `${resultado.stdout ?? ""}${resultado.stderr ?? ""}`;
 
   process.stdout.write(salida);

@@ -40,7 +40,7 @@ export async function prepareImageAsset(
         .toBuffer({ resolveWithObject: true });
 
       return {
-        data: new Uint8Array(data),
+        data: new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
         mimeType: "image/jpeg",
         extension: "jpg",
         width: info.width,
@@ -53,7 +53,7 @@ export async function prepareImageAsset(
       .toBuffer({ resolveWithObject: true });
 
     return {
-      data: new Uint8Array(data),
+      data: new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
       mimeType: "image/png",
       extension: "png",
       width: info.width,

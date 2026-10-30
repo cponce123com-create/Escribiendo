@@ -158,3 +158,39 @@ describe("breakRunsIntoLines", () => {
     expect(breakRunsIntoLines([{ text: "" }], SERIF_11)).toEqual([]);
   });
 });
+
+it("compacta los tramos equivalentes después de repartir líneas y conserva el texto", () => {
+  const text = "Inicio " + "palabra ".repeat(1000).trimEnd();
+  const lines = breakRunsIntoLines(
+    [
+      { text: "Inicio", marks: { bold: true } },
+      { text: text.slice(6), marks: { bold: false, italic: false } },
+    ],
+    SERIF_11,
+  );
+  expect(lines.map((line) => line.text).join(" ")).toBe(text);
+  expect(lines.reduce((sum, line) => sum + line.segments.length, 0)).toBeLessThanOrEqual(
+    lines.length + 2,
+  );
+});
+
+it("mantiene llamadas de nota y límites de enlaces, glosario y decoración", () => {
+  const note = { id: "nota-compacta", number: 1, note: "Texto de nota" };
+  const lines = breakRunsIntoLines(
+    [
+      { text: "Uno", marks: { link: "https://example.org/uno" } },
+      { text: "dos", marks: { link: "https://example.org/dos" } },
+      { text: "tres", marks: { glossary: "tres", underline: true } },
+      { text: "1", marks: { superscript: true }, footnote: note },
+      { text: " final" },
+    ],
+    { ...SERIF_11, lineWidthMm: 100 },
+  );
+  const segments = lines.flatMap((line) => line.segments);
+  expect(segments.find((segment) => segment.footnote)?.text).toBe("1");
+  expect(segments.find((segment) => segment.footnote)?.footnote).toEqual(note);
+  expect(
+    segments.filter((segment) => segment.marks?.link).map((segment) => segment.marks?.link),
+  ).toEqual(["https://example.org/uno", "https://example.org/dos"]);
+  expect(segments.find((segment) => segment.marks?.glossary)?.marks?.underline).toBe(true);
+});

@@ -34,15 +34,13 @@ import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { buildDocx } from "../packages/export-engine/src/index";
-import { documentoDePrueba, FECHA, imagenesDePrueba } from "./lib/export-fixtures";
-
-/** Textos que tienen que sobrevivir al viaje DOCX -> LibreOffice -> PDF. */
-const TEXTOS_ESPERADOS = [
-  "El velo de la tarde caía sobre la plaza.",
-  "La nota explica el detalle.",
-  "Pie de la imagen de prueba",
-  "Segunda parte del capítulo.",
-];
+import {
+  documentoDePrueba,
+  FECHA,
+  imagenesDePrueba,
+  textosEsperados,
+  textosFaltantes,
+} from "./lib/export-fixtures";
 
 function nombresDelEjecutable(): string[] {
   return process.platform === "win32" ? ["soffice.exe", "soffice.com"] : ["soffice"];
@@ -243,8 +241,7 @@ function main(): void {
     process.exit(1);
   }
 
-  const plano = texto.replace(/\s+/gu, " ");
-  const faltan = TEXTOS_ESPERADOS.filter((esperado) => !plano.includes(esperado));
+  const faltan = textosFaltantes(texto);
 
   if (faltan.length > 0) {
     process.stdout.write(`No se han encontrado estos textos en el PDF: ${faltan.join(" | ")}\n`);
@@ -252,7 +249,7 @@ function main(): void {
   }
 
   process.stdout.write(
-    `LibreOffice ha abierto el DOCX: ${paginas} páginas y ${TEXTOS_ESPERADOS.length} textos conservados.\n`,
+    `LibreOffice ha abierto el DOCX: ${paginas} páginas y ${textosEsperados().length} textos conservados.\n`,
   );
   process.exit(0);
 }

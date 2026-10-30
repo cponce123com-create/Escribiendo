@@ -316,13 +316,15 @@ function streamObject(data: Uint8Array, extra = ""): Uint8Array {
  * texto se puede extraer y buscar con `ToUnicode`, y el lector no depende de
  * las fuentes instaladas en el sistema.
  */
+type PdfObjectBody = Uint8Array | readonly Uint8Array[];
+
 function createEmbeddedFont(
   font: TrueTypeFont,
   resourceName: string,
   family: PdfFontFamily,
   style: PdfFont,
   alloc: () => number,
-  objects: (Uint8Array | undefined)[],
+  objects: (PdfObjectBody | undefined)[],
 ): EmbeddedFont {
   const fontFileNumber = alloc();
   objects[fontFileNumber] = streamObject(font.data, ` /Length1 ${font.data.length}`);
@@ -406,7 +408,7 @@ function usedFontKeys(document: PdfDocument): Set<string> {
 export function buildPdf(document: PdfDocument): PdfResult {
   // El objeto 0 está reservado por la especificación PDF; los objetos reales
   // empiezan en 1.
-  const objects: (Uint8Array | undefined)[] = [undefined];
+  const objects: (PdfObjectBody | undefined)[] = [undefined];
   const perdidos = new Set<string>();
   const alloc = (): number => {
     const number = objects.length;
@@ -638,7 +640,8 @@ export function buildPdf(document: PdfDocument): PdfResult {
 
     offsets[number] = position;
     push(latin1ToBytes(`${number} 0 obj\n`));
-    push(body);
+    if (body instanceof Uint8Array) push(body);
+    else for (const part of body) push(part);
     push(latin1ToBytes("\nendobj\n"));
   }
 
@@ -705,29 +708,38 @@ function embeddedTextOperator(
   cids: readonly number[],
   wordSpacing: number | undefined,
   sizePt: number,
+  alignMeasuredWords = false,
 ): string {
-  if (!wordSpacing || wordSpacing <= 0 || sizePt <= 0) {
+  if (((!wordSpacing || wordSpacing <= 0) && !alignMeasuredWords) || sizePt <= 0) {
     return `<${cidsToHex(cids)}> Tj`;
   }
 
   const space = font.font.cmap.get(0x20);
 
-  if (space === undefined) {
+  if (space === undefined || !cids.includes(space)) {
     return `<${cidsToHex(cids)}> Tj`;
   }
 
   // `Tw` no se aplica de forma fiable a los códigos de dos bytes de
   // Identity-H. El espacio extra se reparte con ajustes de `TJ`.
-  const adjustment = ((-wordSpacing * 1000) / sizePt).toFixed(3);
+  const extraSpace = wordSpacing && wordSpacing > 0 ? (-wordSpacing * 1000) / sizePt : 0;
+  let rounding = 0;
   const chunks: string[] = [];
   let current: number[] = [];
 
   for (const cid of cids) {
     current.push(cid);
-
+    if (alignMeasuredWords) {
+      // /W usa enteros de mil unidades; el medidor usa hmtx sin redondear.
+      // Al unir palabras se corrige esa diferencia en cada espacio para
+      // conservar los mismos inicios de palabra que los tramos separados.
+      const measured = ((font.font.advances[cid] ?? 0) * 1000) / font.font.unitsPerEm;
+      rounding += Math.round(measured) - measured;
+    }
     if (cid === space) {
-      chunks.push(`<${cidsToHex(current)}> ${adjustment}`);
+      chunks.push(`<${cidsToHex(current)}> ${(extraSpace + rounding).toFixed(3)}`);
       current = [];
+      rounding = 0;
     }
   }
 
@@ -853,7 +865,7 @@ function pageContent(
       parts.push(
         `BT /${embedded.resourceName} ${run.sizePt.toFixed(2)} Tf ${characterSpacing}${rise}` +
           `1 0 0 1 ${x.toFixed(3)} ${y.toFixed(3)} Tm ` +
-          `${embeddedTextOperator(embedded, preparado.cids, run.wordSpacing, run.sizePt)} ET`,
+          `${embeddedTextOperator(embedded, preparado.cids, run.wordSpacing, run.sizePt, run.widthMm !== undefined)} ET`,
       );
     } else {
       const fontIndex = FONT_KEYS.indexOf(run.font) + 1;
@@ -1009,7 +1021,7 @@ function jpegInfo(data: Uint8Array): JpegInfo | null {
 }
 
 /** Objeto PDF de imagen JPEG. */
-function imageObjectBody(data: Uint8Array, info: JpegInfo): Uint8Array {
+function imageObjectBody(data: Uint8Array, info: JpegInfo): readonly Uint8Array[] {
   const colorSpace =
     info.components === 1 ? "DeviceGray" : info.components === 3 ? "DeviceRGB" : "DeviceCMYK";
   const decode = info.components === 4 ? " /Decode [1 0 1 0 1 0 1 0]" : "";
@@ -1018,7 +1030,9 @@ function imageObjectBody(data: Uint8Array, info: JpegInfo): Uint8Array {
     `/ColorSpace /${colorSpace} /BitsPerComponent 8${decode} /Filter /DCTDecode ` +
     `/Length ${data.length} >>\nstream\n`;
 
-  return concatBytes([latin1ToBytes(dictionary), data, latin1ToBytes("\nendstream")]);
+  // El ensamblado final copia estos segmentos una sola vez al PDF de salida.
+  // No se duplica cada JPEG mientras se conservan los originales en memoria.
+  return [latin1ToBytes(dictionary), data, latin1ToBytes("\nendstream")];
 }
 
 function concatBytes(chunks: readonly Uint8Array[]): Uint8Array {

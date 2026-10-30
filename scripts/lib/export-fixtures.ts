@@ -7,6 +7,7 @@
  * formatos que la aplicación escribe son los que las herramientas externas
  * leen.
  */
+import { buildLegalPage } from "../../packages/templates/src/index";
 import type { ExportDocumentModel, ExportImageMap } from "../../packages/export-engine/src/index";
 
 /** JPEG de un píxel, válido y mínimo, para probar la incrustación de imágenes. */
@@ -22,7 +23,7 @@ export const IMAGEN_SRC = "https://res.cloudinary.com/demo/image/upload/libro.jp
 
 /** Documento de prueba con todo lo que el motor sabe escribir. */
 export function documentoDePrueba(): ExportDocumentModel {
-  return {
+  const document: ExportDocumentModel = {
     title: "Libro de prueba",
     author: "Ana Torres",
     language: "es",
@@ -45,7 +46,7 @@ export function documentoDePrueba(): ExportDocumentModel {
           },
           {
             kind: "body",
-            text: "Texto con formatos: negrita, cursiva, subrayado, tachado, superíndice, subíndice y enlace.",
+            text: "Texto con formatos: negrita, cursiva, subrayado, tachado, superíndice, subíndice y un enlace.",
             runs: [
               { text: "Texto con formatos: " },
               { text: "negrita", bold: true },
@@ -93,7 +94,8 @@ export function documentoDePrueba(): ExportDocumentModel {
         id: "capitulo-2",
         title: "Capítulo",
         blocks: [
-          { kind: "heading", text: "El reloj" },
+          { id: "apartado-reloj", kind: "heading", level: 2, text: "El reloj" },
+          { id: "detalle-hora", kind: "heading", level: 3, text: "La hora exacta" },
           { kind: "body", text: "Marcaba las siete y media de la tarde." },
           { kind: "pageBreak", text: "" },
           { kind: "body", text: "Segunda parte del capítulo." },
@@ -106,6 +108,66 @@ export function documentoDePrueba(): ExportDocumentModel {
       },
     ],
   };
+  const entries = [
+    { sourceId: "capitulo-1", sectionId: "capitulo-1", title: "Prólogo", level: 1 },
+    { sourceId: "capitulo-2", sectionId: "capitulo-2", title: "Capítulo", level: 1 },
+    { sourceId: "apartado-reloj", sectionId: "capitulo-2", title: "El reloj", level: 2 },
+    { sourceId: "detalle-hora", sectionId: "capitulo-2", title: "La hora exacta", level: 3 },
+  ];
+  document.toc = { title: "Contenido", entries };
+  const legal = buildLegalPage({
+    template: "copyright-minimal",
+    title: document.title,
+    author: document.author,
+    rightsHolder: document.author,
+    copyrightYear: 2026,
+  });
+  if (!legal.ready) throw new Error("La página legal de prueba debe estar completa.");
+  document.chapters.unshift(
+    {
+      id: "legal",
+      title: "Página legal",
+      showTitle: false,
+      blocks: legal.blocks.map((block) => ({ kind: "body", text: block.text })),
+    },
+    {
+      id: "indice",
+      title: "Contenido",
+      blocks: entries.map((entry) => ({
+        kind: "body",
+        text: entry.title,
+        toc: { title: entry.title, level: entry.level, label: "", leaders: false },
+      })),
+    },
+  );
+  return document;
+}
+
+/** Textos que deben conservar todos los lectores externos. */
+export function textosEsperados(): string[] {
+  return documentoDePrueba()
+    .chapters.flatMap((chapter) => [
+      ...(chapter.showTitle === false ? [] : [chapter.title]),
+      ...chapter.blocks.flatMap((block) => [
+        ...(block.kind === "rule" || block.kind === "pageBreak" || block.kind === "image"
+          ? []
+          : block.runs?.some((run) => run.footnote)
+            ? block.runs
+                .filter((run) => !run.footnote && /\p{L}/u.test(run.text))
+                .map((run) => run.text.trim())
+            : [block.text]),
+        ...(block.image?.caption ? [block.image.caption] : []),
+        ...(block.runs?.flatMap((run) => (run.footnote ? [run.footnote.note] : [])) ?? []),
+      ]),
+    ])
+    .filter(Boolean);
+}
+
+/** Tolera espacios y saltos del lector; conserva letras, acentos y signos. */
+export function textosFaltantes(text: string): string[] {
+  const normalize = (value: string) => value.normalize("NFC").replace(/\s+/gu, "");
+  const content = normalize(text);
+  return textosEsperados().filter((expected) => !content.includes(normalize(expected)));
 }
 
 /** Imágenes ya resueltas, como las que entrega la capa web. */
