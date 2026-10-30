@@ -2,6 +2,8 @@
 
 ## Vigente para evaluación por módulos
 
+[Revisión actualizada, 2026-10-29](revision-2026-10-29.md). Puntaje 81,70/100 del árbol auditado, con distinción entre main y el PR 83 aún pendiente de integrar; incluye reproducción de la reserva de exportación y límites de la evidencia.
+
 [Auditoría por módulos, 2026-10-29](modulos-2026-10-29.md). Puntajes provisionales con evidencia, fallos abiertos y límites de validación.
 
 ## Vigente para seguridad y fiabilidad

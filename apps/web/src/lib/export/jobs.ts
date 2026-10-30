@@ -222,7 +222,8 @@ export async function processExportJob(
 ): Promise<ExportJobSummary> {
   // Una exportación cada vez por instancia: dos a la vez dejarían a Render
   // Free sin memoria.
-  if (!reservarHuecoDeExportacion()) {
+  const reserva = reservarHuecoDeExportacion();
+  if (reserva === null) {
     throw new Error(
       "Ya hay una exportación en marcha en este estudio. Espera a que termine antes de pedir otra.",
     );
@@ -231,7 +232,7 @@ export async function processExportJob(
   try {
     return await generarExportJob(session, jobId);
   } finally {
-    liberarHuecoDeExportacion();
+    liberarHuecoDeExportacion(reserva);
   }
 }
 
