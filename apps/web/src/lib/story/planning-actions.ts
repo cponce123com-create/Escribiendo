@@ -50,6 +50,9 @@ export async function createPlanItemAction(
     );
   }
 
+  if (parsed.data.bookId)
+    return errorState("Abre el tablero del libro para organizar sus tarjetas.");
+
   if (!(await storyBookExists(session, parsed.data.bookId))) {
     return errorState("El libro no existe en este espacio de trabajo.");
   }
@@ -127,6 +130,10 @@ export async function updatePlanItemAction(
   if (!existing) {
     return errorState("La idea no existe en este espacio de trabajo.");
   }
+  if (existing.bookId) return errorState("Abre el tablero del libro para modificar esta tarjeta.");
+
+  if (parsed.data.bookId)
+    return errorState("Abre el tablero del libro para organizar sus tarjetas.");
 
   if (!(await storyBookExists(session, parsed.data.bookId))) {
     return errorState("El libro no existe en este espacio de trabajo.");
@@ -195,6 +202,7 @@ export async function updatePlanStatusAction(
   if (!existing) {
     return errorState("La idea no existe en este espacio de trabajo.");
   }
+  if (existing.bookId) return errorState("Abre el tablero del libro para modificar esta tarjeta.");
 
   if (existing.status === parsed.data.status) {
     return successState("La idea ya estaba en ese estado.");
@@ -256,6 +264,7 @@ export async function deletePlanItemAction(
   if (!existing) {
     return errorState("La idea no existe en este espacio de trabajo.");
   }
+  if (existing.bookId) return errorState("Abre el tablero del libro para modificar esta tarjeta.");
 
   try {
     await prisma.storyPlanItem.update({

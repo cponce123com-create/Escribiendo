@@ -29,7 +29,7 @@ function BriefForm({
   });
   const revision = section ? section.brief : data.master;
   const fields = section ? CHAPTER_FIELDS : MASTER_FIELDS;
-  const content = revision?.content as Record<string, unknown> | undefined;
+  const content = (revision?.content ?? section?.seed) as Record<string, unknown> | undefined;
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(
       Object.keys(fields).map((key) => [
@@ -57,6 +57,11 @@ function BriefForm({
       <input type="hidden" name="masterVersion" value={data.master?.version ?? 0} />
       <input type="hidden" name="sourceVersion" value={section?.version ?? 0} />
       <input type="hidden" name="sourceKey" value={data.sourceKey} />
+      {!revision && section?.seed ? (
+        <p className="alert" role="status">
+          Los campos iniciales proceden del tablero. Revísalos antes de aprobar esta guía.
+        </p>
+      ) : null}
       <fieldset disabled={!canManage} className="space-y-4">
         {Object.entries(fields).map(([key, label]) => (
           <TextareaField
@@ -159,12 +164,17 @@ function BriefForm({
 export function WritingPlanning({
   data,
   canManage,
+  initialSectionId,
 }: {
   data: WritingPlanningData;
   canManage: boolean;
+  initialSectionId?: string;
 }) {
   const [sectionId, setSectionId] = useState(
-    data.sections.find((s) => s.type === "CHAPTER")?.id ?? data.sections[0]?.id ?? "",
+    data.sections.find((s) => s.id === initialSectionId)?.id ??
+      data.sections.find((s) => s.type === "CHAPTER")?.id ??
+      data.sections[0]?.id ??
+      "",
   );
   const section = data.sections.find((s) => s.id === sectionId);
   const [dirtyKey, setDirtyKey] = useState<string | null>(null);
