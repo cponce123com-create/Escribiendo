@@ -120,6 +120,7 @@ vm.runInNewContext(modularSource, {
     if (id === "@/components/books/studio-icon") return studioExports;
     if (id === "@/lib/story/modular/archive") return planArchive;
     if (id === "@/lib/story/modular/presentation") return planPresentation;
+    if (id === "@/lib/story/modular/chapter-prompt") return { buildPlannedChapterPrompt: () => "" };
     if (id === "@/lib/story/labels") return storyLabels;
     if (id === "@/lib/story/modular/structure") return modularStructure;
     if (id === "@/components/forms/dialog") return { Dialog: () => null };
@@ -183,7 +184,7 @@ const modularFixture = {
   assets: [],
   manuscriptKey: "0".repeat(64),
 };
-async function renderRoute(route: string) {
+async function renderRoute(route: string, selectingBook = false) {
   const filename = path.resolve(`apps/web/src/app/(app)/${route}/page.tsx`);
   const source = await readFile(filename, "utf8");
   const js = ts.transpileModule(source, {
@@ -209,7 +210,8 @@ async function renderRoute(route: string) {
           route === "planning"
             ? {
                 ...mocks,
-                getStoryBookOption: async () => ({ id: "test", title: "Libro de prueba visual" }),
+                getStoryBookOption: async () =>
+                  selectingBook ? null : { id: "test", title: "Libro de prueba visual" },
                 loadModularPlan: async () => modularFixture,
                 ModularPlanningBoard: modularExports.ModularPlanningBoard,
               }
@@ -234,7 +236,7 @@ let checks = 0;
 try {
   const page = await browser.newPage();
   for (const route of ["stats", "books", "characters", "worlds", "planning"]) {
-    const scenarios =
+    const scenarios: unknown[] =
       route === "stats"
         ? [
             [{ date: "2026-10-22", words: 5209 }],
@@ -245,10 +247,18 @@ try {
             ],
             [],
           ]
-        : [days];
+        : route === "planning"
+          ? [false, true]
+          : [false];
     for (const [scenario, data] of scenarios.entries()) {
-      days = data;
-      const markup = await renderRoute(route);
+      if (route === "stats") days = data as typeof days;
+      const selectingBook = route === "planning" && data === true;
+      const markup = await renderRoute(route, selectingBook);
+      if (selectingBook) {
+        assert.match(markup, /¿Con qué libro quieres continuar\?/u);
+        assert.match(markup, /Continuar planificando/u);
+        assert.match(markup, /Crear un proyecto nuevo/u);
+      }
       for (const width of [320, 375, 390, 768, 1024, 1366, 1440, 1920]) {
         await page.setViewportSize({ width, height: width === 1366 ? 768 : 1000 });
         for (const theme of ["light", "dark"]) {
@@ -293,7 +303,7 @@ try {
           await page
             .locator(".plan-book-picker")
             .evaluateAll((nodes) => nodes.forEach((n) => ((n as HTMLDetailsElement).open = false)));
-          if (route === "planning" && width >= 1366) {
+          if (route === "planning" && !selectingBook && width >= 1366) {
             const map = await page.locator(".plan-map-card").evaluateAll((cards) => ({
               count: cards.length,
               viewport: { width: innerWidth, height: innerHeight, scrollY },

@@ -32,19 +32,13 @@ export default async function PlanningPage({ searchParams }: PlanningPageProps) 
   const params = await searchParams;
 
   const books = await guardStorySchema(() => listStoryBooks(session));
-  const selectedBook = await guardStorySchema(() =>
-    getStoryBookOption(
-      session,
-      params.book || (params.view === "ideas" ? undefined : books[0]?.id),
-    ),
-  );
+  const selectedBook = await guardStorySchema(() => getStoryBookOption(session, params.book));
   const view =
     params.view === "guides" ? "guides" : params.view === "ideas" ? "ideas" : "structure";
+  const choosingBook = !selectedBook && view !== "ideas";
   const search = params.q?.trim() ?? "";
   const items =
-    view === "ideas" || !selectedBook
-      ? await guardStorySchema(() => listPlanItems(session, { search }))
-      : [];
+    view === "ideas" ? await guardStorySchema(() => listPlanItems(session, { search })) : [];
   let modularData = null;
   let writingData = null;
   let writingError = "";
@@ -68,7 +62,9 @@ export default async function PlanningPage({ searchParams }: PlanningPageProps) 
   return (
     <div
       className={
-        view === "structure" ? "planning-workspace mx-auto" : "mx-auto max-w-6xl space-y-8"
+        view === "structure" && !choosingBook
+          ? "planning-workspace mx-auto"
+          : "mx-auto max-w-6xl space-y-8"
       }
     >
       <header className="space-y-3">
@@ -91,59 +87,110 @@ export default async function PlanningPage({ searchParams }: PlanningPageProps) 
         </p>
       </header>
 
-      <details className="plan-book-picker" open={view !== "structure"}>
-        <summary>
-          Libro: {selectedBook?.title ?? "Seleccionar libro"}
-          <span>Cambiar libro</span>
-        </summary>
-        <section className="panel filter-panel p-5" aria-label="Filtros de planificación">
-          <form method="get" className="studio-filters studio-filters-compact">
-            <div>
-              <label className="field-label" htmlFor="plan-book">
-                Libro
-              </label>
-              <select
-                id="plan-book"
-                name="book"
-                className="field-input"
-                defaultValue={selectedBook?.id ?? ""}
-              >
-                <option value="">Selecciona un libro</option>
-                {books.map((book) => (
-                  <option key={book.id} value={book.id}>
-                    {book.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="field-label" htmlFor="plan-q">
-                Buscar
-              </label>
-              <input
-                id="plan-q"
-                name="q"
-                type="search"
-                className="field-input"
-                placeholder="Título o resumen"
-                defaultValue={search}
-              />
-            </div>
-
-            <div className="studio-filter-actions">
-              <button type="submit" name="view" value={view} className="btn btn-secondary">
-                Filtrar
-              </button>
-              {isFiltered ? (
-                <Link className="btn btn-ghost" href="/planning">
-                  Limpiar
-                </Link>
-              ) : null}
-            </div>
-          </form>
+      {choosingBook ? (
+        <section className="panel space-y-6 p-5 sm:p-7" aria-labelledby="planning-book-choice">
+          <div>
+            <h2 id="planning-book-choice" className="font-serif text-2xl text-ink">
+              ¿Con qué libro quieres continuar?
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-soft">
+              Elige un proyecto existente para seguir armando su estructura, o crea un libro nuevo
+              para comenzar desde cero.
+            </p>
+          </div>
+          {books.length ? (
+            <ul className="grid gap-3 sm:grid-cols-2">
+              {books.map((book) => (
+                <li key={book.id}>
+                  <Link
+                    className="panel flex h-full items-center justify-between gap-4 p-4 transition hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    href={`/planning?book=${book.id}`}
+                    aria-label={`Continuar planificando «${book.title}»`}
+                  >
+                    <span className="min-w-0">
+                      <span className="eyebrow">Proyecto · libro</span>
+                      <span className="mt-1 block truncate font-serif text-lg text-ink">
+                        {book.title}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-sm font-semibold text-accent">Continuar →</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="alert" role="status">
+              Todavía no hay libros en este espacio de trabajo. Crea uno para empezar su
+              planificación.
+            </p>
+          )}
+          <div className="flex flex-wrap gap-3">
+            {canPerform(session.workspace.role, "book:create") ? (
+              <Link className="btn btn-primary" href="/books/new">
+                Crear un proyecto nuevo
+              </Link>
+            ) : null}
+            <Link className="btn btn-secondary" href="/books">
+              Ver biblioteca
+            </Link>
+          </div>
         </section>
-      </details>
+      ) : null}
+      {!choosingBook ? (
+        <details className="plan-book-picker" open={view !== "structure"}>
+          <summary>
+            Libro: {selectedBook?.title ?? "Seleccionar libro"}
+            <span>Cambiar libro</span>
+          </summary>
+          <section className="panel filter-panel p-5" aria-label="Filtros de planificación">
+            <form method="get" className="studio-filters studio-filters-compact">
+              <div>
+                <label className="field-label" htmlFor="plan-book">
+                  Libro
+                </label>
+                <select
+                  id="plan-book"
+                  name="book"
+                  className="field-input"
+                  defaultValue={selectedBook?.id ?? ""}
+                >
+                  <option value="">Selecciona un libro</option>
+                  {books.map((book) => (
+                    <option key={book.id} value={book.id}>
+                      {book.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="field-label" htmlFor="plan-q">
+                  Buscar
+                </label>
+                <input
+                  id="plan-q"
+                  name="q"
+                  type="search"
+                  className="field-input"
+                  placeholder="Título o resumen"
+                  defaultValue={search}
+                />
+              </div>
+
+              <div className="studio-filter-actions">
+                <button type="submit" name="view" value={view} className="btn btn-secondary">
+                  Filtrar
+                </button>
+                {isFiltered ? (
+                  <Link className="btn btn-ghost" href="/planning">
+                    Limpiar
+                  </Link>
+                ) : null}
+              </div>
+            </form>
+          </section>
+        </details>
+      ) : null}
       <nav className="plan-page-nav" aria-label="Herramientas de planificación">
         {selectedBook ? (
           <>
@@ -189,14 +236,9 @@ export default async function PlanningPage({ searchParams }: PlanningPageProps) 
           canManage={canManage}
           initialSectionId={params.section}
         />
-      ) : !selectedBook ? (
-        <p className="alert" role="status">
-          Selecciona un libro y pulsa Filtrar para abrir su ficha maestra y preparar las guías de
-          capítulos.
-        </p>
       ) : null}
 
-      {view === "ideas" || !selectedBook ? (
+      {view === "ideas" ? (
         <PlanningBoard
           books={books}
           items={items}
