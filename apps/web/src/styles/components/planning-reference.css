@@ -453,11 +453,16 @@
   }
   .plan-book-overview small {
     font-size: 0.6rem;
-    color: var(--ink-muted);
+    color: var(--ink);
     grid-column: 2;
   }
   .plan-book-overview strong {
     font-size: 0.85rem;
+  }
+  /* Deshabilitar una acción no debe borrar su contraste al mezclarla con el fondo. */
+  .reference-planner .btn:disabled,
+  .reference-planner .btn[aria-disabled="true"] {
+    opacity: 1;
   }
   .plan-overall-progress {
     flex: 1;
