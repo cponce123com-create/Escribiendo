@@ -5,9 +5,9 @@ import { prisma } from "@/lib/db";
 import { getSession, type SessionContext } from "@/lib/auth/session";
 import { canPerform } from "@/lib/books/permissions";
 import { assertServerActionOrigin, type RequestContext } from "@/lib/security/request-context";
+export { logActionError as logStoryError } from "@/lib/action-logging";
 import { errorState } from "@/lib/form-helpers";
 import type { ActionState } from "@/lib/action-state";
-import { logger } from "@/lib/logger";
 import type { ZodError } from "zod";
 
 /**
@@ -72,17 +72,6 @@ export function revalidateStoryPaths(path: string, bookIds: Array<string | null>
   for (const bookId of new Set(bookIds.filter((value): value is string => Boolean(value)))) {
     revalidatePath(`/books/${bookId}`);
   }
-}
-
-export function logStoryError(
-  event: string,
-  context: RequestContext | undefined,
-  error: unknown,
-): void {
-  logger.error(event, {
-    requestId: context?.requestId,
-    errorName: error instanceof Error ? error.name : "UnknownError",
-  });
 }
 
 /** Convierte los errores de Zod en el mapa que espera el formulario. */

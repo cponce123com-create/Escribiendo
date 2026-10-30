@@ -22,6 +22,7 @@ import { prisma } from "@/lib/db";
 import { getSession, type SessionContext } from "@/lib/auth/session";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { assertServerActionOrigin, type RequestContext } from "@/lib/security/request-context";
+import { logActionError } from "@/lib/action-logging";
 import { logger } from "@/lib/logger";
 import { assertCanPerform } from "./permissions";
 import { canTransitionTo } from "./status";
@@ -57,13 +58,6 @@ function errorState(message: string, fieldErrors?: Record<string, string>): Libr
 
 function successState(message: string): LibraryActionState {
   return { status: "success", message };
-}
-
-function logActionError(event: string, context: RequestContext | undefined, error: unknown): void {
-  logger.error(event, {
-    requestId: context?.requestId,
-    errorName: error instanceof Error ? error.name : "UnknownError",
-  });
 }
 
 /**

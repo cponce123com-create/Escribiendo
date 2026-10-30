@@ -8,7 +8,7 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { assertServerActionOrigin, type RequestContext } from "@/lib/security/request-context";
-import { logger } from "@/lib/logger";
+import { logActionError } from "@/lib/action-logging";
 import { errorState, formValue, successState } from "@/lib/form-helpers";
 import type { ActionState } from "@/lib/action-state";
 import { assertCanPerform } from "@/lib/books/permissions";
@@ -55,13 +55,6 @@ const DEFAULT_FOOTER_DISTANCE_MM = 8;
 /** Los campos de un `FormData` que representan una casilla marcada. */
 function checkbox(formData: FormData, key: string): boolean {
   return formValue(formData, key) === "on" || formValue(formData, key) === "true";
-}
-
-function logActionError(event: string, context: RequestContext | undefined, error: unknown): void {
-  logger.error(event, {
-    requestId: context?.requestId,
-    errorName: error instanceof Error ? error.name : "UnknownError",
-  });
 }
 
 /**

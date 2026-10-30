@@ -15,6 +15,7 @@ import {
 import { prisma } from "@/lib/db";
 import { getServerEnv } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { logActionError } from "@/lib/action-logging";
 import { consumeRateLimit, loginRateLimitPolicy } from "@/lib/security/rate-limit";
 import { assertServerActionOrigin, type RequestContext } from "@/lib/security/request-context";
 import { writeAuditLog } from "./audit";
@@ -86,13 +87,6 @@ function errorState(message: string, fieldErrors?: Record<string, string>): Auth
 
 function successState(message: string): AuthActionState {
   return { status: "success", message };
-}
-
-function logActionError(event: string, context: RequestContext | undefined, error: unknown): void {
-  logger.error(event, {
-    requestId: context?.requestId,
-    errorName: error instanceof Error ? error.name : "UnknownError",
-  });
 }
 
 export async function loginAction(
