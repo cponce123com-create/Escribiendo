@@ -22,6 +22,18 @@ test("esqueleto modular: partes, escenas, movimiento, aplicación sin pérdida y
   await page.getByRole("button", { name: "Crear libro", exact: true }).click();
   await page.waitForURL(/\/books\/[0-9a-f-]{36}$/u);
   const bookId = page.url().split("/").at(-1)!;
+  await page.goto("/planning");
+  await expect(
+    page.getByRole("heading", { name: "¿Con qué libro quieres continuar?", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Crear un proyecto nuevo", exact: true }),
+  ).toHaveAttribute("href", "/books/new");
+  await page
+    .getByRole("link", { name: `Continuar planificando «Estructura modular` })
+    .first()
+    .click();
+  await expect(page).toHaveURL(new RegExp(`/planning\\?book=${bookId}$`, "u"));
   await page.goto(`/planning?book=${bookId}`);
   await expect(
     page.getByRole("heading", { name: "El esqueleto de tu libro", exact: true }),
