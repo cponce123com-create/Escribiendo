@@ -3,6 +3,8 @@ import {
   useState,
   useTransition,
   useCallback,
+  useMemo,
+  useDeferredValue,
   useEffect,
   useRef,
   type DragEvent,
@@ -546,31 +548,52 @@ export function ModularPlanningBoard({
       }
     });
   }
-  const groups = new Map<string | null, ModularItem[]>();
-  for (const item of data.items) {
-    const group = groups.get(item.parentId) ?? [];
-    group.push(item);
-    groups.set(item.parentId, group);
-  }
-  const children = (id: string | null) => groups.get(id) ?? [];
-  const term = query.toLocaleLowerCase("es").trim();
-  const matched = new Set(
-    data.items
-      .filter(
-        (item) =>
-          (kind === "ALL" || item.kind === kind) &&
-          (!term ||
-            `${item.title} ${item.summary ?? ""} ${item.goal ?? ""}`
-              .toLocaleLowerCase("es")
-              .includes(term)),
-      )
-      .map((item) => item.id),
+  const groups = useMemo(() => {
+    const map = new Map<string | null, ModularItem[]>();
+    for (const item of data.items) {
+      const group = map.get(item.parentId) ?? [];
+      group.push(item);
+      map.set(item.parentId, group);
+    }
+    return map;
+  }, [data.items]);
+  const children = useCallback((id: string | null) => groups.get(id) ?? [], [groups]);
+
+  // Índice prenormalizado: evita volver a concatenar y convertir a minúsculas
+  // cada tarjeta en cada pulsación de la búsqueda.
+  const searchIndex = useMemo(
+    () =>
+      new Map(
+        data.items.map((item) => [
+          item.id,
+          `${item.title} ${item.summary ?? ""} ${item.goal ?? ""}`.toLocaleLowerCase("es"),
+        ]),
+      ),
+    [data.items],
   );
-  const visibleIds = new Set(matched);
-  for (const item of [...data.items].reverse())
-    if (visibleIds.has(item.id) && item.parentId) visibleIds.add(item.parentId);
-  const matches = (item: ModularItem) => matched.has(item.id);
-  const visible = (item: ModularItem) => visibleIds.has(item.id);
+
+  const deferredQuery = useDeferredValue(query);
+  const term = deferredQuery.toLocaleLowerCase("es").trim();
+
+  const matched = useMemo(() => {
+    const set = new Set<string>();
+    for (const item of data.items) {
+      if (kind !== "ALL" && item.kind !== kind) continue;
+      if (term && !(searchIndex.get(item.id) ?? "").includes(term)) continue;
+      set.add(item.id);
+    }
+    return set;
+  }, [data.items, kind, term, searchIndex]);
+
+  const visibleIds = useMemo(() => {
+    const set = new Set(matched);
+    for (const item of [...data.items].reverse())
+      if (set.has(item.id) && item.parentId) set.add(item.parentId);
+    return set;
+  }, [matched, data.items]);
+
+  const matches = useCallback((item: ModularItem) => matched.has(item.id), [matched]);
+  const visible = useCallback((item: ModularItem) => visibleIds.has(item.id), [visibleIds]);
   function drag(event: DragEvent, id: string) {
     event.stopPropagation();
     event.dataTransfer.setData("text/plain", id);
@@ -600,8 +623,13 @@ export function ModularPlanningBoard({
     if (moving?.kind === "SCENE" && target.kind === "CHAPTER") drop(event, target.id);
     else drop(event, target.parentId, target.id);
   }
-  const chapterNumbers = new Map(
-    data.items.filter((n) => n.kind === "CHAPTER").map((n, i) => [n.id, i + 1]),
+  const chapterNumbers = useMemo(
+    () => new Map(data.items.filter((n) => n.kind === "CHAPTER").map((n, i) => [n.id, i + 1])),
+    [data.items],
+  );
+  const sectionById = useMemo(
+    () => new Map(data.sections.map((section) => [section.id, section])),
+    [data.sections],
   );
   function navigateCard(
     item?: ModularItem,
@@ -682,7 +710,7 @@ export function ModularPlanningBoard({
   function card(item: ModularItem, nested = false) {
     if (compact) return compactCard(item);
     const scenes = children(item.id);
-    const section = data.sections.find((s) => s.id === item.sectionId);
+    const section = item.sectionId ? sectionById.get(item.sectionId) : undefined;
     return (
       <article
         className={`plan-card ${nested ? "plan-card-scene" : ""} ${dragId === item.id ? "is-dragging" : ""}`}
@@ -788,17 +816,21 @@ export function ModularPlanningBoard({
       </article>
     );
   }
-  const parts = data.items.filter((n) => n.kind === "ACT");
-  const chapters = data.items.filter((n) => n.kind === "CHAPTER");
-  const done = chapters.filter((n) => n.status === "DONE").length;
-  const progress = planProgress(data.items);
-  const notes = planDiagnostics(data.items);
-  const outline = data.items
-    .map(
-      (n) =>
-        `${n.kind === "SCENE" ? "    " : n.parentId ? "  " : ""}${kindLabel(n.kind)}: ${n.title}\n${n.summary ?? ""}${n.goal ? `\nObjetivo: ${n.goal}` : ""}${n.conflict ? `\nConflicto: ${n.conflict}` : ""}${n.outcome ? `\nCierre: ${n.outcome}` : ""}`,
-    )
-    .join("\n\n");
+  const parts = useMemo(() => data.items.filter((n) => n.kind === "ACT"), [data.items]);
+  const chapters = useMemo(() => data.items.filter((n) => n.kind === "CHAPTER"), [data.items]);
+  const done = useMemo(() => chapters.filter((n) => n.status === "DONE").length, [chapters]);
+  const progress = useMemo(() => planProgress(data.items), [data.items]);
+  const notes = useMemo(() => planDiagnostics(data.items), [data.items]);
+  const outline = useMemo(
+    () =>
+      data.items
+        .map(
+          (n) =>
+            `${n.kind === "SCENE" ? "    " : n.parentId ? "  " : ""}${kindLabel(n.kind)}: ${n.title}\n${n.summary ?? ""}${n.goal ? `\nObjetivo: ${n.goal}` : ""}${n.conflict ? `\nConflicto: ${n.conflict}` : ""}${n.outcome ? `\nCierre: ${n.outcome}` : ""}`,
+        )
+        .join("\n\n"),
+    [data.items],
+  );
   const modalItem = data.items.find((n) => n.id === modal?.id);
   return (
     <section

@@ -312,9 +312,9 @@
   }
   .reference-planner .plan-map-open {
     gap: 0.4rem;
-    padding: 0.45rem;
-    align-items: start;
-    min-height: 60px;
+    padding: 0.3rem;
+    align-items: center;
+    min-height: 44px;
   }
   .reference-planner .plan-map-number {
     width: 1.6rem;

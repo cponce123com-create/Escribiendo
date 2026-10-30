@@ -17,6 +17,28 @@ import * as storyLabels from "../apps/web/src/lib/story/labels";
 const webRequire = createRequire(path.resolve("apps/web/package.json"));
 const React = webRequire("react") as typeof ReactModule;
 const { renderToStaticMarkup } = webRequire("react-dom/server") as typeof ReactDOMServer;
+
+// `studio-icon.tsx` se transpila con el runtime JSX automático: `tsx` usa el
+// clásico (`jsx: preserve` en tsconfig) y `StudioIcon` no importa `React`.
+const studioSource = ts.transpileModule(
+  await readFile(path.resolve("apps/web/src/components/books/studio-icon.tsx"), "utf8"),
+  {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      jsx: ts.JsxEmit.ReactJSX,
+      target: ts.ScriptTarget.ES2022,
+    },
+  },
+).outputText;
+const studioExports: Record<string, ReactModule.ComponentType<Record<string, unknown>>> = {};
+vm.runInNewContext(studioSource, {
+  exports: studioExports,
+  require: (id: string) => {
+    if (id === "react/jsx-runtime") return webRequire(id);
+    throw new Error(`Dependencia sin fixture en studio-icon: ${id}`);
+  },
+});
+
 const postcss = createRequire(webRequire.resolve("@tailwindcss/postcss"))("postcss");
 const tailwind = webRequire("@tailwindcss/postcss");
 const cssPath = path.resolve("apps/web/src/app/globals.css");
@@ -61,24 +83,6 @@ const mountainFixture =
   (await readFile(path.resolve("apps/web/public/images/studio/mountain-header.webp"))).toString(
     "base64",
   );
-const iconExports: Record<string, unknown> = {};
-const iconSource = ts.transpileModule(
-  await readFile(path.resolve("apps/web/src/components/books/studio-icon.tsx"), "utf8"),
-  {
-    compilerOptions: {
-      module: ts.ModuleKind.CommonJS,
-      jsx: ts.JsxEmit.ReactJSX,
-      target: ts.ScriptTarget.ES2022,
-    },
-  },
-).outputText;
-vm.runInNewContext(iconSource, {
-  exports: iconExports,
-  require: (id: string) => {
-    if (id === "react/jsx-runtime") return webRequire(id);
-    throw new Error(`Dependencia sin fixture: ${id}`);
-  },
-});
 // Renderiza el tablero real, no un componente vacío: sus columnas deben
 // desplazarse dentro de su región sin ensanchar el documento en móvil.
 const modularSource = ts.transpileModule(
@@ -112,7 +116,7 @@ vm.runInNewContext(modularSource, {
             height,
           }),
       };
-    if (id === "@/components/books/studio-icon") return iconExports;
+    if (id === "@/components/books/studio-icon") return studioExports;
     if (id === "@/lib/story/modular/presentation") return planPresentation;
     if (id === "@/lib/story/labels") return storyLabels;
     if (id === "@/lib/story/modular/structure") return modularStructure;
