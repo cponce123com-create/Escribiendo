@@ -15,6 +15,8 @@ import {
 import { prisma } from "@/lib/db";
 import { getServerEnv } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { logActionError } from "@/lib/action-logging";
+import { errorState, formValue, successState } from "@/lib/form-helpers";
 import { consumeRateLimit, loginRateLimitPolicy } from "@/lib/security/rate-limit";
 import { assertServerActionOrigin, type RequestContext } from "@/lib/security/request-context";
 import { writeAuditLog } from "./audit";
@@ -69,30 +71,6 @@ class SetupAlreadyCompletedError extends Error {
     super("Setup already completed");
     this.name = "SetupAlreadyCompletedError";
   }
-}
-
-function formValue(formData: FormData, key: string): string {
-  const value = formData.get(key);
-  return typeof value === "string" ? value : "";
-}
-
-function errorState(message: string, fieldErrors?: Record<string, string>): AuthActionState {
-  return {
-    status: "error",
-    message,
-    ...(fieldErrors ? { fieldErrors } : {}),
-  };
-}
-
-function successState(message: string): AuthActionState {
-  return { status: "success", message };
-}
-
-function logActionError(event: string, context: RequestContext | undefined, error: unknown): void {
-  logger.error(event, {
-    requestId: context?.requestId,
-    errorName: error instanceof Error ? error.name : "UnknownError",
-  });
 }
 
 export async function loginAction(

@@ -12,7 +12,7 @@ import { createSession, switchWorkspace } from "@/lib/auth/session";
 import { hashPassword } from "@/lib/auth/password";
 import { generateToken, hashToken } from "@/lib/auth/tokens";
 import { assertServerActionOrigin, type RequestContext } from "@/lib/security/request-context";
-import { logger } from "@/lib/logger";
+import { logActionError } from "@/lib/action-logging";
 import { errorState, formValue, successState } from "@/lib/form-helpers";
 import type { ActionState } from "@/lib/action-state";
 import { assertCanPerform } from "@/lib/books/permissions";
@@ -39,13 +39,6 @@ export interface TeamActionState extends ActionState {
   invitationEmail?: string;
   /** Enlace completo de aceptación. */
   invitationUrl?: string;
-}
-
-function logActionError(event: string, context: RequestContext | undefined, error: unknown): void {
-  logger.error(event, {
-    requestId: context?.requestId,
-    errorName: error instanceof Error ? error.name : "UnknownError",
-  });
 }
 
 /**

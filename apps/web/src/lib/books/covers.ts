@@ -127,9 +127,5 @@ export async function getBookCovers(
   return covers;
 }
 
-export function coverObjectPosition(crop: CoverCrop): string {
-  return `${crop.x}% ${crop.y}%`;
-}
-
-export { DEFAULT_CROP } from "./cover-shared";
+export { coverObjectPosition, DEFAULT_CROP } from "./cover-shared";
 export type { BookCoverSummary, CoverCrop } from "./cover-shared";

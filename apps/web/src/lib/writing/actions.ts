@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db";
 import { getSession, type SessionContext } from "@/lib/auth/session";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { assertServerActionOrigin, type RequestContext } from "@/lib/security/request-context";
-import { logger } from "@/lib/logger";
+import { logActionError } from "@/lib/action-logging";
 import { errorState, formValue, successState } from "@/lib/form-helpers";
 import type { ActionState } from "@/lib/action-state";
 
@@ -38,13 +38,6 @@ const goalSchema = z.object({
     .positive("El objetivo debe ser mayor que cero.")
     .max(1_000_000),
 });
-
-function logActionError(event: string, context: RequestContext | undefined, error: unknown): void {
-  logger.error(event, {
-    requestId: context?.requestId,
-    errorName: error instanceof Error ? error.name : "UnknownError",
-  });
-}
 
 /** Comprueba que el libro existe en el espacio de trabajo. */
 async function assertBookInWorkspace(session: SessionContext, bookId: string): Promise<boolean> {

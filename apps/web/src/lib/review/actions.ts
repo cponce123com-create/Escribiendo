@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db";
 import { getSession, type SessionContext } from "@/lib/auth/session";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { assertServerActionOrigin, type RequestContext } from "@/lib/security/request-context";
-import { logger } from "@/lib/logger";
+import { logActionError } from "@/lib/action-logging";
 import { errorState, formValue, successState } from "@/lib/form-helpers";
 import type { ActionState } from "@/lib/action-state";
 import { assertCanPerform } from "@/lib/books/permissions";
@@ -29,13 +29,6 @@ const commentSchema = z.object({
   sectionId: z.union([uuidSchema, z.literal("")]).optional(),
   body: z.string().trim().min(1, "El comentario no puede estar vacío.").max(10_000),
 });
-
-function logActionError(event: string, context: RequestContext | undefined, error: unknown): void {
-  logger.error(event, {
-    requestId: context?.requestId,
-    errorName: error instanceof Error ? error.name : "UnknownError",
-  });
-}
 
 async function findBook(session: SessionContext, bookId: string) {
   return prisma.book.findFirst({
