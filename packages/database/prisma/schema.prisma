@@ -709,6 +709,7 @@ enum WorldKind {
 /// ideas que todavía no tienen destino. No sustituye a las secciones del
 /// manuscrito: es el mapa previo de lo que se quiere contar.
 model StoryPlanItem {
+  visual Json @default("{}")
   parentId    String? @db.Uuid
   sectionId   String? @unique @db.Uuid
   sortOrder   Int @default(0)

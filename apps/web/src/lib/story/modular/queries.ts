@@ -2,6 +2,8 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
 import type { SessionContext } from "@/lib/auth/session";
+import { bookAssetThumbnailUrl } from "@/lib/books/asset-thumbnail";
+import { listBookAssets } from "@/lib/books/assets";
 import { planOrder, PlanError, MAX_PLAN_ITEMS } from "./structure";
 export function manuscriptKey(
   rows: readonly {
@@ -36,7 +38,7 @@ export async function loadModularPlan(session: SessionContext, bookId: string) {
     select: { id: true, title: true, narrativeVersion: true },
   });
   if (!book) return null;
-  const [rows, sections] = await Promise.all([
+  const [rows, sections, assets] = await Promise.all([
     prisma.storyPlanItem.findMany({
       where: { bookId, workspaceId: session.workspace.id, deletedAt: null },
       take: MAX_PLAN_ITEMS + 1,
@@ -50,6 +52,7 @@ export async function loadModularPlan(session: SessionContext, bookId: string) {
         status: true,
         title: true,
         summary: true,
+        visual: true,
         goal: true,
         conflict: true,
         outcome: true,
@@ -62,11 +65,13 @@ export async function loadModularPlan(session: SessionContext, bookId: string) {
       take: 1001,
       select: { id: true, parentId: true, title: true, type: true, sortOrder: true, version: true },
     }),
+    listBookAssets(session, bookId),
   ]);
   if (sections.length > 1000)
     throw new PlanError("Este tablero admite manuscritos de hasta 1.000 secciones.");
   return {
     book,
+    assets: assets.map((asset) => ({ ...asset, url: bookAssetThumbnailUrl(asset.url) })),
     items: planOrder(rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }))),
     sections,
     manuscriptKey: manuscriptKey(sections),

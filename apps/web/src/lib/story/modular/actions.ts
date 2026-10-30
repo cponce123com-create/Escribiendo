@@ -13,6 +13,7 @@ import type { ActionState } from "@/lib/action-state";
 import { beginStoryAction } from "../action-helpers";
 import { PLAN_KIND_VALUES, PLAN_STATUS_VALUES } from "../labels";
 import { MAX_PLAN_ITEMS, planOrder, movePlan, validParent, PlanError } from "./structure";
+import { parsePlanLabels, planVisualSchema } from "./presentation";
 import { manuscriptKey } from "./queries";
 const field = (max: number) =>
   z
@@ -37,6 +38,9 @@ const schema = z.object({
   beforeId: optionalId,
   sectionId: optionalId,
   title: field(300).default(""),
+  labels: field(300).default(""),
+  imageAssetId: optionalId,
+  tone: planVisualSchema.shape.tone,
   summary: field(20000).default(""),
   goal: field(3000).default(""),
   conflict: field(3000).default(""),
@@ -211,7 +215,36 @@ export async function modularPlanAction(_: ActionState, form: FormData): Promise
               -1,
               ...nodes.filter((n) => n.parentId === (v.parentId || null)).map((n) => n.sortOrder),
             ) + 1;
+          let labels: string[];
+          try {
+            labels = parsePlanLabels(v.labels);
+          } catch {
+            throw new PlanError(
+              "Usa hasta 8 etiquetas de 24 caracteres, sin caracteres de control.",
+            );
+          }
+          if (v.imageAssetId) {
+            const asset = await tx.bookAsset.findFirst({
+              where: {
+                bookId: v.bookId,
+                assetId: v.imageAssetId,
+                kind: "INTERIOR_IMAGE",
+                book: { workspaceId: session.workspace.id, deletedAt: null },
+                asset: {
+                  workspaceId: session.workspace.id,
+                  deletedAt: null,
+                  resourceType: "IMAGE",
+                },
+              },
+              select: { assetId: true },
+            });
+            if (!asset)
+              throw new PlanError(
+                "La imagen no pertenece a la biblioteca de este libro o ya no está disponible.",
+              );
+          }
           const payload = {
+            visual: { version: 1, labels, imageAssetId: v.imageAssetId || null, tone: v.tone },
             title: v.title,
             summary: v.summary || null,
             goal: v.goal || null,
