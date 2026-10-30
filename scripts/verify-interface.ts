@@ -299,7 +299,36 @@ try {
             }
             return failures;
           });
-          assert.deepEqual(issues, [], `${route}, scenario ${scenario}, ${width}px, ${theme}`);
+          if (issues.includes("page overflow")) {
+            const overflow = await page.evaluate(() =>
+              [...document.body.querySelectorAll<HTMLElement>("*")]
+                .map((element) => {
+                  const rect = element.getBoundingClientRect();
+                  return {
+                    tag: element.tagName,
+                    className: typeof element.className === "string" ? element.className : "",
+                    text: element.innerText?.slice(0, 80) ?? "",
+                    left: Math.round(rect.left),
+                    right: Math.round(rect.right),
+                    scrollWidth: element.scrollWidth,
+                    clientWidth: element.clientWidth,
+                  };
+                })
+                .filter((element) => element.left < -1 || element.right > innerWidth + 1)
+                .slice(0, 12),
+            );
+            await page.screenshot({
+              path: path.join(output, `${route}-${scenario}-${width}-${theme}-overflow.png`),
+              fullPage: true,
+            });
+            assert.deepEqual(
+              issues,
+              [],
+              `${route}, scenario ${scenario}, ${width}px, ${theme}: ${JSON.stringify(overflow)}`,
+            );
+          } else {
+            assert.deepEqual(issues, [], `${route}, scenario ${scenario}, ${width}px, ${theme}`);
+          }
           await page
             .locator(".plan-book-picker")
             .evaluateAll((nodes) => nodes.forEach((n) => ((n as HTMLDetailsElement).open = false)));
