@@ -146,6 +146,10 @@ test("esqueleto modular: partes, escenas, movimiento, aplicación sin pérdida y
   expect(resume(accessibility.graves, page.url())).toEqual([]);
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await expect(page.getByRole("region", { name: "Sin parte", exact: true })).toHaveCount(0);
+  expect(
+    await second.evaluate((column) => column.getBoundingClientRect().height <= innerHeight),
+  ).toBe(true);
   await page.screenshot({ path: info.outputPath("estructura-movil.png"), fullPage: true });
   await page.goto(`/planning?book=${bookId}&view=guides&section=${chapter.id}`);
   await expect(page.getByLabel("Capítulo o sección del manuscrito")).toHaveValue(chapter.id);

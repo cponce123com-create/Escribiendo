@@ -225,6 +225,10 @@ try {
               const bar = row.querySelector(".writing-activity-bar")!.getBoundingClientRect();
               if (bar.width > track.width + 1) failures.push("bar exceeds track");
             }
+            for (const column of document.querySelectorAll(".plan-column")) {
+              if (column.getBoundingClientRect().height > innerHeight + 1)
+                failures.push("planning column exceeds viewport height");
+            }
             for (const form of document.querySelectorAll(".studio-filters")) {
               const bounds = form.getBoundingClientRect();
               for (const control of form.querySelectorAll("input,select,.btn")) {

@@ -104,6 +104,9 @@
   }
   .plan-column {
     flex: 0 0 19rem;
+    max-height: max(22rem, 70dvh);
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
     min-width: 0;
     border: 1px solid var(--line);
     border-radius: 0.95rem;

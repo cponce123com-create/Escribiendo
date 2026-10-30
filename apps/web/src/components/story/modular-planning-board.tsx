@@ -752,51 +752,55 @@ export function ModularPlanningBoard({
         <div className="plan-board-columns">
           {view === "structure" ? (
             <>
-              <section
-                className="plan-column plan-column-loose"
-                aria-label="Sin parte"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => drop(e, null)}
-              >
-                <header>
-                  <div>
-                    <span className="plan-column-kicker">Punto de partida</span>
-                    <h3>Sin parte</h3>
-                  </div>
-                  <span className="plan-column-count">
-                    {children(null).filter((n) => n.kind !== "ACT").length}
-                  </span>
-                </header>
-                <p className="plan-column-description">
-                  Ideas y capítulos por ubicar en el recorrido.
-                </p>
-                <ol className="plan-card-list">
-                  {children(null)
-                    .filter((n) => n.kind !== "ACT" && visible(n))
-                    .map((n) => (
-                      <li key={n.id}>{card(n)}</li>
-                    ))}
-                </ol>
-                {!data.items.length ? (
-                  <div className="plan-empty">
-                    <strong>Todo libro empieza con una decisión.</strong>
-                    <p>Añade una parte o tu primer capítulo. No se crea contenido de ejemplo.</p>
-                  </div>
-                ) : null}
-                {canManage ? (
-                  <button
-                    type="button"
-                    className="plan-add-card"
-                    onClick={() => open("edit", undefined, "CHAPTER")}
-                  >
-                    + Capítulo sin parte
-                  </button>
-                ) : null}
-              </section>
+              {!parts.length || children(null).some((n) => n.kind !== "ACT" && visible(n)) ? (
+                <section
+                  className="plan-column plan-column-loose"
+                  tabIndex={0}
+                  aria-label="Sin parte"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => drop(e, null)}
+                >
+                  <header>
+                    <div>
+                      <span className="plan-column-kicker">Punto de partida</span>
+                      <h3>Sin parte</h3>
+                    </div>
+                    <span className="plan-column-count">
+                      {children(null).filter((n) => n.kind !== "ACT").length}
+                    </span>
+                  </header>
+                  <p className="plan-column-description">
+                    Ideas y capítulos por ubicar en el recorrido.
+                  </p>
+                  <ol className="plan-card-list">
+                    {children(null)
+                      .filter((n) => n.kind !== "ACT" && visible(n))
+                      .map((n) => (
+                        <li key={n.id}>{card(n)}</li>
+                      ))}
+                  </ol>
+                  {!data.items.length ? (
+                    <div className="plan-empty">
+                      <strong>Todo libro empieza con una decisión.</strong>
+                      <p>Añade una parte o tu primer capítulo. No se crea contenido de ejemplo.</p>
+                    </div>
+                  ) : null}
+                  {canManage ? (
+                    <button
+                      type="button"
+                      className="plan-add-card"
+                      onClick={() => open("edit", undefined, "CHAPTER")}
+                    >
+                      + Capítulo sin parte
+                    </button>
+                  ) : null}
+                </section>
+              ) : null}
               {parts.filter(visible).map((part) => (
                 <section
                   key={part.id}
                   className="plan-column"
+                  tabIndex={0}
                   aria-label={`Parte: ${part.title}`}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => drop(e, part.id)}
@@ -868,6 +872,7 @@ export function ModularPlanningBoard({
               <section
                 key={status}
                 className="plan-column"
+                tabIndex={0}
                 aria-label={`Estado: ${PLAN_STATUS_LABELS[status]}`}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
