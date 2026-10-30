@@ -24,6 +24,7 @@ import { writeAuditLog } from "@/lib/auth/audit";
 import { assertServerActionOrigin, type RequestContext } from "@/lib/security/request-context";
 import { logActionError } from "@/lib/action-logging";
 import { logger } from "@/lib/logger";
+import { errorState, formValue, successState } from "@/lib/form-helpers";
 import { assertCanPerform } from "./permissions";
 import { canTransitionTo } from "./status";
 import type { LibraryActionState } from "./action-state";
@@ -46,19 +47,6 @@ const bookMetadataFormSchema = bookMetadataSchema.extend({
     z.number().int().positive().max(10_000_000).optional(),
   ),
 });
-
-function formValue(formData: FormData, key: string): string {
-  const value = formData.get(key);
-  return typeof value === "string" ? value : "";
-}
-
-function errorState(message: string, fieldErrors?: Record<string, string>): LibraryActionState {
-  return { status: "error", message, ...(fieldErrors ? { fieldErrors } : {}) };
-}
-
-function successState(message: string): LibraryActionState {
-  return { status: "success", message };
-}
 
 /**
  * Recalcula los totales del libro a partir de sus secciones.

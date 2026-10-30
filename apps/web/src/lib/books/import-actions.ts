@@ -18,14 +18,11 @@ import { writeAuditLog } from "@/lib/auth/audit";
 import { assertServerActionOrigin, type RequestContext } from "@/lib/security/request-context";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/logger";
+import { errorState } from "@/lib/form-helpers";
 import { assertCanPerform } from "./permissions";
 import { recomputeBookTotals } from "./statistics";
 import type { LibraryActionState } from "./action-state";
 import { BookImportError, MAX_IMPORT_FILE_BYTES, parseBookImport } from "./importer";
-
-function errorState(message: string, fieldErrors?: Record<string, string>): LibraryActionState {
-  return { status: "error", message, ...(fieldErrors ? { fieldErrors } : {}) };
-}
 
 function formText(formData: FormData, key: string): string {
   const value = formData.get(key);

@@ -1,8 +1,6 @@
-export interface AuthActionState {
-  status: "idle" | "error" | "success";
-  message?: string;
-  fieldErrors?: Record<string, string>;
-}
+import type { ActionState } from "@/lib/action-state";
+
+export type AuthActionState = ActionState;
 
 export const initialAuthActionState: AuthActionState = { status: "idle" };
 

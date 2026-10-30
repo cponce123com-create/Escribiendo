@@ -14,6 +14,7 @@ import { getBook } from "@/lib/books/queries";
 import { assertServerActionOrigin, type RequestContext } from "@/lib/security/request-context";
 import { logger } from "@/lib/logger";
 import type { LibraryActionState } from "@/lib/books/action-state";
+import { errorState, formValue } from "@/lib/form-helpers";
 
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 const MAX_IMAGE_SIDE = 12_000;
@@ -34,15 +35,6 @@ const inputSchema = z.object({
   bytes: z.number().int().positive().max(MAX_IMAGE_BYTES),
   originalFilename: z.string().max(255).optional(),
 });
-
-function errorState(message: string): LibraryActionState {
-  return { status: "error", message };
-}
-
-function formValue(formData: FormData, key: string): string {
-  const value = formData.get(key);
-  return typeof value === "string" ? value : "";
-}
 
 async function authorizedBook(bookId: string) {
   const session = await getSession();
