@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import type { SessionContext } from "@/lib/auth/session";
 import {
   paginate,
+  pageGeometryFromProfile,
   textBlockSize,
   withTypographyDefaults,
   type DropCapLines,
@@ -12,7 +13,6 @@ import {
   type LayoutDiagnostic,
   type LaidOutPage,
   type MeasureText,
-  type PageGeometry,
   type PaginationResult,
   type TypographyConfig,
 } from "@escribiendo/editorial-engine";
@@ -189,22 +189,6 @@ const previewBookTitle = cache(
     )?.title ?? "",
 );
 
-/** Geometría de la página a partir del perfil. */
-export function geometryFromProfile(profile: LayoutProfileSummary): PageGeometry {
-  return {
-    pageWidthMm: profile.pageWidthMm,
-    pageHeightMm: profile.pageHeightMm,
-    marginTopMm: profile.marginTopMm,
-    marginBottomMm: profile.marginBottomMm,
-    marginInnerMm: profile.marginInnerMm,
-    marginOuterMm: profile.marginOuterMm,
-    gutterMm: profile.gutterMm,
-    headerDistanceMm: profile.headerDistanceMm,
-    footerDistanceMm: profile.footerDistanceMm,
-    chapterStartsRecto: profile.chapterStartsRecto,
-  };
-}
-
 /** Opciones de composición de la vista previa. */
 export interface PreviewOptions {
   /** Compone la inicial capitular del primer párrafo, como el PDF. */
@@ -258,7 +242,7 @@ export async function buildPreview(
   // vista previa y el archivo salen con los mismos cortes de línea.
   const fuentes = await loadPdfFonts();
   const cover = await loadPreviewCover(session, bookId);
-  const geometry = { ...geometryFromProfile(profile), physicalPageOffset: cover ? 1 : 0 };
+  const geometry = { ...pageGeometryFromProfile(profile), physicalPageOffset: cover ? 1 : 0 };
   const crossReferences = {
     pageMap: new Map<string, number>(),
     titles: sectionDisplayTitles(sections),
@@ -414,7 +398,7 @@ export async function buildLegalMatterPreview(
     : withTypographyDefaults(profile.typography);
   const fuentes = await loadPdfFonts();
   const cover = await loadPreviewCover(session, bookId);
-  const geometry = { ...geometryFromProfile(profile), physicalPageOffset: cover ? 1 : 0 };
+  const geometry = { ...pageGeometryFromProfile(profile), physicalPageOffset: cover ? 1 : 0 };
   const composed = buildLegalPage(legal, { mode });
   const logo = await loadMatterLogo(legal.logoUrl);
   const blocks = legalPageToBlocks(
@@ -481,7 +465,7 @@ export async function buildChapterPreview(
   const fuentes = await loadPdfFonts();
   const cover = await loadPreviewCover(session, bookId);
   const geometry = {
-    ...geometryFromProfile(profile),
+    ...pageGeometryFromProfile(profile),
     chapterStartsRecto: false,
     physicalPageOffset: cover ? 1 : 0,
   };

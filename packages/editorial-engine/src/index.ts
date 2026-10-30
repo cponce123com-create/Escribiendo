@@ -8,6 +8,7 @@ export {
   type PageFormatId,
   type PageFormatPreset,
 } from "./page-formats";
+export { pageGeometryFromProfile, type PageGeometryProfile } from "./page-geometry";
 export {
   validateLayoutGeometry,
   type LayoutGeometryInput,
