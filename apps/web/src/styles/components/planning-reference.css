@@ -464,6 +464,12 @@
   .reference-planner .btn[aria-disabled="true"] {
     opacity: 1;
   }
+  .reference-planner .btn-primary {
+    color: #fff;
+  }
+  [data-theme="dark"] .reference-planner .btn-primary {
+    color: #21130f;
+  }
   .plan-overall-progress {
     flex: 1;
     min-width: 3rem;
