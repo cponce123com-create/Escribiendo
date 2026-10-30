@@ -345,6 +345,7 @@ model BookSection {
   assignee               User?                      @relation("SectionAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   editorialMatters       EditorialMatter[]
   writingBriefs          ChapterWritingBrief[]
+  planningItem           StoryPlanItem?
 
   @@index([bookId, parentId, sortOrder])
   @@index([bookId, type])
@@ -708,11 +709,22 @@ enum WorldKind {
 /// ideas que todavía no tienen destino. No sustituye a las secciones del
 /// manuscrito: es el mapa previo de lo que se quiere contar.
 model StoryPlanItem {
+  parentId    String? @db.Uuid
+  sectionId   String? @unique @db.Uuid
+  sortOrder   Int @default(0)
+  version     Int @default(1)
+  goal        String? @db.Text
+  conflict    String? @db.Text
+  outcome     String? @db.Text
+  targetWords Int?
+  parent      StoryPlanItem? @relation("PlanHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    StoryPlanItem[] @relation("PlanHierarchy")
+  section     BookSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
   id          String          @id @default(uuid()) @db.Uuid
   workspaceId String          @db.Uuid
   bookId      String?         @db.Uuid
   createdById String?         @db.Uuid
-  title       String          @db.VarChar(200)
+  title       String          @db.VarChar(300)
   summary     String?         @db.Text
   kind        StoryPlanKind   @default(SCENE)
   status      StoryPlanStatus @default(IDEA)
@@ -729,6 +741,7 @@ model StoryPlanItem {
   @@index([workspaceId, createdAt])
   @@index([createdById])
   @@index([deletedAt])
+  @@index([bookId, parentId, sortOrder])
   @@map("story_plan_items")
 }
 

@@ -12,6 +12,7 @@
  */
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { registerVarcharColumns, acceptVarcharExpansion } from "./lib/migration-safety";
 
 const migrationsDir = path.resolve("packages/database/prisma/migrations");
 
@@ -21,8 +22,11 @@ const DESTRUCTIVE =
 const allow = process.env.ALLOW_DESTRUCTIVE_MIGRATIONS === "1";
 
 let failed = false;
+const varcharLimits = new Map<string, number>();
 
-for (const entry of readdirSync(migrationsDir, { withFileTypes: true })) {
+for (const entry of readdirSync(migrationsDir, { withFileTypes: true }).sort((a, b) =>
+  a.name.localeCompare(b.name),
+)) {
   if (!entry.isDirectory()) {
     continue;
   }
@@ -37,7 +41,10 @@ for (const entry of readdirSync(migrationsDir, { withFileTypes: true })) {
     continue;
   }
 
+  registerVarcharColumns(sql, varcharLimits);
+
   for (const [index, line] of sql.split(/\r?\n/u).entries()) {
+    if (acceptVarcharExpansion(line, varcharLimits)) continue;
     if (!DESTRUCTIVE.test(line)) {
       continue;
     }
