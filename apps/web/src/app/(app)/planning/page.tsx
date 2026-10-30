@@ -99,11 +99,11 @@ export default async function PlanningPage({ searchParams }: PlanningPageProps) 
             </p>
           </div>
           {books.length ? (
-            <ul className="grid gap-3 sm:grid-cols-2">
+            <ul className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
               {books.map((book) => (
-                <li key={book.id}>
+                <li key={book.id} className="min-w-0">
                   <Link
-                    className="panel flex h-full items-center justify-between gap-4 p-4 transition hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    className="panel flex h-full min-w-0 items-center justify-between gap-4 p-4 transition hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                     href={`/planning?book=${book.id}`}
                     aria-label={`Continuar planificando «${book.title}»`}
                   >
