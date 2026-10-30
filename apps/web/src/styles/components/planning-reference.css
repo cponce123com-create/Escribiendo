@@ -312,9 +312,9 @@
   }
   .reference-planner .plan-map-open {
     gap: 0.4rem;
-    padding: 0.45rem;
-    align-items: start;
-    min-height: 60px;
+    padding: 0.3rem;
+    align-items: center;
+    min-height: 44px;
   }
   .reference-planner .plan-map-number {
     width: 1.6rem;
@@ -543,7 +543,7 @@
     padding: 1rem;
     box-shadow: 0 0 0 2rem var(--canvas);
   }
-  @media (min-width: 1101px) {
+  @media (min-width: 1101px) and (max-height: 850px) {
     .reference-planner.is-map .plan-overview {
       gap: 0.4rem;
       padding-bottom: 0.35rem;
