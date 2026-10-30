@@ -215,7 +215,7 @@
     display: grid;
     place-items: center;
     border-radius: 50%;
-    color: #fff;
+    color: var(--surface);
     background: var(--plan-strong);
     flex-shrink: 0;
     font-size: 0.85rem;

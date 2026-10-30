@@ -141,6 +141,15 @@ test("esqueleto modular: partes, escenas, movimiento, aplicación sin pérdida y
       .getByRole("region", { name: "Estado: En escritura", exact: true })
       .getByRole("button", { name: "Editar «La decisión»", exact: true }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Mover «La decisión»", exact: true }).click();
+  await page.getByRole("dialog").getByLabel("Estado de destino").selectOption("DONE");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Mover tarjeta", exact: true })
+    .click();
+  await expect(
+    page.getByRole("progressbar", { name: "Capítulos terminados", exact: true }),
+  ).toHaveAttribute("value", "50");
   await page.getByRole("button", { name: "Tablero", exact: true }).click();
   await page.setViewportSize({ width: 1440, height: 1000 });
   await expect(page.locator(".plan-map-labels").getByText("Duelo", { exact: true })).toBeVisible();

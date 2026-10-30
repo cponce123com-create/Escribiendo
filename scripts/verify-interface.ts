@@ -12,7 +12,6 @@ import type * as ReactDOMServer from "react-dom/server";
 import { chromium } from "@playwright/test";
 import * as modularStructure from "../apps/web/src/lib/story/modular/structure";
 import * as planPresentation from "../apps/web/src/lib/story/modular/presentation";
-import * as studioIcons from "../apps/web/src/components/books/studio-icon";
 import * as storyLabels from "../apps/web/src/lib/story/labels";
 
 const webRequire = createRequire(path.resolve("apps/web/package.json"));
@@ -57,6 +56,29 @@ const mocks: Record<string, unknown> = {
   WORLD_KIND_OPTIONS: [option],
   BOOK_STATUS_LABELS: { DRAFT: "Borrador", IN_PROGRESS: "En proceso" },
 };
+const mountainFixture =
+  "data:image/webp;base64," +
+  (await readFile(path.resolve("apps/web/public/images/studio/mountain-header.webp"))).toString(
+    "base64",
+  );
+const iconExports: Record<string, unknown> = {};
+const iconSource = ts.transpileModule(
+  await readFile(path.resolve("apps/web/src/components/books/studio-icon.tsx"), "utf8"),
+  {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      jsx: ts.JsxEmit.ReactJSX,
+      target: ts.ScriptTarget.ES2022,
+    },
+  },
+).outputText;
+vm.runInNewContext(iconSource, {
+  exports: iconExports,
+  require: (id: string) => {
+    if (id === "react/jsx-runtime") return webRequire(id);
+    throw new Error(`Dependencia sin fixture: ${id}`);
+  },
+});
 // Renderiza el tablero real, no un componente vacío: sus columnas deben
 // desplazarse dentro de su región sin ensanchar el documento en móvil.
 const modularSource = ts.transpileModule(
@@ -83,9 +105,14 @@ vm.runInNewContext(modularSource, {
     if (id === "next/image")
       return {
         default: ({ src, alt, width, height }: Record<string, unknown>) =>
-          React.createElement("img", { src, alt, width, height }),
+          React.createElement("img", {
+            src: src === "/images/studio/mountain-header.webp" ? mountainFixture : src,
+            alt,
+            width,
+            height,
+          }),
       };
-    if (id === "@/components/books/studio-icon") return studioIcons;
+    if (id === "@/components/books/studio-icon") return iconExports;
     if (id === "@/lib/story/modular/presentation") return planPresentation;
     if (id === "@/lib/story/labels") return storyLabels;
     if (id === "@/lib/story/modular/structure") return modularStructure;
@@ -126,6 +153,7 @@ const modularItems = Array.from({ length: 5 }, (_, part) => {
       {
         ...common,
         id: `chapter-${part}-${chapter}`,
+        status: [0, 6, 12, 19, 26][part]! + chapter < 18 ? ("DONE" as const) : ("IDEA" as const),
         kind: "CHAPTER" as const,
         title: `Capítulo ${[0, 6, 12, 19, 26][part]! + chapter + 1} · Una decisión que transforma el recorrido del personaje`,
         parentId: `part-${part}`,
