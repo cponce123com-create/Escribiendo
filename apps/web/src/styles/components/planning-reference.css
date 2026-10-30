@@ -462,13 +462,13 @@
   /* Deshabilitar una acción no debe borrar su contraste al mezclarla con el fondo. */
   .reference-planner .btn:disabled,
   .reference-planner .btn[aria-disabled="true"] {
-    opacity: 1;
+    opacity: 1 !important;
   }
   .reference-planner .btn-primary {
-    color: #fff;
+    color: #fff !important;
   }
   [data-theme="dark"] .reference-planner .btn-primary {
-    color: #21130f;
+    color: #21130f !important;
   }
   .plan-overall-progress {
     flex: 1;
