@@ -1,6 +1,12 @@
 import type { SVGProps } from "react";
 
 const paths = {
+  grid: "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z",
+  list: "M8 5h13M8 12h13M8 19h13M3 5h.01M3 12h.01M3 19h.01",
+  timeline: "M5 4v16M5 7h6M5 16h6M11 4h9v6h-9zM11 13h9v6h-9z",
+  people:
+    "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M13 3a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-3-3.87M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
+  pin: "M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Zm-5 0a3 3 0 1 1-6 0 3 3 0 0 1 6 0",
   alignLeft: "M4 5h16M4 10h10M4 15h16M4 20h10",
   alignCenter: "M4 5h16M7 10h10M4 15h16M7 20h10",
   search: "M21 21l-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0",

@@ -11,6 +11,8 @@ import type * as ReactModule from "react";
 import type * as ReactDOMServer from "react-dom/server";
 import { chromium } from "@playwright/test";
 import * as modularStructure from "../apps/web/src/lib/story/modular/structure";
+import * as planPresentation from "../apps/web/src/lib/story/modular/presentation";
+import * as studioIcons from "../apps/web/src/components/books/studio-icon";
 import * as storyLabels from "../apps/web/src/lib/story/labels";
 
 const webRequire = createRequire(path.resolve("apps/web/package.json"));
@@ -78,6 +80,13 @@ vm.runInNewContext(modularSource, {
         default: ({ children, ...props }: Record<string, unknown>) =>
           React.createElement("a", props, children as ReactModule.ReactNode),
       };
+    if (id === "next/image")
+      return {
+        default: ({ src, alt, width, height }: Record<string, unknown>) =>
+          React.createElement("img", { src, alt, width, height }),
+      };
+    if (id === "@/components/books/studio-icon") return studioIcons;
+    if (id === "@/lib/story/modular/presentation") return planPresentation;
     if (id === "@/lib/story/labels") return storyLabels;
     if (id === "@/lib/story/modular/structure") return modularStructure;
     if (id === "@/components/forms/dialog") return { Dialog: () => null };
@@ -97,6 +106,7 @@ const modularItems = Array.from({ length: 5 }, (_, part) => {
     sectionId: null,
     createdAt: "2026-01-01",
     status: "IDEA" as const,
+    visual: { labels: ["Tema de prueba", "Segundo tema"] },
     summary: "Resumen de prueba para comprobar el ajuste de las tarjetas.",
     goal: "Objetivo de prueba",
     conflict: null,
@@ -112,12 +122,12 @@ const modularItems = Array.from({ length: 5 }, (_, part) => {
       parentId: null,
       sortOrder: part,
     },
-    ...Array.from({ length: 6 }, (_, chapter) => [
+    ...Array.from({ length: [6, 6, 7, 7, 4][part]! }, (_, chapter) => [
       {
         ...common,
         id: `chapter-${part}-${chapter}`,
         kind: "CHAPTER" as const,
-        title: `Capítulo ${part * 6 + chapter + 1} · Una decisión que transforma el recorrido del personaje`,
+        title: `Capítulo ${[0, 6, 12, 19, 26][part]! + chapter + 1} · Una decisión que transforma el recorrido del personaje`,
         parentId: `part-${part}`,
         sortOrder: chapter,
       },
@@ -136,6 +146,7 @@ const modularFixture = {
   book: { id: "test", title: "Libro de prueba visual", narrativeVersion: 0 },
   items: modularStructure.planOrder(modularItems),
   sections: [],
+  assets: [],
   manuscriptKey: "0".repeat(64),
 };
 async function renderRoute(route: string) {
