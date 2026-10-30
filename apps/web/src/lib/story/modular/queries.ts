@@ -6,6 +6,7 @@ import { canPerform } from "@/lib/books/permissions";
 import { bookAssetThumbnailUrl } from "@/lib/books/asset-thumbnail";
 import { listBookAssets } from "@/lib/books/assets";
 import { planOrder, PlanError, MAX_PLAN_ITEMS } from "./structure";
+import { masterChanged, masterSnapshotSchema } from "@/lib/story/writing/brief";
 export function manuscriptKey(
   rows: readonly {
     id: string;
@@ -36,7 +37,14 @@ export function manuscriptKey(
 export async function loadModularPlan(session: SessionContext, bookId: string, trashPage = 1) {
   const book = await prisma.book.findFirst({
     where: { id: bookId, workspaceId: session.workspace.id, deletedAt: null },
-    select: { id: true, title: true, narrativeVersion: true },
+    select: {
+      id: true,
+      title: true,
+      authorName: true,
+      genre: true,
+      narrativeVersion: true,
+      writingBriefs: { orderBy: { version: "desc" }, take: 1 },
+    },
   });
   if (!book) return null;
   const trashWhere = {
@@ -91,8 +99,20 @@ export async function loadModularPlan(session: SessionContext, bookId: string, t
   ]);
   if (sections.length > 1000)
     throw new PlanError("Este tablero admite manuscritos de hasta 1.000 secciones.");
+  const masterRow = book.writingBriefs[0];
+  const parsedMaster = masterRow ? masterSnapshotSchema.safeParse(masterRow.content) : null;
+  const masterBrief =
+    masterRow?.status === "APPROVED" &&
+    parsedMaster?.success &&
+    !masterChanged(
+      parsedMaster.data,
+      book,
+      sections.map(({ id, title }) => ({ id, title })),
+    )
+      ? parsedMaster.data
+      : null;
   return {
-    book,
+    book: { id: book.id, title: book.title, narrativeVersion: book.narrativeVersion, masterBrief },
     trash: {
       items: trash.map((n) => ({ ...n, deletedAt: n.deletedAt!.toISOString() })),
       total: trashTotal,
