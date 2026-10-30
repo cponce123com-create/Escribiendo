@@ -84,7 +84,6 @@ export default async function PlanningPage({ searchParams }: PlanningPageProps) 
             <label className="field-label" htmlFor="plan-book">
               Libro
             </label>
-            <input type="hidden" name="view" value={view} />
             <select
               id="plan-book"
               name="book"
@@ -115,7 +114,7 @@ export default async function PlanningPage({ searchParams }: PlanningPageProps) 
           </div>
 
           <div className="studio-filter-actions">
-            <button type="submit" className="btn btn-secondary">
+            <button type="submit" name="view" value={view} className="btn btn-secondary">
               Filtrar
             </button>
             {isFiltered ? (

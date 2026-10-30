@@ -10,6 +10,8 @@ import ts from "typescript";
 import type * as ReactModule from "react";
 import type * as ReactDOMServer from "react-dom/server";
 import { chromium } from "@playwright/test";
+import * as modularStructure from "../apps/web/src/lib/story/modular/structure";
+import * as storyLabels from "../apps/web/src/lib/story/labels";
 
 const webRequire = createRequire(path.resolve("apps/web/package.json"));
 const React = webRequire("react") as typeof ReactModule;
@@ -53,6 +55,89 @@ const mocks: Record<string, unknown> = {
   WORLD_KIND_OPTIONS: [option],
   BOOK_STATUS_LABELS: { DRAFT: "Borrador", IN_PROGRESS: "En proceso" },
 };
+// Renderiza el tablero real, no un componente vacío: sus columnas deben
+// desplazarse dentro de su región sin ensanchar el documento en móvil.
+const modularSource = ts.transpileModule(
+  await readFile(path.resolve("apps/web/src/components/story/modular-planning-board.tsx"), "utf8"),
+  {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      jsx: ts.JsxEmit.ReactJSX,
+      target: ts.ScriptTarget.ES2022,
+    },
+  },
+).outputText;
+const modularExports: Record<string, ReactModule.ComponentType<Record<string, unknown>>> = {};
+vm.runInNewContext(modularSource, {
+  exports: modularExports,
+  require: (id: string) => {
+    if (id === "react") return React;
+    if (id === "react/jsx-runtime") return webRequire(id);
+    if (id === "next/link")
+      return {
+        default: ({ children, ...props }: Record<string, unknown>) =>
+          React.createElement("a", props, children as ReactModule.ReactNode),
+      };
+    if (id === "@/lib/story/labels") return storyLabels;
+    if (id === "@/lib/story/modular/structure") return modularStructure;
+    if (id === "@/components/forms/dialog") return { Dialog: () => null };
+    if (id === "@/components/forms/form-message") return { FormMessage: () => null };
+    if (id === "@/lib/story/modular/actions")
+      return {
+        modularPlanAction: () => {
+          throw new Error("La fixture de geometría no escribe datos.");
+        },
+      };
+    throw new Error(`Dependencia sin fixture: ${id}`);
+  },
+});
+const modularItems = Array.from({ length: 5 }, (_, part) => {
+  const common = {
+    version: 1,
+    sectionId: null,
+    createdAt: "2026-01-01",
+    status: "IDEA" as const,
+    summary: "Resumen de prueba para comprobar el ajuste de las tarjetas.",
+    goal: "Objetivo de prueba",
+    conflict: null,
+    outcome: "Cierre de prueba",
+    targetWords: 2500,
+  };
+  return [
+    {
+      ...common,
+      id: `part-${part}`,
+      kind: "ACT" as const,
+      title: `Parte ${part + 1} · Un título de prueba extenso`,
+      parentId: null,
+      sortOrder: part,
+    },
+    ...Array.from({ length: 6 }, (_, chapter) => [
+      {
+        ...common,
+        id: `chapter-${part}-${chapter}`,
+        kind: "CHAPTER" as const,
+        title: `Capítulo ${part * 6 + chapter + 1} · Una decisión que transforma el recorrido del personaje`,
+        parentId: `part-${part}`,
+        sortOrder: chapter,
+      },
+      {
+        ...common,
+        id: `scene-${part}-${chapter}`,
+        kind: "SCENE" as const,
+        title: "Una escena de prueba",
+        parentId: `chapter-${part}-${chapter}`,
+        sortOrder: 0,
+      },
+    ]).flat(),
+  ];
+}).flat();
+const modularFixture = {
+  book: { id: "test", title: "Libro de prueba visual", narrativeVersion: 0 },
+  items: modularStructure.planOrder(modularItems),
+  sections: [],
+  manuscriptKey: "0".repeat(64),
+};
 async function renderRoute(route: string) {
   const filename = path.resolve(`apps/web/src/app/(app)/${route}/page.tsx`);
   const source = await readFile(filename, "utf8");
@@ -75,7 +160,18 @@ async function renderRoute(route: string) {
             default: ({ children, ...props }: Record<string, unknown>) =>
               React.createElement("a", props, children as ReactModule.ReactNode),
           };
-        return new Proxy(mocks, { get: (target, key: string) => target[key] ?? (() => null) });
+        const scopedMocks =
+          route === "planning"
+            ? {
+                ...mocks,
+                getStoryBookOption: async () => ({ id: "test", title: "Libro de prueba visual" }),
+                loadModularPlan: async () => modularFixture,
+                ModularPlanningBoard: modularExports.ModularPlanningBoard,
+              }
+            : mocks;
+        return new Proxy(scopedMocks, {
+          get: (target, key: string) => (target as Record<string, unknown>)[key] ?? (() => null),
+        });
       },
     },
     { filename },

@@ -266,6 +266,7 @@ function MoveCard({
           Estado de destino
           <select
             className="field-input"
+            aria-label="Estado de destino"
             value={status}
             onChange={(e) => setStatus(e.target.value as typeof status)}
           >
@@ -282,6 +283,7 @@ function MoveCard({
             Destino
             <select
               className="field-input"
+              aria-label="Destino"
               value={parentId}
               onChange={(e) => {
                 setParentId(e.target.value);
@@ -302,6 +304,7 @@ function MoveCard({
             Posición
             <select
               className="field-input"
+              aria-label="Posición"
               value={beforeId}
               onChange={(e) => setBeforeId(e.target.value)}
             >

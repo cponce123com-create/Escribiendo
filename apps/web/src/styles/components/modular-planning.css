@@ -378,6 +378,10 @@
     border-color: var(--accent);
   }
   @media (max-width: 640px) {
+    .modular-planner button,
+    .plan-page-nav a {
+      min-height: 44px;
+    }
     .plan-column {
       flex-basis: min(18rem, 82vw);
     }
