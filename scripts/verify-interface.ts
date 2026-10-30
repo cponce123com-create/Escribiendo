@@ -78,6 +78,11 @@ const mocks: Record<string, unknown> = {
   WORLD_KIND_OPTIONS: [option],
   BOOK_STATUS_LABELS: { DRAFT: "Borrador", IN_PROGRESS: "En proceso" },
 };
+const mountainFixture =
+  "data:image/webp;base64," +
+  (await readFile(path.resolve("apps/web/public/images/studio/mountain-header.webp"))).toString(
+    "base64",
+  );
 // Renderiza el tablero real, no un componente vacío: sus columnas deben
 // desplazarse dentro de su región sin ensanchar el documento en móvil.
 const modularSource = ts.transpileModule(
@@ -104,7 +109,12 @@ vm.runInNewContext(modularSource, {
     if (id === "next/image")
       return {
         default: ({ src, alt, width, height }: Record<string, unknown>) =>
-          React.createElement("img", { src, alt, width, height }),
+          React.createElement("img", {
+            src: src === "/images/studio/mountain-header.webp" ? mountainFixture : src,
+            alt,
+            width,
+            height,
+          }),
       };
     if (id === "@/components/books/studio-icon") return studioExports;
     if (id === "@/lib/story/modular/presentation") return planPresentation;
@@ -147,6 +157,7 @@ const modularItems = Array.from({ length: 5 }, (_, part) => {
       {
         ...common,
         id: `chapter-${part}-${chapter}`,
+        status: [0, 6, 12, 19, 26][part]! + chapter < 18 ? ("DONE" as const) : ("IDEA" as const),
         kind: "CHAPTER" as const,
         title: `Capítulo ${[0, 6, 12, 19, 26][part]! + chapter + 1} · Una decisión que transforma el recorrido del personaje`,
         parentId: `part-${part}`,
@@ -283,6 +294,15 @@ try {
           if (route === "planning" && width >= 1366) {
             const map = await page.locator(".plan-map-card").evaluateAll((cards) => ({
               count: cards.length,
+              viewport: { width: innerWidth, height: innerHeight, scrollY },
+              outside: cards
+                .map((card) => {
+                  const r = card.getBoundingClientRect();
+                  return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+                })
+                .filter(
+                  (r) => r.left < 0 || r.right > innerWidth || r.top < 0 || r.bottom > innerHeight,
+                ),
               fits: cards.every((card) => {
                 const r = card.getBoundingClientRect();
                 return (
@@ -290,11 +310,16 @@ try {
                 );
               }),
             }));
+            if (!map.fits)
+              await page.screenshot({
+                path: path.join(output, `planning-fit-${width}-${theme}.png`),
+                fullPage: true,
+              });
             assert.equal(map.count, 30, "El mapa debe mostrar los treinta capítulos de la fixture");
             assert.equal(
               map.fits,
               true,
-              "Cinco partes y treinta capítulos deben caber en una pantalla de escritorio",
+              `Cinco partes y treinta capítulos deben caber: ${JSON.stringify({ theme, ...map })}`,
             );
           }
           checks++;

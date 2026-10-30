@@ -215,7 +215,7 @@
     display: grid;
     place-items: center;
     border-radius: 50%;
-    color: #fff;
+    color: var(--surface);
     background: var(--plan-strong);
     flex-shrink: 0;
     font-size: 0.85rem;
@@ -742,6 +742,33 @@
       width: 1.5rem;
       height: 1.5rem;
       font-size: 0.75rem;
+    }
+  }
+}
+@layer components {
+  @media (min-width: 1101px) {
+    .reference-planner.is-map .plan-map-card {
+      max-height: 78px;
+    }
+    .reference-planner.is-map .plan-map-open {
+      max-height: 76px;
+      overflow: hidden;
+    }
+  }
+  @media (min-width: 1101px) and (max-height: 950px) {
+    .reference-planner.is-map .plan-map-card {
+      max-height: 58px;
+    }
+    .reference-planner.is-map .plan-map-open {
+      max-height: 56px;
+    }
+  }
+  @media (min-width: 1101px) and (max-height: 850px) {
+    .reference-planner.is-map .plan-map-card {
+      max-height: 36px;
+    }
+    .reference-planner.is-map .plan-map-open {
+      max-height: 34px;
     }
   }
 }
