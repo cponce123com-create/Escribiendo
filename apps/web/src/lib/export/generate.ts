@@ -16,10 +16,10 @@ import {
   type ImageTarget,
 } from "@escribiendo/export-engine";
 import {
+  pageGeometryFromProfile,
   textBlockSize,
   withTypographyDefaults,
   type DropCapLines,
-  type PageGeometry,
 } from "@escribiendo/editorial-engine";
 import { getBookEdition, getDefaultLayoutProfile } from "@/lib/layout/profiles";
 import { sectionDisplayTitles } from "@/lib/layout/section-title";
@@ -151,21 +151,6 @@ export function fileNameFor(title: string, format: ExportFormat): string {
   return `${base || "libro"}.${FORMAT_INFO[format].extension}`;
 }
 
-function geometryFromProfile(profile: NonNullable<GenerateInput["profile"]>): PageGeometry {
-  return {
-    pageWidthMm: profile.pageWidthMm,
-    pageHeightMm: profile.pageHeightMm,
-    marginTopMm: profile.marginTopMm,
-    marginBottomMm: profile.marginBottomMm,
-    marginInnerMm: profile.marginInnerMm,
-    marginOuterMm: profile.marginOuterMm,
-    gutterMm: profile.gutterMm,
-    headerDistanceMm: profile.headerDistanceMm,
-    footerDistanceMm: profile.footerDistanceMm,
-    chapterStartsRecto: profile.chapterStartsRecto,
-  };
-}
-
 /** Genera el archivo en el formato pedido. */
 export async function generateFile(input: GenerateInput): Promise<GeneratedFile> {
   // Una página legal habilitada pero inválida no puede omitirse en silencio:
@@ -278,7 +263,7 @@ export async function generateFile(input: GenerateInput): Promise<GeneratedFile>
       showSectionNumber: section.showSectionNumber,
     }));
     const geometry = {
-      ...geometryFromProfile(input.profile),
+      ...pageGeometryFromProfile(input.profile),
       physicalPageOffset: input.cover ? 1 : 0,
     };
     const crossReferences = {
