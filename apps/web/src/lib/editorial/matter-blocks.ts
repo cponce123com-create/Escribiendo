@@ -1,10 +1,11 @@
-import type {
-  EditorialImage,
-  InlineRun,
-  LayoutBlock,
-  LayoutBlockKind,
-  LayoutDiagnostic,
-  TextAlignment,
+import {
+  mmToPoints,
+  type EditorialImage,
+  type InlineRun,
+  type LayoutBlock,
+  type LayoutBlockKind,
+  type LayoutDiagnostic,
+  type TextAlignment,
 } from "@escribiendo/editorial-engine";
 import {
   tocParametersFrom,
@@ -109,11 +110,6 @@ function normalizedText(value: string): string {
     .replace(/ *\r?\n */gu, "\n")
     .replace(/\n{3,}/gu, "\n\n")
     .trim();
-}
-
-/** Milímetros a puntos tipográficos (1 pt = 25,4/72 mm). */
-function mmToPoints(mm: number): number {
-  return (mm * 72) / 25.4;
 }
 
 /**
