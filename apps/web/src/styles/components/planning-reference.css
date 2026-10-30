@@ -745,3 +745,30 @@
     }
   }
 }
+@layer components {
+  @media (min-width: 1101px) {
+    .reference-planner.is-map .plan-map-card {
+      max-height: 78px;
+    }
+    .reference-planner.is-map .plan-map-open {
+      max-height: 76px;
+      overflow: hidden;
+    }
+  }
+  @media (min-width: 1101px) and (max-height: 950px) {
+    .reference-planner.is-map .plan-map-card {
+      max-height: 58px;
+    }
+    .reference-planner.is-map .plan-map-open {
+      max-height: 56px;
+    }
+  }
+  @media (min-width: 1101px) and (max-height: 850px) {
+    .reference-planner.is-map .plan-map-card {
+      max-height: 36px;
+    }
+    .reference-planner.is-map .plan-map-open {
+      max-height: 34px;
+    }
+  }
+}

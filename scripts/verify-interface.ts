@@ -290,6 +290,15 @@ try {
           if (route === "planning" && width >= 1366) {
             const map = await page.locator(".plan-map-card").evaluateAll((cards) => ({
               count: cards.length,
+              viewport: { width: innerWidth, height: innerHeight, scrollY },
+              outside: cards
+                .map((card) => {
+                  const r = card.getBoundingClientRect();
+                  return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+                })
+                .filter(
+                  (r) => r.left < 0 || r.right > innerWidth || r.top < 0 || r.bottom > innerHeight,
+                ),
               fits: cards.every((card) => {
                 const r = card.getBoundingClientRect();
                 return (
@@ -297,11 +306,16 @@ try {
                 );
               }),
             }));
+            if (!map.fits)
+              await page.screenshot({
+                path: path.join(output, `planning-fit-${width}-${theme}.png`),
+                fullPage: true,
+              });
             assert.equal(map.count, 30, "El mapa debe mostrar los treinta capítulos de la fixture");
             assert.equal(
               map.fits,
               true,
-              "Cinco partes y treinta capítulos deben caber en una pantalla de escritorio",
+              `Cinco partes y treinta capítulos deben caber: ${JSON.stringify({ theme, ...map })}`,
             );
           }
           checks++;
