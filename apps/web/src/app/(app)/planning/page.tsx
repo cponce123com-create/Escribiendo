@@ -58,7 +58,9 @@ export default async function PlanningPage({ searchParams }: PlanningPageProps) 
 
   return (
     <div
-      className={`mx-auto max-w-6xl space-y-8 ${view === "structure" ? "planning-workspace" : ""}`}
+      className={
+        view === "structure" ? "planning-workspace mx-auto" : "mx-auto max-w-6xl space-y-8"
+      }
     >
       <header className="space-y-3">
         <p className="eyebrow">

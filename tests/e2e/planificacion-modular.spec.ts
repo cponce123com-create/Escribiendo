@@ -220,6 +220,12 @@ test("un esquema inicial de cinco partes distribuye treinta capítulos sin crear
     );
     expect(
       boxes.every((r) => r.left >= 0 && r.right <= r.width && r.top >= 0 && r.bottom <= r.height),
+      JSON.stringify({
+        viewport,
+        outside: boxes.filter(
+          (r) => r.left < 0 || r.right > r.width || r.top < 0 || r.bottom > r.height,
+        ),
+      }),
     ).toBe(true);
   }
   await page.getByRole("button", { name: "Editar «Capítulo 1»", exact: true }).click();

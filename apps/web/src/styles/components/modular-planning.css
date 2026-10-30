@@ -416,9 +416,10 @@
 @layer components {
   .planning-workspace {
     max-width: none;
-  }
-  .planning-workspace > :not([hidden]) ~ :not([hidden]) {
-    margin-top: 0.65rem;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
   }
   .planning-workspace > header .eyebrow,
   .planning-workspace > header > p:last-child {
