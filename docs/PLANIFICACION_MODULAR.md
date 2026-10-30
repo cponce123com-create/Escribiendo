@@ -49,3 +49,11 @@ Los resultados ejecutados se registran en el PR; un archivo de prueba por sí so
 4. Aplicar al manuscrito; abrir un capítulo en el editor. Escribir y guardar. Reordenar en el tablero y aplicar otra vez: el texto debe conservarse.
 5. Abrir Guía para IA desde la tarjeta: revisar la propuesta procedente del plan y aprobar explícitamente las fichas necesarias.
 6. En dos pestañas, guardar sobre la misma revisión: una debe pedir recargar. En móvil, comprobar desplazamiento dentro del tablero, edición y movimiento táctil por diálogo.
+
+## Rediseño: mapa completo
+
+La vista inicial es ahora «Mapa completo»: hasta cinco partes en columnas que comparten el ancho disponible; cada capítulo se reduce a número, título, estado y cantidad de módulos. Los resúmenes, objetivos, conflictos y cierres se consultan al seleccionar la tarjeta. El mismo diálogo permite acceder a escenas, mover la tarjeta y abrir el editor o la guía vinculada. La navegación entre tarjetas exige guardar o descartar cambios pendientes. Los lectores sin permiso de edición pueden consultar el detalle sin controles de escritura.
+
+«Tarjetas» conserva la vista detallada y «Flujo de trabajo» los estados. Cambiar de vista no altera datos. El selector del libro y la búsqueda/revisión se revelan al necesitarlos. En escritorio se prueba expresamente que los treinta capítulos de cinco partes estén dentro de la pantalla en 1366×768 y 1440×900; en móvil se usan dos columnas legibles y desplazamiento vertical, sin reducir treinta capítulos a texto ilegible. El arrastre y el diálogo Mover siguen disponibles. No se introducen migraciones adicionales.
+
+Referencias de interacción: [Plottr Timeline](https://docs.plottr.com/article/54-timeline-overview), organización visual de capítulos y escenas; [Milanote Story Outline](https://milanote.com/guide/story-outline), organización del esquema. Se adapta el patrón de visión general con detalle al seleccionar, conservando la identidad y los componentes del proyecto.

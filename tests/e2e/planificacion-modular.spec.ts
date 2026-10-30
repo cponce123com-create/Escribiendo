@@ -26,6 +26,7 @@ test("esqueleto modular: partes, escenas, movimiento, aplicación sin pérdida y
   await expect(
     page.getByRole("heading", { name: "El esqueleto de tu libro", exact: true }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Tarjetas detalladas", exact: true }).click();
   await page.getByRole("button", { name: "+ Parte", exact: true }).click();
   await saveCard(page, "La partida", "El mundo anterior empieza a cambiar.");
   await page.getByRole("button", { name: "+ Parte", exact: true }).click();
@@ -139,13 +140,17 @@ test("esqueleto modular: partes, escenas, movimiento, aplicación sin pérdida y
       .getByRole("region", { name: "Estado: En escritura", exact: true })
       .getByRole("button", { name: "Editar «La decisión»", exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Estructura", exact: true }).click();
+  await page.getByRole("button", { name: "Mapa completo", exact: true }).click();
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.screenshot({ path: info.outputPath("estructura-escritorio.png"), fullPage: true });
   const accessibility = await auditar(page);
   expect(resume(accessibility.graves, page.url())).toEqual([]);
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await expect(page.getByRole("region", { name: "Sin parte", exact: true })).toHaveCount(0);
+  expect(
+    await second.evaluate((column) => column.getBoundingClientRect().height <= innerHeight),
+  ).toBe(true);
   await page.screenshot({ path: info.outputPath("estructura-movil.png"), fullPage: true });
   await page.goto(`/planning?book=${bookId}&view=guides&section=${chapter.id}`);
   await expect(page.getByLabel("Capítulo o sección del manuscrito")).toHaveValue(chapter.id);
@@ -194,4 +199,37 @@ test("un esquema inicial de cinco partes distribuye treinta capítulos sin crear
   expect(items.filter((n) => n.kind === "CHAPTER")).toHaveLength(30);
   expect(items.every((n) => n.summary === null)).toBe(true);
   expect(await prisma.bookSection.count({ where: { bookId } })).toBe(0);
+  await expect(page.locator(".plan-map-card")).toHaveCount(30);
+  for (const viewport of [
+    { width: 1366, height: 768 },
+    { width: 1440, height: 900 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const boxes = await page.locator(".plan-map-card").evaluateAll((cards) =>
+      cards.map((card) => {
+        const r = card.getBoundingClientRect();
+        return {
+          left: r.left,
+          right: r.right,
+          top: r.top,
+          bottom: r.bottom,
+          width: innerWidth,
+          height: innerHeight,
+        };
+      }),
+    );
+    expect(
+      boxes.every((r) => r.left >= 0 && r.right <= r.width && r.top >= 0 && r.bottom <= r.height),
+      JSON.stringify({
+        viewport,
+        outside: boxes.filter(
+          (r) => r.left < 0 || r.right > r.width || r.top < 0 || r.bottom > r.height,
+        ),
+      }),
+    ).toBe(true);
+  }
+  await page.getByRole("button", { name: "Editar «Capítulo 1»", exact: true }).click();
+  await expect(
+    page.getByRole("dialog").getByLabel("Resumen previsto", { exact: true }),
+  ).toBeVisible();
 });

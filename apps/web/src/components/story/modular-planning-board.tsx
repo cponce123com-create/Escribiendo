@@ -6,6 +6,7 @@ import {
   useRef,
   type DragEvent,
   type FormEvent,
+  type CSSProperties,
 } from "react";
 import Link from "next/link";
 import { Dialog } from "@/components/forms/dialog";
@@ -22,7 +23,7 @@ import { modularPlanAction } from "@/lib/story/modular/actions";
 import type { ModularPlanData, ModularItem } from "@/lib/story/modular/queries";
 
 type Modal = {
-  mode: "edit" | "move" | "delete" | "apply" | "import" | "outline" | "template";
+  mode: "edit" | "move" | "delete" | "apply" | "import" | "outline" | "template" | "inspect";
   id?: string;
   kind?: PlanKind;
   parentId?: string;
@@ -266,6 +267,7 @@ function MoveCard({
           Estado de destino
           <select
             className="field-input"
+            aria-label="Estado de destino"
             value={status}
             onChange={(e) => setStatus(e.target.value as typeof status)}
           >
@@ -282,6 +284,7 @@ function MoveCard({
             Destino
             <select
               className="field-input"
+              aria-label="Destino"
               value={parentId}
               onChange={(e) => {
                 setParentId(e.target.value);
@@ -302,6 +305,7 @@ function MoveCard({
             Posición
             <select
               className="field-input"
+              aria-label="Posición"
               value={beforeId}
               onChange={(e) => setBeforeId(e.target.value)}
             >
@@ -387,6 +391,8 @@ export function ModularPlanningBoard({
   initialSearch?: string;
 }) {
   const [view, setView] = useState<"structure" | "flow">("structure");
+  const [density, setDensity] = useState<"map" | "cards">("map");
+  const compact = view === "structure" && density === "map";
   const [query, setQuery] = useState(initialSearch);
   const [kind, setKind] = useState("ALL");
   const [modal, setModal] = useState<Modal | null>(null);
@@ -504,7 +510,69 @@ export function ModularPlanningBoard({
   const chapterNumbers = new Map(
     data.items.filter((n) => n.kind === "CHAPTER").map((n, i) => [n.id, i + 1]),
   );
+  function navigateCard(
+    item?: ModularItem,
+    newKind?: PlanKind,
+    parentId?: string,
+    mode: Modal["mode"] = "edit",
+  ) {
+    if (dirtyRef.current) {
+      setMessage({
+        status: "error",
+        message: "Guarda o descarta los cambios de esta tarjeta antes de abrir otra.",
+      });
+      return;
+    }
+    open(canManage ? mode : "inspect", item, newKind, parentId);
+  }
+  function compactCard(item: ModularItem) {
+    const count = children(item.id).length;
+    return (
+      <article
+        className={`plan-map-card ${dragId === item.id ? "is-dragging" : ""}`}
+        data-plan-id={item.id}
+        draggable={canManage && !busy}
+        onDragStart={(e) => drag(e, item.id)}
+        onDragEnd={() => setDragId(null)}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => dropCard(e, item)}
+      >
+        <button
+          type="button"
+          className="plan-map-open"
+          aria-label={`${canManage ? "Editar" : "Ver"} «${item.title}»`}
+          title={item.title}
+          onClick={() => open(canManage ? "edit" : "inspect", item)}
+        >
+          <span className="plan-map-number">
+            {item.kind === "CHAPTER" ? String(chapterNumbers.get(item.id)).padStart(2, "0") : "◇"}
+          </span>
+          <span className="plan-map-name">{item.title}</span>
+          <span
+            className={`plan-map-dot plan-state-${item.status.toLowerCase()}`}
+            aria-label={`Estado: ${PLAN_STATUS_LABELS[item.status]}`}
+          />
+          {count ? (
+            <span className="plan-map-children" aria-label={`${count} escenas o módulos`}>
+              {count}
+            </span>
+          ) : null}
+        </button>
+        {canManage ? (
+          <button
+            type="button"
+            className="plan-map-move"
+            aria-label={`Mover «${item.title}»`}
+            onClick={() => open("move", item)}
+          >
+            ↗
+          </button>
+        ) : null}
+      </article>
+    );
+  }
   function card(item: ModularItem, nested = false) {
+    if (compact) return compactCard(item);
     const scenes = children(item.id);
     const section = data.sections.find((s) => s.id === item.sectionId);
     return (
@@ -623,8 +691,26 @@ export function ModularPlanningBoard({
         `${n.kind === "SCENE" ? "    " : n.parentId ? "  " : ""}${kindLabel(n.kind)}: ${n.title}\n${n.summary ?? ""}${n.goal ? `\nObjetivo: ${n.goal}` : ""}${n.conflict ? `\nConflicto: ${n.conflict}` : ""}${n.outcome ? `\nCierre: ${n.outcome}` : ""}`,
     )
     .join("\n\n");
+  const modalItem = data.items.find((n) => n.id === modal?.id);
   return (
-    <section className="modular-planner" aria-labelledby="modular-plan-title">
+    <section
+      className={`modular-planner ${compact ? "is-map" : ""}`}
+      aria-labelledby="modular-plan-title"
+      style={
+        {
+          "--plan-columns": Math.min(
+            5,
+            Math.max(
+              1,
+              parts.filter(visible).length +
+                (!parts.length || children(null).some((n) => n.kind !== "ACT" && visible(n))
+                  ? 1
+                  : 0),
+            ),
+          ),
+        } as CSSProperties
+      }
+    >
       <header className="plan-overview">
         <div>
           <p className="eyebrow">Arquitectura literaria</p>
@@ -653,10 +739,24 @@ export function ModularPlanningBoard({
         <div className="plan-view-switch" role="group" aria-label="Vista del tablero">
           <button
             type="button"
-            aria-pressed={view === "structure"}
-            onClick={() => setView("structure")}
+            aria-pressed={compact}
+            onClick={() => {
+              setView("structure");
+              setDensity("map");
+            }}
           >
-            Estructura
+            Mapa completo
+          </button>
+          <button
+            type="button"
+            aria-label="Tarjetas detalladas"
+            aria-pressed={view === "structure" && density === "cards"}
+            onClick={() => {
+              setView("structure");
+              setDensity("cards");
+            }}
+          >
+            Tarjetas
           </button>
           <button type="button" aria-pressed={view === "flow"} onClick={() => setView("flow")}>
             Flujo de trabajo
@@ -693,53 +793,56 @@ export function ModularPlanningBoard({
           </div>
         ) : null}
       </div>
-      <div className="plan-filter-row">
-        <label className="sr-only" htmlFor="modular-search">
-          Buscar en la estructura
-        </label>
-        <input
-          id="modular-search"
-          className="field-input"
-          type="search"
-          placeholder="Buscar capítulos, escenas o ideas…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        <label className="sr-only" htmlFor="modular-kind">
-          Tipo de tarjeta
-        </label>
-        <select
-          id="modular-kind"
-          className="field-input"
-          value={kind}
-          onChange={(e) => setKind(e.target.value)}
-        >
-          <option value="ALL">Todos los tipos</option>
-          <option value="CHAPTER">Capítulos</option>
-          <option value="SCENE">Escenas</option>
-          <option value="ACT">Partes</option>
-        </select>
-      </div>
+      <details className="plan-options" key={`${view}-${density}`} open={!compact}>
+        <summary>Buscar y revisar el plan{notes.length ? ` · ${notes.length} avisos` : ""}</summary>
+        <div className="plan-filter-row">
+          <label className="sr-only" htmlFor="modular-search">
+            Buscar en la estructura
+          </label>
+          <input
+            id="modular-search"
+            className="field-input"
+            type="search"
+            placeholder="Buscar capítulos, escenas o ideas…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <label className="sr-only" htmlFor="modular-kind">
+            Tipo de tarjeta
+          </label>
+          <select
+            id="modular-kind"
+            className="field-input"
+            value={kind}
+            onChange={(e) => setKind(e.target.value)}
+          >
+            <option value="ALL">Todos los tipos</option>
+            <option value="CHAPTER">Capítulos</option>
+            <option value="SCENE">Escenas</option>
+            <option value="ACT">Partes</option>
+          </select>
+        </div>
+        {notes.length ? (
+          <details className="plan-diagnostics">
+            <summary>
+              Revisión del plan · {notes.length}{" "}
+              {notes.length === 1 ? "observación" : "observaciones"}
+            </summary>
+            <ul>
+              {notes.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          </details>
+        ) : null}
+        <p className="plan-help">
+          {canManage
+            ? "Arrastra las tarjetas o usa «Mover» con teclado o desde el móvil. "
+            : "Vista de lectura. "}
+          El tablero y el manuscrito se sincronizan solo cuando aplicas la estructura.
+        </p>
+      </details>
       <FormMessage state={message} />
-      {notes.length ? (
-        <details className="plan-diagnostics">
-          <summary>
-            Revisión del plan · {notes.length}{" "}
-            {notes.length === 1 ? "observación" : "observaciones"}
-          </summary>
-          <ul>
-            {notes.map((note) => (
-              <li key={note}>{note}</li>
-            ))}
-          </ul>
-        </details>
-      ) : null}
-      <p className="plan-help">
-        {canManage
-          ? "Arrastra las tarjetas o usa «Mover» con teclado o desde el móvil. "
-          : "Vista de lectura. "}
-        El tablero y el manuscrito se sincronizan solo cuando aplicas la estructura.
-      </p>
       <div
         className="plan-board-scroll"
         role="region"
@@ -749,51 +852,55 @@ export function ModularPlanningBoard({
         <div className="plan-board-columns">
           {view === "structure" ? (
             <>
-              <section
-                className="plan-column plan-column-loose"
-                aria-label="Sin parte"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => drop(e, null)}
-              >
-                <header>
-                  <div>
-                    <span className="plan-column-kicker">Punto de partida</span>
-                    <h3>Sin parte</h3>
-                  </div>
-                  <span className="plan-column-count">
-                    {children(null).filter((n) => n.kind !== "ACT").length}
-                  </span>
-                </header>
-                <p className="plan-column-description">
-                  Ideas y capítulos por ubicar en el recorrido.
-                </p>
-                <ol className="plan-card-list">
-                  {children(null)
-                    .filter((n) => n.kind !== "ACT" && visible(n))
-                    .map((n) => (
-                      <li key={n.id}>{card(n)}</li>
-                    ))}
-                </ol>
-                {!data.items.length ? (
-                  <div className="plan-empty">
-                    <strong>Todo libro empieza con una decisión.</strong>
-                    <p>Añade una parte o tu primer capítulo. No se crea contenido de ejemplo.</p>
-                  </div>
-                ) : null}
-                {canManage ? (
-                  <button
-                    type="button"
-                    className="plan-add-card"
-                    onClick={() => open("edit", undefined, "CHAPTER")}
-                  >
-                    + Capítulo sin parte
-                  </button>
-                ) : null}
-              </section>
+              {!parts.length || children(null).some((n) => n.kind !== "ACT" && visible(n)) ? (
+                <section
+                  className="plan-column plan-column-loose"
+                  tabIndex={0}
+                  aria-label="Sin parte"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => drop(e, null)}
+                >
+                  <header>
+                    <div>
+                      <span className="plan-column-kicker">Punto de partida</span>
+                      <h3>Sin parte</h3>
+                    </div>
+                    <span className="plan-column-count">
+                      {children(null).filter((n) => n.kind !== "ACT").length}
+                    </span>
+                  </header>
+                  <p className="plan-column-description">
+                    Ideas y capítulos por ubicar en el recorrido.
+                  </p>
+                  <ol className="plan-card-list">
+                    {children(null)
+                      .filter((n) => n.kind !== "ACT" && visible(n))
+                      .map((n) => (
+                        <li key={n.id}>{card(n)}</li>
+                      ))}
+                  </ol>
+                  {!data.items.length ? (
+                    <div className="plan-empty">
+                      <strong>Todo libro empieza con una decisión.</strong>
+                      <p>Añade una parte o tu primer capítulo. No se crea contenido de ejemplo.</p>
+                    </div>
+                  ) : null}
+                  {canManage ? (
+                    <button
+                      type="button"
+                      className="plan-add-card"
+                      onClick={() => open("edit", undefined, "CHAPTER")}
+                    >
+                      + Capítulo sin parte
+                    </button>
+                  ) : null}
+                </section>
+              ) : null}
               {parts.filter(visible).map((part) => (
                 <section
                   key={part.id}
                   className="plan-column"
+                  tabIndex={0}
                   aria-label={`Parte: ${part.title}`}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => drop(e, part.id)}
@@ -826,7 +933,9 @@ export function ModularPlanningBoard({
                       </button>
                     ) : null}
                   </header>
-                  {part.summary ? <p className="plan-column-description">{part.summary}</p> : null}
+                  {!compact && part.summary ? (
+                    <p className="plan-column-description">{part.summary}</p>
+                  ) : null}
                   <div className="plan-part-tools">
                     <span>
                       {children(part.id).filter((n) => n.kind === "CHAPTER").length} capítulos
@@ -865,6 +974,7 @@ export function ModularPlanningBoard({
               <section
                 key={status}
                 className="plan-column"
+                tabIndex={0}
                 aria-label={`Estado: ${PLAN_STATUS_LABELS[status]}`}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
@@ -952,7 +1062,7 @@ export function ModularPlanningBoard({
         onCerrar={close}
       >
         {modal?.mode === "edit" ? (
-          <div ref={editorRef} hidden={discardPending}>
+          <div ref={editorRef} className="plan-editor-detail" hidden={discardPending}>
             <EditCard
               key={`${modal.mode}-${modal.id ?? modal.kind}-${modal.parentId ?? ""}-${modal.version}`}
               data={data}
@@ -963,6 +1073,69 @@ export function ModularPlanningBoard({
                 dirtyRef.current = true;
               }}
             />
+            {modal.id ? (
+              <div className="plan-detail-navigation">
+                <h3>Módulos de esta tarjeta</h3>
+                {children(modal.id).length ? (
+                  <ul>
+                    {children(modal.id).map((child) => (
+                      <li key={child.id}>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => navigateCard(child)}
+                        >
+                          {kindLabel(child.kind)} · {child.title}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>No tiene módulos todavía.</p>
+                )}
+                {data.items.find((n) => n.id === modal.id)?.kind === "CHAPTER" ? (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => navigateCard(undefined, "SCENE", modal.id)}
+                  >
+                    + Añadir escena
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() =>
+                    navigateCard(
+                      data.items.find((n) => n.id === modal.id),
+                      undefined,
+                      undefined,
+                      "move",
+                    )
+                  }
+                >
+                  Mover esta tarjeta
+                </button>
+                {(() => {
+                  const item = data.items.find((n) => n.id === modal.id);
+                  const section = data.sections.find((s) => s.id === item?.sectionId);
+                  return section ? (
+                    <div className="plan-card-links">
+                      <Link href={`/books/${data.book.id}/sections/${section.id}`}>
+                        Abrir editor
+                      </Link>
+                      {item?.kind === "CHAPTER" ? (
+                        <Link
+                          href={`/planning?book=${data.book.id}&view=guides&section=${section.id}`}
+                        >
+                          Guía para IA →
+                        </Link>
+                      ) : null}
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+            ) : null}
             {modal.id ? (
               <button
                 type="button"
@@ -1002,6 +1175,38 @@ export function ModularPlanningBoard({
             >
               Descartar cambios y cerrar
             </button>
+          </div>
+        ) : null}
+        {modal?.mode === "inspect" && modalItem ? (
+          <div className="plan-readonly-detail">
+            <h3>{modalItem.title}</h3>
+            <p>{PLAN_STATUS_LABELS[modalItem.status]}</p>
+            <dl>
+              {[
+                ["Resumen", modalItem.summary],
+                ["Objetivo narrativo", modalItem.goal],
+                ["Conflicto", modalItem.conflict],
+                ["Cierre", modalItem.outcome],
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{value || "Sin completar"}</dd>
+                </div>
+              ))}
+            </dl>
+            <ul>
+              {children(modalItem.id).map((child) => (
+                <li key={child.id}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => navigateCard(child)}
+                  >
+                    {child.title}
+                  </button>
+                </li>
+              ))}
+            </ul>
           </div>
         ) : null}
         {modal?.mode === "template" ? (
