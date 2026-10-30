@@ -17,7 +17,14 @@ export const metadata: Metadata = {
 };
 
 interface PlanningPageProps {
-  searchParams: Promise<{ book?: string; q?: string; view?: string; section?: string }>;
+  searchParams: Promise<{
+    book?: string;
+    q?: string;
+    view?: string;
+    section?: string;
+    trashPage?: string;
+    panel?: string;
+  }>;
 }
 
 export default async function PlanningPage({ searchParams }: PlanningPageProps) {
@@ -46,7 +53,9 @@ export default async function PlanningPage({ searchParams }: PlanningPageProps) 
       if (view === "guides")
         writingData = await guardStorySchema(() => loadWritingPlanning(session, selectedBook.id));
       else if (view === "structure")
-        modularData = await guardStorySchema(() => loadModularPlan(session, selectedBook.id));
+        modularData = await guardStorySchema(() =>
+          loadModularPlan(session, selectedBook.id, Number(params.trashPage ?? 1)),
+        );
     } catch (error) {
       if (error instanceof WritingGuideError || error instanceof PlanError)
         writingError = error.message;
@@ -165,6 +174,7 @@ export default async function PlanningPage({ searchParams }: PlanningPageProps) 
           data={modularData}
           canManage={canManage}
           initialSearch={search}
+          initialTrashOpen={canManage && params.panel === "trash"}
         />
       ) : null}
       {writingError ? (

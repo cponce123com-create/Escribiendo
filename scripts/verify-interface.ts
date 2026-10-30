@@ -11,6 +11,7 @@ import type * as ReactModule from "react";
 import type * as ReactDOMServer from "react-dom/server";
 import { chromium } from "@playwright/test";
 import * as modularStructure from "../apps/web/src/lib/story/modular/structure";
+import * as planArchive from "../apps/web/src/lib/story/modular/archive";
 import * as planPresentation from "../apps/web/src/lib/story/modular/presentation";
 import * as storyLabels from "../apps/web/src/lib/story/labels";
 
@@ -117,6 +118,7 @@ vm.runInNewContext(modularSource, {
           }),
       };
     if (id === "@/components/books/studio-icon") return studioExports;
+    if (id === "@/lib/story/modular/archive") return planArchive;
     if (id === "@/lib/story/modular/presentation") return planPresentation;
     if (id === "@/lib/story/labels") return storyLabels;
     if (id === "@/lib/story/modular/structure") return modularStructure;

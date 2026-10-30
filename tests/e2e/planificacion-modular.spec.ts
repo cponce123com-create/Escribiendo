@@ -134,7 +134,7 @@ test("esqueleto modular: partes, escenas, movimiento, aplicación sin pérdida y
   await page.getByRole("button", { name: "Mover «La decisión»", exact: true }).click();
   dialog = page.getByRole("dialog");
   await dialog.getByLabel("Estado de destino").selectOption("WRITING");
-  await dialog.getByRole("button", { name: "Mover tarjeta", exact: true }).click();
+  await dialog.getByRole("button", { name: "Guardar estado", exact: true }).click();
   await expect(dialog).not.toBeVisible();
   await expect(
     page
@@ -145,7 +145,7 @@ test("esqueleto modular: partes, escenas, movimiento, aplicación sin pérdida y
   await page.getByRole("dialog").getByLabel("Estado de destino").selectOption("DONE");
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "Mover tarjeta", exact: true })
+    .getByRole("button", { name: "Guardar estado", exact: true })
     .click();
   await expect(
     page.getByRole("progressbar", { name: "Capítulos terminados", exact: true }),
@@ -291,8 +291,175 @@ test("un esquema inicial de cinco partes distribuye treinta capítulos sin crear
     "src",
     "/images/studio/writing-desk.webp",
   );
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate(
+      (theme) => document.documentElement.setAttribute("data-theme", theme),
+      theme,
+    );
+    const result = await auditar(page);
+    expect(resume(result.graves, page.url())).toEqual([]);
+  }
   await page.getByRole("button", { name: "Editar «Capítulo 1»", exact: true }).click();
   await expect(
     page.getByRole("dialog").getByLabel("Resumen previsto", { exact: true }),
   ).toBeVisible();
+});
+
+test("gestión completa: eliminar, recuperar ramas y vaciar el plan conserva el manuscrito", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  assertDisposableDatabase(process.env.DATABASE_URL ?? "");
+  await page.goto("/books/new");
+  await page.getByLabel("Título", { exact: true }).fill(`Gestión del plan ${randomUUID()}`);
+  await page.getByLabel("Autoría").fill("Ana Torres");
+  await page.getByRole("button", { name: "Crear libro", exact: true }).click();
+  await page.waitForURL(/\/books\/[0-9a-f-]{36}$/u);
+  const bookId = page.url().split("/").at(-1)!;
+  await page.goto(`/planning?book=${bookId}`);
+  await page.getByRole("button", { name: "+ Parte", exact: true }).click();
+  await saveCard(page, "Parte de gestión");
+  await page
+    .getByRole("button", { name: "Gestionar parte «Parte de gestión»", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Añadir capítulo", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByLabel("Etiquetas (separadas por comas)")
+    .fill("Gestión, Memoria");
+  await saveCard(page, "Capítulo de gestión");
+  await page.getByRole("button", { name: "Gestionar «Capítulo de gestión»", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Añadir escena", exact: true })
+    .click();
+  await saveCard(page, "Escena de gestión");
+  await page.getByRole("button", { name: "Aplicar estructura al manuscrito", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Confirmar y aplicar estructura", exact: true })
+    .click();
+  await expect(page.getByText(/Estructura aplicada: 2 secciones nuevas/)).toBeVisible();
+  const section = await prisma.bookSection.findFirstOrThrow({
+    where: { bookId, title: "Capítulo de gestión", deletedAt: null },
+  });
+  const content = {
+    type: "doc",
+    content: [
+      {
+        type: "paragraph",
+        content: [{ type: "text", text: "TEXTO QUE LA PAPELERA DEL PLAN DEBE CONSERVAR" }],
+      },
+    ],
+  };
+  await prisma.bookSection.update({ where: { id: section.id }, data: { content, version: 2 } });
+  const before = await prisma.storyPlanItem.findMany({
+    where: { bookId, deletedAt: null },
+    select: { id: true, sectionId: true, visual: true },
+  });
+  await page.getByRole("button", { name: "Gestionar «Capítulo de gestión»", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Cambiar estado", exact: true })
+    .click();
+  await page.getByRole("dialog").getByLabel("Estado de destino").selectOption("DONE");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Guardar estado", exact: true })
+    .click();
+  await expect(
+    page.getByRole("progressbar", { name: "Capítulos terminados", exact: true }),
+  ).toHaveAttribute("value", "100");
+  await page.getByRole("button", { name: "Copiar estructura", exact: true }).click();
+  expect(
+    await page.getByRole("dialog").getByLabel("Estructura lista para copiar").inputValue(),
+  ).toContain("Capítulo de gestión");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Cerrar diálogo", exact: true })
+    .click();
+  async function deletePart() {
+    await page
+      .getByRole("button", { name: "Gestionar parte «Parte de gestión»", exact: true })
+      .click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Eliminar del plan", exact: true })
+      .click();
+    await expect(page.getByRole("dialog").getByText(/3 tarjetas/)).toBeVisible();
+  }
+  await deletePart();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Cerrar diálogo", exact: true })
+    .click();
+  expect(await prisma.storyPlanItem.count({ where: { bookId, deletedAt: null } })).toBe(3);
+  await deletePart();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Sí, eliminar del plan", exact: true })
+    .click();
+  await expect(page.getByText(/3 tarjetas enviadas a la papelera/)).toBeVisible();
+  expect(await prisma.storyPlanItem.count({ where: { bookId, deletedAt: null } })).toBe(0);
+  await expect(page.getByRole("button", { name: "Gestionar plan", exact: true })).toBeFocused();
+  await page.getByRole("button", { name: "Gestionar plan", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Papelera (1)", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Restaurar «Parte de gestión»", exact: true })
+    .click();
+  await expect(page.getByText(/3 tarjetas restauradas/)).toBeVisible();
+  expect(
+    await prisma.storyPlanItem.findMany({
+      where: { bookId, deletedAt: null },
+      select: { id: true, sectionId: true, visual: true },
+      orderBy: { id: "asc" },
+    }),
+  ).toEqual([...before].sort((a, b) => a.id.localeCompare(b.id)));
+  expect(await prisma.bookSection.count({ where: { bookId, deletedAt: null } })).toBe(2);
+  expect(
+    (await prisma.bookSection.findUniqueOrThrow({ where: { id: section.id } })).content,
+  ).toEqual(content);
+  expect((await prisma.bookSection.findUniqueOrThrow({ where: { id: section.id } })).version).toBe(
+    2,
+  );
+  await page.getByRole("button", { name: "Lista", exact: true }).click();
+  await page.getByText("Escenas · 1", { exact: true }).click();
+  await page.getByRole("button", { name: "Gestionar «Escena de gestión»", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Eliminar del plan", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Sí, eliminar del plan", exact: true })
+    .click();
+  await expect(page.getByText(/1 tarjeta enviada a la papelera/)).toBeVisible();
+  await page.getByRole("button", { name: "Gestionar plan", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Papelera (1)", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Restaurar «Escena de gestión»", exact: true })
+    .click();
+  await expect(page.getByText(/1 tarjeta restaurada/)).toBeVisible();
+  await page.getByRole("button", { name: "Gestionar plan", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Eliminar todo el plan", exact: true })
+    .click();
+  const clear = page.getByRole("dialog");
+  await clear.getByLabel("Escribe ELIMINAR para confirmar").fill("eliminar");
+  await expect(
+    clear.getByRole("button", { name: "Sí, vaciar el plan", exact: true }),
+  ).toBeDisabled();
+  await clear.getByLabel("Escribe ELIMINAR para confirmar").fill("ELIMINAR");
+  await clear.getByRole("button", { name: "Sí, vaciar el plan", exact: true }).click();
+  await expect(page.getByText(/3 tarjetas enviadas a la papelera/)).toBeVisible();
+  expect(await prisma.storyPlanItem.count({ where: { bookId, deletedAt: null } })).toBe(0);
+  expect(
+    (await prisma.bookSection.findUniqueOrThrow({ where: { id: section.id } })).content,
+  ).toEqual(content);
 });
