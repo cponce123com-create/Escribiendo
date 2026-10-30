@@ -4,9 +4,17 @@ import { tieneControlesIlegales } from "@escribiendo/shared";
 const text = (max: number) =>
   z
     .string()
-    .trim()
-    .max(max)
-    .refine((s) => !tieneControlesIlegales(s), "El texto contiene caracteres de control.");
+    .transform((value) => value.replace(/\r\n?/gu, "\n"))
+    .pipe(
+      z
+        .string()
+        .trim()
+        .max(max, `Máximo ${max} caracteres.`)
+        .refine(
+          (value) => !tieneControlesIlegales(value),
+          "El texto contiene caracteres de control.",
+        ),
+    );
 export const MASTER_FIELDS = {
   premise: "Premisa y situación de partida",
   literaryMovement: "Corriente literaria",
