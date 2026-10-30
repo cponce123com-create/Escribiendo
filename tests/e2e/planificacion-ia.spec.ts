@@ -25,7 +25,7 @@ test("la guía conserva títulos, usa solo contexto anterior aprobado y detecta 
       { id: futureId, bookId, type: "CHAPTER", title: "Capítulo 3 · El viaje", sortOrder: 2 },
     ],
   });
-  await page.goto(`/planning?book=${bookId}`);
+  await page.goto(`/planning?book=${bookId}&view=guides`);
   await page.getByText("Ficha maestra del libro", { exact: true }).click();
   const master = page
     .locator("form")
@@ -42,7 +42,7 @@ test("la guía conserva títulos, usa solo contexto anterior aprobado y detecta 
     .locator("form")
     .filter({ has: page.getByRole("button", { name: "Guardar guía del capítulo", exact: true }) });
   const stale = await context.newPage();
-  await stale.goto(`/planning?book=${bookId}`);
+  await stale.goto(`/planning?book=${bookId}&view=guides`);
   const staleChapter = stale
     .locator("form")
     .filter({ has: stale.getByRole("button", { name: "Guardar guía del capítulo", exact: true }) });

@@ -29,6 +29,19 @@ export async function loadWritingPlanning(session: SessionContext, bookId: strin
         sortOrder: true,
         version: true,
         writingBriefs: { orderBy: { version: "desc" }, take: 1 },
+        planningItem: {
+          select: {
+            deletedAt: true,
+            summary: true,
+            goal: true,
+            outcome: true,
+            children: {
+              where: { deletedAt: null, kind: "SCENE" },
+              orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+              select: { title: true, summary: true },
+            },
+          },
+        },
       },
     }),
     prisma.storyCharacter.findMany({
@@ -56,19 +69,33 @@ export async function loadWritingPlanning(session: SessionContext, bookId: strin
         content: masterSnapshotSchema.parse(masterRow.content),
       }
     : null;
-  const sections = editorialOrder(rows, false).map(({ writingBriefs, ...section }) => {
-    const row = writingBriefs[0];
-    return {
-      ...section,
-      brief: row
-        ? {
-            version: row.version,
-            status: row.status,
-            content: chapterSnapshotSchema.parse(row.content),
-          }
-        : null,
-    };
-  });
+  const sections = editorialOrder(rows, false).map(
+    ({ writingBriefs, planningItem, ...section }) => {
+      const row = writingBriefs[0];
+      return {
+        ...section,
+        seed:
+          planningItem && !planningItem.deletedAt
+            ? {
+                objective: planningItem.goal || planningItem.summary || "",
+                scenes: planningItem.children.length
+                  ? planningItem.children
+                      .map((scene) => `${scene.title}${scene.summary ? `: ${scene.summary}` : ""}`)
+                      .join("\n")
+                  : planningItem.summary || "",
+                endingPoint: planningItem.outcome || "",
+              }
+            : null,
+        brief: row
+          ? {
+              version: row.version,
+              status: row.status,
+              content: chapterSnapshotSchema.parse(row.content),
+            }
+          : null,
+      };
+    },
+  );
   const sourceKey = createHash("sha256")
     .update(
       JSON.stringify({

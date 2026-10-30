@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { FormMessage } from "@/components/forms/form-message";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { ConfirmButton } from "@/components/forms/confirm-button";
@@ -42,7 +43,6 @@ function withGeneralBook(books: StoryBookOption[]): Array<{ value: string; label
 }
 
 export function PlanningBoard({
-  books,
   items,
   canManage,
   defaultBookId = "",
@@ -53,7 +53,7 @@ export function PlanningBoard({
   const [statusState, statusAction] = useActionState(updatePlanStatusAction, initialActionState);
   const [deleteState, deleteAction] = useActionState(deletePlanItemAction, initialActionState);
 
-  const bookOptions = withGeneralBook(books);
+  const bookOptions = withGeneralBook([]);
 
   return (
     <div className="space-y-6">
@@ -151,7 +151,7 @@ export function PlanningBoard({
                       key={item.id}
                       item={item}
                       books={bookOptions}
-                      canManage={canManage}
+                      canManage={canManage && !item.bookId}
                       updateAction={updateAction}
                       statusAction={statusAction}
                       deleteAction={deleteAction}
@@ -194,6 +194,15 @@ function PlanCard({
       <p className="mt-1 text-xs text-ink-muted">
         {item.bookTitle ?? STORY_GENERAL_LABEL} · {item.createdByName}
       </p>
+
+      {item.bookId ? (
+        <Link
+          className="mt-2 inline-block text-sm text-accent underline"
+          href={`/planning?book=${item.bookId}`}
+        >
+          Abrir tablero del libro
+        </Link>
+      ) : null}
 
       {item.summary ? (
         <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm leading-relaxed text-ink-soft">

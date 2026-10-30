@@ -19,3 +19,5 @@
 @import "../styles/components/responsive.css";
 @import "../styles/components/overrides.css";
 @import "../styles/components/editor-workspace.css";
+
+@import "../styles/components/modular-planning.css";
