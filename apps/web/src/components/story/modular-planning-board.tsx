@@ -27,6 +27,7 @@ import {
 import { planSubtree } from "@/lib/story/modular/archive";
 import { validParent, planDiagnostics } from "@/lib/story/modular/structure";
 import { modularPlanAction } from "@/lib/story/modular/actions";
+import { buildPlannedChapterPrompt } from "@/lib/story/modular/chapter-prompt";
 import type { ModularPlanData, ModularItem } from "@/lib/story/modular/queries";
 
 type Modal = {
@@ -43,7 +44,8 @@ type Modal = {
     | "plan"
     | "trash"
     | "clear"
-    | "status";
+    | "status"
+    | "guide";
   id?: string;
   kind?: PlanKind;
   parentId?: string;
@@ -590,6 +592,7 @@ export function ModularPlanningBoard({
   }, [busy, modal]);
   const [dragId, setDragId] = useState<string | null>(null);
   const outlineRef = useRef<HTMLTextAreaElement>(null);
+  const guideRef = useRef<HTMLTextAreaElement>(null);
   const dirtyRef = useRef(false);
   const editingRef = useRef(false);
   const pendingRef = useRef(false);
@@ -936,6 +939,21 @@ export function ModularPlanningBoard({
     [data.items],
   );
   const modalItem = data.items.find((n) => n.id === modal?.id);
+  let chapterPrompt = "";
+  let chapterPromptError = "";
+  if (modal?.mode === "guide" && modal.id) {
+    try {
+      chapterPrompt = buildPlannedChapterPrompt({
+        bookTitle: data.book.title,
+        items: data.items,
+        chapterId: modal.id,
+        master: data.book.masterBrief,
+      });
+    } catch (error) {
+      chapterPromptError =
+        error instanceof Error ? error.message : "No se pudo preparar la guía del capítulo.";
+    }
+  }
   const deleting =
     modal?.mode === "delete" && modalItem ? planSubtree(data.items, modalItem.id) : [];
   const trash = data.trash ?? { items: [], total: 0, page: 1, pages: 1 };
@@ -1464,21 +1482,23 @@ export function ModularPlanningBoard({
                   ? "Eliminar todo el plan"
                   : modal?.mode === "status"
                     ? "Cambiar estado"
-                    : modal?.mode === "edit"
-                      ? modal.id
-                        ? "Editar tarjeta"
-                        : "Nueva tarjeta"
-                      : modal?.mode === "move"
-                        ? "Mover tarjeta"
-                        : modal?.mode === "apply"
-                          ? "Aplicar estructura al manuscrito"
-                          : modal?.mode === "import"
-                            ? "Traer estructura existente"
-                            : modal?.mode === "template"
-                              ? "Esquema inicial del libro"
-                              : modal?.mode === "delete"
-                                ? "Eliminar del plan"
-                                : "Estructura literaria"
+                    : modal?.mode === "guide"
+                      ? "Guía del capítulo para IA"
+                      : modal?.mode === "edit"
+                        ? modal.id
+                          ? "Editar tarjeta"
+                          : "Nueva tarjeta"
+                        : modal?.mode === "move"
+                          ? "Mover tarjeta"
+                          : modal?.mode === "apply"
+                            ? "Aplicar estructura al manuscrito"
+                            : modal?.mode === "import"
+                              ? "Traer estructura existente"
+                              : modal?.mode === "template"
+                                ? "Esquema inicial del libro"
+                                : modal?.mode === "delete"
+                                  ? "Eliminar del plan"
+                                  : "Estructura literaria"
         }
         onCerrar={close}
       >
@@ -1530,13 +1550,22 @@ export function ModularPlanningBoard({
               </button>
             ) : null}
             {modalItem.kind === "CHAPTER" ? (
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => open("edit", undefined, "SCENE", modalItem.id)}
-              >
-                Añadir escena
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => open("edit", undefined, "SCENE", modalItem.id)}
+                >
+                  Añadir escena
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => open("guide", modalItem)}
+                >
+                  Preparar guía para IA
+                </button>
+              </>
             ) : null}
             <button
               type="button"
@@ -1768,6 +1797,65 @@ export function ModularPlanningBoard({
                 </li>
               ))}
             </ul>
+            {modalItem.kind === "CHAPTER" ? (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => open("guide", modalItem)}
+              >
+                Preparar guía para IA
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+        {modal?.mode === "guide" && modalItem?.kind === "CHAPTER" ? (
+          <div className="space-y-4">
+            <p className="text-sm text-ink-soft">
+              La guía usa el título, el orden y los datos que ya guardaste en el esqueleto. No
+              modifica el manuscrito.{" "}
+              {data.book.masterBrief
+                ? "Incluye la ficha maestra aprobada."
+                : "La ficha maestra no está vigente y aprobada; se señalarán los datos que faltan."}
+            </p>
+            {chapterPromptError ? (
+              <p className="alert alert-error" role="status">
+                {chapterPromptError}
+              </p>
+            ) : null}
+            {!chapterPromptError ? (
+              <label className="field-label">
+                Instrucciones listas para copiar
+                <textarea
+                  ref={guideRef}
+                  className="field-input min-h-72 font-mono text-sm"
+                  rows={18}
+                  readOnly
+                  value={chapterPrompt}
+                />
+              </label>
+            ) : null}
+            {!chapterPromptError ? (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(chapterPrompt);
+                    setMessage({ status: "success", message: "Guía del capítulo copiada." });
+                  } catch {
+                    guideRef.current?.focus();
+                    guideRef.current?.select();
+                    setMessage({
+                      status: "error",
+                      message:
+                        "Selecciona y copia la guía; el navegador no permitió acceder al portapapeles.",
+                    });
+                  }
+                }}
+              >
+                Copiar guía
+              </button>
+            ) : null}
           </div>
         ) : null}
         {modal?.mode === "template" ? (
