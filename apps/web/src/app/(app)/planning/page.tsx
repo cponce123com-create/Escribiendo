@@ -64,7 +64,7 @@ export default async function PlanningPage({ searchParams }: PlanningPageProps) 
       className={
         view === "structure" && !choosingBook
           ? "planning-workspace mx-auto"
-          : "mx-auto max-w-6xl space-y-8"
+          : "mx-auto min-w-0 max-w-6xl space-y-8"
       }
     >
       <header className="space-y-3">
