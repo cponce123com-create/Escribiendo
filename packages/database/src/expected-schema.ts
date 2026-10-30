@@ -24,6 +24,7 @@ export const COLUMNAS_ESPERADAS: ReadonlyArray<{ tabla: string; columna: string 
   { tabla: "export_jobs", columna: "idempotencyKey" },
   { tabla: "books", columna: "writingProgress" },
   { tabla: "story_plan_items", columna: "kind" },
+  { tabla: "story_plan_items", columna: "visual" },
   { tabla: "story_plan_items", columna: "parentId" },
   { tabla: "story_plan_items", columna: "sectionId" },
   { tabla: "story_plan_items", columna: "sortOrder" },

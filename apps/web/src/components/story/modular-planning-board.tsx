@@ -3,12 +3,16 @@ import {
   useState,
   useTransition,
   useCallback,
+  useEffect,
   useRef,
   type DragEvent,
   type FormEvent,
   type CSSProperties,
 } from "react";
 import Link from "next/link";
+import Image from "next/image";
+import { StudioIcon } from "@/components/books/studio-icon";
+import { planVisual, planProgress, planTone } from "@/lib/story/modular/presentation";
 import { Dialog } from "@/components/forms/dialog";
 import { FormMessage } from "@/components/forms/form-message";
 import type { ActionState } from "@/lib/action-state";
@@ -47,6 +51,9 @@ function EditCard({
   const item = data.items.find((n) => n.id === modal.id);
   const [values, setValues] = useState({
     title: item?.title ?? "",
+    labels: planVisual(item?.visual).labels.join(", "),
+    imageAssetId: planVisual(item?.visual).imageAssetId ?? "",
+    tone: planVisual(item?.visual).tone,
     kind: item?.kind ?? modal.kind ?? "CHAPTER",
     parentId: item?.parentId ?? modal.parentId ?? "",
     sectionId: item?.sectionId ?? "",
@@ -133,6 +140,72 @@ function EditCard({
             placeholder="Qué sucede, qué cambia y por qué importa."
           />
         </label>
+        <label className="field-label">
+          Etiquetas (separadas por comas)
+          <input
+            className="field-input"
+            value={values.labels}
+            maxLength={300}
+            placeholder="Duelo, Inicio, Memoria…"
+            onChange={(e) => set("labels", e.target.value)}
+          />
+          <span className="text-xs text-ink-muted">
+            Hasta 8 etiquetas de 24 caracteres; tú defines los temas.
+          </span>
+        </label>
+        {values.kind === "ACT" ? (
+          <details className="plan-visual-options">
+            <summary>Apariencia de la parte</summary>
+            <label className="field-label">
+              Color de la parte
+              <select
+                className="field-input"
+                aria-label="Color de la parte"
+                value={values.tone}
+                onChange={(e) => set("tone", e.target.value)}
+              >
+                {[
+                  ["auto", "Automático"],
+                  ["blue", "Azul"],
+                  ["mint", "Verde"],
+                  ["amber", "Ámbar"],
+                  ["rose", "Rosa"],
+                  ["violet", "Violeta"],
+                ].map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field-label">
+              Imagen de referencia
+              <select
+                className="field-input"
+                aria-label="Imagen de referencia"
+                value={values.imageAssetId}
+                onChange={(e) => set("imageAssetId", e.target.value)}
+              >
+                <option value="">Paisaje decorativo del estudio</option>
+                {values.imageAssetId &&
+                !(data.assets ?? []).some((asset) => asset.assetId === values.imageAssetId) ? (
+                  <option value={values.imageAssetId} disabled>
+                    Imagen no disponible · Elige otra
+                  </option>
+                ) : null}
+                {(data.assets ?? []).map((asset) => (
+                  <option key={asset.assetId} value={asset.assetId}>
+                    {asset.caption || asset.originalFilename || "Imagen de la biblioteca"}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="text-xs text-ink-muted">
+              Elige una imagen ya subida a la biblioteca del libro desde el editor. Esta referencia
+              visual no se añade al manuscrito ni se exporta.
+            </p>
+          </details>
+        ) : null}
         <label className="field-label">
           Objetivo narrativo
           <textarea
@@ -390,9 +463,29 @@ export function ModularPlanningBoard({
   canManage: boolean;
   initialSearch?: string;
 }) {
-  const [view, setView] = useState<"structure" | "flow">("structure");
+  const [view, setView] = useState<"structure" | "flow" | "timeline">("structure");
   const [density, setDensity] = useState<"map" | "cards">("map");
   const compact = view === "structure" && density === "map";
+  const [expanded, setExpanded] = useState(false);
+  const boardRef = useRef<HTMLElement>(null);
+  const expandButtonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!expanded) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !document.querySelector('[role="dialog"]')) {
+        setExpanded(false);
+        expandButtonRef.current?.focus();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    boardRef.current?.focus();
+    return () => {
+      document.body.style.overflow = previous;
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [expanded]);
   const [query, setQuery] = useState(initialSearch);
   const [kind, setKind] = useState("ALL");
   const [modal, setModal] = useState<Modal | null>(null);
@@ -526,6 +619,7 @@ export function ModularPlanningBoard({
     open(canManage ? mode : "inspect", item, newKind, parentId);
   }
   function compactCard(item: ModularItem) {
+    const visual = planVisual(item.visual);
     const count = children(item.id).length;
     return (
       <article
@@ -547,11 +641,25 @@ export function ModularPlanningBoard({
           <span className="plan-map-number">
             {item.kind === "CHAPTER" ? String(chapterNumbers.get(item.id)).padStart(2, "0") : "◇"}
           </span>
-          <span className="plan-map-name">{item.title}</span>
+          <span className="plan-map-copy">
+            <span className="plan-map-name">{item.title}</span>
+            {item.summary ? <span className="plan-map-summary">{item.summary}</span> : null}
+            {visual.labels.length ? (
+              <span className="plan-map-labels">
+                {visual.labels.slice(0, 2).map((label) => (
+                  <span key={label}>{label}</span>
+                ))}
+              </span>
+            ) : null}
+          </span>
           <span
-            className={`plan-map-dot plan-state-${item.status.toLowerCase()}`}
+            className={`plan-map-status plan-state-${item.status.toLowerCase()}`}
+            role="img"
             aria-label={`Estado: ${PLAN_STATUS_LABELS[item.status]}`}
-          />
+            title={PLAN_STATUS_LABELS[item.status]}
+          >
+            {item.status === "DONE" ? <StudioIcon name="check" width={12} height={12} /> : <span />}
+          </span>
           {count ? (
             <span className="plan-map-children" aria-label={`${count} escenas o módulos`}>
               {count}
@@ -682,8 +790,8 @@ export function ModularPlanningBoard({
   }
   const parts = data.items.filter((n) => n.kind === "ACT");
   const chapters = data.items.filter((n) => n.kind === "CHAPTER");
-  const scenes = data.items.filter((n) => n.kind === "SCENE");
   const done = chapters.filter((n) => n.status === "DONE").length;
+  const progress = planProgress(data.items);
   const notes = planDiagnostics(data.items);
   const outline = data.items
     .map(
@@ -694,7 +802,9 @@ export function ModularPlanningBoard({
   const modalItem = data.items.find((n) => n.id === modal?.id);
   return (
     <section
-      className={`modular-planner ${compact ? "is-map" : ""}`}
+      ref={boardRef}
+      tabIndex={-1}
+      className={`modular-planner reference-planner ${compact ? "is-map" : ""} ${view === "structure" && !compact ? "is-list" : ""} ${expanded ? "is-expanded" : ""}`}
       aria-labelledby="modular-plan-title"
       style={
         {
@@ -712,30 +822,16 @@ export function ModularPlanningBoard({
       }
     >
       <header className="plan-overview">
-        <div>
-          <p className="eyebrow">Arquitectura literaria</p>
-          <h2 id="modular-plan-title">El esqueleto de tu libro</h2>
-          <p>Primero decide el recorrido. Después desarrolla cada capítulo.</p>
+        <div className="plan-heading">
+          <StudioIcon name="book" className="plan-heading-icon" />
+          <div>
+            <h2 id="modular-plan-title">El esqueleto de tu libro</h2>
+            <p>
+              {parts.length} partes · {chapters.length} capítulos · Planifica, organiza y desarrolla
+              tu historia
+            </p>
+          </div>
         </div>
-        <div className="plan-metrics" aria-label="Resumen de la estructura">
-          <span>
-            <strong>{parts.length}</strong> partes
-          </span>
-          <span>
-            <strong>{chapters.length}</strong> capítulos
-          </span>
-          <span>
-            <strong>{scenes.length}</strong> escenas
-          </span>
-          <span>
-            <strong>
-              {done}/{chapters.length}
-            </strong>{" "}
-            terminados
-          </span>
-        </div>
-      </header>
-      <div className="plan-toolbar">
         <div className="plan-view-switch" role="group" aria-label="Vista del tablero">
           <button
             type="button"
@@ -745,21 +841,58 @@ export function ModularPlanningBoard({
               setDensity("map");
             }}
           >
-            Mapa completo
+            <StudioIcon name="grid" width={16} height={16} />
+            Tablero
           </button>
           <button
             type="button"
-            aria-label="Tarjetas detalladas"
-            aria-pressed={view === "structure" && density === "cards"}
+            aria-pressed={view === "structure" && !compact}
             onClick={() => {
               setView("structure");
               setDensity("cards");
             }}
           >
-            Tarjetas
+            <StudioIcon name="list" width={16} height={16} />
+            Lista
           </button>
-          <button type="button" aria-pressed={view === "flow"} onClick={() => setView("flow")}>
+          <button
+            type="button"
+            aria-pressed={view === "timeline"}
+            onClick={() => setView("timeline")}
+          >
+            <StudioIcon name="timeline" width={16} height={16} />
+            Línea de tiempo
+          </button>
+        </div>
+        <div className="plan-progress-summary" aria-label="Progreso del libro">
+          <div>
+            <strong>{progress.percent}%</strong>
+            <span>
+              {progress.done} / {progress.total} capítulos terminados
+            </span>
+          </div>
+          <progress max={100} value={progress.percent} aria-label="Capítulos terminados" />
+        </div>
+      </header>
+      <div className="plan-toolbar">
+        <div className="plan-toolbar-navigation">
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            aria-pressed={view === "flow"}
+            onClick={() => setView("flow")}
+          >
             Flujo de trabajo
+          </button>
+          <button
+            ref={expandButtonRef}
+            type="button"
+            className="btn btn-ghost btn-sm"
+            aria-pressed={expanded}
+            onClick={() => setExpanded(!expanded)}
+          >
+            <StudioIcon name="expand" width={15} height={15} />
+            {expanded ? "Salir del tablero ampliado" : "Ampliar tablero"}
           </button>
         </div>
         {canManage ? (
@@ -846,11 +979,54 @@ export function ModularPlanningBoard({
       <div
         className="plan-board-scroll"
         role="region"
-        aria-label={view === "structure" ? "Partes y capítulos" : "Estados de escritura"}
+        aria-label={
+          view === "structure"
+            ? "Partes y capítulos"
+            : view === "timeline"
+              ? "Recorrido del libro"
+              : "Estados de escritura"
+        }
         tabIndex={0}
       >
         <div className="plan-board-columns">
-          {view === "structure" ? (
+          {view === "timeline" ? (
+            <div className="plan-timeline">
+              <p>Secuencia del libro por orden de lectura. No asigna fechas a la historia.</p>
+              <ol>
+                {data.items
+                  .filter((n) => n.kind !== "SCENE" && visible(n))
+                  .map((item) => (
+                    <li
+                      key={item.id}
+                      className={`plan-tone-${planTone(
+                        item.kind === "ACT"
+                          ? item.visual
+                          : data.items.find((p) => p.id === item.parentId)?.visual,
+                        Math.max(
+                          0,
+                          parts.findIndex(
+                            (p) => p.id === (item.kind === "ACT" ? item.id : item.parentId),
+                          ),
+                        ),
+                      )}`}
+                    >
+                      <span className="plan-timeline-mark" />
+                      {item.kind === "ACT" ? (
+                        <button
+                          type="button"
+                          className="plan-timeline-part"
+                          onClick={() => open(canManage ? "edit" : "inspect", item)}
+                        >
+                          {item.title}
+                        </button>
+                      ) : (
+                        compactCard(item)
+                      )}
+                    </li>
+                  ))}
+              </ol>
+            </div>
+          ) : view === "structure" ? (
             <>
               {!parts.length || children(null).some((n) => n.kind !== "ACT" && visible(n)) ? (
                 <section
@@ -899,7 +1075,7 @@ export function ModularPlanningBoard({
               {parts.filter(visible).map((part) => (
                 <section
                   key={part.id}
-                  className="plan-column"
+                  className={`plan-column plan-tone-${planTone(part.visual, parts.indexOf(part))}`}
                   tabIndex={0}
                   aria-label={`Parte: ${part.title}`}
                   onDragOver={(e) => e.preventDefault()}
@@ -918,8 +1094,14 @@ export function ModularPlanningBoard({
                       else drop(e, part.id);
                     }}
                   >
-                    <div>
-                      <span className="plan-column-kicker">Parte {parts.indexOf(part) + 1}</span>
+                    <span className="plan-part-number">{parts.indexOf(part) + 1}</span>
+                    <div className="plan-part-heading">
+                      <span className="plan-column-kicker">
+                        PARTE{" "}
+                        {new Intl.NumberFormat("es", { maximumFractionDigits: 0 }).format(
+                          parts.indexOf(part) + 1,
+                        )}
+                      </span>
                       <h3>{part.title}</h3>
                     </div>
                     {canManage ? (
@@ -929,25 +1111,60 @@ export function ModularPlanningBoard({
                         aria-label={`Editar parte «${part.title}»`}
                         onClick={() => open("edit", part)}
                       >
-                        ⋯
+                        <StudioIcon name="pen" width={14} height={14} />
                       </button>
                     ) : null}
                   </header>
-                  {!compact && part.summary ? (
-                    <p className="plan-column-description">{part.summary}</p>
+                  {compact ? (
+                    <div className="plan-part-image">
+                      <Image
+                        src={
+                          (data.assets ?? []).find(
+                            (asset) => asset.assetId === planVisual(part.visual).imageAssetId,
+                          )?.url || "/images/studio/mountain-header.webp"
+                        }
+                        width={640}
+                        height={140}
+                        alt=""
+                        unoptimized
+                      />
+                    </div>
+                  ) : null}
+                  {part.summary ? (
+                    <p className="plan-column-description" title={part.summary}>
+                      {part.summary}
+                    </p>
                   ) : null}
                   <div className="plan-part-tools">
                     <span>
-                      {children(part.id).filter((n) => n.kind === "CHAPTER").length} capítulos
+                      {planProgress(children(part.id)).done} /{" "}
+                      {planProgress(children(part.id)).total} capítulos
                     </span>
+                    <progress
+                      max={100}
+                      value={planProgress(children(part.id)).percent}
+                      aria-label={`Progreso de ${part.title}`}
+                    />
                     {canManage ? (
-                      <button
-                        type="button"
-                        aria-label={`Mover parte «${part.title}»`}
-                        onClick={() => open("move", part)}
-                      >
-                        Mover ↗
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          aria-label={`Añadir capítulo a «${part.title}»`}
+                          onClick={() => open("edit", undefined, "CHAPTER", part.id)}
+                          className="plan-part-add"
+                        >
+                          <StudioIcon name="plus" width={14} height={14} />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Mover parte «${part.title}»`}
+                          title="Mover parte"
+                          onClick={() => open("move", part)}
+                          className="plan-part-move"
+                        >
+                          ⋮
+                        </button>
+                      </>
                     ) : null}
                   </div>
                   <ol className="plan-card-list">
@@ -1040,6 +1257,57 @@ export function ModularPlanningBoard({
           {busy ? "Guardando cambios…" : `Revisión del plan ${data.book.narrativeVersion}`}
         </span>
       </footer>
+      <div className="plan-bottom-panels">
+        <section className="plan-quick-tools" aria-label="Herramientas rápidas">
+          <h3>Herramientas rápidas</h3>
+          <div>
+            <Link href={`/books/${data.book.id}/notes`}>
+              <StudioIcon name="note" />
+              Notas del libro
+            </Link>
+            <Link href={`/characters?book=${data.book.id}`}>
+              <StudioIcon name="people" />
+              Personajes
+            </Link>
+            <Link href={`/worlds?book=${data.book.id}`}>
+              <StudioIcon name="pin" />
+              Lugares
+            </Link>
+            <Link href={`/narrative?book=${data.book.id}`}>
+              <StudioIcon name="timeline" />
+              Laboratorio
+            </Link>
+            <Link href={`/planning?book=${data.book.id}&view=guides`}>
+              <StudioIcon name="bulb" />
+              Guías para IA
+            </Link>
+          </div>
+        </section>
+        <section className="plan-book-overview" aria-label="Vista general del libro">
+          <h3>Vista general del libro</h3>
+          <div>
+            <span>
+              <StudioIcon name="book" />
+              <strong>{parts.length}</strong>
+              <small>partes</small>
+            </span>
+            <span>
+              <StudioIcon name="note" />
+              <strong>{chapters.length}</strong>
+              <small>capítulos</small>
+            </span>
+            <span>
+              <StudioIcon name="pen" />
+              <strong>{done}</strong>
+              <small>terminados</small>
+            </span>
+            <div className="plan-overall-progress">
+              <strong>{progress.percent}%</strong>
+              <progress max={100} value={progress.percent} aria-label="Progreso total" />
+            </div>
+          </div>
+        </section>
+      </div>
       <Dialog
         abierto={modal !== null}
         titulo={

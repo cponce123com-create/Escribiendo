@@ -26,7 +26,7 @@ test("esqueleto modular: partes, escenas, movimiento, aplicación sin pérdida y
   await expect(
     page.getByRole("heading", { name: "El esqueleto de tu libro", exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Tarjetas detalladas", exact: true }).click();
+  await page.getByRole("button", { name: "Lista", exact: true }).click();
   await page.getByRole("button", { name: "+ Parte", exact: true }).click();
   await saveCard(page, "La partida", "El mundo anterior empieza a cambiar.");
   await page.getByRole("button", { name: "+ Parte", exact: true }).click();
@@ -38,6 +38,7 @@ test("esqueleto modular: partes, escenas, movimiento, aplicación sin pérdida y
   await dialog.getByLabel("Título", { exact: true }).fill("La decisión");
   await dialog.getByLabel("Resumen previsto").fill("Una conversación obliga a decidir.");
   await dialog.getByLabel("Objetivo narrativo").fill("Presentar la decisión principal.");
+  await dialog.getByLabel("Etiquetas (separadas por comas)").fill("Duelo, Inicio");
   await dialog.getByText("Arco, conflicto y desarrollo", { exact: true }).click();
   await dialog.getByLabel("Cierre o cambio al finalizar").fill("La decisión queda tomada.");
   await dialog.getByLabel("Extensión orientativa (palabras)").fill("2500");
@@ -140,8 +141,16 @@ test("esqueleto modular: partes, escenas, movimiento, aplicación sin pérdida y
       .getByRole("region", { name: "Estado: En escritura", exact: true })
       .getByRole("button", { name: "Editar «La decisión»", exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Mapa completo", exact: true }).click();
+  await page.getByRole("button", { name: "Tablero", exact: true }).click();
   await page.setViewportSize({ width: 1440, height: 1000 });
+  await expect(page.locator(".plan-map-labels").getByText("Duelo", { exact: true })).toBeVisible();
+  expect(
+    (
+      await prisma.storyPlanItem.findFirst({
+        where: { bookId, title: "La decisión", deletedAt: null },
+      })
+    )?.visual,
+  ).toMatchObject({ labels: ["Duelo", "Inicio"] });
   await page.screenshot({ path: info.outputPath("estructura-escritorio.png"), fullPage: true });
   const accessibility = await auditar(page);
   expect(resume(accessibility.graves, page.url())).toEqual([]);
@@ -179,7 +188,7 @@ test("esqueleto modular: partes, escenas, movimiento, aplicación sin pérdida y
 
 test("un esquema inicial de cinco partes distribuye treinta capítulos sin crear prosa", async ({
   page,
-}) => {
+}, info) => {
   assertDisposableDatabase(process.env.DATABASE_URL ?? "");
   await page.goto("/books/new");
   await page.getByLabel("Título", { exact: true }).fill(`Libro modular nuevo ${randomUUID()}`);
@@ -228,6 +237,51 @@ test("un esquema inicial de cinco partes distribuye treinta capítulos sin crear
       }),
     ).toBe(true);
   }
+  await page.screenshot({
+    path: info.outputPath("tablero-referencia-30-capitulos.png"),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Línea de tiempo", exact: true }).click();
+  await expect(
+    page.getByRole("region", { name: "Recorrido del libro", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".plan-timeline .plan-map-card")).toHaveCount(30);
+  await page.getByRole("button", { name: "Tablero", exact: true }).click();
+  await page.getByRole("button", { name: "Ampliar tablero", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Salir del tablero ampliado", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: "Ampliar tablero", exact: true })).toBeFocused();
+  const book = await prisma.book.findUniqueOrThrow({
+    where: { id: bookId },
+    select: { workspaceId: true },
+  });
+  const asset = await prisma.asset.create({
+    data: {
+      workspaceId: book.workspaceId,
+      publicId: `e2e-reference-${randomUUID()}`,
+      secureUrl: "/images/studio/writing-desk.webp",
+      format: "webp",
+      originalFilename: "Referencia de prueba",
+    },
+  });
+  await prisma.bookAsset.create({ data: { bookId, assetId: asset.id, kind: "INTERIOR_IMAGE" } });
+  await page.reload();
+  await page.getByRole("button", { name: "Editar parte «Parte I»", exact: true }).click();
+  const visualDialog = page.getByRole("dialog");
+  await visualDialog.getByText("Apariencia de la parte", { exact: true }).click();
+  await visualDialog.getByLabel("Color de la parte", { exact: true }).selectOption("violet");
+  await visualDialog.getByLabel("Imagen de referencia", { exact: true }).selectOption(asset.id);
+  await visualDialog.getByRole("button", { name: "Guardar tarjeta", exact: true }).click();
+  await expect(visualDialog).not.toBeVisible();
+  await page.reload();
+  const visualPart = page.getByRole("region", { name: "Parte: Parte I", exact: true });
+  await expect(visualPart).toHaveClass(/plan-tone-violet/);
+  await expect(visualPart.locator(".plan-part-image img")).toHaveAttribute(
+    "src",
+    "/images/studio/writing-desk.webp",
+  );
   await page.getByRole("button", { name: "Editar «Capítulo 1»", exact: true }).click();
   await expect(
     page.getByRole("dialog").getByLabel("Resumen previsto", { exact: true }),

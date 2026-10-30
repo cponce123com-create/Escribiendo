@@ -10,6 +10,7 @@ const m = vi.hoisted(() => ({
   createSection: vi.fn(),
   updateSection: vi.fn(),
   raw: vi.fn(),
+  asset: vi.fn(),
   audit: vi.fn(),
   totals: vi.fn(),
 }));
@@ -31,6 +32,7 @@ vi.mock("@/lib/db", () => ({
         },
         bookSection: { findMany: m.sections, create: m.createSection, updateMany: m.updateSection },
         $executeRaw: m.raw,
+        bookAsset: { findFirst: m.asset },
       }),
   },
 }));
@@ -284,4 +286,41 @@ it("no reemplaza tarjetas existentes al pedir un esquema inicial", async () => {
   m.rows.mockResolvedValue([card()]);
   expect((await modularPlanAction({ status: "idle" }, form("template"))).status).toBe("error");
   expect(m.bulk).not.toHaveBeenCalled();
+});
+
+it("rechaza una imagen de otro libro y valida la biblioteca por workspace", async () => {
+  m.asset.mockResolvedValue(null);
+  const result = await modularPlanAction(
+    { status: "idle" },
+    form("save", { title: "Parte visual", kind: "ACT", imageAssetId: sectionId }),
+  );
+  expect(result.status).toBe("error");
+  expect(result.message).toContain("biblioteca de este libro");
+  expect(m.asset.mock.calls[0]?.[0].where).toMatchObject({
+    bookId,
+    assetId: sectionId,
+    book: { workspaceId: "w" },
+    asset: { workspaceId: "w", deletedAt: null },
+  });
+  expect(m.create).not.toHaveBeenCalled();
+});
+it("guarda etiquetas y una imagen comprobada sin inferir datos", async () => {
+  m.asset.mockResolvedValue({ assetId: sectionId });
+  const result = await modularPlanAction(
+    { status: "idle" },
+    form("save", {
+      title: "Parte visual",
+      kind: "ACT",
+      labels: "Duelo, Inicio, duelo",
+      imageAssetId: sectionId,
+      tone: "blue",
+    }),
+  );
+  expect(result.status).toBe("success");
+  expect(m.create.mock.calls[0]?.[0].data.visual).toEqual({
+    version: 1,
+    labels: ["Duelo", "Inicio"],
+    imageAssetId: sectionId,
+    tone: "blue",
+  });
 });
