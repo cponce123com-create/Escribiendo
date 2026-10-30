@@ -204,12 +204,16 @@ try {
     for (const [scenario, data] of scenarios.entries()) {
       days = data;
       const markup = await renderRoute(route);
-      for (const width of [320, 375, 390, 768, 1024, 1440, 1920]) {
-        await page.setViewportSize({ width, height: 1000 });
+      for (const width of [320, 375, 390, 768, 1024, 1366, 1440, 1920]) {
+        await page.setViewportSize({ width, height: width === 1366 ? 768 : 1000 });
         for (const theme of ["light", "dark"]) {
           await page.setContent(
             `<html lang="es" data-theme="${theme}"><head><style>${css}</style></head><body><div class="app-shell frontend-studio"><aside></aside><main id="contenido">${markup}</main></div></body></html>`,
           );
+          // Verificar también los filtros que normalmente se revelan al cambiar libro.
+          await page
+            .locator(".plan-book-picker")
+            .evaluateAll((nodes) => nodes.forEach((n) => ((n as HTMLDetailsElement).open = true)));
           const issues = await page.evaluate(() => {
             const failures: string[] = [];
             if (document.documentElement.scrollWidth > innerWidth + 1)
@@ -241,6 +245,26 @@ try {
             return failures;
           });
           assert.deepEqual(issues, [], `${route}, scenario ${scenario}, ${width}px, ${theme}`);
+          await page
+            .locator(".plan-book-picker")
+            .evaluateAll((nodes) => nodes.forEach((n) => ((n as HTMLDetailsElement).open = false)));
+          if (route === "planning" && width >= 1366) {
+            const map = await page.locator(".plan-map-card").evaluateAll((cards) => ({
+              count: cards.length,
+              fits: cards.every((card) => {
+                const r = card.getBoundingClientRect();
+                return (
+                  r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight
+                );
+              }),
+            }));
+            assert.equal(map.count, 30, "El mapa debe mostrar los treinta capítulos de la fixture");
+            assert.equal(
+              map.fits,
+              true,
+              "Cinco partes y treinta capítulos deben caber en una pantalla de escritorio",
+            );
+          }
           checks++;
           if (scenario === 0 && [390, 1440].includes(width)) {
             await page.screenshot({

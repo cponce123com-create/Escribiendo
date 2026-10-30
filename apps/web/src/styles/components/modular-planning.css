@@ -412,3 +412,332 @@
     }
   }
 }
+
+@layer components {
+  .planning-workspace {
+    max-width: none;
+  }
+  .planning-workspace > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0.65rem;
+  }
+  .planning-workspace > header .eyebrow,
+  .planning-workspace > header > p:last-child {
+    display: none;
+  }
+  .planning-workspace > header h1 {
+    font-size: 1.5rem;
+    line-height: 1.2;
+  }
+  .planning-workspace > .filter-panel {
+    padding: 0.6rem 0.85rem;
+  }
+  .planning-workspace .plan-page-nav a {
+    padding: 0.3rem 0.75rem;
+    font-size: 0.72rem;
+  }
+  .plan-options > summary {
+    cursor: pointer;
+    font-size: 0.72rem;
+    color: var(--ink-soft);
+    padding: 0.3rem 0;
+  }
+  .plan-options[open] > summary {
+    margin-bottom: 0.5rem;
+  }
+  .is-map.modular-planner {
+    padding: 0.85rem;
+    border-radius: 0.9rem;
+  }
+  .is-map .plan-overview {
+    align-items: center;
+    gap: 0.5rem;
+    padding-bottom: 0.55rem;
+  }
+  .is-map .plan-overview .eyebrow,
+  .is-map .plan-overview p:not(.eyebrow) {
+    display: none;
+  }
+  .is-map .plan-overview h2 {
+    font-size: 1.25rem;
+    margin: 0;
+  }
+  .is-map .plan-metrics {
+    gap: 0.7rem;
+    font-size: 0.62rem;
+  }
+  .is-map .plan-metrics span {
+    display: flex;
+    align-items: baseline;
+    gap: 0.2rem;
+  }
+  .is-map .plan-metrics strong {
+    font-size: 0.9rem;
+  }
+  .is-map .plan-toolbar {
+    padding-top: 0.45rem;
+    gap: 0.4rem;
+  }
+  .is-map .plan-view-switch button {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.72rem;
+  }
+  .is-map .plan-toolbar .btn {
+    min-height: 32px;
+    padding: 0.3rem 0.65rem;
+    font-size: 0.72rem;
+  }
+  .is-map .plan-board-columns {
+    display: grid;
+    grid-template-columns: repeat(var(--plan-columns), minmax(0, 1fr));
+    gap: 0.55rem;
+    min-height: 0;
+  }
+  .is-map .plan-column {
+    padding: 0.45rem;
+    max-height: none;
+    overflow: visible;
+  }
+  .is-map .plan-column > header {
+    padding: 0.2rem 0.1rem 0.35rem;
+    gap: 0.2rem;
+  }
+  .is-map .plan-column h3 {
+    font-size: 0.87rem;
+    line-height: 1.25;
+    margin-top: 0.15rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .is-map .plan-column-kicker {
+    font-size: 0.55rem;
+    letter-spacing: 0.08em;
+  }
+  .is-map .plan-part-tools {
+    margin: 0 0.1rem 0.35rem;
+    font-size: 0.6rem;
+  }
+  .is-map .plan-card-list {
+    gap: 0.35rem;
+  }
+  .is-map .plan-add-card {
+    margin-top: 0.4rem;
+    font-size: 0.65rem;
+    padding: 0.4rem;
+  }
+  .is-map .plan-column-description {
+    font-size: 0.65rem;
+    margin-bottom: 0.4rem;
+  }
+  .is-map .plan-bottom-actions {
+    gap: 0.4rem;
+    padding-top: 0.5rem;
+  }
+  .is-map .plan-bottom-actions .btn {
+    min-height: 30px;
+    font-size: 0.65rem;
+    padding: 0.25rem 0.5rem;
+  }
+  .is-map .plan-bottom-actions > span {
+    margin-left: auto;
+    font-size: 0.6rem;
+  }
+  .plan-map-card {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid var(--line);
+    border-radius: 0.5rem;
+    background: var(--surface);
+    min-width: 0;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.03);
+  }
+  .plan-map-card:hover,
+  .plan-map-card:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 2px 6px rgb(0 0 0 / 0.08);
+  }
+  .plan-map-card.is-dragging {
+    opacity: 0.4;
+  }
+  .plan-map-card[draggable="true"] {
+    cursor: grab;
+  }
+  .plan-map-open {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    text-align: left;
+    min-width: 0;
+    flex: 1;
+    padding: 0.35rem;
+    min-height: 44px;
+  }
+  .plan-map-number {
+    flex: 0 0 auto;
+    width: 1.25rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .plan-map-name {
+    min-width: 0;
+    flex: 1;
+    font-size: 0.73rem;
+    line-height: 1.25;
+    font-weight: 600;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+  }
+  .plan-map-dot {
+    flex: 0 0 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--line-strong);
+  }
+  .plan-map-dot.plan-state-planned {
+    background: var(--ink-muted);
+  }
+  .plan-map-dot.plan-state-writing {
+    background: var(--accent);
+  }
+  .plan-map-dot.plan-state-done {
+    background: var(--ink);
+  }
+  .plan-map-children {
+    font-size: 0.55rem;
+    color: var(--ink-muted);
+  }
+  .plan-map-move {
+    color: var(--ink-soft);
+    flex: 0 0 1.2rem;
+    font-size: 0.7rem;
+  }
+  .plan-detail-navigation {
+    border-top: 1px solid var(--line);
+    padding-top: 0.6rem;
+    max-height: 25dvh;
+    overflow-y: auto;
+  }
+  .plan-detail-navigation h3 {
+    font-size: 0.85rem;
+    margin-bottom: 0.3rem;
+  }
+  .plan-detail-navigation p {
+    font-size: 0.75rem;
+    color: var(--ink-muted);
+  }
+  .plan-readonly-detail {
+    max-height: 65dvh;
+    overflow-y: auto;
+  }
+  .plan-readonly-detail dt {
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-top: 0.8rem;
+  }
+  .plan-readonly-detail dd {
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+  }
+  @media (max-width: 1100px) {
+    .is-map .plan-board-columns {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 640px) {
+    .planning-workspace > header h1 {
+      font-size: 1.3rem;
+    }
+    .is-map.modular-planner {
+      padding: 0.6rem;
+    }
+    .is-map .plan-board-columns {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.4rem;
+    }
+    .is-map .plan-column {
+      padding: 0.3rem;
+    }
+    .is-map .plan-toolbar-actions {
+      width: auto;
+    }
+    .is-map .plan-view-switch button {
+      padding: 0.3rem 0.4rem;
+    }
+    .is-map .plan-metrics {
+      gap: 0.5rem;
+    }
+    .is-map .plan-bottom-actions > .btn {
+      width: auto;
+    }
+    .plan-map-number {
+      width: 0.9rem;
+      font-size: 0.6rem;
+    }
+    .plan-map-name {
+      font-size: 0.68rem;
+    }
+    .plan-map-open {
+      gap: 0.2rem;
+      padding: 0.25rem;
+    }
+    .plan-map-move {
+      flex-basis: 1rem;
+    }
+  }
+}
+@layer components {
+  .plan-book-picker > summary {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.7rem;
+    cursor: pointer;
+    padding: 0.45rem 0.6rem;
+    font-size: 0.78rem;
+    border: 1px solid var(--line);
+    border-radius: 0.5rem;
+    color: var(--ink-soft);
+  }
+  .plan-book-picker > summary span {
+    flex-shrink: 0;
+    font-weight: 600;
+    color: var(--accent);
+  }
+  .plan-book-picker > .filter-panel {
+    margin-top: 0.5rem;
+  }
+  .planning-workspace > header {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .planning-workspace > .plan-book-picker {
+    margin-top: 0;
+  }
+  .planning-workspace > .plan-book-picker > .filter-panel {
+    padding: 0.6rem 0.85rem;
+  }
+}
+
+@layer components {
+  .plan-editor-detail {
+    max-height: 70dvh;
+    overflow-y: auto;
+    padding: 0.1rem 0.2rem 0.4rem;
+  }
+  .plan-editor-detail .plan-dialog-body {
+    max-height: none;
+    overflow: visible;
+  }
+  .plan-editor-detail .plan-detail-navigation {
+    max-height: none;
+    overflow: visible;
+  }
+}

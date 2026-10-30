@@ -57,7 +57,9 @@ export default async function PlanningPage({ searchParams }: PlanningPageProps) 
   const isFiltered = Boolean(selectedBook || search);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8">
+    <div
+      className={`mx-auto max-w-6xl space-y-8 ${view === "structure" ? "planning-workspace" : ""}`}
+    >
       <header className="space-y-3">
         <p className="eyebrow">
           Herramientas ·{" "}
@@ -78,54 +80,59 @@ export default async function PlanningPage({ searchParams }: PlanningPageProps) 
         </p>
       </header>
 
-      <section className="panel filter-panel p-5" aria-label="Filtros de planificación">
-        <form method="get" className="studio-filters studio-filters-compact">
-          <div>
-            <label className="field-label" htmlFor="plan-book">
-              Libro
-            </label>
-            <select
-              id="plan-book"
-              name="book"
-              className="field-input"
-              defaultValue={selectedBook?.id ?? ""}
-            >
-              <option value="">Selecciona un libro</option>
-              {books.map((book) => (
-                <option key={book.id} value={book.id}>
-                  {book.title}
-                </option>
-              ))}
-            </select>
-          </div>
+      <details className="plan-book-picker" open={view !== "structure"}>
+        <summary>
+          Libro: {selectedBook?.title ?? "Seleccionar libro"}
+          <span>Cambiar libro</span>
+        </summary>
+        <section className="panel filter-panel p-5" aria-label="Filtros de planificación">
+          <form method="get" className="studio-filters studio-filters-compact">
+            <div>
+              <label className="field-label" htmlFor="plan-book">
+                Libro
+              </label>
+              <select
+                id="plan-book"
+                name="book"
+                className="field-input"
+                defaultValue={selectedBook?.id ?? ""}
+              >
+                <option value="">Selecciona un libro</option>
+                {books.map((book) => (
+                  <option key={book.id} value={book.id}>
+                    {book.title}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div>
-            <label className="field-label" htmlFor="plan-q">
-              Buscar
-            </label>
-            <input
-              id="plan-q"
-              name="q"
-              type="search"
-              className="field-input"
-              placeholder="Título o resumen"
-              defaultValue={search}
-            />
-          </div>
+            <div>
+              <label className="field-label" htmlFor="plan-q">
+                Buscar
+              </label>
+              <input
+                id="plan-q"
+                name="q"
+                type="search"
+                className="field-input"
+                placeholder="Título o resumen"
+                defaultValue={search}
+              />
+            </div>
 
-          <div className="studio-filter-actions">
-            <button type="submit" name="view" value={view} className="btn btn-secondary">
-              Filtrar
-            </button>
-            {isFiltered ? (
-              <Link className="btn btn-ghost" href="/planning">
-                Limpiar
-              </Link>
-            ) : null}
-          </div>
-        </form>
-      </section>
-
+            <div className="studio-filter-actions">
+              <button type="submit" name="view" value={view} className="btn btn-secondary">
+                Filtrar
+              </button>
+              {isFiltered ? (
+                <Link className="btn btn-ghost" href="/planning">
+                  Limpiar
+                </Link>
+              ) : null}
+            </div>
+          </form>
+        </section>
+      </details>
       <nav className="plan-page-nav" aria-label="Herramientas de planificación">
         {selectedBook ? (
           <>
