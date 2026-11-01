@@ -1,0 +1,86 @@
+name: APK del lector Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "apps/android-reader/**"
+      - "apps/web/src/components/books/manuscript-read-aloud.tsx"
+      - "apps/web/src/components/books/section-editor.tsx"
+      - "apps/web/next.config.ts"
+      - "apps/web/package.json"
+      - "apps/web/src/lib/books/reading-actions.ts"
+      - "apps/web/src/lib/editor/read-aloud-queue.ts"
+      - "apps/web/src/lib/editor/read-aloud-queue.test.ts"
+      - "packages/native-reader/**"
+      - "pnpm-lock.yaml"
+  pull_request:
+    paths:
+      - "apps/android-reader/**"
+      - "apps/web/src/components/books/manuscript-read-aloud.tsx"
+      - "apps/web/src/components/books/section-editor.tsx"
+      - "apps/web/next.config.ts"
+      - "apps/web/package.json"
+      - "apps/web/src/lib/books/reading-actions.ts"
+      - "apps/web/src/lib/editor/read-aloud-queue.ts"
+      - "apps/web/src/lib/editor/read-aloud-queue.test.ts"
+      - "packages/native-reader/**"
+      - "pnpm-lock.yaml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    name: Compilar APK de prueba
+    runs-on: ubuntu-latest
+    steps:
+      - name: Obtener el repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.14.0
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+
+      - name: Configurar Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Instalar plataforma de Android
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Preparar caché de Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Sincronizar Capacitor
+        run: pnpm --filter @escribiendo/android-reader sync
+        env:
+          ESCRIBIENDO_WEB_URL: ${{ vars.ESCRIBIENDO_WEB_URL || 'https://escribiendo-6ypc.onrender.com' }}
+
+      - name: Compilar APK de depuración
+        working-directory: apps/android-reader/android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Publicar APK descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: Escribiendo-Lector-Android-debug
+          path: apps/android-reader/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14

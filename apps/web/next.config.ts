@@ -30,6 +30,7 @@ const nextConfig: NextConfig = {
     "@escribiendo/book-schema",
     "@escribiendo/database",
     "@escribiendo/editorial-engine",
+    "@escribiendo/native-reader",
     "@escribiendo/shared",
   ],
   serverExternalPackages: ["@prisma/client", "@node-rs/argon2", "pdfjs-dist"],

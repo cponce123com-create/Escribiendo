@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Escribiendo · Lector</string>
+    <string name="title_activity_main">Escribiendo · Lector</string>
+    <string name="package_name">com.editorialnoparatodos.escribiendo</string>
+    <string name="custom_url_scheme">com.editorialnoparatodos.escribiendo</string>
+</resources>

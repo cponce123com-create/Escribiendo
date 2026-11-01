@@ -1,0 +1,12 @@
+{
+  "name": "@escribiendo/native-reader",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@capacitor/core": "8.6.0"
+  }
+}
