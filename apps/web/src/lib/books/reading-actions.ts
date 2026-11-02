@@ -9,6 +9,7 @@ import { z } from "zod";
 import {
   createReadAloudQueue,
   isReadAloudPayloadWithinLimit,
+  toNativeReadAloudSections,
   type ReadAloudMode,
 } from "@/lib/editor/read-aloud-queue";
 import { readAloudBlocksFromDocument, type ReadAloudBlock } from "@/lib/editor/read-aloud-document";
@@ -95,11 +96,7 @@ export async function getBookReadAloudContentAction(
   if (sections.length === 0) {
     return { success: false, message: "Este libro todavía no tiene texto para escuchar." };
   }
-  const nativeSections = sections.map(({ id, title, paragraphs }) => ({
-    id,
-    title,
-    paragraphs: paragraphs.map(({ text }) => text),
-  }));
+  const nativeSections = toNativeReadAloudSections(sections);
   if (!isReadAloudPayloadWithinLimit(book.title, nativeSections)) {
     return {
       success: false,

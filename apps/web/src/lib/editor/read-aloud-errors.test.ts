@@ -10,6 +10,12 @@ describe("getReadAloudStartErrorMessage", () => {
     ).toBe("El manuscrito es demasiado grande para cargarlo en la lectura móvil.");
   });
 
+  it("explica cómo recuperarse si Android no recibe el texto del capítulo", () => {
+    const message =
+      "No se recibió el texto del manuscrito para leer. Guarda el capítulo y vuelve a abrir el lector.";
+    expect(getReadAloudStartErrorMessage(new Error(message))).toBe(message);
+  });
+
   it("acepta errores nativos serializados y oculta mensajes no reconocidos", () => {
     expect(
       getReadAloudStartErrorMessage({ message: "No se pudo preparar la lectura del manuscrito." }),

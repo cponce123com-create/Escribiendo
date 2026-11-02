@@ -1,4 +1,5 @@
 const SAFE_READ_ALOUD_ERRORS = [
+  "No se recibió el texto del manuscrito para leer. Guarda el capítulo y vuelve a abrir el lector.",
   "El manuscrito no contiene texto para leer.",
   "No hay texto para leer.",
   "Este capítulo no contiene párrafos con texto para leer.",

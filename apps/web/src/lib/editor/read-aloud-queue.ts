@@ -11,6 +11,8 @@ export interface NativeReadAloudSection {
   id: string;
   title: string;
   paragraphs: string[];
+  /** Plain-text fallback for older or restricted Android JSON bridges. */
+  text: string;
 }
 
 /** Converts reader blocks to the small, explicit queue shape expected by Android TTS. */
@@ -21,7 +23,9 @@ export function toNativeReadAloudSections<TParagraph extends { text: string }>(
     const speakableParagraphs = paragraphs
       .map(({ text }) => text.replace(/\s+/g, " ").trim())
       .filter(Boolean);
-    return speakableParagraphs.length > 0 ? [{ id, title, paragraphs: speakableParagraphs }] : [];
+    return speakableParagraphs.length > 0
+      ? [{ id, title, paragraphs: speakableParagraphs, text: speakableParagraphs.join("\n\n") }]
+      : [];
   });
 }
 

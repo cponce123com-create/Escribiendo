@@ -11,6 +11,8 @@ export interface ReaderSection {
   id: string;
   title: string;
   paragraphs: string[];
+  /** Plain-text fallback for Android bridges that do not preserve nested arrays. */
+  text?: string;
 }
 
 export interface ReaderPlaybackState {
