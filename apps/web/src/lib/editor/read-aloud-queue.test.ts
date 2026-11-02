@@ -3,6 +3,7 @@ import {
   createReadAloudQueue,
   isReadAloudPayloadWithinLimit,
   MAX_READ_ALOUD_PAYLOAD_BYTES,
+  toNativeReadAloudSections,
 } from "./read-aloud-queue";
 
 const sections = [
@@ -31,5 +32,26 @@ describe("createReadAloudQueue", () => {
         { id: "large", title: "Capítulo", text: "x".repeat(MAX_READ_ALOUD_PAYLOAD_BYTES) },
       ]),
     ).toBe(false);
+  });
+});
+
+describe("toNativeReadAloudSections", () => {
+  it("limpia espacios y excluye secciones sin párrafos legibles", () => {
+    expect(
+      toNativeReadAloudSections([
+        { id: "empty", title: "Vacío", paragraphs: [{ text: "  " }] },
+        {
+          id: "chapter",
+          title: "Capítulo 1",
+          paragraphs: [{ text: "  Una   escena.  " }, { text: "" }, { text: "Otra escena." }],
+        },
+      ]),
+    ).toEqual([
+      {
+        id: "chapter",
+        title: "Capítulo 1",
+        paragraphs: ["Una escena.", "Otra escena."],
+      },
+    ]);
   });
 });
