@@ -30,6 +30,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 public class ManuscriptReaderService extends Service {
     public static final String ACTION_PLAY = "com.editorialnoparatodos.escribiendo.reader.PLAY";
@@ -44,6 +45,7 @@ public class ManuscriptReaderService extends Service {
     private static final String CHANNEL_ID = "manuscript_reading";
     private static final int NOTIFICATION_ID = 5310;
     private static final int MAX_UTTERANCE_CHARS = 3400;
+    private static volatile boolean serviceRunning = false;
 
     private final List<SpokenSection> sections = new ArrayList<>();
     private TextToSpeech tts;
@@ -58,6 +60,8 @@ public class ManuscriptReaderService extends Service {
     private boolean paused = false;
     private boolean preparing = false;
 
+    public static boolean isServiceRunning() { return serviceRunning; }
+
     private static class SpokenSection {
         final String id;
         final String title;
@@ -67,6 +71,7 @@ public class ManuscriptReaderService extends Service {
 
     @Override public void onCreate() {
         super.onCreate();
+        serviceRunning = true;
         createNotificationChannel();
         PowerManager manager = (PowerManager) getSystemService(POWER_SERVICE);
         wakeLock = manager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, getPackageName() + ":reader");
@@ -130,7 +135,7 @@ public class ManuscriptReaderService extends Service {
     private void loadQueue() {
         ensureForeground();
         try {
-            File queueFile = new File(getFilesDir(), "reader_queue.json");
+            File queueFile = ReaderQueueFile.get(this);
             byte[] bytes;
             try (FileInputStream input = new FileInputStream(queueFile)) { bytes = input.readAllBytes(); }
             JSONObject queue = new JSONObject(new String(bytes, StandardCharsets.UTF_8));
@@ -195,11 +200,23 @@ public class ManuscriptReaderService extends Service {
         if (!initialized || !preparing) return;
         preparing = false;
         if (!voiceId.isEmpty()) {
-            Voice selected = tts.getVoice() == null ? null : tts.getVoice();
-            if (selected == null || !voiceId.equals(selected.getName())) {
-                for (Voice voice : tts.getVoices()) {
-                    if (voiceId.equals(voice.getName())) { tts.setVoice(voice); break; }
+            boolean voiceFound = false;
+            Set<Voice> available = tts.getVoices();
+            if (available != null) {
+                for (Voice voice : available) {
+                    if (voiceId.equals(voice.getName())) {
+                        voiceFound = true;
+                        if (tts.setVoice(voice) != TextToSpeech.SUCCESS) {
+                            fail("No se pudo aplicar la voz española seleccionada.");
+                            return;
+                        }
+                        break;
+                    }
                 }
+            }
+            if (!voiceFound) {
+                fail("La voz seleccionada ya no está disponible en Android.");
+                return;
             }
         }
         tts.setSpeechRate(rate);
@@ -216,6 +233,7 @@ public class ManuscriptReaderService extends Service {
             return;
         }
         updateSessionAndNotification("playing");
+        if (wakeLock != null && !wakeLock.isHeld()) wakeLock.acquire(12 * 60 * 60 * 1000L);
         Bundle params = new Bundle();
         String utteranceId = sectionIndex + ":" + utteranceIndex;
         int result = tts.speak(section.utterances.get(utteranceIndex), TextToSpeech.QUEUE_FLUSH, params, utteranceId);
@@ -295,7 +313,7 @@ public class ManuscriptReaderService extends Service {
             mediaSession.setPlaybackState(new PlaybackStateCompat.Builder().setState(PlaybackStateCompat.STATE_STOPPED, 0, 0).build());
         }
         stopForeground(STOP_FOREGROUND_REMOVE);
-        new File(getFilesDir(), "reader_queue.json").delete();
+        ReaderQueueFile.delete(this);
         if (notify) sendState("idle", null);
         stopSelf();
     }
@@ -306,11 +324,10 @@ public class ManuscriptReaderService extends Service {
     }
 
     private void updateSessionAndNotification(String state) {
-        String title = sectionIndex < sections.size() ? sections.get(sectionIndex).title : "Manuscrito";
         if (mediaSession != null) {
             mediaSession.setMetadata(new MediaMetadataCompat.Builder()
-                .putString(MediaMetadataCompat.METADATA_KEY_TITLE, title)
-                .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, bookTitle)
+                .putString(MediaMetadataCompat.METADATA_KEY_TITLE, "Lectura del manuscrito")
+                .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, "Escribiendo")
                 .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, "Escribiendo")
                 .build());
             long actions = PlaybackStateCompat.ACTION_PLAY | PlaybackStateCompat.ACTION_PAUSE |
@@ -325,18 +342,17 @@ public class ManuscriptReaderService extends Service {
     }
 
     private Notification buildNotification(String state) {
-        String title = sectionIndex < sections.size() ? sections.get(sectionIndex).title : "Lectura del manuscrito";
         String action = "paused".equals(state) ? ACTION_RESUME : ACTION_PAUSE;
         String actionLabel = "paused".equals(state) ? "Continuar" : "Pausar";
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentTitle(bookTitle)
-            .setContentText(title)
+            .setContentTitle("Escribiendo")
+            .setContentText("Lectura del manuscrito")
             .setContentIntent(openAppIntent())
             .setSubText("Escribiendo · lector de voz")
             .setOnlyAlertOnce(true)
             .setOngoing(true)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .addAction(new NotificationCompat.Action(android.R.drawable.ic_media_previous, "Anterior", actionIntent(ACTION_PREVIOUS, 2)))
             .addAction(new NotificationCompat.Action(
@@ -345,6 +361,14 @@ public class ManuscriptReaderService extends Service {
                 actionIntent(action, 3)))
             .addAction(new NotificationCompat.Action(android.R.drawable.ic_media_next, "Siguiente", actionIntent(ACTION_NEXT, 4)))
             .addAction(new NotificationCompat.Action(android.R.drawable.ic_menu_close_clear_cancel, "Detener", actionIntent(ACTION_STOP, 5)));
+        Notification publicNotification = new NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setContentTitle("Escribiendo")
+            .setContentText("Lectura en curso")
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+            .build();
+        builder.setPublicVersion(publicNotification);
         if (mediaSession != null) {
             builder.setStyle(new androidx.media.app.NotificationCompat.MediaStyle()
                 .setMediaSession(mediaSession.getSessionToken())
@@ -395,7 +419,14 @@ public class ManuscriptReaderService extends Service {
     }
 
     @Override public void onDestroy() {
-        new File(getFilesDir(), "reader_queue.json").delete();
+        ReaderQueueFile.delete(this);
+        android.content.SharedPreferences preferences = getSharedPreferences("reader_state", MODE_PRIVATE);
+        String state = preferences.getString("state", "idle");
+        if ("playing".equals(state) || "paused".equals(state)) {
+            preferences.edit().putString("state", "idle").putInt("sectionIndex", 0)
+                .remove("sectionTitle").remove("message").apply();
+        }
+        serviceRunning = false;
         if (tts != null) { tts.stop(); tts.shutdown(); }
         if (mediaSession != null) { mediaSession.release(); mediaSession = null; }
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();

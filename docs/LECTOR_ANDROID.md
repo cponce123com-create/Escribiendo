@@ -10,7 +10,7 @@ La app `apps/android-reader` agrega un contenedor Capacitor para Android y un pl
 - Controles de reproducir, pausar, detener, capítulo anterior y siguiente desde la notificación/pantalla de bloqueo.
 - Reanudar el fragmento actual al continuar después de una pausa.
 
-La lectura necesita conexión para iniciar sesión y cargar el texto del libro. Para escuchar sin conexión, el dispositivo debe tener descargada una voz española; el APK no descarga modelos de voz propios.
+La lectura necesita conexión para iniciar sesión y cargar el texto del libro. Para escuchar sin conexión, el dispositivo debe tener descargada una voz española; el APK no descarga modelos de voz propios. El servidor envía solo el capítulo elegido o las secciones desde el punto actual y limita la cola a 10 MB. Android guarda esa cola temporal en su directorio excluido de copias de seguridad y la elimina al terminar. Las notificaciones y los metadatos multimedia muestran información genérica para no revelar títulos en la pantalla bloqueada.
 
 ## Crear el APK en una computadora
 
@@ -42,6 +42,7 @@ Cuando el flujo termine en verde:
 4. Abre el APK y permite instalar aplicaciones desde esa fuente cuando Android lo solicite.
 5. Inicia sesión en Escribiendo, abre un manuscrito, pulsa **Escuchar** y acepta el permiso de notificaciones.
 6. Bloquea la pantalla y verifica que el audio continúe; usa la notificación para pausar, avanzar o detener.
+7. Comprueba que la pantalla bloqueada solo muestre «Escribiendo» y no revele el título del libro ni del capítulo.
 
 El artefacto de GitHub caduca a los 14 días. Es un APK de depuración para instalación personal, no un paquete firmado para publicar en Google Play.
 
