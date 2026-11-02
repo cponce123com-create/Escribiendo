@@ -9,6 +9,7 @@ import {
 } from "@escribiendo/native-reader";
 import { getBookReadAloudContentAction } from "@/lib/books/reading-actions";
 import { createReadAloudQueue, type ReadAloudMode } from "@/lib/editor/read-aloud-queue";
+import { filterSpanishVoices, getSpanishVoiceLocaleLabel } from "@/lib/editor/read-aloud-voices";
 
 interface ManuscriptReadAloudProps {
   bookId: string;
@@ -20,6 +21,7 @@ const RATE_OPTIONS = [0.75, 0.9, 1, 1.15, 1.3, 1.5] as const;
 export function ManuscriptReadAloud({ bookId, currentSectionId }: ManuscriptReadAloudProps) {
   const isAndroidApp = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
   const [voices, setVoices] = useState<ReaderVoice[]>([]);
+  const [voicesLoaded, setVoicesLoaded] = useState(false);
   const [voiceId, setVoiceId] = useState("");
   const [rate, setRate] = useState(1);
   const [mode, setMode] = useState<ReadAloudMode>("chapter");
@@ -48,15 +50,17 @@ export function ManuscriptReadAloud({ bookId, currentSectionId }: ManuscriptRead
     void NativeManuscriptReader.getVoices()
       .then(({ voices: available }) => {
         if (!mounted) return;
-        setVoices(available);
-        const preferred = available.find(
-          (voice) => voice.language.toLowerCase().startsWith("es") && !voice.requiresNetwork,
-        );
-        const fallback = available.find((voice) => voice.language.toLowerCase().startsWith("es"));
-        setVoiceId(preferred?.id ?? fallback?.id ?? available[0]?.id ?? "");
+        const spanishVoices = filterSpanishVoices(available);
+        setVoices(spanishVoices);
+        setVoicesLoaded(true);
+        const preferred = spanishVoices.find((voice) => !voice.requiresNetwork);
+        setVoiceId(preferred?.id ?? spanishVoices[0]?.id ?? "");
       })
       .catch(() => {
-        if (mounted) setError("No se pudieron consultar las voces instaladas en Android.");
+        if (mounted) {
+          setVoicesLoaded(true);
+          setError("No se pudieron consultar las voces instaladas en Android.");
+        }
       });
 
     void NativeManuscriptReader.getPlaybackState()
@@ -174,11 +178,14 @@ export function ManuscriptReadAloud({ bookId, currentSectionId }: ManuscriptRead
           onChange={(event) => void changeVoice(event.target.value)}
           disabled={voices.length === 0 || playback.state === "playing"}
         >
-          {voices.length === 0 ? <option value="">Cargando voces…</option> : null}
+          {!voicesLoaded ? <option value="">Cargando voces…</option> : null}
+          {voicesLoaded && voices.length === 0 ? (
+            <option value="">No hay voces españolas instaladas</option>
+          ) : null}
           {voices.map((voice) => (
             <option key={voice.id} value={voice.id}>
-              {voice.name} · {voice.language}
-              {voice.requiresNetwork ? " · requiere conexión" : " · local"}
+              {getSpanishVoiceLocaleLabel(voice.language)} · {voice.name}
+              {voice.requiresNetwork ? " · requiere conexión" : " · sin conexión"}
             </option>
           ))}
         </select>
@@ -236,10 +243,16 @@ export function ManuscriptReadAloud({ bookId, currentSectionId }: ManuscriptRead
       <p className="mt-2 text-xs text-ink-muted" role="status" aria-live="polite">
         {statusText}
       </p>
+      {voicesLoaded && voices.length === 0 ? (
+        <p className="mt-1 text-xs text-ink-muted">
+          Instala datos de voz en español desde los ajustes de síntesis de voz de Android. Si está
+          disponible, elige Español (Latinoamérica) o una voz de un país latinoamericano.
+        </p>
+      ) : null}
       {voices.length > 0 && voices.every((voice) => voice.requiresNetwork) ? (
         <p className="mt-1 text-xs text-ink-muted">
-          No hay una voz sin conexión instalada. Descarga una voz española en los ajustes de
-          síntesis de voz de Android.
+          Estas voces españolas requieren conexión. Instala una voz sin conexión en los ajustes de
+          síntesis de voz de Android si tu motor ofrece esa opción.
         </p>
       ) : null}
       {error ? (
