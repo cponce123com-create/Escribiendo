@@ -30,7 +30,7 @@ jobs:
         run: pnpm stress:export
       - name: Conservar mediciones incluso al fallar
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: export-performance
           path: artifacts/export-benchmark
