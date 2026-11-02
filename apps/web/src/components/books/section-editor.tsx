@@ -46,6 +46,7 @@ import {
 } from "@/components/editor/manuscript-search-highlights";
 import { EditorialImage } from "@/components/editor/editorial-image";
 import { StudioIcon } from "./studio-icon";
+import { ManuscriptReadAloud } from "@/components/books/manuscript-read-aloud";
 import { readingMinutes, textMatches } from "@/lib/books/studio";
 import type { BookAssetSummary } from "@/lib/books/assets";
 
@@ -931,6 +932,7 @@ export function SectionEditor({
 
   return (
     <div className={`studio-editor-body ${focused ? "is-focused" : ""}`}>
+      <ManuscriptReadAloud bookId={bookId} currentSectionId={sectionId} />
       {findingNavigationMessage ? (
         <p className="alert" role="status">
           {findingNavigationMessage}
