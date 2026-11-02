@@ -56,6 +56,7 @@ public class ManuscriptReaderService extends Service {
     private float rate = 1.0f;
     private int sectionIndex = 0;
     private int utteranceIndex = 0;
+    private int paragraphIndex = -1;
     private boolean initialized = false;
     private boolean paused = false;
     private boolean preparing = false;
@@ -65,8 +66,17 @@ public class ManuscriptReaderService extends Service {
     private static class SpokenSection {
         final String id;
         final String title;
-        final List<String> utterances = new ArrayList<>();
+        final List<SpeechChunk> utterances = new ArrayList<>();
         SpokenSection(String id, String title) { this.id = id; this.title = title; }
+    }
+
+    private static class SpeechChunk {
+        final String text;
+        final int paragraphIndex;
+        SpeechChunk(String text, int paragraphIndex) {
+            this.text = text;
+            this.paragraphIndex = paragraphIndex;
+        }
     }
 
     @Override public void onCreate() {
@@ -145,14 +155,20 @@ public class ManuscriptReaderService extends Service {
             sections.clear();
             sectionIndex = 0;
             utteranceIndex = 0;
+            paragraphIndex = -1;
             JSONArray rawSections = queue.getJSONArray("sections");
             for (int i = 0; i < rawSections.length(); i++) {
                 JSONObject raw = rawSections.getJSONObject(i);
-                String text = raw.optString("text", "").trim();
-                if (text.isEmpty()) continue;
                 SpokenSection section = new SpokenSection(raw.optString("id", ""), raw.optString("title", "Sección"));
-                appendChunks(section, section.title);
-                appendChunks(section, text);
+                appendChunks(section, section.title, -1);
+                JSONArray paragraphs = raw.optJSONArray("paragraphs");
+                if (paragraphs != null) {
+                    for (int paragraph = 0; paragraph < paragraphs.length(); paragraph++) {
+                        appendChunks(section, paragraphs.optString(paragraph, ""), paragraph);
+                    }
+                } else {
+                    appendChunks(section, raw.optString("text", ""), 0);
+                }
                 if (!section.utterances.isEmpty()) sections.add(section);
             }
             if (sections.isEmpty()) { fail("El manuscrito no contiene texto para leer."); return; }
@@ -166,7 +182,7 @@ public class ManuscriptReaderService extends Service {
         }
     }
 
-    private void appendChunks(SpokenSection section, String rawText) {
+    private void appendChunks(SpokenSection section, String rawText, int sourceParagraphIndex) {
         String text = rawText.replace('\u00a0', ' ').trim();
         if (text.isEmpty()) return;
         String[] paragraphs = text.split("\\R+");
@@ -189,7 +205,7 @@ public class ManuscriptReaderService extends Service {
                     end = preferred;
                 }
                 String chunk = paragraph.substring(start, end).trim();
-                if (!chunk.isEmpty()) section.utterances.add(chunk);
+                if (!chunk.isEmpty()) section.utterances.add(new SpeechChunk(chunk, sourceParagraphIndex));
                 start = end;
                 while (start < paragraph.length() && Character.isWhitespace(paragraph.charAt(start))) start++;
             }
@@ -229,14 +245,17 @@ public class ManuscriptReaderService extends Service {
         if (utteranceIndex >= section.utterances.size()) {
             sectionIndex++;
             utteranceIndex = 0;
+            paragraphIndex = -1;
             speakCurrent();
             return;
         }
+        SpeechChunk chunk = section.utterances.get(utteranceIndex);
+        paragraphIndex = chunk.paragraphIndex;
         updateSessionAndNotification("playing");
         if (wakeLock != null && !wakeLock.isHeld()) wakeLock.acquire(12 * 60 * 60 * 1000L);
         Bundle params = new Bundle();
         String utteranceId = sectionIndex + ":" + utteranceIndex;
-        int result = tts.speak(section.utterances.get(utteranceIndex), TextToSpeech.QUEUE_FLUSH, params, utteranceId);
+        int result = tts.speak(chunk.text, TextToSpeech.QUEUE_FLUSH, params, utteranceId);
         if (result == TextToSpeech.ERROR) fail("Android rechazó un fragmento del texto.");
         else sendState("playing", null);
     }
@@ -280,6 +299,7 @@ public class ManuscriptReaderService extends Service {
         if (sections.isEmpty()) return;
         sectionIndex = Math.max(0, Math.min(sections.size() - 1, sectionIndex + delta));
         utteranceIndex = 0;
+        paragraphIndex = -1;
         paused = false;
         preparing = true;
         if (tts != null) tts.stop();
@@ -302,11 +322,13 @@ public class ManuscriptReaderService extends Service {
 
     private void stopReading(boolean notify) {
         if (tts != null) tts.stop();
+        if (notify) sendState("idle", null);
         paused = true;
         preparing = false;
         sections.clear();
         sectionIndex = 0;
         utteranceIndex = 0;
+        paragraphIndex = -1;
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
         if (mediaSession != null) {
             mediaSession.setActive(false);
@@ -314,7 +336,6 @@ public class ManuscriptReaderService extends Service {
         }
         stopForeground(STOP_FOREGROUND_REMOVE);
         ReaderQueueFile.delete(this);
-        if (notify) sendState("idle", null);
         stopSelf();
     }
 
@@ -402,13 +423,18 @@ public class ManuscriptReaderService extends Service {
 
     private void sendState(String state, String message) {
         String title = sectionIndex < sections.size() ? sections.get(sectionIndex).title : "";
+        String sectionId = sectionIndex < sections.size() ? sections.get(sectionIndex).id : null;
         android.content.SharedPreferences.Editor saved = getSharedPreferences("reader_state", MODE_PRIVATE)
-            .edit().putString("state", state).putInt("sectionIndex", sectionIndex).putString("sectionTitle", title);
+            .edit().putString("state", state).putInt("sectionIndex", sectionIndex)
+            .putInt("paragraphIndex", paragraphIndex).putString("sectionTitle", title);
+        if (sectionId == null) saved.remove("sectionId"); else saved.putString("sectionId", sectionId);
         if (message == null) saved.remove("message"); else saved.putString("message", message);
         saved.apply();
         Intent event = new Intent(ACTION_STATE).setPackage(getPackageName());
         event.putExtra("state", state);
         event.putExtra("sectionIndex", sectionIndex);
+        event.putExtra("paragraphIndex", paragraphIndex);
+        if (sectionId != null) event.putExtra("sectionId", sectionId);
         if (sectionIndex < sections.size()) event.putExtra("sectionTitle", sections.get(sectionIndex).title);
         if (message != null) event.putExtra("message", message);
         sendBroadcast(event);
@@ -423,8 +449,8 @@ public class ManuscriptReaderService extends Service {
         android.content.SharedPreferences preferences = getSharedPreferences("reader_state", MODE_PRIVATE);
         String state = preferences.getString("state", "idle");
         if ("playing".equals(state) || "paused".equals(state)) {
-            preferences.edit().putString("state", "idle").putInt("sectionIndex", 0)
-                .remove("sectionTitle").remove("message").apply();
+            preferences.edit().putString("state", "idle").putInt("sectionIndex", 0).putInt("paragraphIndex", -1)
+                .remove("sectionId").remove("sectionTitle").remove("message").apply();
         }
         serviceRunning = false;
         if (tts != null) { tts.stop(); tts.shutdown(); }
