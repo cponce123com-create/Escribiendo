@@ -10,12 +10,14 @@ export interface ReaderVoice {
 export interface ReaderSection {
   id: string;
   title: string;
-  text: string;
+  paragraphs: string[];
 }
 
 export interface ReaderPlaybackState {
   state: "idle" | "playing" | "paused" | "completed" | "error";
   sectionIndex: number;
+  sectionId?: string;
+  paragraphIndex?: number;
   sectionTitle?: string;
   message?: string;
 }

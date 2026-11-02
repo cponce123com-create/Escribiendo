@@ -46,6 +46,9 @@ public class NativeManuscriptReaderPlugin extends Plugin {
                 JSObject state = new JSObject();
                 state.put("state", intent.getStringExtra("state"));
                 state.put("sectionIndex", intent.getIntExtra("sectionIndex", 0));
+                String sectionId = intent.getStringExtra("sectionId");
+                if (sectionId != null) state.put("sectionId", sectionId);
+                state.put("paragraphIndex", intent.getIntExtra("paragraphIndex", -1));
                 String title = intent.getStringExtra("sectionTitle");
                 String message = intent.getStringExtra("message");
                 if (title != null) state.put("sectionTitle", title);
@@ -115,14 +118,17 @@ public class NativeManuscriptReaderPlugin extends Plugin {
         String savedState = preferences.getString("state", "idle");
         if (!ManuscriptReaderService.isServiceRunning() &&
             ("playing".equals(savedState) || "paused".equals(savedState))) {
-            preferences.edit().putString("state", "idle").putInt("sectionIndex", 0)
-                .remove("sectionTitle").remove("message").apply();
+            preferences.edit().putString("state", "idle").putInt("sectionIndex", 0).putInt("paragraphIndex", -1)
+                .remove("sectionId").remove("sectionTitle").remove("message").apply();
             ReaderQueueFile.delete(getContext());
             savedState = "idle";
         }
         JSObject result = new JSObject();
         result.put("state", savedState);
         result.put("sectionIndex", preferences.getInt("sectionIndex", 0));
+        String sectionId = preferences.getString("sectionId", null);
+        if (sectionId != null) result.put("sectionId", sectionId);
+        result.put("paragraphIndex", preferences.getInt("paragraphIndex", -1));
         String title = preferences.getString("sectionTitle", null);
         String message = preferences.getString("message", null);
         if (title != null) result.put("sectionTitle", title);

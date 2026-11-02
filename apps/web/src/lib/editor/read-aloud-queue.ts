@@ -15,7 +15,7 @@ export function createReadAloudQueue<T extends { id: string }>(
 /** Leaves headroom below the native 12 MiB queue limit for JSON serialization. */
 export function isReadAloudPayloadWithinLimit(
   bookTitle: string,
-  sections: readonly { id: string; title: string; text: string }[],
+  sections: readonly unknown[],
 ): boolean {
   return (
     new TextEncoder().encode(JSON.stringify({ bookTitle, sections })).byteLength <=

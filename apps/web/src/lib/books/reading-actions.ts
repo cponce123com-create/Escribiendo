@@ -1,6 +1,6 @@
 "use server";
 
-import { extractPlainText, parseTiptapDocument } from "@escribiendo/book-schema";
+import { parseTiptapDocument } from "@escribiendo/book-schema";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { assertServerActionOrigin } from "@/lib/security/request-context";
@@ -11,6 +11,7 @@ import {
   isReadAloudPayloadWithinLimit,
   type ReadAloudMode,
 } from "@/lib/editor/read-aloud-queue";
+import { readAloudBlocksFromDocument, type ReadAloudBlock } from "@/lib/editor/read-aloud-document";
 
 const readRequestSchema = z.object({
   bookId: z.string().uuid(),
@@ -21,7 +22,7 @@ const readRequestSchema = z.object({
 export interface ReadAloudSection {
   id: string;
   title: string;
-  text: string;
+  paragraphs: ReadAloudBlock[];
 }
 
 export type ReadAloudResult =
@@ -81,8 +82,10 @@ export async function getBookReadAloudContentAction(
     try {
       const content = contentById.get(section.id);
       if (content === undefined) return [];
-      const text = extractPlainText(parseTiptapDocument(content));
-      return text ? [{ id: section.id, title: section.title, text }] : [];
+      const paragraphs = readAloudBlocksFromDocument(parseTiptapDocument(content));
+      return paragraphs.some((paragraph) => paragraph.text)
+        ? [{ id: section.id, title: section.title, paragraphs }]
+        : [];
     } catch {
       // Una sección dañada no impide escuchar las demás. Nunca se lee JSON crudo.
       return [];
@@ -92,7 +95,12 @@ export async function getBookReadAloudContentAction(
   if (sections.length === 0) {
     return { success: false, message: "Este libro todavía no tiene texto para escuchar." };
   }
-  if (!isReadAloudPayloadWithinLimit(book.title, sections)) {
+  const nativeSections = sections.map(({ id, title, paragraphs }) => ({
+    id,
+    title,
+    paragraphs: paragraphs.map(({ text }) => text),
+  }));
+  if (!isReadAloudPayloadWithinLimit(book.title, nativeSections)) {
     return {
       success: false,
       message:

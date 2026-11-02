@@ -6,6 +6,9 @@ La app `apps/android-reader` agrega un contenedor Capacitor para Android y un pl
 
 - Escuchar la sección abierta o continuar desde ella hasta el final del libro.
 - Elegir una voz instalada y cambiar la velocidad.
+- Abrir una pantalla de lectura a página completa con diseño de libro, páginas ajustadas al tamaño del teléfono, temas de papel/sepia/noche y tamaño de letra configurable.
+- Resaltar el párrafo que está leyendo la voz y pasar la página automáticamente al avanzar a un párrafo de la siguiente página.
+- Mostrar el capítulo, la página y el número de párrafo para retomar la lectura con precisión.
 - Mantener la lectura con la pantalla bloqueada mediante un servicio multimedia de Android.
 - Controles de reproducir, pausar, detener, capítulo anterior y siguiente desde la notificación/pantalla de bloqueo.
 - Reanudar el fragmento actual al continuar después de una pausa.
@@ -41,8 +44,11 @@ Cuando el flujo termine en verde:
 3. Descomprime el ZIP y copia `app-debug.apk` al teléfono.
 4. Abre el APK y permite instalar aplicaciones desde esa fuente cuando Android lo solicite.
 5. Inicia sesión en Escribiendo, abre un manuscrito, pulsa **Escuchar** y acepta el permiso de notificaciones.
-6. Bloquea la pantalla y verifica que el audio continúe; usa la notificación para pausar, avanzar o detener.
-7. Comprueba que la pantalla bloqueada solo muestre «Escribiendo» y no revele el título del libro ni del capítulo.
+6. Desde un capítulo, pulsa **Abrir lector**. Elige si leer ese capítulo o continuar hasta el final, y pulsa **Leer en voz alta**.
+7. Comprueba que se resalte el párrafo hablado, avance la página al cruzar de página y muestre capítulo, página y párrafo.
+8. Pausa y reanuda; verifica que el resaltado se conserve. Detén la lectura y comprueba que permanezca abierta la misma página.
+9. Bloquea la pantalla y verifica que el audio continúe; usa la notificación para pausar, avanzar o detener.
+10. Comprueba que la pantalla bloqueada solo muestre «Escribiendo» y no revele el título del libro ni del capítulo.
 
 El artefacto de GitHub caduca a los 14 días. Es un APK de depuración para instalación personal, no un paquete firmado para publicar en Google Play.
 
