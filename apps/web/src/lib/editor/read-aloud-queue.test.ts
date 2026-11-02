@@ -51,6 +51,7 @@ describe("toNativeReadAloudSections", () => {
         id: "chapter",
         title: "Capítulo 1",
         paragraphs: ["Una escena.", "Otra escena."],
+        text: "Una escena.\n\nOtra escena.",
       },
     ]);
   });
