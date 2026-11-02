@@ -20,6 +20,7 @@ import {
 } from "@escribiendo/native-reader";
 import { getBookReadAloudContentAction } from "@/lib/books/reading-actions";
 import type { ReadAloudSection } from "@/lib/books/reading-actions";
+import { toNativeReadAloudSections } from "@/lib/editor/read-aloud-queue";
 import { filterSpanishVoices, getSpanishVoiceLocaleLabel } from "@/lib/editor/read-aloud-voices";
 import { getReadAloudStartErrorMessage } from "@/lib/editor/read-aloud-errors";
 import { paginateReaderBlocks, readerPageForBlock } from "@/lib/editor/read-aloud-pagination";
@@ -37,7 +38,7 @@ interface ManuscriptBookReaderProps {
 }
 
 const RATE_OPTIONS = [0.75, 0.9, 1, 1.15, 1.3, 1.5] as const;
-const FONT_SIZES = [17, 19, 21, 23, 25] as const;
+const FONT_SIZES = [15, 16, 18, 20, 22] as const;
 const EMPTY_BLOCKS: ReadAloudBlock[] = [];
 const subscribeToPlatform = () => () => undefined;
 const isAndroidPlatform = () =>
@@ -105,7 +106,7 @@ export function ManuscriptBookReader({
   const [voicesLoaded, setVoicesLoaded] = useState(false);
   const [voiceId, setVoiceId] = useState("");
   const [rate, setRate] = useState(1);
-  const [fontSize, setFontSize] = useState<(typeof FONT_SIZES)[number]>(19);
+  const [fontSize, setFontSize] = useState<(typeof FONT_SIZES)[number]>(16);
   const [theme, setTheme] = useState<ReaderTheme>("paper");
   const [playback, setPlayback] = useState<ReaderPlaybackState>({ state: "idle", sectionIndex: 0 });
   const [manualPagePosition, setManualPagePosition] = useState({ sectionId: "", pageIndex: 0 });
@@ -172,7 +173,9 @@ export function ManuscriptBookReader({
       .then((state) => {
         if (!mounted) return;
         setPlayback(
-          state.state === "idle" ? { state: "idle", sectionIndex: 0, paragraphIndex: -1 } : state,
+          state.state === "idle" || state.state === "error"
+            ? { state: "idle", sectionIndex: 0, paragraphIndex: -1 }
+            : state,
         );
       })
       .catch(() => undefined);
@@ -277,22 +280,24 @@ export function ManuscriptBookReader({
         );
         return;
       }
+      const nativeSections = toNativeReadAloudSections(sections);
+      if (nativeSections.length === 0) {
+        setError("Este capítulo no contiene párrafos con texto para leer.");
+        return;
+      }
+      const firstSection = sections.findIndex((section) => section.id === nativeSections[0]?.id);
       await NativeManuscriptReader.play({
         bookTitle,
-        sections: sections.map(({ id, title, paragraphs }) => ({
-          id,
-          title,
-          paragraphs: paragraphs.map((paragraph) => paragraph.text),
-        })),
+        sections: nativeSections,
         rate,
         ...(voiceId ? { voiceId } : {}),
       });
       setPlayback({
         state: "playing",
-        sectionIndex: 0,
-        sectionId: sections[0]?.id,
+        sectionIndex: Math.max(0, firstSection),
+        sectionId: nativeSections[0]?.id,
         paragraphIndex: -1,
-        sectionTitle: sections[0]?.title,
+        sectionTitle: nativeSections[0]?.title,
       });
     } catch (caught) {
       setError(getReadAloudStartErrorMessage(caught));
@@ -339,58 +344,62 @@ export function ManuscriptBookReader({
           <span>LECTOR</span>
           <strong>{bookTitle}</strong>
         </div>
-        <div className={styles.topControls}>
-          <label className={styles.srOnly} htmlFor="reader-mode">
-            Alcance de lectura
-          </label>
-          <select
-            id="reader-mode"
-            value={mode}
-            onChange={(event) => {
-              setLoading(true);
-              setPlayback({ state: "idle", sectionIndex: 0, paragraphIndex: -1 });
-              setMode(event.target.value as ReadMode);
-            }}
-            disabled={isActive || loading}
-          >
-            <option value="chapter">Este capítulo</option>
-            <option value="book">Desde aquí hasta el final</option>
-          </select>
-          <label className={styles.srOnly} htmlFor="reader-voice">
-            Voz en español
-          </label>
-          <select
-            id="reader-voice"
-            value={voiceId}
-            onChange={(event) => setVoiceId(event.target.value)}
-            disabled={voices.length === 0 || isActive}
-          >
-            {!voicesLoaded ? <option value="">Cargando voces…</option> : null}
-            {voicesLoaded && voices.length === 0 ? (
-              <option value="">Sin voces españolas</option>
-            ) : null}
-            {voices.map((voice) => (
-              <option key={voice.id} value={voice.id}>
-                {getSpanishVoiceLocaleLabel(voice.language)} · {voice.name}
-                {voice.requiresNetwork ? " · en línea" : " · sin conexión"}
-              </option>
-            ))}
-          </select>
-          <label className={styles.srOnly} htmlFor="reader-rate">
-            Velocidad
-          </label>
-          <select
-            id="reader-rate"
-            value={rate}
-            onChange={(event) => setRate(Number(event.target.value))}
-          >
-            {RATE_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {option}×
-              </option>
-            ))}
-          </select>
-        </div>
+        <details className={styles.readingOptions}>
+          <summary>Opciones</summary>
+          <div className={styles.topControls}>
+            <label className={styles.srOnly} htmlFor="reader-mode">
+              Alcance de lectura
+            </label>
+            <select
+              id="reader-mode"
+              value={mode}
+              onChange={(event) => {
+                setLoading(true);
+                setError(null);
+                setPlayback({ state: "idle", sectionIndex: 0, paragraphIndex: -1 });
+                setMode(event.target.value as ReadMode);
+              }}
+              disabled={isActive || loading}
+            >
+              <option value="chapter">Este capítulo</option>
+              <option value="book">Desde aquí hasta el final</option>
+            </select>
+            <label className={styles.srOnly} htmlFor="reader-voice">
+              Voz en español
+            </label>
+            <select
+              id="reader-voice"
+              value={voiceId}
+              onChange={(event) => setVoiceId(event.target.value)}
+              disabled={voices.length === 0 || isActive}
+            >
+              {!voicesLoaded ? <option value="">Cargando voces…</option> : null}
+              {voicesLoaded && voices.length === 0 ? (
+                <option value="">Sin voces españolas</option>
+              ) : null}
+              {voices.map((voice) => (
+                <option key={voice.id} value={voice.id}>
+                  {getSpanishVoiceLocaleLabel(voice.language)} · {voice.name}
+                  {voice.requiresNetwork ? " · en línea" : " · sin conexión"}
+                </option>
+              ))}
+            </select>
+            <label className={styles.srOnly} htmlFor="reader-rate">
+              Velocidad
+            </label>
+            <select
+              id="reader-rate"
+              value={rate}
+              onChange={(event) => setRate(Number(event.target.value))}
+            >
+              {RATE_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}×
+                </option>
+              ))}
+            </select>
+          </div>
+        </details>
       </header>
 
       <section className={styles.readingStage} aria-label="Página del manuscrito">
@@ -564,24 +573,23 @@ export function ManuscriptBookReader({
             <option value="night">Noche</option>
           </select>
         </div>
+        {!voicesLoaded || voices.length === 0 ? (
+          <p className={styles.voiceHint}>
+            Instala una voz en español en los ajustes de síntesis de voz de Android; para escuchar
+            sin conexión, elige una voz descargada.
+          </p>
+        ) : null}
+        {error ? (
+          <p className={styles.error} role="alert">
+            {error}
+          </p>
+        ) : null}
+        {pages.length === 0 && !loading && sections.length > 0 ? (
+          <p className={styles.statusHint} role="status">
+            Ajustando la página al tamaño de la pantalla…
+          </p>
+        ) : null}
       </footer>
-
-      {!voicesLoaded || voices.length === 0 ? (
-        <p className={styles.voiceHint}>
-          Instala una voz en español en los ajustes de síntesis de voz de Android; para escuchar sin
-          conexión, elige una voz descargada.
-        </p>
-      ) : null}
-      {error ? (
-        <p className={styles.error} role="alert">
-          {error}
-        </p>
-      ) : null}
-      {pages.length === 0 && !loading && sections.length > 0 ? (
-        <p className={styles.error} role="status">
-          Ajustando la página al tamaño de la pantalla…
-        </p>
-      ) : null}
     </main>
   );
 }
