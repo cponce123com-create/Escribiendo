@@ -112,8 +112,16 @@ public class NativeManuscriptReaderPlugin extends Plugin {
     @PluginMethod
     public void getPlaybackState(PluginCall call) {
         android.content.SharedPreferences preferences = getContext().getSharedPreferences("reader_state", Context.MODE_PRIVATE);
+        String savedState = preferences.getString("state", "idle");
+        if (!ManuscriptReaderService.isServiceRunning() &&
+            ("playing".equals(savedState) || "paused".equals(savedState))) {
+            preferences.edit().putString("state", "idle").putInt("sectionIndex", 0)
+                .remove("sectionTitle").remove("message").apply();
+            ReaderQueueFile.delete(getContext());
+            savedState = "idle";
+        }
         JSObject result = new JSObject();
-        result.put("state", preferences.getString("state", "idle"));
+        result.put("state", savedState);
         result.put("sectionIndex", preferences.getInt("sectionIndex", 0));
         String title = preferences.getString("sectionTitle", null);
         String message = preferences.getString("message", null);
@@ -148,7 +156,7 @@ public class NativeManuscriptReaderPlugin extends Plugin {
                 call.reject("El manuscrito es demasiado grande para cargarlo en la lectura móvil.");
                 return;
             }
-            try (FileOutputStream output = getContext().openFileOutput("reader_queue.json", Context.MODE_PRIVATE)) {
+            try (FileOutputStream output = new FileOutputStream(ReaderQueueFile.get(getContext()))) {
                 output.write(bytes);
             }
             Intent intent = new Intent(getContext(), ManuscriptReaderService.class);

@@ -6,8 +6,17 @@ import { getSession } from "@/lib/auth/session";
 import { assertServerActionOrigin } from "@/lib/security/request-context";
 import { editorialOrder } from "./reading-order";
 import { z } from "zod";
+import {
+  createReadAloudQueue,
+  isReadAloudPayloadWithinLimit,
+  type ReadAloudMode,
+} from "@/lib/editor/read-aloud-queue";
 
-const bookIdSchema = z.string().uuid();
+const readRequestSchema = z.object({
+  bookId: z.string().uuid(),
+  currentSectionId: z.string().uuid(),
+  mode: z.enum(["chapter", "book"]),
+});
 
 export interface ReadAloudSection {
   id: string;
@@ -20,17 +29,25 @@ export type ReadAloudResult =
   | { success: false; message: string };
 
 /** Devuelve solo el texto legible y en orden editorial del libro autorizado. */
-export async function getBookReadAloudContentAction(bookIdValue: string): Promise<ReadAloudResult> {
+export async function getBookReadAloudContentAction(
+  bookIdValue: string,
+  currentSectionIdValue: string,
+  modeValue: ReadAloudMode,
+): Promise<ReadAloudResult> {
   await assertServerActionOrigin();
-  const parsedId = bookIdSchema.safeParse(bookIdValue);
-  if (!parsedId.success) return { success: false, message: "El libro no es válido." };
+  const parsed = readRequestSchema.safeParse({
+    bookId: bookIdValue,
+    currentSectionId: currentSectionIdValue,
+    mode: modeValue,
+  });
+  if (!parsed.success) return { success: false, message: "La solicitud de lectura no es válida." };
 
   const session = await getSession();
   if (!session) return { success: false, message: "Inicia sesión para escuchar el manuscrito." };
 
   const book = await prisma.book.findFirst({
     where: {
-      id: parsedId.data,
+      id: parsed.data.bookId,
       workspaceId: session.workspace.id,
       deletedAt: null,
     },
@@ -39,7 +56,7 @@ export async function getBookReadAloudContentAction(bookIdValue: string): Promis
   if (!book)
     return { success: false, message: "No se encontró el libro en tu espacio de trabajo." };
 
-  const rows = await prisma.bookSection.findMany({
+  const orderRows = await prisma.bookSection.findMany({
     where: { bookId: book.id, deletedAt: null },
     select: {
       id: true,
@@ -47,12 +64,24 @@ export async function getBookReadAloudContentAction(bookIdValue: string): Promis
       type: true,
       title: true,
       sortOrder: true,
-      content: true,
     },
   });
-  const sections = editorialOrder(rows, false).flatMap((section) => {
+  const ordered = editorialOrder(orderRows, false);
+  const selected = createReadAloudQueue(ordered, parsed.data.currentSectionId, parsed.data.mode);
+  if (selected.length === 0) {
+    return { success: false, message: "No se encontró la sección desde la que quieres escuchar." };
+  }
+
+  const contentRows = await prisma.bookSection.findMany({
+    where: { bookId: book.id, id: { in: selected.map((section) => section.id) }, deletedAt: null },
+    select: { id: true, content: true },
+  });
+  const contentById = new Map(contentRows.map((section) => [section.id, section.content]));
+  const sections = selected.flatMap((section) => {
     try {
-      const text = extractPlainText(parseTiptapDocument(section.content));
+      const content = contentById.get(section.id);
+      if (content === undefined) return [];
+      const text = extractPlainText(parseTiptapDocument(content));
       return text ? [{ id: section.id, title: section.title, text }] : [];
     } catch {
       // Una sección dañada no impide escuchar las demás. Nunca se lee JSON crudo.
@@ -62,6 +91,13 @@ export async function getBookReadAloudContentAction(bookIdValue: string): Promis
 
   if (sections.length === 0) {
     return { success: false, message: "Este libro todavía no tiene texto para escuchar." };
+  }
+  if (!isReadAloudPayloadWithinLimit(book.title, sections)) {
+    return {
+      success: false,
+      message:
+        "El texto seleccionado supera el límite de 10 MB para la lectura móvil. Elige «Este capítulo» o empieza más adelante.",
+    };
   }
 
   return { success: true, bookTitle: book.title, sections };

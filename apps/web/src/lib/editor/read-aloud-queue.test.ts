@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { createReadAloudQueue } from "./read-aloud-queue";
+import {
+  createReadAloudQueue,
+  isReadAloudPayloadWithinLimit,
+  MAX_READ_ALOUD_PAYLOAD_BYTES,
+} from "./read-aloud-queue";
 
 const sections = [
   { id: "front", title: "Dedicatoria", text: "Para mi familia." },
@@ -18,5 +22,14 @@ describe("createReadAloudQueue", () => {
 
   it("devuelve una cola vacía si la sección activa ya no existe", () => {
     expect(createReadAloudQueue(sections, "removed", "book")).toEqual([]);
+  });
+
+  it("aplica el límite de carga antes de enviar una cola grande al teléfono", () => {
+    expect(isReadAloudPayloadWithinLimit("Libro", sections)).toBe(true);
+    expect(
+      isReadAloudPayloadWithinLimit("Libro", [
+        { id: "large", title: "Capítulo", text: "x".repeat(MAX_READ_ALOUD_PAYLOAD_BYTES) },
+      ]),
+    ).toBe(false);
   });
 });

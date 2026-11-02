@@ -1,14 +1,24 @@
-import type { ReadAloudSection } from "@/lib/books/reading-actions";
-
 export type ReadAloudMode = "chapter" | "book";
+export const MAX_READ_ALOUD_PAYLOAD_BYTES = 10 * 1024 * 1024;
 
-/** Recorta el manuscrito en memoria a la sección elegida o desde ella hasta el final. */
-export function createReadAloudQueue(
-  sections: readonly ReadAloudSection[],
+/** Selecciona la sección actual o el tramo restante sin transportar contenido innecesario. */
+export function createReadAloudQueue<T extends { id: string }>(
+  sections: readonly T[],
   currentSectionId: string,
   mode: ReadAloudMode,
-): ReadAloudSection[] {
+): T[] {
   const currentIndex = sections.findIndex((section) => section.id === currentSectionId);
   if (currentIndex < 0) return [];
   return mode === "chapter" ? [sections[currentIndex]!] : sections.slice(currentIndex);
+}
+
+/** Leaves headroom below the native 12 MiB queue limit for JSON serialization. */
+export function isReadAloudPayloadWithinLimit(
+  bookTitle: string,
+  sections: readonly { id: string; title: string; text: string }[],
+): boolean {
+  return (
+    new TextEncoder().encode(JSON.stringify({ bookTitle, sections })).byteLength <=
+    MAX_READ_ALOUD_PAYLOAD_BYTES
+  );
 }

@@ -8,8 +8,9 @@ import {
   type ReaderVoice,
 } from "@escribiendo/native-reader";
 import { getBookReadAloudContentAction } from "@/lib/books/reading-actions";
-import { createReadAloudQueue, type ReadAloudMode } from "@/lib/editor/read-aloud-queue";
+import type { ReadAloudMode } from "@/lib/editor/read-aloud-queue";
 import { filterSpanishVoices, getSpanishVoiceLocaleLabel } from "@/lib/editor/read-aloud-voices";
+import { getReadAloudStartErrorMessage } from "@/lib/editor/read-aloud-errors";
 
 interface ManuscriptReadAloudProps {
   bookId: string;
@@ -98,12 +99,12 @@ export function ManuscriptReadAloud({ bookId, currentSectionId }: ManuscriptRead
         );
         return;
       }
-      const result = await getBookReadAloudContentAction(bookId);
+      const result = await getBookReadAloudContentAction(bookId, currentSectionId, mode);
       if (!result.success) {
         setError(result.message);
         return;
       }
-      const queue = createReadAloudQueue(result.sections, currentSectionId, mode);
+      const queue = result.sections;
       if (queue.length === 0) {
         setError("No se encontró texto en la sección actual. Elige otra sección del libro.");
         return;
@@ -115,8 +116,8 @@ export function ManuscriptReadAloud({ bookId, currentSectionId }: ManuscriptRead
         ...(voiceId ? { voiceId } : {}),
       });
       setPlayback({ state: "playing", sectionIndex: 0, sectionTitle: queue[0]?.title });
-    } catch {
-      setError("No se pudo iniciar la lectura. Comprueba tu conexión e inténtalo de nuevo.");
+    } catch (error) {
+      setError(getReadAloudStartErrorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -147,7 +148,7 @@ export function ManuscriptReadAloud({ bookId, currentSectionId }: ManuscriptRead
           ? "Lectura finalizada"
           : playback.state === "error"
             ? (playback.message ?? "La lectura encontró un error.")
-            : "La lectura continúa aunque bloquees el teléfono.";
+            : "Listo para escuchar este manuscrito.";
 
   return (
     <section
