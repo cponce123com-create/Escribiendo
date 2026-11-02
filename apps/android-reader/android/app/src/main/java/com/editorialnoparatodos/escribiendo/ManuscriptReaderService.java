@@ -14,6 +14,7 @@ import android.os.PowerManager;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 import android.speech.tts.Voice;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
@@ -45,6 +46,7 @@ public class ManuscriptReaderService extends Service {
     private static final String CHANNEL_ID = "manuscript_reading";
     private static final int NOTIFICATION_ID = 5310;
     private static final int MAX_UTTERANCE_CHARS = 3400;
+    private static final String TAG = "ManuscriptReader";
     private static volatile boolean serviceRunning = false;
 
     private final List<SpokenSection> sections = new ArrayList<>();
@@ -157,21 +159,44 @@ public class ManuscriptReaderService extends Service {
             utteranceIndex = 0;
             paragraphIndex = -1;
             JSONArray rawSections = queue.getJSONArray("sections");
+            int receivedParagraphs = 0;
+            int receivedTextChars = 0;
             for (int i = 0; i < rawSections.length(); i++) {
                 JSONObject raw = rawSections.getJSONObject(i);
                 SpokenSection section = new SpokenSection(raw.optString("id", ""), raw.optString("title", "Sección"));
                 appendChunks(section, section.title, -1);
+                int bodyUtterancesBefore = section.utterances.size();
                 JSONArray paragraphs = raw.optJSONArray("paragraphs");
                 if (paragraphs != null) {
                     for (int paragraph = 0; paragraph < paragraphs.length(); paragraph++) {
-                        appendChunks(section, paragraphs.optString(paragraph, ""), paragraph);
+                        Object value = paragraphs.opt(paragraph);
+                        String paragraphText = value instanceof JSONObject
+                            ? ((JSONObject) value).optString("text", "")
+                            : (value == null || value == JSONObject.NULL ? "" : value.toString());
+                        if (!paragraphText.trim().isEmpty()) {
+                            receivedParagraphs++;
+                            receivedTextChars += paragraphText.length();
+                            appendChunks(section, paragraphText, paragraph);
+                        }
                     }
-                } else {
-                    appendChunks(section, raw.optString("text", ""), 0);
+                }
+                // Keep compatibility with queue payloads where the bridge drops the
+                // nested paragraphs array or converts it into an unsupported value.
+                if (section.utterances.size() == bodyUtterancesBefore) {
+                    String fallbackText = raw.optString("text", "");
+                    if (!fallbackText.trim().isEmpty()) {
+                        receivedTextChars += fallbackText.length();
+                        appendChunks(section, fallbackText, 0);
+                    }
                 }
                 if (!section.utterances.isEmpty()) sections.add(section);
             }
-            if (sections.isEmpty()) { fail("El manuscrito no contiene texto para leer."); return; }
+            if (sections.isEmpty()) {
+                Log.w(TAG, "Empty speech queue: receivedSections=" + rawSections.length()
+                    + ", paragraphs=" + receivedParagraphs + ", textChars=" + receivedTextChars);
+                fail("No se recibió el texto del manuscrito para leer. Guarda el capítulo y vuelve a abrir el lector.");
+                return;
+            }
             preparing = true;
             paused = false;
             ensureForeground();
