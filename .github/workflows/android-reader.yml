@@ -45,7 +45,7 @@ jobs:
           version: 12.14.0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 24.20.0
           cache: pnpm
