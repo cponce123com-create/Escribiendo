@@ -1,4 +1,7 @@
 const SAFE_READ_ALOUD_ERRORS = [
+  "El manuscrito no contiene texto para leer.",
+  "No hay texto para leer.",
+  "Este capítulo no contiene párrafos con texto para leer.",
   "El manuscrito es demasiado grande para cargarlo en la lectura móvil.",
   "El texto seleccionado supera el límite de 10 MB para la lectura móvil. Elige «Este capítulo» o empieza más adelante.",
   "No se pudo preparar la lectura del manuscrito.",
