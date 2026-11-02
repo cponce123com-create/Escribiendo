@@ -390,7 +390,7 @@ pnpm stress:export  # Banco de esfuerzo: 200 000 palabras, 80 imágenes y 500 no
 pnpm check:size      # Presupuesto de JavaScript del cliente y estáticos públicos
 pnpm verify:preview-pdf # Vista previa y PDF: mismas páginas y mismo texto (necesita scripts/pdfjs)
 pnpm validate:epub  # EPUB con EPUBCheck (necesita EPUBCHECK_JAR)
-pnpm validate:docx  # DOCX con un lector externo (necesita DOCX_VALIDATOR)
+pnpm validate:docx  # DOCX con LibreOffice y pdf.js; DOCX_VALIDATOR permite otro lector
 pnpm validate:pdf   # PDF con un lector externo (necesita PDF_VALIDATOR)
 pnpm audit          # Escaneo de dependencias
 ```
@@ -473,3 +473,17 @@ Lo que **no** está verificado automáticamente en las Fases 1 a 3:
 - Si necesitas un icono de red o una espera, usa las utilidades de
   Playwright (`expect`, `waitForURL`) en lugar de esperas fijas.
 - Ejecuta `pnpm format` antes de confirmar los cambios.
+
+## Validación externa reforzada (29 de octubre de 2026)
+
+`pnpm validate:docx` usa LibreOffice por defecto y comprueba con pdf.js todos los textos esperados del fixture; `DOCX_VALIDATOR` sigue admitiendo lectores alternativos. Instala el lector aislado con `pnpm --dir scripts/pdfjs install --ignore-workspace --frozen-lockfile`. Si falta LibreOffice o una dependencia se devuelve código 2, no una aprobación.
+
+`EPUBCHECK_JAR=/ruta/epubcheck.jar pnpm validate:epub` comprueba EPUB con EPUBCheck 5.4.0. `EPUB_VALIDATION_DIR` conserva el archivo y su informe JSON; `DOCX_VALIDATION_DIR` conserva DOCX y PDF. Los workflows verifican también cambios de plantillas y motor editorial, fijan el hash de la descarga de EPUBCheck y conservan artefactos incluso al fallar.
+
+El fixture incluye página legal creada por la plantilla mínima, índice semántico de tres niveles, estilos, enlace, dedicatoria, imagen y nota al pie. La lectura verifica contenido y estructura; no certifica igualdad visual entre EPUB, Word y PDF ni todos los libros reales. Las llamadas a nota se verifican separadas de sus frases para que el número intercalado por el lector no se confunda con texto perdido.
+
+## Rendimiento y comparación PDF (29 de octubre de 2026)
+
+El banco nuevo usa procesos separados por formato, cantidades exactas y semilla fija. `pnpm stress:export` comprueba una matriz de 10, 50 y 100 capítulos con hasta 200 000 palabras, 80 imágenes y 500 notas; `pnpm bench:export` ejecuta el perfil de texto. RSS pico, heap y memoria externa son métricas distintas. Con BENCHMARK_ENFORCE_BUDGET=1 se exige el presupuesto de 384 MB; el workflow export-performance es manual.
+
+El procedimiento, límites y JSON antes/después están en [Validación externa y rendimiento](EXPORT_VALIDACION_RENDIMIENTO_2026-10-29.md). `scripts/generate-export-visual-fixture.ts` y `scripts/compare-pdf-renders.py` permiten reproducir la comparación de texto por página y rasterización con tolerancias fijas. Estas herramientas usan fixtures locales, no la base de producción.

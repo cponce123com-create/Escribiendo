@@ -2,18 +2,22 @@ name: DOCX con LibreOffice
 
 on:
   push:
-    branches: [main, improvement/**]
+    branches: [main]
     paths:
       - "packages/export-engine/**"
       - "scripts/validate-docx*.ts"
-      - "scripts/lib/export-fixtures.ts"
+      - "scripts/lib/export-fixtures*"
+      - "packages/templates/**"
+      - "packages/editorial-engine/**"
       - "scripts/pdfjs/**"
       - ".github/workflows/docx.yml"
   pull_request:
     paths:
       - "packages/export-engine/**"
       - "scripts/validate-docx*.ts"
-      - "scripts/lib/export-fixtures.ts"
+      - "scripts/lib/export-fixtures*"
+      - "packages/templates/**"
+      - "packages/editorial-engine/**"
       - "scripts/pdfjs/**"
       - ".github/workflows/docx.yml"
   workflow_dispatch:
@@ -50,7 +54,7 @@ jobs:
         run: pnpm db:generate
 
       - name: Validador de pdf.js
-        run: pnpm --dir scripts/pdfjs install --frozen-lockfile
+        run: pnpm --dir scripts/pdfjs install --ignore-workspace --frozen-lockfile
 
       - name: LibreOffice
         run: |
@@ -61,9 +65,10 @@ jobs:
       - name: Validar el DOCX
         env:
           DOCX_VALIDATION_DIR: ${{ github.workspace }}/artifacts/docx-libreoffice
-        run: pnpm validate:docx:libreoffice
+        run: pnpm validate:docx
 
       - name: Guardar el DOCX y el PDF
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: docx-libreoffice

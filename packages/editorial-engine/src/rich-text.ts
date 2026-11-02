@@ -186,17 +186,45 @@ function wordWidth(word: RichWord, options: MeasureOptions): number {
   return total;
 }
 
+/** Compara el estado efectivo; false y ausencia representan el mismo estilo. */
+function sameMarks(a: InlineMarks | undefined, b: InlineMarks | undefined): boolean {
+  return (
+    (a?.bold === true) === (b?.bold === true) &&
+    (a?.italic === true) === (b?.italic === true) &&
+    (a?.underline === true) === (b?.underline === true) &&
+    (a?.strike === true) === (b?.strike === true) &&
+    (a?.superscript === true) === (b?.superscript === true) &&
+    (a?.subscript === true) === (b?.subscript === true) &&
+    (a?.code === true) === (b?.code === true) &&
+    (a?.link ?? "") === (b?.link ?? "") &&
+    (a?.glossary ?? "") === (b?.glossary ?? "")
+  );
+}
+
 /** Une las palabras de una línea en sus tramos definitivos. */
 function joinWords(words: readonly RichWord[]): { text: string; segments: InlineRun[] } {
   const segments: InlineRun[] = [];
+  const append = (segment: InlineRun): void => {
+    const previous = segments.at(-1);
+    if (
+      previous &&
+      !previous.footnote &&
+      !segment.footnote &&
+      sameMarks(previous.marks, segment.marks)
+    ) {
+      previous.text += segment.text;
+    } else {
+      segments.push({ ...segment });
+    }
+  };
 
   words.forEach((word, index) => {
     if (index > 0) {
-      segments.push({ text: " " });
+      append({ text: " " });
     }
 
     for (const segment of word.segments) {
-      segments.push(segment);
+      append(segment);
     }
   });
 

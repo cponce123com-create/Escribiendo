@@ -205,3 +205,39 @@ describe("imágenes en DOCX", () => {
     expect(document).toContain("[Imagen: La plaza, desde el balcón.]");
   });
 });
+
+it("conserva bytes JPEG y offsets xref al ensamblar varias imágenes sin copias intermedias", async () => {
+  const image = await asset();
+  const source = new Uint8Array(image.data);
+  const result = buildPdf({
+    title: "Offsets",
+    author: "Pruebas",
+    createdAt: FECHA,
+    pages: [
+      {
+        widthMm: 148,
+        heightMm: 210,
+        runs: [],
+        images: [
+          { data: image.data, topMm: 20, xMm: 20, widthMm: 30, heightMm: 20 },
+          { data: image.data, topMm: 60, xMm: 20, widthMm: 30, heightMm: 20 },
+        ],
+      },
+    ],
+  });
+  const binary = Buffer.from(result.bytes).toString("latin1");
+  expect(result.imagenesIncrustadas).toBe(2);
+  expect(binary.split(Buffer.from(source).toString("latin1")).length - 1).toBe(2);
+  const offset = Number(/startxref\n(\d+)/u.exec(binary)?.[1]);
+  expect(binary.slice(offset, offset + 4)).toBe("xref");
+  const table = /^xref\n0 (\d+)\n([\s\S]*?)trailer/u.exec(binary.slice(offset));
+  expect(table).not.toBeNull();
+  const entries = table![2]!.trimEnd().split("\n");
+  entries.slice(1).forEach((entry, index) => {
+    const objectOffset = Number(entry.slice(0, 10));
+    if (entry.trimEnd().endsWith(" n"))
+      expect(binary.slice(objectOffset).startsWith(`${index + 1} 0 obj\n`)).toBe(true);
+  });
+  image.data.fill(0);
+  expect(Buffer.from(result.bytes).toString("latin1")).toBe(binary);
+});

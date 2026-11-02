@@ -1,368 +1,262 @@
-/**
- * Prueba de esfuerzo de la exportación.
- *
- * Genera un manuscrito grande, con imágenes y con notas al pie, y exporta los
- * tres formatos midiendo el tiempo, el tamaño del archivo y la memoria máxima
- * del proceso. Sirve para dimensionar la instancia de Render Free, que tiene
- * 512 MB, y para detectar regresiones de rendimiento.
- *
- * Uso:
- *   pnpm stress:export
- *
- * Lo que no incluye: la descarga de imágenes de Cloudinary (no hay
- * credenciales en el repositorio) y la base de datos. Las imágenes se generan
- * aquí con `sharp`, igual que las normaliza la aplicación.
- */
-import { randomFillSync } from "node:crypto";
-import { readFileSync } from "node:fs";
+/** Medición aislada por formato; usa paginate y toPdfPages de la aplicación. */
+import { spawnSync } from "node:child_process";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { cpus } from "node:os";
 import path from "node:path";
-import sharp from "sharp";
+import { fileURLToPath } from "node:url";
+import {
+  paginate,
+  withTypographyDefaults,
+  type MeasureText,
+} from "../packages/editorial-engine/src/index";
 import {
   buildDocx,
   buildEpub,
   buildPdf,
   measureTrueTypeTextPoints,
   parseTrueTypeFont,
-  type ExportBlock,
-  type ExportChapter,
-  type ExportDocumentModel,
-  type ExportImageAsset,
-  type ExportImageMap,
-  type PdfImage,
+  type PdfFont,
+  type PdfFontProgram,
 } from "../packages/export-engine/src/index";
-import {
-  paginate,
-  withTypographyDefaults,
-  type LayoutBlock,
-  type MeasureText,
-} from "../packages/editorial-engine/src/index";
 import { zipEntriesResumen } from "../packages/export-engine/src/test-utils";
+import { toPdfPages, type PdfLayoutProfile } from "../apps/web/src/lib/export/pdf-layout";
+import {
+  MIXED_CASES,
+  TEXT_CASES,
+  stressManuscript,
+  stressImages,
+  type StressCase,
+} from "./lib/stress-fixture";
 
-/** Palabras del manuscrito de prueba. */
-const PALABRAS = 200_000;
-
-/** Imágenes del manuscrito de prueba. */
-const IMAGENES = 80;
-
-/** Llamadas con nota al pie. */
-const NOTAS = 500;
-
-/** Imágenes por capítulo. */
-const IMAGENES_POR_CAPITULO = 4;
-
-const GEOMETRIA = {
+const FORMATS = ["pdf", "epub", "docx"] as const;
+type Format = (typeof FORMATS)[number];
+const PROFILE: PdfLayoutProfile = {
   pageWidthMm: 148,
   pageHeightMm: 210,
   marginTopMm: 20,
   marginBottomMm: 20,
-  marginInnerMm: 14,
-  marginOuterMm: 18,
+  marginInnerMm: 18,
+  marginOuterMm: 14,
   gutterMm: 0,
+  bleedMm: 0,
+  headerDistanceMm: 10,
+  footerDistanceMm: 10,
+  mirrorMargins: true,
+  showPageNumbers: true,
+  chapterStartsRecto: true,
 };
+const TYPOGRAPHY = withTypographyDefaults({});
+const DATE = new Date("2026-10-29T00:00:00.000Z");
+const SCRIPT = fileURLToPath(import.meta.url);
+const CASES = process.argv.includes("--profile=text") ? TEXT_CASES : MIXED_CASES;
 
-const TIPOGRAFIA = withTypographyDefaults({});
-
-const FUENTE = parseTrueTypeFont(
-  new Uint8Array(
-    readFileSync(
-      path.resolve(process.cwd(), "apps/web/public/fonts/liberation/LiberationSerif-Regular.ttf"),
-    ),
-  ),
-  "LiberationSerif-Regular",
-);
-
-const MEDIR: MeasureText = (text, options) =>
-  measureTrueTypeTextPoints(
-    FUENTE,
-    options.uppercase ? text.toLocaleUpperCase("es") : text,
-    options.fontSizePt,
-    options.letterSpacingPt ?? 0,
+function loadFonts(): { fonts: PdfFontProgram[]; measure: MeasureText } {
+  const files = {
+    regular: "Regular",
+    bold: "Bold",
+    italic: "Italic",
+    boldItalic: "BoldItalic",
+  } as const;
+  const faces = new Map(
+    Object.entries(files).map(([style, file]) => {
+      const data = new Uint8Array(
+        readFileSync(path.resolve(`apps/web/public/fonts/liberation/LiberationSerif-${file}.ttf`)),
+      );
+      return [style, parseTrueTypeFont(data, `LiberationSerif-${file}`)] as const;
+    }),
   );
-
-const VOCABULARIO = [
-  "el",
-  "velo",
-  "de",
-  "la",
-  "tarde",
-  "caía",
-  "sobre",
-  "plaza",
-  "mientras",
-  "reloj",
-  "iglesia",
-  "marcaba",
-  "las",
-  "siete",
-  "media",
-  "«Cita»",
-  "…",
-  "niño",
-  "miró",
-  "—",
-];
-
-/** Manuscrito con los tres formatos de bloque que más pesan. */
-function manuscrito(): { capitulos: ExportChapter[]; bloques: LayoutBlock[] } {
-  const bloques: LayoutBlock[] = [];
-  const capitulos: ExportChapter[] = [];
-  let capitulo = 0;
-  let palabrasEscritas = 0;
-  let notasEscritas = 0;
-  let imagenesEscritas = 0;
-
-  while (palabrasEscritas < PALABRAS) {
-    capitulo += 1;
-    const titulo = `Capítulo ${capitulo}`;
-    const bloquesCapitulo: ExportBlock[] = [];
-
-    bloquesCapitulo.push({ kind: "title", text: titulo });
-    bloques.push({ id: `titulo-${capitulo}`, kind: "heading1", text: titulo });
-
-    // Las imágenes se reparten entre los capítulos, como en un libro real.
-    for (let imagen = 0; imagen < IMAGENES_POR_CAPITULO; imagen += 1) {
-      if (imagenesEscritas >= IMAGENES) {
-        break;
-      }
-
-      const src = `https://res.cloudinary.com/demo/image/upload/prueba-${imagenesEscritas}.jpg`;
-
-      bloquesCapitulo.push({
-        kind: "image",
-        text: `Imagen ${imagenesEscritas + 1}`,
-        image: {
-          src,
-          alt: `Imagen de prueba ${imagenesEscritas + 1}`,
-          caption: "Pie de la imagen",
-        },
-      });
-      bloques.push({
-        id: `imagen-${imagenesEscritas}`,
-        kind: "image",
-        text: `Imagen ${imagenesEscritas + 1}`,
-        image: { src, alt: `Imagen de prueba ${imagenesEscritas + 1}` },
-      });
-      imagenesEscritas += 1;
-    }
-
-    while (palabrasEscritas < PALABRAS && bloquesCapitulo.length < 40) {
-      const parrafo: string[] = [];
-
-      for (let indice = 0; indice < 220; indice += 1) {
-        parrafo.push(VOCABULARIO[indice % VOCABULARIO.length] ?? "palabra");
-      }
-
-      palabrasEscritas += parrafo.length;
-
-      if (notasEscritas < NOTAS && parrafo.length > 10) {
-        const runs = [
-          { text: `${parrafo.slice(0, 10).join(" ")} ` },
-          {
-            text: "1",
-            superscript: true,
-            footnote: {
-              id: `nota-${notasEscritas + 1}`,
-              number: notasEscritas + 1,
-              note: `Nota de prueba número ${notasEscritas + 1}: explica el detalle en una línea.`,
-            },
-          },
-          { text: ` ${parrafo.slice(10).join(" ")}.` },
-        ];
-
-        notasEscritas += 1;
-        bloquesCapitulo.push({
-          kind: "body",
-          text: `${parrafo.join(" ")}.`,
-          runs,
-        });
-        bloques.push({
-          id: `parrafo-${bloques.length}`,
-          kind: "body",
-          text: `${parrafo.join(" ")}.`,
-          runs,
-        });
-      } else {
-        bloquesCapitulo.push({ kind: "body", text: `${parrafo.join(" ")}.` });
-        bloques.push({
-          id: `parrafo-${bloques.length}`,
-          kind: "body",
-          text: `${parrafo.join(" ")}.`,
-        });
-      }
-    }
-
-    capitulos.push({ id: `capitulo-${capitulo}`, title: titulo, blocks: bloquesCapitulo });
-  }
-
-  return { capitulos, bloques };
+  const fonts: PdfFontProgram[] = [...faces].map(([style, face]) => ({
+    family: "serif",
+    style: style as PdfFont,
+    name: `LiberationSerif-${files[style as PdfFont]}`,
+    data: face.data,
+  }));
+  const measure: MeasureText = (text, options) => {
+    const style = options.bold
+      ? options.italic
+        ? "boldItalic"
+        : "bold"
+      : options.italic
+        ? "italic"
+        : "regular";
+    return measureTrueTypeTextPoints(
+      faces.get(style)!,
+      options.uppercase ? text.toLocaleUpperCase("es") : text,
+      options.fontSizePt,
+      options.letterSpacingPt ?? 0,
+    );
+  };
+  return { fonts, measure };
 }
 
-/** Imágenes de prueba, ya normalizadas como las que usa la aplicación. */
-async function imagenes(): Promise<ExportImageMap> {
-  const mapa = new Map<string, ExportImageAsset>();
-  const ancho = 1200;
-  const alto = 800;
-  const ruido = Buffer.allocUnsafe(ancho * alto * 3);
-
-  for (let indice = 0; indice < IMAGENES; indice += 1) {
-    const src = `https://res.cloudinary.com/demo/image/upload/prueba-${indice}.jpg`;
-    // Ruido pseudoaleatorio: se parece a una fotografía y no se comprime, que
-    // es el caso peor para el tamaño del archivo.
-    randomFillSync(ruido);
-    const data = await sharp(ruido, { raw: { width: ancho, height: alto, channels: 3 } })
-      .jpeg({ quality: 70 })
-      .toBuffer();
-
-    mapa.set(src, {
-      data: new Uint8Array(data),
-      mimeType: "image/jpeg",
-      extension: "jpg",
-      width: ancho,
-      height: alto,
+async function worker(config: StressCase, format: Format): Promise<void> {
+  const started = performance.now();
+  const baselineRssMb = process.memoryUsage().rss / 1024 / 1024;
+  const { chapters, blocks } = stressManuscript(config);
+  const assets = await stressImages(config.images);
+  const model = {
+    title: "Manuscrito sintético de esfuerzo",
+    author: "Pruebas",
+    language: "es",
+    identifier: "urn:uuid:00000000-0000-4000-8000-000000000000",
+    chapters,
+  };
+  let pages: number | null = null,
+    paginateMs = 0,
+    composeMs = 0,
+    embeddedImages = 0,
+    composedFootnotes: number | null = null;
+  let bytes: Uint8Array;
+  const exportStarted = performance.now();
+  if (format === "pdf") {
+    const { fonts, measure } = loadFonts();
+    let stage = performance.now();
+    const composition = paginate(blocks, PROFILE, TYPOGRAPHY, measure);
+    paginateMs = performance.now() - stage;
+    pages = composition.pages.length;
+    composedFootnotes = composition.pages.reduce((sum, page) => sum + page.footnotes.length, 0);
+    if (composedFootnotes !== config.footnotes)
+      throw new Error("La composición perdió notas al pie.");
+    stage = performance.now();
+    const layout = toPdfPages(
+      composition.pages,
+      PROFILE,
+      TYPOGRAPHY,
+      assets,
+      measure,
+      null,
+      model.title,
+    );
+    composeMs = performance.now() - stage;
+    const result = buildPdf({
+      title: model.title,
+      author: model.author,
+      createdAt: DATE,
+      fonts,
+      pages: layout.pdfPages,
     });
+    bytes = result.bytes;
+    embeddedImages = result.imagenesIncrustadas;
+  } else {
+    bytes = format === "epub" ? buildEpub(model, DATE, assets) : buildDocx(model, DATE, assets);
+    const prefix = format === "epub" ? "EPUB/images/" : "word/media/";
+    embeddedImages = zipEntriesResumen(bytes).filter((entry) =>
+      entry.name.startsWith(prefix),
+    ).length;
   }
-
-  return mapa;
-}
-
-function cronometrar<T>(operacion: () => T): { resultado: T; ms: number } {
-  const inicio = performance.now();
-  const resultado = operacion();
-
-  return { resultado, ms: performance.now() - inicio };
+  const exportMs = performance.now() - exportStarted;
+  if (embeddedImages !== config.images) throw new Error("La exportación perdió imágenes.");
+  if (process.env.BENCHMARK_KEEP_FILES === "1") {
+    const directory = path.resolve(
+      process.env.BENCHMARK_OUTPUT_DIR ?? "artifacts/export-benchmark",
+    );
+    mkdirSync(directory, { recursive: true });
+    writeFileSync(path.join(directory, `${config.id}.${format}`), bytes);
+  }
+  const memory = process.memoryUsage();
+  process.stdout.write(
+    JSON.stringify({
+      ...config,
+      format,
+      pages,
+      embeddedImages,
+      composedFootnotes,
+      setupMs: exportStarted - started,
+      paginateMs,
+      composeMs,
+      exportMs,
+      totalMs: performance.now() - started,
+      outputBytes: bytes.length,
+      baselineRssMb,
+      peakRssMb: process.resourceUsage().maxRSS / 1024,
+      heapUsedMb: memory.heapUsed / 1024 / 1024,
+      externalMb: memory.external / 1024 / 1024,
+    }) + "\n",
+  );
 }
 
 async function main(): Promise<void> {
-  process.stdout.write("Manuscrito de esfuerzo\n");
-  process.stdout.write(`  palabras: ${PALABRAS}\n`);
-  process.stdout.write(`  imágenes: ${IMAGENES}\n`);
-  process.stdout.write(`  notas al pie: ${NOTAS}\n\n`);
-
-  const inicio = performance.now();
-  const { capitulos, bloques } = manuscrito();
-  const assets = await imagenes();
-
-  process.stdout.write(
-    `  manuscrito e imágenes listos en ${((performance.now() - inicio) / 1000).toFixed(1)} s, ` +
-      `memoria ${(process.memoryUsage().rss / 1024 / 1024).toFixed(0)} MB, ` +
-      `máxima ${(process.resourceUsage().maxRSS / 1024).toFixed(0)} MB\n\n`,
+  const workerIndex = process.argv.indexOf("--worker");
+  if (workerIndex >= 0) {
+    const config = CASES.find((entry) => entry.id === process.argv[workerIndex + 1]);
+    const format = process.argv[workerIndex + 2] as Format;
+    if (!config || !FORMATS.includes(format))
+      throw new Error("Caso o formato de esfuerzo inválido.");
+    await worker(config, format);
+    return;
+  }
+  const directory = path.resolve(process.env.BENCHMARK_OUTPUT_DIR ?? "artifacts/export-benchmark");
+  mkdirSync(directory, { recursive: true });
+  const budget = Number(process.env.BENCHMARK_RSS_BUDGET_MB ?? "384");
+  if (!Number.isFinite(budget) || budget <= 0) throw new Error("Presupuesto RSS inválido.");
+  const results: Array<Record<string, unknown>> = [];
+  let failed = false;
+  console.log(
+    "Caso | Formato | Páginas PDF | Tiempo total ms | RSS pico MB | Dentro del presupuesto",
   );
-
-  const paginacion = cronometrar(() => paginate(bloques, GEOMETRIA, TIPOGRAFIA, MEDIR));
-  const paginas = paginacion.resultado.pages;
-
-  process.stdout.write(
-    `  paginación: ${paginacion.ms.toFixed(0)} ms, ${paginas.length} páginas, ` +
-      `${paginacion.resultado.diagnostics.length} diagnósticos, ` +
-      `memoria ${(process.memoryUsage().rss / 1024 / 1024).toFixed(0)} MB, ` +
-      `máxima ${(process.resourceUsage().maxRSS / 1024).toFixed(0)} MB\n`,
-  );
-
-  // Las imágenes se reparten por las páginas, como hace la aplicación.
-  const imagenesPorPagina = new Map<number, PdfImage[]>();
-  let indiceImagen = 0;
-
-  paginas.forEach((pagina, numero) => {
-    const imagenesDePagina: PdfImage[] = [];
-
-    if (indiceImagen < IMAGENES) {
-      const src = `https://res.cloudinary.com/demo/image/upload/prueba-${indiceImagen}.jpg`;
-      const asset = assets.get(src);
-
-      imagenesDePagina.push({
-        topMm: 20,
-        xMm: 18,
-        widthMm: 100,
-        heightMm: 66.67,
-        src,
-        alt: `Imagen de prueba ${indiceImagen + 1}`,
-        ...(asset
-          ? {
-              data: asset.data,
-              pixelWidth: asset.width,
-              pixelHeight: asset.height,
-            }
-          : {}),
+  for (const config of CASES) {
+    for (const format of FORMATS) {
+      const args = [
+        "--import",
+        "tsx",
+        SCRIPT,
+        ...(process.argv.includes("--profile=text") ? ["--profile=text"] : []),
+        "--worker",
+        config.id,
+        format,
+      ];
+      const child = spawnSync(process.execPath, args, {
+        encoding: "utf8",
+        timeout: 180_000,
+        maxBuffer: 4 * 1024 * 1024,
       });
-      indiceImagen += 1;
+      if (child.status !== 0 || child.error) {
+        failed = true;
+        results.push({
+          ...config,
+          format,
+          error: child.error?.message ?? child.stderr,
+          signal: child.signal,
+          exitCode: child.status,
+        });
+        console.error(`Falló ${config.id}/${format}: ${child.stderr || child.error?.message}`);
+        continue;
+      }
+      const result = JSON.parse(child.stdout) as {
+        peakRssMb: number;
+        totalMs: number;
+        pages: number | null;
+      };
+      const withinBudget = result.peakRssMb <= budget;
+      results.push({ ...result, withinBudget });
+      if (!withinBudget && process.env.BENCHMARK_ENFORCE_BUDGET === "1") failed = true;
+      console.log(
+        `${config.id} | ${format} | ${result.pages ?? "adaptable"} | ${result.totalMs.toFixed(0)} | ${result.peakRssMb.toFixed(1)} | ${withinBudget ? "sí" : "NO"}`,
+      );
     }
-
-    if (imagenesDePagina.length > 0) {
-      imagenesPorPagina.set(numero, imagenesDePagina);
-    }
-  });
-
-  const pdf = cronometrar(() =>
-    buildPdf({
-      title: "Manuscrito de esfuerzo",
-      author: "Prueba",
-      createdAt: new Date("2026-10-20T10:00:00.000Z"),
-      fonts: [
-        {
-          family: "serif",
-          style: "regular",
-          data: FUENTE.data,
-          name: "LiberationSerif-Regular",
-        },
-      ],
-      pages: paginas.map((pagina, numero) => ({
-        widthMm: GEOMETRIA.pageWidthMm,
-        heightMm: GEOMETRIA.pageHeightMm,
-        images: imagenesPorPagina.get(numero) ?? [],
-        runs: pagina.blocks.flatMap((bloque) =>
-          bloque.lines.map((linea, indice) => ({
-            text: linea.text,
-            font: "regular" as const,
-            family: "serif" as const,
-            sizePt: 11,
-            xMm: 18,
-            baselineMm: 20 + indice * 5,
-          })),
-        ),
-      })),
-    }),
-  );
-
-  const modelo: ExportDocumentModel = {
-    title: "Manuscrito de esfuerzo",
-    author: "Prueba",
-    language: "es",
-    identifier: "urn:uuid:00000000-0000-4000-8000-000000000000",
-    chapters: capitulos,
+  }
+  const report = {
+    fixtureVersion: 1,
+    seed: 20261029,
+    createdAt: new Date().toISOString(),
+    node: process.version,
+    platform: process.platform,
+    arch: process.arch,
+    cpu: cpus()[0]?.model,
+    budgetRssMb: budget,
+    limits:
+      "Procesos aislados, datos sintéticos y recursos locales. Excluye Next.js, Prisma, red, concurrencia y estabilización de materias del libro completo. No certifica Render Free.",
+    results,
   };
-
-  const epub = cronometrar(() => buildEpub(modelo, new Date("2026-10-20T10:00:00.000Z"), assets));
-
-  const docx = cronometrar(() => buildDocx(modelo, new Date("2026-10-20T10:00:00.000Z"), assets));
-
-  const maxRss = process.resourceUsage().maxRSS / 1024;
-  const entradasEpub = zipEntriesResumen(epub.resultado);
-  const imagenesEpub = entradasEpub.filter((entrada) =>
-    entrada.name.startsWith("EPUB/images/"),
-  ).length;
-  const entradasDocx = zipEntriesResumen(docx.resultado);
-  const imagenesDocx = entradasDocx.filter((entrada) =>
-    entrada.name.startsWith("word/media/"),
-  ).length;
-
-  process.stdout.write("\nResultados\n");
-  process.stdout.write(
-    `  PDF:  ${pdf.ms.toFixed(0)} ms, ${(pdf.resultado.bytes.length / 1024).toFixed(0)} KB, ` +
-      `${pdf.resultado.imagenesIncrustadas} imágenes incrustadas\n`,
+  const file = path.join(
+    directory,
+    process.argv.includes("--profile=text") ? "texto.json" : "mixto.json",
   );
-  process.stdout.write(
-    `  EPUB: ${epub.ms.toFixed(0)} ms, ${(epub.resultado.length / 1024).toFixed(0)} KB, ` +
-      `${imagenesEpub} imágenes incrustadas\n`,
+  writeFileSync(file, JSON.stringify(report, null, 2) + "\n");
+  console.log(
+    `Informe: ${file}\nCada RSS pico corresponde a un proceso independiente. No es la diferencia de heap ni memoria disponible del servidor.`,
   );
-  process.stdout.write(
-    `  DOCX: ${docx.ms.toFixed(0)} ms, ${(docx.resultado.length / 1024).toFixed(0)} KB, ` +
-      `${imagenesDocx} imágenes incrustadas\n`,
-  );
-  process.stdout.write(`  memoria máxima del proceso: ${maxRss.toFixed(0)} MB\n`);
-  process.stdout.write(
-    `\n  La instancia de Render Free tiene 512 MB: el margen es de ` +
-      `${(512 - maxRss).toFixed(0)} MB.\n`,
-  );
+  if (failed) process.exitCode = 1;
 }
 
 await main();

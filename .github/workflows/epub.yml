@@ -2,19 +2,23 @@ name: EPUB con EPUBCheck
 
 on:
   push:
-    branches: [main, improvement/**]
+    branches: [main]
     paths:
       - "packages/export-engine/**"
       - "packages/shared/**"
       - "scripts/validate-epub.ts"
-      - "scripts/lib/export-fixtures.ts"
+      - "scripts/lib/export-fixtures*"
+      - "packages/templates/**"
+      - "packages/editorial-engine/**"
       - ".github/workflows/epub.yml"
   pull_request:
     paths:
       - "packages/export-engine/**"
       - "packages/shared/**"
       - "scripts/validate-epub.ts"
-      - "scripts/lib/export-fixtures.ts"
+      - "scripts/lib/export-fixtures*"
+      - "packages/templates/**"
+      - "packages/editorial-engine/**"
       - ".github/workflows/epub.yml"
   workflow_dispatch:
 
@@ -58,8 +62,19 @@ jobs:
       - name: EPUBCheck 5.4.0
         run: |
           curl -fsSL -o "$RUNNER_TEMP/epubcheck.zip" https://github.com/w3c/epubcheck/releases/download/v5.4.0/epubcheck-5.4.0.zip
+          echo "33350c61038e71dfb3d45a76aed04bf5481e6d5500cb780f6e98db8bbd15a28c  $RUNNER_TEMP/epubcheck.zip" | sha256sum --check --strict
           unzip -q "$RUNNER_TEMP/epubcheck.zip" -d "$RUNNER_TEMP"
           echo "EPUBCHECK_JAR=$RUNNER_TEMP/epubcheck-5.4.0/epubcheck.jar" >> "$GITHUB_ENV"
 
       - name: Validar el EPUB
+        env:
+          EPUB_VALIDATION_DIR: ${{ github.workspace }}/artifacts/epubcheck
         run: pnpm validate:epub
+
+      - name: Conservar EPUB e informe
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: epubcheck
+          path: artifacts/epubcheck
+          if-no-files-found: error

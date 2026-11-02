@@ -1,0 +1,51 @@
+{
+  "pages": 8,
+  "dpi": 96,
+  "textByPageIdentical": true,
+  "thresholds": {
+    "meanAbsoluteDifference": 0.5,
+    "fractionPixelsOver16": 0.005
+  },
+  "results": [
+    {
+      "page": "1",
+      "meanAbsoluteDifference": 0.0,
+      "fractionPixelsOver16": 0.0
+    },
+    {
+      "page": "2",
+      "meanAbsoluteDifference": 0.024964015833033464,
+      "fractionPixelsOver16": 0.00047903922274199353
+    },
+    {
+      "page": "3",
+      "meanAbsoluteDifference": 0.0,
+      "fractionPixelsOver16": 0.0
+    },
+    {
+      "page": "4",
+      "meanAbsoluteDifference": 0.02237765383231378,
+      "fractionPixelsOver16": 0.00042956099316300827
+    },
+    {
+      "page": "5",
+      "meanAbsoluteDifference": 0.0,
+      "fractionPixelsOver16": 0.0
+    },
+    {
+      "page": "6",
+      "meanAbsoluteDifference": 0.02788772939906441,
+      "fractionPixelsOver16": 0.0005352644836272041
+    },
+    {
+      "page": "7",
+      "meanAbsoluteDifference": 0.0,
+      "fractionPixelsOver16": 0.0
+    },
+    {
+      "page": "8",
+      "meanAbsoluteDifference": 0.016867578265563152,
+      "fractionPixelsOver16": 0.0003238575026988125
+    }
+  ]
+}

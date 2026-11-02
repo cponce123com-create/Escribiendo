@@ -7,6 +7,7 @@ import {
   type PdfFontProgram,
   type PdfResult,
 } from "./index";
+import { pdfContent } from "./test-utils";
 import { encodeTrueTypeText, measureTrueTypeTextPoints } from "./truetype";
 
 const FONT_URL = new URL(
@@ -169,3 +170,54 @@ describe("fuentes TrueType en el PDF", () => {
     expect(primero.bytes).toEqual(segundo.bytes);
   });
 });
+
+it.each([0, 1.5])(
+  "conserva el inicio medido de cada palabra al compactar tramos con espaciado %s",
+  (wordSpacing) => {
+    const text = "Mi río conserva palabras";
+    const document: PdfDocument = {
+      ...DOCUMENT,
+      pages: [
+        {
+          widthMm: 148,
+          heightMm: 210,
+          runs: [
+            {
+              text,
+              font: "regular",
+              family: "serif",
+              sizePt: 11,
+              xMm: 18,
+              baselineMm: 30,
+              widthMm: 80,
+              wordSpacing,
+            },
+          ],
+        },
+      ],
+    };
+    const content = pdfContent(buildPdf(document).bytes);
+    const widths = /\/W \[0 \[([\d\s]+)\]\]/u.exec(content)![1]!.trim().split(/\s+/u).map(Number);
+    const operator = /\[([^\]]+)\] TJ/u.exec(content)![1]!;
+    const font = parseTrueTypeFont(FONT_DATA);
+    let drawn = 0,
+      prefix = "",
+      spaces = 0;
+    const cids = encodeTrueTypeText(font, text).cids;
+    let offset = 0;
+    for (const match of operator.matchAll(/<([A-Fa-f0-9]+)>\s+(-?[\d.]+)/gu)) {
+      const count = match[1]!.length / 4;
+      const chunk = cids.slice(offset, offset + count);
+      drawn +=
+        (chunk.reduce((sum, cid) => sum + widths[cid]!, 0) * 11) / 1000 -
+        (Number(match[2]) * 11) / 1000;
+      offset += count;
+      spaces += 1;
+      prefix = text.split(" ").slice(0, spaces).join(" ") + " ";
+      expect(
+        Math.abs(drawn - measureTrueTypeTextPoints(font, prefix, 11) - spaces * wordSpacing),
+      ).toBeLessThan(0.00002);
+    }
+    expect(spaces).toBe(3);
+  },
+);
