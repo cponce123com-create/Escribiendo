@@ -80,7 +80,7 @@ jobs:
         run: ./gradlew assembleDebug --no-daemon
 
       - name: Publicar APK descargable
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Escribiendo-Lector-Android-debug
           path: apps/android-reader/android/app/build/outputs/apk/debug/app-debug.apk
